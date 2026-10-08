@@ -10,8 +10,8 @@ export const GUILDS = {
 export const GUILD_LEVELS = [
   { lvl: 2, name: 'Entraide', mods: { 'build.speed': 0.05 } },
   { lvl: 3, name: 'Coffres communs', mods: { 'storage.pct': 0.1 } },
-  { lvl: 4, name: 'Escortes', mods: { 'march.speed': 0.05 } },
-  { lvl: 5, name: 'Bannière de guilde', mods: { 'combat.atk': 0.03, 'combat.def': 0.03 } },
+  { lvl: 4, name: 'Escortes de guilde', mods: { 'march.speed': 0.05, 'convoy.risk': -0.25 } },
+  { lvl: 5, name: 'Bannière de guilde (renforts lors des raids)', mods: { 'combat.atk': 0.03, 'combat.def': 0.03 } },
   { lvl: 6, name: 'Prospection collective', mods: { 'gather.all': 0.08 } },
   { lvl: 8, name: 'Académie', mods: { 'research.speed': 0.1 } },
   { lvl: 10, name: 'Légion', mods: { 'combat.atk': 0.05, marches: 1 } },

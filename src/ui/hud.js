@@ -13,7 +13,11 @@ import { buildSlots, cancelBuild } from '../systems/construction.js';
 import { cancelResearch } from '../systems/research.js';
 import { cancelTrain } from '../systems/army.js';
 import { cancelCraft } from '../systems/crafting.js';
-import { MARCH_TYPES, recallMarch, resolvePending, maxMarches } from '../systems/marches.js';
+import { MARCH_TYPES, recallMarch, maxMarches } from '../systems/marches.js';
+import { describePending, resolveAny } from '../systems/pending.js';
+import { calendar } from '../systems/chronicle.js';
+import { CATASTROPHES } from '../data/seasons.js';
+import { EXPEDITION_TYPES } from '../data/workers.js';
 import { activeQuests, claimQuest } from '../systems/quests.js';
 import { thLevel } from '../systems/city.js';
 import { esc, countdown, progress, resChips } from './components.js';
@@ -46,7 +50,9 @@ export function renderTopbar(app) {
       <div class="res cap" title="Capacité de l'entrepôt">📦 <span class="res-val">${fmt(cap)}</span></div></div>
     <button class="res-more side-toggle" data-action="toggle-side" title="Files & objectifs">📋</button>
     <div class="top-status">
+      <span class="chip" title="${esc(calendar(s, now).season.desc)}">${calendar(s, now).season.icon} An ${calendar(s, now).year} · ${esc(calendar(s, now).season.name)}</span>
       <span class="chip" title="${esc(w.note)}">${w.icon} ${esc(w.name)} · ${countdown(s.weather.until)}</span>
+      ${s.catastrophe && s.catastrophe.until > now ? `<span class="chip chip-bad" title="${esc(CATASTROPHES[s.catastrophe.key].text)}">${CATASTROPHES[s.catastrophe.key].icon} ${esc(CATASTROPHES[s.catastrophe.key].name)} · ${countdown(s.catastrophe.until)}</span>` : ''}
       ${s.famine ? '<span class="chip chip-bad" title="Plus de nourriture : moral −30, formation impossible">⚠️ Famine</span>' : ''}
       ${events}${buffs}
     </div>`;
@@ -63,7 +69,7 @@ export function renderSide(app) {
   const parts = [];
 
   if (s.pending.length) {
-    parts.push(`<section class="side-box attention"><h3>🧭 Décisions (${s.pending.length})</h3>${s.pending.map((p) => `<button class="btn block warn" data-action="open-pending" data-id="${p.id}">${esc(EXPLORE_EVENTS[p.event].title)} (${p.x},${p.y})</button>`).join('')}</section>`);
+    parts.push(`<section class="side-box attention"><h3>⚖️ Décisions (${s.pending.length})</h3>${s.pending.map((p) => { const d = describePending(s, p); return `<button class="btn block warn pending-btn" data-action="open-pending" data-id="${p.id}"><span>${d.icon} ${esc(d.title)}</span>${d.deadline ? countdown(d.deadline) : ''}</button>`; }).join('')}</section>`);
   }
   if (s.raids.length) {
     parts.push(`<section class="side-box danger"><h3>🚨 Raids en approche</h3>${s.raids.map((r) => `<div class="q-row"><div class="q-top"><span>${esc(r.name)}</span>${countdown(r.arrive)}</div>
@@ -99,6 +105,14 @@ export function renderSide(app) {
     ${s.caravans.map((c) => `<div class="q-row"><div class="q-top"><span>🐪 ${esc(c.town)}${c.repeat ? ' 🔁' : ''}</span>${countdown(c.end)}</div>${progress(c.start, c.end)}</div>`).join('')}
   </section>`);
 
+  const exps = (s.expeditions || []).filter((t) => t.status !== 'idle');
+  if (exps.length) {
+    parts.push(`<section class="side-box"><h3>🧭 Expéditions</h3>${exps.map((t) => {
+      const end = t.status === 'out' ? t.arrive : t.status === 'work' ? t.workEnd : t.returnAt;
+      const start = t.status === 'out' ? t.start : t.status === 'work' ? t.workStart : t.returnAt - t.travel;
+      return `<div class="q-row"><div class="q-top"><span>${EXPEDITION_TYPES[t.type].icon} ${esc(t.name)}${t.repeat ? ' 🔁' : ''}</span>${countdown(end)}</div><div class="muted small">${{ out: 'En route', work: 'Au travail', back: 'Retour' }[t.status]}${t.status === 'work' && t.accum ? ` · ≈ ${Math.round(t.accum)}` : ''}</div>${progress(start, end)}</div>`;
+    }).join('')}</section>`);
+  }
   const quests = activeQuests(s);
   parts.push(`<section class="side-box"><h3>📌 Objectifs</h3>${quests.map((q) => `<div class="quest ${q.done ? 'done' : ''}">
       <div class="quest-title">${esc(q.title)} <span class="muted">${fmt(q.cur)}/${fmt(q.target)}</span></div>
@@ -112,13 +126,14 @@ export function openPending(app, id) {
   const s = app.state;
   const p = s.pending.find((x) => x.id === id);
   if (!p) return;
-  const ev = EXPLORE_EVENTS[p.event];
-  app.modal(`<h2>🧭 ${esc(ev.title)}</h2><p class="muted">Case (${p.x}, ${p.y})</p><p class="story">${esc(ev.text)}</p>
-    <div class="choices">${ev.choices.map((c, i) => `<button class="choice" data-action="choose" data-i="${i}"><b>${i + 1}. ${esc(c.label)}</b>${c.cost ? ` ${resChips(c.cost)}` : ''}<span class="muted small">${esc(c.hint || '')}</span></button>`).join('')}</div>`, {
+  const d = describePending(s, p);
+  app.modal(`<h2>${d.icon} ${esc(d.title)}</h2>${d.coords ? `<p class="muted">Case ${d.coords}</p>` : ''}<p class="story">${esc(d.text)}</p>
+    ${d.deadline ? `<p class="muted small">Sans réponse dans ${countdown(d.deadline)}, le choix par défaut sera appliqué : « ${esc(d.choices[d.def]?.label || '')} ».</p>` : ''}
+    <div class="choices">${d.choices.map((c, i) => `<button class="choice" data-action="choose" data-i="${i}"><b>${i + 1}. ${esc(c.label)}</b>${c.cost ? ` ${resChips(c.cost)}` : ''}<span class="muted small">${esc(c.hint || '')}</span></button>`).join('')}</div>`, {
     choose: (a, el) => {
-      const r = resolvePending(s, id, +el.dataset.i);
+      const r = resolveAny(s, id, +el.dataset.i);
       if (r.ok) {
-        a.modal(`<h2>🧭 ${esc(ev.title)}</h2><p class="story">${esc(r.text)}</p><button class="btn" data-action="close-modal">Continuer</button>`, {});
+        a.modal(`<h2>${d.icon} ${esc(d.title)}</h2><p class="story">${esc(r.text || '')}</p><button class="btn" data-action="close-modal">Continuer</button>`, {});
         a.render(); a.save();
       } else a.toast(r.reason || 'Impossible', 'bad');
     },

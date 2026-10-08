@@ -14,14 +14,38 @@ import marketView from './views/market.js';
 import guildView from './views/guild.js';
 import journalView from './views/journal.js';
 import kingdomView from './views/kingdom.js';
+import workersView from './views/workers.js';
+import expeditionsView from './views/expeditions.js';
+import chainsView from './views/chains.js';
+import stewardView from './views/steward.js';
+import factionsView from './views/factions.js';
+import convoysView from './views/convoys.js';
+import talentsView from './views/talents.js';
+import historyView from './views/history.js';
+import statsView from './views/stats.js';
+import treasuryView from './views/treasury.js';
+import { openAdvisor } from './advisor.js';
 
-export const VIEWS = [cityView, worldView, heroesView, armyView, craftView, researchView, marketView, guildView, journalView, kingdomView];
+// Catégories de navigation → sous-onglets (débloqués progressivement)
+export const GROUPS = [
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView] },
+  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, factionsView] },
+  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView] },
+  { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [stewardView, workersView, expeditionsView, chainsView] },
+  { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView] },
+  { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
+  { id: 'g-tech', title: 'Technologies', icon: '🔬', tabs: [researchView, talentsView] },
+  { id: 'g-guild', title: 'Guilde', icon: '🏛️', tabs: [guildView] },
+  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, historyView, statsView, treasuryView, kingdomView] },
+];
+export const VIEWS = GROUPS.flatMap((g) => g.tabs);
+const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
 
 export class App {
   constructor(root, state) {
     this.root = root;
     this.state = state;
-    this.ui = { view: 'city', showAllRes: false };
+    this.ui = { view: 'city', showAllRes: false, lastTab: {} };
     this.views = Object.fromEntries(VIEWS.map((v) => [v.id, v]));
     this.dirty = true;
     this.$ = (sel) => root.querySelector(sel);
@@ -53,17 +77,33 @@ export class App {
     const s = this.state;
     const diff = {};
     for (const [r, v] of Object.entries(s.resources)) { const d = v - (before[r] || 0); if (Math.abs(d) >= 1) diff[r] = Math.round(d); }
-    const events = s.log.slice(0, Math.max(0, Math.min(12, s.log.length - logBefore)));
-    this.modal(`<h2>🌅 De retour, seigneur !</h2><p class="muted">Vous étiez absent ${fmtTime(away)}${away > 12 * 3600 * 1000 ? ' (12 h simulées au maximum)' : ''}.</p>
-      <h4>Ressources</h4><div class="chips">${resChips(diff, true) || '<span class="muted small">Aucun changement.</span>'}</div>
-      ${events.length ? `<h4>Pendant ce temps…</h4><div class="log">${events.map((l) => `<div class="log-line small">${esc(l.text)}</div>`).join('')}</div>` : ''}
-      <button class="btn primary" data-action="close-modal">Au travail !</button>`);
+    const events = s.log.slice(0, Math.max(0, s.log.length - logBefore));
+    const count = (re) => events.filter((l) => re.test(l.text)).length;
+    const lines = [
+      [count(/rentre :/), '⛏️', 'expédition(s) terminée(s)'],
+      [count(/Retour de marche/), '🐎', 'marche(s) revenue(s)'],
+      [count(/(Objet|objet|ARTEFACT|Artefact)/), '🏆', 'trouvaille(s) rare(s)'],
+      [count(/caravane a été attaquée/), '⚠️', 'caravane(s) attaquée(s)'],
+      [count(/incendie/i), '🔥', 'incendie(s)'],
+      [count(/(Découvert|découvert|site\(s\) révélé|Site découvert)/), '🗺️', 'découverte(s) sur la carte'],
+      [count(/raid/i), '🚨', 'événement(s) de raid'],
+      [count(/^📋|Priorités/), '📋', 'réaffectation(s) automatique(s)'],
+      [count(/construit|amélioré au niveau/), '🏗️', 'chantier(s) achevé(s)'],
+      [count(/Recherche terminée/), '📜', 'recherche(s) terminée(s)'],
+    ].filter(([n]) => n > 0);
+    const orders = (s.orderLog || []).filter((o) => o.t > Date.now() - away).length;
+    this.modal(`<h2>🌅 Pendant votre absence</h2><p class="muted">Vous étiez absent ${fmtTime(away)}${away > 12 * 3600 * 1000 ? ' (12 h simulées au maximum)' : ''}. Votre royaume a continué de vivre.</p>
+      <div class="cols-2"><div><h4>Ressources</h4><div class="chips">${resChips(Object.fromEntries(Object.entries(diff).sort((a, b) => b[1] - a[1])), true) || '<span class="muted small">Aucun changement.</span>'}</div></div>
+      <div><h4>Faits marquants</h4>${lines.map(([n, i, l]) => `<div>${i} <b>${n}</b> ${l}</div>`).join('')}${orders ? `<div>📜 <b>${orders}</b> ordre(s) du royaume exécuté(s)</div>` : ''}${s.pending.length ? `<div class="req">⚖️ ${s.pending.length} décision(s) vous attendent</div>` : ''}${!lines.length && !orders ? '<span class="muted small">Calme plat.</span>' : ''}</div></div>
+      ${events.length ? `<h4>Chronique</h4><div class="log">${events.slice(0, 14).map((l) => `<div class="log-line small">${esc(l.text)}</div>`).join('')}</div>` : ''}
+      <button class="btn primary" data-action="close-modal">Au travail !</button>`, {}, 'wide');
   }
 
   save() { if (this.state) saveGame(this.state); }
 
   tick() {
     const now = Date.now();
+    if (!document.hidden) this.state.meta.playTime = (this.state.meta.playTime || 0) + 1000;
     advance(this.state, now);
     if (this.dirty) this.render();
     else {
@@ -83,7 +123,8 @@ export class App {
   }
 
   renderNav() {
-    this.$('#nav').innerHTML = VIEWS.map((v) => `<button class="nav-btn ${v.id === this.ui.view ? 'active' : ''}" data-action="nav" data-view="${v.id}" title="${esc(v.title)}"><span class="nav-icon">${v.icon}</span><span class="nav-label">${esc(v.title)}</span><span class="nav-badge" data-badge="${v.id}"></span></button>`).join('');
+    this.$('#nav').innerHTML = GROUPS.map((g) => `<button class="nav-btn" data-action="nav" data-view="${g.id}" title="${esc(g.title)}"><span class="nav-icon">${g.icon}</span><span class="nav-label">${esc(g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
+      + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">🧙‍♂️</span><span class="nav-label">Conseiller</span></button>`;
   }
 
   // Préserve la valeur/le focus des champs lors d'un re-rendu
@@ -106,27 +147,40 @@ export class App {
   render() {
     this.dirty = false;
     const view = this.views[this.ui.view];
+    const group = groupOf(view.id);
+    this.ui.lastTab[group.id] = view.id;
     this.$('#topbar').innerHTML = renderTopbar(this);
     const main = this.$('#view');
-    this.preserveInputs(main, () => { main.innerHTML = `<div class="view view-${view.id}">${view.render(this)}</div>`; });
-    view.after?.(this);
+    const locked = view.locked?.(this);
+    const tabs = group.tabs.length > 1 ? `<div class="subnav">${group.tabs.map((t) => {
+      const l = t.locked?.(this);
+      const n = t.badge?.(this) || 0;
+      return `<button class="subtab ${t.id === view.id ? 'active' : ''} ${l ? 'locked' : ''}" data-action="nav" data-view="${t.id}" title="${esc(l || t.title)}">${t.icon} ${esc(t.title)}${l ? ' 🔒' : ''}${n ? ` <span class="sub-badge">${n}</span>` : ''}</button>`;
+    }).join('')}</div>` : '';
+    this.preserveInputs(main, () => {
+      main.innerHTML = `${tabs}<div class="view view-${view.id}">${locked ? `<div class="card locked-card"><h2>🔒 ${esc(view.title)}</h2><p>${esc(locked)}</p><p class="muted small">Les systèmes avancés se débloquent au fil de votre progression : ils n’encombrent pas l’interface tant que vous n’en avez pas besoin.</p></div>` : view.render(this)}</div>`;
+    });
+    if (!locked) view.after?.(this);
     const side = this.$('#side');
     this.preserveInputs(side, () => { side.innerHTML = renderSide(this); });
-    this.root.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === this.ui.view));
+    this.root.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === group.id));
     this.updateBadges();
   }
 
   updateBadges() {
-    for (const v of VIEWS) {
-      const el = this.root.querySelector(`[data-badge="${v.id}"]`);
+    for (const g of GROUPS) {
+      const el = this.root.querySelector(`[data-badge="${g.id}"]`);
       if (!el) continue;
-      const n = v.badge?.(this) || 0;
+      const n = g.tabs.reduce((a, t) => a + (t.locked?.(this) ? 0 : t.badge?.(this) || 0), 0);
       el.textContent = n ? n : '';
       el.classList.toggle('on', !!n);
     }
   }
 
   go(viewId, sel = {}) {
+    const g = GROUPS.find((x) => x.id === viewId);
+    if (g) viewId = this.ui.lastTab[g.id] || g.tabs[0].id;
+    if (!this.views[viewId]) viewId = 'city';
     this.ui.view = viewId;
     Object.assign(this.ui, sel);
     this.render();
@@ -165,6 +219,7 @@ export class App {
     'close-modal': (app) => app.closeModal(),
     'toggle-res': (app) => { app.ui.showAllRes = !app.ui.showAllRes; app.render(); },
     'toggle-side': (app) => { app.root.classList.toggle('show-side'); },
+    advisor: (app) => openAdvisor(app),
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),
   };
 

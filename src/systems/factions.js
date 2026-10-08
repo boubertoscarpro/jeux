@@ -71,7 +71,7 @@ export function factionsTick(state, now) {
     const base = baselineRelation(state, f);
     f.relation += (base - f.relation) * 0.04;
     // Expansion territoriale
-    if (rng.chance(per.expand)) expand(state, f, now);
+    if (f.territory.length < 30 + f.army * 3 && rng.chance(per.expand * 0.35)) expand(state, f, now);
     // Tribut versé par un tributaire
     if (f.stance === 'tributary') gain(state, { gold: Math.round(80 + f.wealth * 0.004) }, computeMods(state, now));
     const poi = kingdomPoi(state, f.idx);
@@ -92,7 +92,8 @@ export function factionsTick(state, now) {
       const g = state.factions[e];
       const winner = f.army >= g.army ? f : g, loser = winner === f ? g : f;
       f.wars = f.wars.filter((x) => x !== e); g.wars = g.wars.filter((x) => x !== f.idx);
-      const lost = loser.territory.splice(-Math.min(3, Math.max(0, loser.territory.length - 9)));
+      const nLost = Math.min(3, Math.max(0, loser.territory.length - 9));
+      const lost = nLost > 0 ? loser.territory.splice(-nLost) : [];
       winner.territory.push(...lost);
       loser.army *= 0.8; winner.army *= 0.9;
       chronicle(state, `${factionName(winner.idx)} remporte la guerre contre ${factionName(loser.idx)}${lost.length ? ` et s’empare de ${lost.length} région(s)` : ''}.`, now);
@@ -299,8 +300,9 @@ export function enemySpyTick(state, now) {
 
 export function allyReinforcements(state) {
   const allies = (state.factions || []).filter((f) => f.stance === 'alliance');
-  if (!allies.length) return null;
-  const n = allies.reduce((a, f) => a + Math.round(6 + f.army * 6), 0);
+  const guildN = state.guild && state.guild.level >= 5 ? 8 + state.guild.level * 2 : 0;
+  if (!allies.length && !guildN) return null;
+  const n = allies.reduce((a, f) => a + Math.round(6 + f.army * 6), 0) + guildN;
   return { guard: n, royalArcher: Math.round(n * 0.7) };
 }
 

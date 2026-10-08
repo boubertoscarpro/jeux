@@ -18,7 +18,7 @@ const MOD_NAMES = {
 };
 
 export default {
-  id: 'kingdom', title: 'Royaume & Saison', icon: '👑',
+  id: 'kingdom', title: 'Saison & boutique', icon: '👑',
   badge: (app) => milestoneList(app.state).filter((m) => m.done).length + SEASON.tiers.filter((t, i) => !app.state.season.claimed[i] && app.state.season.points >= t.pts).length,
   render(app) {
     const s = app.state;

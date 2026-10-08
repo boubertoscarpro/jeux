@@ -12,6 +12,8 @@ import { armyPower } from '../../systems/army.js';
 import { canClaim, claimTerritory, abandonTerritory } from '../../systems/territory.js';
 import { sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots } from '../../systems/market.js';
 import { levelOf } from '../../systems/city.js';
+import { ensureDungeon } from '../../systems/dungeons.js';
+import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons.js';
 import { esc, costList, resChips, bar, countdown } from '../components.js';
 
 const BASE_TILE = 26;
@@ -42,6 +44,8 @@ export function drawMap(app) {
   const x0 = Math.max(0, Math.floor(-ox / T)), y0 = Math.max(0, Math.floor(-oy / T));
   const x1 = Math.min(w.size - 1, Math.ceil((W - ox) / T)), y1 = Math.min(w.size - 1, Math.ceil((H - oy) / T));
   const now = Date.now();
+  const factionTiles = new Map();
+  for (const f of s.factions || []) for (const k of f.territory) factionTiles.set(k, f.idx);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const px = ox + x * T, py = oy + y * T;
     if (!isRevealed(w, x, y)) {
@@ -60,6 +64,8 @@ export function drawMap(app) {
       if (ter === 'hills') { ctx.beginPath(); ctx.arc(px + T * 0.5, py + T * 0.85, T * 0.3, Math.PI, 0); ctx.fill(); }
       if (ter === 'river') { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px + T * 0.2, py + T * 0.45, T * 0.6, T * 0.08); }
     }
+    const fo = factionTiles.get(key(x, y));
+    if (fo !== undefined) { ctx.fillStyle = RIVALS[fo].color + '40'; ctx.fillRect(px, py, T + 0.5, T + 0.5); }
     if (s.territories[key(x, y)]) {
       ctx.strokeStyle = s.meta.banner || '#e2b84a'; ctx.lineWidth = 2; ctx.strokeRect(px + 2, py + 2, T - 4, T - 4);
       ctx.fillStyle = 'rgba(226,184,74,0.15)'; ctx.fillRect(px, py, T, T);
@@ -111,6 +117,14 @@ export function drawMap(app) {
     else if (m.phase === 'back') f = 1 - (now - (m.returnAt - m.travel)) / m.travel;
     f = Math.max(0, Math.min(1, f));
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx + (tx - sx) * f, sy + (ty - sy) * f, 4, 0, 7); ctx.fill();
+  }
+  for (const t of s.expeditions || []) {
+    if (t.status === 'idle' || !t.at) continue;
+    const sx = ox + (w.capital.x + 0.5) * T, sy = oy + (w.capital.y + 0.5) * T;
+    const tx = ox + (t.at.x + 0.5) * T, ty = oy + (t.at.y + 0.5) * T;
+    ctx.strokeStyle = 'rgba(140,230,140,0.8)'; ctx.lineWidth = 2; ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke(); ctx.setLineDash([]);
+    if (t.status === 'work') { ctx.font = `${Math.round(T * 0.45)}px "Segoe UI Emoji",sans-serif`; ctx.fillText('⛺', tx + T * 0.3, ty - T * 0.3); }
   }
   for (const r of s.raids) {
     const sx = ox + (r.from.x + 0.5) * T, sy = oy + (r.from.y + 0.5) * T;
@@ -208,7 +222,14 @@ function tilePanel(app) {
       if (poi.danger > 0) html += `<div class="panel-sub"><h4>Menace</h4>${enemyBlock(app, poi, poi.enemies)}</div>`;
       html += `<div class="row gap"><button class="btn primary" data-action="march" data-type="gather">🧺 Récolter</button>${poi.danger ? '<button class="btn" data-action="march" data-type="scout">👁️ Espionner</button>' : ''}</div>`;
     }
-    if (def.kind === 'danger') {
+    if (def.dungeon) {
+      const d = ensureDungeon(poi);
+      html += `<div class="panel-sub"><h4>${esc(DUNGEON_THEMES[d.theme].name)} — niveau ${d.level}</h4>
+        <div class="chips">${d.affixes.map((a) => `<span class="chip" title="${esc(DUNGEON_AFFIXES[a].desc)}">${DUNGEON_AFFIXES[a].icon} ${esc(DUNGEON_AFFIXES[a].name)}</span>`).join('')}</div>
+        <div class="rooms">${d.rooms.map((r) => `<span class="room ${r.done ? 'done' : ''}" title="${esc(ROOM_TYPES[r.type].name)}">${r.done ? '✔' : ROOM_TYPES[r.type].icon}</span>`).join('')}</div>
+        <div class="small muted">${d.cleared}/${d.rooms.length} salles franchies · purgé ${d.runs} fois. La progression est conservée : vous pouvez revenir finir le travail. Une fois purgé, le donjon se reforme plus profond, avec de nouvelles salles et de nouveaux affixes.</div></div>
+        <button class="btn primary" data-action="march" data-type="dungeon">🏚️ Lancer l’expédition de donjon</button>`;
+    } else if (def.kind === 'danger') {
       if (poi.clearedUntil > now) html += `<p class="ok">Site nettoyé. Les ennemis reviendront dans ${countdown(poi.clearedUntil)}.</p>`;
       else {
         const k = 1 + poi.danger * 0.45;
@@ -266,7 +287,7 @@ function townPanel(app, town, mods) {
       <div class="form-row"><input id="cv-qty" type="number" min="1" max="${caravanCargo(s)}" value="${Math.min(caravanCargo(s), 500)}"> <span class="muted small">max ${fmt(caravanCargo(s))}</span></div>
       <label class="small"><input type="checkbox" id="cv-repeat"> Route commerciale (répéter automatiquement)</label>
       <div class="muted small">Aller-retour : ${fmtTime(dur)} · caravanes : ${s.caravans.length}/${caravanSlots(mods)}</div>
-      <button class="btn primary" data-action="caravan">Envoyer</button></div>`;
+      <button class="btn primary" data-action="caravan">Envoyer (sécurisé)</button> <button class="btn ghost" data-action="goto-convoys">Convoi avancé (modes, gardes) →</button></div>`;
 }
 
 // ---------- Fenêtre d'envoi de marche ----------
@@ -277,14 +298,14 @@ function marchDialog(app, type) {
   const md = app.ui.marchDraft = { type, x, y, units: {}, heroId: null, formation: 'balanced', supply: false, potion: '' };
   // Pré-sélection intelligente
   if (type === 'explore' || type === 'scout') md.units.scout = Math.min(s.army.scout || 0, type === 'scout' ? 2 : 1);
-  else for (const [u, n] of Object.entries(s.army)) if (n > 0 && u !== 'scout') md.units[u] = n;
+  else for (const [u, n] of Object.entries(s.army)) if (n > 0 && u !== 'scout' && u !== 'spy') md.units[u] = n;
   const idle = s.heroes.filter((h) => !h.marchId && !h.assignment);
   const best = idle.sort((a, b) => b.level - a.level)[0];
   if (best && type !== 'explore') md.heroId = best.id;
   if (type === 'explore') md.heroId = idle.find((h) => h.cls === 'explorer')?.id || null;
   const unitsAvail = Object.entries(s.army).filter(([, n]) => n > 0);
   const potions = Object.entries(s.inventory.consumables).filter(([k, n]) => n > 0 && CONSUMABLES[k].march);
-  const fights = ['attack', 'boss', 'gather'].includes(type);
+  const fights = ['attack', 'boss', 'gather', 'dungeon'].includes(type);
   const title = `${MARCH_TYPES[type].icon} ${MARCH_TYPES[type].name} — ${esc(poi ? poi.name || POI_TYPES[poi.type].name : `(${x}, ${y})`)}`;
   app.modal(`<h2>${title}</h2>
     <div class="march-grid">
@@ -297,6 +318,7 @@ function marchDialog(app, type) {
         <select data-change="mh" id="mh"><option value="">— Aucun —</option>${idle.map((h) => `<option value="${h.id}" ${h.id === md.heroId ? 'selected' : ''}>${HERO_CLASSES[h.cls].icon} ${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select>
         ${fights ? `<h4>Formation</h4><select data-change="mf" id="mf">${Object.entries(FORMATIONS).map(([k, f]) => `<option value="${k}">${f.icon} ${esc(f.name)}</option>`).join('')}</select><div class="muted small" id="mf-desc">${esc(FORMATIONS.balanced.desc)}</div>
         <label class="small"><input type="checkbox" data-change="ms" id="ms"> 🍞 Rations de pain (+15 moral) — <span id="ms-need"></span></label>
+        ${type === 'dungeon' ? `<h4>Seuil de retraite</h4><select data-change="mr" id="mr">${[0.3, 0.5, 0.7, 0.9].map((v) => `<option value="${v}" ${v === 0.5 ? 'selected' : ''}>Se replier à ${Math.round(v * 100)}% de pertes</option>`).join('')}</select>` : ''}
         ${potions.length ? `<h4>Potion</h4><select data-change="mp" id="mp"><option value="">— Aucune —</option>${potions.map(([k, n]) => `<option value="${k}">${CONSUMABLES[k].icon} ${esc(CONSUMABLES[k].name)} (${n})</option>`).join('')}</select>` : ''}` : ''}
       </div>
       <div id="march-preview"></div>
@@ -346,6 +368,10 @@ function updateMarchPreview(app) {
         <ul class="notes small">${pv.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
     } else html += '<div class="small muted">Ennemis non espionnés : impossible d’estimer l’issue. ' + (md.type === 'gather' ? 'Une embuscade est possible.' : 'Espionnez d’abord !') + '</div>';
   }
+  if (md.type === 'dungeon' && poi) {
+    const d = ensureDungeon(poi);
+    html += `<div class="small">Donjon niveau ${d.level} : ${d.rooms.length - d.cleared} salle(s) restantes, dont un gardien et un boss. Affixes : ${d.affixes.map((a) => DUNGEON_AFFIXES[a].name + ' (' + DUNGEON_AFFIXES[a].desc + ')').join(', ')}.</div><div class="small muted">Chaque salle est différente : l’armée avance jusqu’au boss ou jusqu’au seuil de retraite. Ingénieurs et éclaireurs désamorcent les pièges.</div>`;
+  }
   if (md.type === 'explore') html += '<div class="small muted">Les éclaireurs révèlent la zone et peuvent déclencher un événement (choix, trésor, embuscade…). Un héros Explorateur augmente la vitesse et les trouvailles.</div>';
   el.innerHTML = html;
 }
@@ -357,6 +383,7 @@ const marchActions = {
   mf: (app, el) => { app.ui.marchDraft.formation = el.value; document.getElementById('mf-desc').textContent = FORMATIONS[el.value].desc; updateMarchPreview(app); },
   ms: (app, el) => { app.ui.marchDraft.supply = el.checked; updateMarchPreview(app); },
   mp: (app, el) => { app.ui.marchDraft.potion = el.value || null; updateMarchPreview(app); },
+  mr: (app, el) => { app.ui.marchDraft.retreat = +el.value; },
   'send-march': (app) => {
     const r = sendMarch(app.state, app.ui.marchDraft);
     if (!r.ok) return app.toast(r.reason, 'bad');
@@ -389,6 +416,7 @@ export default {
     claim: (app) => app.act(() => claimTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), 'Avant-poste établi'),
     abandon: (app) => app.act(() => abandonTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y)),
     'cv-res': (app, el) => { app.ui.cvRes = el.value; },
+    'goto-convoys': (app) => { const t = app.ui.worldSel; app.ui.cv = { ...(app.ui.cv || { res: 'wood', qty: 500, mode: 'secure', guards: 0 }), town: `${t.x},${t.y}` }; app.go('convoys'); },
     caravan: (app) => {
       const res = document.getElementById('cv-res').value;
       const qty = +document.getElementById('cv-qty').value;

@@ -25,6 +25,17 @@ import { claimQuest, activeQuests, claimMilestone, milestoneList } from '../src/
 import { joinGuild, donate } from '../src/systems/guild.js';
 import { sell } from '../src/systems/market.js';
 import { claimTerritory } from '../src/systems/territory.js';
+import { unlockAutomation, addOrder } from '../src/systems/automation.js';
+import { recruitWorker, assignMany, promoteForeman, housing, isAvailable } from '../src/systems/workforce.js';
+import { createTeam, setTeam, startExpedition, maxTeams } from '../src/systems/expeditions.js';
+import { ORDER_TEMPLATES } from '../src/data/automation.js';
+import { EXPEDITION_TYPES, FOREMAN_TYPES } from '../src/data/workers.js';
+import { diplomacy, spyMission } from '../src/systems/factions.js';
+import { fulfillContract } from '../src/systems/market.js';
+import { learnTalent, freePoints } from '../src/systems/talents.js';
+import { TALENTS } from '../src/data/talents.js';
+import { analyze } from '../src/systems/advisor.js';
+import { expandDomain } from '../src/systems/domain.js';
 
 function bestTile(s, type, mods) {
   let best = null;
@@ -113,6 +124,34 @@ function botSession(s, now) {
     const units = Object.fromEntries(Object.entries(s.army).filter(([u, n]) => n > 0 && u !== 'scout'));
     if (Object.keys(units).length) sendMarch(s, { type: 'boss', x: s.boss.x, y: s.boss.y, units }, now);
   }
+  // ---- Phase 2 ----
+  unlockAutomation(s, now);
+  if (s.workers.length < housing(s) && rng.chance(0.5)) recruitWorker(s, null, now);
+  const idleW = s.workers.filter((w) => isAvailable(w, now) && !w.foreman);
+  if (idleW.length > 4) assignMany(s, rng.pick(['food', 'wood', 'stone', 'iron', 'industry']), 2, now);
+  for (const w of s.workers) if (w.level >= 5 && !w.foreman) promoteForeman(s, w.id, rng.pick(Object.keys(FOREMAN_TYPES)));
+  if (s.expeditions.length < maxTeams(s)) {
+    const types = Object.keys(EXPEDITION_TYPES).filter((k) => EXPEDITION_TYPES[k].automation <= s.automation.level);
+    const r = createTeam(s, { type: rng.pick(types), hours: rng.pick([1, 2, 4]) });
+    if (r.ok) {
+      const free = s.workers.filter((w) => !w.foreman && w.job?.type !== 'exp' && !s.expeditions.some((t) => t.workerIds.includes(w.id))).slice(0, 5);
+      const fm = s.workers.find((w) => w.foreman && !s.expeditions.some((t) => t.foremanId === w.id));
+      setTeam(s, r.team.id, { workerIds: free.map((w) => w.id), foremanId: fm?.id || null, policy: rng.pick(['ask', 'safe', 'bold']), rations: true });
+      if (r.team.type === 'mercenary') setTeam(s, r.team.id, { escort: { spearman: Math.min(10, s.army.spearman || 0) } });
+      setTeam(s, r.team.id, { repeat: true });
+    }
+  }
+  for (const t of s.expeditions) if (t.status === 'idle') startExpedition(s, t.id, now);
+  if (s.orders.length < 3) addOrder(s, { ...rng.pick(ORDER_TEMPLATES), cooldown: 10 });
+  if (s.automation.level >= 4) s.priorities.enabled = true;
+  if (s.automation.level >= 5) s.autoResearch.enabled = true;
+  if (rng.chance(0.05)) diplomacy(s, rng.int(0, 4), rng.pick(['envoy', 'trade', 'alliance', 'peace', 'war', 'tribute']), now);
+  if ((s.army.spy || 0) > 2 && rng.chance(0.1)) spyMission(s, rng.int(0, 4), 'army', 2, now);
+  if (unitStatus(s, 'spy').ok && (s.army.spy || 0) < 3) train(s, 'spy', 2, now);
+  for (const c of [...(s.contracts || [])]) fulfillContract(s, c.id, now);
+  for (let k = 0; k < 3 && freePoints(s) > 0; k++) learnTalent(s, rng.pick(Object.keys(TALENTS)));
+  if (rng.chance(0.05)) expandDomain(s, now);
+  if (rng.chance(0.02)) analyze(s, now);
   // Territoire
   for (let i = 0; i < 6; i++) {
     const x = w.capital.x + rng.int(-5, 5), y = w.capital.y + rng.int(-5, 5);
@@ -139,6 +178,7 @@ test('le bot joue 3 jours sans erreur et progresse', () => {
     items: s.inventory.items.length, stats: s.stats, army: s.army, guild: s.guild?.level, territories: Object.keys(s.territories).length,
     resources: Object.fromEntries(Object.entries(s.resources).map(([k, v]) => [k, Math.round(v)])),
   };
+  Object.assign(report, { automation: s.automation.level, workers: s.workers.length, teams: s.expeditions.map((t) => `${t.type}:${t.runs}`), orders: s.orders.map((o) => o.runs), artifacts: Object.keys(s.artifacts), history: s.history.length, rep: s.reputation, factions: s.factions.map((f) => `${f.stance}/${Math.round(f.relation)}/${f.territory.length}`), domain: s.domain });
   console.log(JSON.stringify(report, null, 1));
   assert.ok(th >= 4, `HdV ${th}`);
   assert.ok(Object.keys(s.techs).length >= 4);

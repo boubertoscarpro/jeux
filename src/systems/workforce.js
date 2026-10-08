@@ -11,7 +11,7 @@ import { chronicle } from './chronicle.js';
 export const automationLevel = (state) => state.automation?.level || 0;
 
 export function housing(state) {
-  const houses = buildingsOf(state, 'house').reduce((a, b) => a + b.level * 3, 0);
+  const houses = buildingsOf(state, 'house').reduce((a, b) => a + b.level * 2, 0);
   return 6 + houses + levelOf(state, 'townhall') * 2;
 }
 

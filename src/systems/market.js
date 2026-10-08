@@ -198,7 +198,9 @@ export function contractsTick(state, now) {
   state.contracts = (state.contracts || []).filter((c) => c.until > now);
   const towns = Object.values(state.world.pois).filter((p) => p.type === 'town' && state.world.revealed[p.y * state.world.size + p.x]);
   if (!towns.length || !levelOf(state, 'market')) return;
-  while (state.contracts.length < 3) {
+  if (state.contracts.length >= 3 || (state.nextContract || 0) > now) return;
+  state.nextContract = now + 25 * 60000;
+  {
     const town = rng.pick(towns);
     const res = rng.pick(['wood', 'stone', 'iron', 'food', 'leather', 'cloth', 'steel', 'planks', 'bread', 'herbs', 'weapons', 'rations', 'coal']);
     const th = levelOf(state, 'townhall');

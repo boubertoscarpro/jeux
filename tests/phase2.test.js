@@ -163,7 +163,7 @@ test('convois : les gardes réduisent le risque, les contrats rapportent', () =>
   assert.equal(s.army.spearman, 30);
   s.world.revealed[town.y * s.world.size + town.x] = 1;
   contractsTick(s, T0);
-  assert.equal(s.contracts.length, 3);
+  assert.equal(s.contracts.length, 1);
   const gold = s.resources.gold;
   assert.equal(fulfillContract(s, s.contracts[0].id, T0).ok, true);
   assert.ok(s.resources.gold > gold);

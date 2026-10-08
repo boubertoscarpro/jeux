@@ -3,7 +3,10 @@ import { RESOURCES } from '../../data/resources.js';
 import { COSMETICS } from '../../data/social.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
-import { buildingRates, netRates, storageCap, protectedAmount } from '../../systems/economy.js';
+import { buildingRates, netRates, storageCap, protectedAmount, recipeOf, roadConnected, sectorOfBuilding } from '../../systems/economy.js';
+import { repairBuilding, repairCost } from '../../systems/automation.js';
+import { nextDomainStep, expandDomain } from '../../systems/domain.js';
+import { WORK_SECTORS } from '../../data/workers.js';
 import { allBuildings, buildingAt, terrainAt, adjacencyBonus, placementCheck, thLevel, proximityEffects } from '../../systems/city.js';
 import { startBuild, startUpgrade, startClear, buildRequirement, getUpgradeInfo, moveBuilding, demolish, moveCost, CLEAR_COST, placeDeco } from '../../systems/construction.js';
 import { esc, costList, resChips, countdown, progress, pct } from '../components.js';
@@ -23,7 +26,7 @@ function tileHtml(app, x, y, mods) {
   let hint = '';
   if (b) {
     const icon = b.type === 'deco' ? COSMETICS[b.deco]?.icon : BUILDINGS[b.type].icon;
-    inner = `<span class="t-icon">${icon}</span>${b.type !== 'deco' && b.level > 0 ? `<span class="t-lvl">${b.level}</span>` : ''}${b.starved ? '<span class="t-warn" title="Manque de matières premières">!</span>' : ''}`;
+    inner = `<span class="t-icon">${icon}</span>${b.type !== 'deco' && b.type !== 'road' && b.level > 0 ? `<span class="t-lvl">${b.level}</span>` : ''}${b.starved ? '<span class="t-warn" title="Manque de matières premières">!</span>' : ''}${b.damaged ? '<span class="t-fire" title="Endommagé">🔥</span>' : ''}`;
   } else inner = `<span class="t-icon terrain">${TERRAIN_ICON[t] || ''}</span>`;
   if (q) inner += `<span class="t-build">🔨</span>${progress(q.start, q.end)}`;
   // Mode placement : bonus potentiel
@@ -106,6 +109,10 @@ function buildingPanel(app, b, mods) {
     library: ['research', 'Recherches'], barracks: ['army', 'Former des troupes'], stable: ['army', 'Former des troupes'], workshop: ['army', 'Former des troupes'], guildhall: ['guild', 'Guilde'], castle: ['army', 'Armée'] };
   return `<h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}</span></h3>
     <p class="muted">${esc(def.desc)}</p>
+    ${b.damaged ? `<div class="panel-sub damaged"><b>🔥 Endommagé</b> : production réduite de moitié. ${costList(repairCost(b), s)} <button class="mini primary" data-action="repair" data-id="${b.id}">Réparer</button></div>` : ''}
+    ${def.recipes && b.level > 0 ? `<div class="panel-sub"><h4>Recette</h4><select data-change="recipe" data-id="${b.id}">${def.recipes.map((r, i) => `<option value="${i}" ${(b.recipe || 0) === i ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : ''}
+    ${b.level > 0 && sectorOfBuilding(b.type) && s.workers?.length ? `<div class="small muted">👷 Secteur ${esc(WORK_SECTORS[sectorOfBuilding(b.type)].name)} : ${s.workers.filter((w) => w.job?.sector === sectorOfBuilding(b.type)).length} ouvrier(s) (+${Math.round((mods['work.' + sectorOfBuilding(b.type)] || 0) * 100)}%)</div>` : ''}
+    ${b.level > 0 && b.type !== 'road' ? `<div class="small ${roadConnected(s).has(b.id) ? 'ok' : 'muted'}">${roadConnected(s).has(b.id) ? '✔ Relié au réseau de routes (+5%)' : '🟫 Non relié aux routes : une route pavée jusqu’à l’hôtel de ville donne +5%'}</div>` : ''}
     ${q ? `<div class="panel-sub"><b>${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours</b> → niv. ${q.level} · ${countdown(q.end)}${progress(q.start, q.end)}</div>` : ''}
     ${b.level > 0 ? prodBlock(s, b, mods) : ''}
     ${effects ? `<div class="panel-sub"><h4>Effets</h4>${Object.entries(effects).map(([k, v]) => `<div class="small">${esc(effectName(k))} : <b>${k === 'storage' || k === 'marches' || k === 'heroSlots' || k === 'vision' || k === 'caravans' ? fmt(v) : pct(v)}</b></div>`).join('')}
@@ -118,7 +125,7 @@ function buildingPanel(app, b, mods) {
       ${links[b.type] ? `<button class="btn" data-action="nav" data-view="${links[b.type][0]}">${links[b.type][1]} →</button>` : ''}
       ${b.level > 0 && b.type !== 'townhall' ? `<button class="btn ghost" data-action="move" data-id="${b.id}" title="Déplacer coûte ${moveCost(b).gold} or">Déplacer (${moveCost(b).gold} 🪙)</button>` : ''}
       ${b.type !== 'townhall' && !q ? `<button class="btn ghost danger" data-action="demolish" data-id="${b.id}">Démolir</button>` : ''}
-      ${def.convert && b.level > 0 ? `<button class="btn ghost" data-action="pause" data-id="${b.id}">${b.paused ? '▶ Relancer' : '⏸ Mettre en pause'}</button>` : ''}
+      ${recipeOf(b) && b.level > 0 ? `<button class="btn ghost" data-action="pause" data-id="${b.id}">${b.paused ? '▶ Relancer' : '⏸ Mettre en pause'}</button><button class="btn ghost" data-action="nav" data-view="chains">⚙️ Configurer la chaîne</button>` : ''}
     </div>`;
 }
 
@@ -180,6 +187,7 @@ export default {
           return `<button class="bb-btn ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? 'disabled' : ''} title="${esc(d.name)}${req ? ' — ' + esc(req) : ' — ' + esc(d.desc)}">${d.icon}</button>`;
         }).join('')}${app.ui.citySel || app.ui.placeType || app.ui.moveId ? '<button class="mini ghost" data-action="cancel-mode">✕ Annuler</button>' : ''}</div>
         <div class="city-grid ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div>
+        ${(() => { const st = nextDomainStep(s); return st ? `<div class="card domain-card"><h3>🗺️ Agrandir le domaine <span class="muted small">${s.city.w}×${s.city.h} cases</span></h3><div class="small muted">Étape « ${esc(st.name)} » : +2 colonnes et +1 rangée de terrain vierge à aménager (forêts, montagnes, décombres, rivière).</div><div class="b-opt-foot">${costList(st.cost, s)} <span class="small ${thLevel(s) >= st.th ? 'ok' : 'req'}">HdV ${st.th}</span><button class="mini primary" data-action="expand">Agrandir</button></div></div>` : ''; })()}
         <div class="card"><h3>🧱 Fortifications</h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
         <div class="card"><h3>📊 Bilan horaire</h3><div class="net-grid">${Object.entries(net).filter(([, v]) => Math.abs(v) > 0.05).sort((a, b) => b[1] - a[1]).map(([r, v]) => `<div class="net ${v < 0 ? 'neg' : ''}">${RESOURCES[r].icon} ${esc(RESOURCES[r].name)} <b>${v > 0 ? '+' : ''}${fmt(v)}</b></div>`).join('')}</div>
           <p class="muted small">Capacité : ${fmt(cap)} · Protégé des pillages : ${fmt(protectedAmount(s, mods))} par ressource. Les ressources rares et l’or ne sont pas plafonnés.</p></div>
@@ -219,6 +227,9 @@ export default {
       app.act(() => demolish(app.state, el.dataset.id), 'Bâtiment démoli');
       app.ui.citySel = null; app.render();
     },
+    repair: (app, el) => app.act(() => repairBuilding(app.state, el.dataset.id), 'Bâtiment réparé'),
+    recipe: (app, el) => { app.state.city.buildings[el.dataset.id].recipe = +el.value; app.render(); app.save(); },
+    expand: (app) => app.act(() => expandDomain(app.state), 'Le domaine s’agrandit !'),
     pause: (app, el) => { const b = app.state.city.buildings[el.dataset.id]; b.paused = !b.paused; app.render(); },
     deco: (app, el) => app.act(() => placeDeco(app.state, el.dataset.key, +el.dataset.x, +el.dataset.y), 'Décoration placée'),
   },

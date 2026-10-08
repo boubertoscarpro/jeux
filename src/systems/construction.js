@@ -1,5 +1,6 @@
 import { BUILDINGS, buildingCost, buildingTime } from '../data/buildings.js';
 import { COSMETICS, SEASON } from '../data/social.js';
+import { RESOURCES } from '../data/resources.js';
 import { rng } from '../core/rng.js';
 import { uid } from '../core/util.js';
 import { allBuildings, countOf, levelOf, thLevel, placementCheck, terrainAt, buildingAt } from './city.js';
@@ -152,7 +153,7 @@ export function completeBuild(state, q, now) {
       state.inventory.items.push(it);
       extra = ` Parmi les gravats : ${it.name} !`;
     }
-    log(state, 'good', `Décombres déblayés : ${Object.entries(loot).map(([r, v]) => `${v} ${r}`).join(', ')}.${extra}`, now);
+    log(state, 'good', `🧹 Décombres déblayés : ${Object.entries(loot).map(([r, v]) => `${v} ${RESOURCES[r].icon}`).join(' ')}.${extra}`, now);
     return;
   }
   if (q.bid.startsWith('fort:')) {
