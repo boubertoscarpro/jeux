@@ -16,7 +16,8 @@ import { allBuildings, terrainAt, buildingAt, thLevel, adjacencyBonus, placement
 import { computeMods } from '../src/systems/modifiers.js';
 import { startResearch, techStatus } from '../src/systems/research.js';
 import { train, unitStatus } from '../src/systems/army.js';
-import { sendMarch, resolvePending } from '../src/systems/marches.js';
+import { sendMarch } from '../src/systems/marches.js';
+import { resolveAny } from '../src/systems/pending.js';
 import { isRevealed } from '../src/systems/world.js';
 import { tavernCandidates, recruit, assignGovernor, equipItem } from '../src/systems/tavern.js';
 import { startCraft, startBrew } from '../src/systems/crafting.js';
@@ -41,7 +42,7 @@ function botSession(s, now) {
   for (const q of activeQuests(s)) if (q.done) claimQuest(s, q.id, now);
   for (const m of milestoneList(s)) if (m.done) claimMilestone(s, m.id, now);
   // Décisions
-  for (const p of [...s.pending]) resolvePending(s, p.id, rng.int(0, 1), now);
+  for (const p of [...s.pending]) resolveAny(s, p.id, rng.int(0, 1), now);
   // Construction : déblayer, construire ce qui manque, sinon améliorer le moins élevé
   if (!s.queues.build.length) {
     const rubble = (() => { for (let y = 0; y < s.city.h; y++) for (let x = 0; x < s.city.w; x++) if (terrainAt(s, x, y) === 'rubble') return { x, y }; return null; })();

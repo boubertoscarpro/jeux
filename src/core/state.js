@@ -3,8 +3,9 @@ import { RESOURCES } from '../data/resources.js';
 import { generateWorld } from '../systems/worldgen.js';
 import { createHero } from '../systems/heroes.js';
 import { initMarket } from '../systems/market.js';
+import { initFactions } from '../systems/factions.js';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const CITY_W = 14;
 export const CITY_H = 10;
 
@@ -76,6 +77,29 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     stats: { built: 0, cleared: 0, explored: 0, gathered: 0, gatherDone: 0, battlesWon: 0, battlesLost: 0, trades: 0, crafted: 0, hardClears: 0, bossKills: 0, produced: {}, raidsRepelled: 0 },
     merchant: null,
     nextRivalTick: now + 60 * 1000,
+    // --- Phase 2 ---
+    workers: [],
+    expeditions: [],
+    automation: { level: 0, autoRepair: true },
+    priorities: { enabled: false, order: ['food', 'wood', 'stone', 'iron', 'industry', 'gold'], thresholds: { food: { min: 2000, max: 0 }, wood: { min: 1000, max: 0 }, stone: { min: 800, max: 0 }, iron: { min: 500, max: 0 }, industry: {}, gold: {} } },
+    orders: [],
+    orderLog: [],
+    autoResearch: { enabled: false, focus: 'iron' },
+    factions: null,
+    reputation: {},
+    records: {},
+    history: [],
+    artifacts: {},
+    bossTrophies: {},
+    talents: { ranks: {}, builds: [], switchAt: 0 },
+    dynasty: null,
+    contracts: [],
+    routes: {},
+    catastrophe: null,
+    rumor: null,
+    scarcity: null,
+    nextDilemma: now + 40 * 60 * 1000,
+    domain: 0,
   };
 
   // Bâtiments de départ (hameau presque abandonné)
@@ -89,6 +113,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
   place('warehouse', 6, 5, 1);
 
   state.world = generateWorld(seed);
+  initFactions(state);
   state.market = initMarket(now);
 
   // Héros de départ

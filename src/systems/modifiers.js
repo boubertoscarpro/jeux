@@ -6,6 +6,11 @@ import { TERRAINS } from '../data/world.js';
 import { GUILDS, GUILD_LEVELS } from '../data/social.js';
 import { allBuildings, proximityEffects } from './city.js';
 import { heroMods } from './heroes.js';
+import { sectorBonuses, foremanMods } from './workforce.js';
+import { livingMods } from './living.js';
+import { repMods } from './reputation.js';
+import { collectionMods } from './collection.js';
+import { talentMods } from './talents.js';
 
 const add = (o, k, v) => { if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 const merge = (o, src, mult = 1) => { for (const [k, v] of Object.entries(src || {})) add(o, k, v * mult); };
@@ -46,6 +51,18 @@ export function computeMods(state, now = Date.now()) {
     merge(m, GUILDS[state.guild.key]?.perk);
     for (const gl of GUILD_LEVELS) if (state.guild.level >= gl.lvl) merge(m, gl.mods);
   }
+  // Ouvriers, contremaîtres, saisons, réputation, collection, talents
+  merge(m, sectorBonuses(state, now));
+  merge(m, foremanMods(state, now));
+  merge(m, livingMods(state, now));
+  merge(m, repMods(state));
+  merge(m, collectionMods(state));
+  merge(m, talentMods(state));
+  // Traités
+  for (const f of state.factions || []) {
+    if (f.stance === 'trade' || f.stance === 'alliance') { add(m, 'market.fee', -0.02); add(m, 'caravan.gain', 0.05); }
+  }
+  if ((state.automation?.level || 0) >= 6) add(m, 'chain.efficiency', 0.15);
   return m;
 }
 

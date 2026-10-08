@@ -35,6 +35,7 @@ export function recruit(state, heroId, now = Date.now()) {
   if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   state.tavern.candidates = state.tavern.candidates.filter((h) => h.id !== heroId);
   state.heroes.push(c);
+  state.meta.heroClassesSeen = [...new Set([...(state.meta.heroClassesSeen || []), c.cls])];
   log(state, 'good', `🍺 ${c.name} rejoint votre cour.`, now);
   return { ok: true };
 }

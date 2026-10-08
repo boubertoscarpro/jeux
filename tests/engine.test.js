@@ -12,6 +12,7 @@ import { simulateBattle } from '../src/systems/combat.js';
 import { sendMarch, resolvePending } from '../src/systems/marches.js';
 import { poiAt } from '../src/systems/world.js';
 import { POI_TYPES } from '../src/data/world.js';
+import { EXPLORE_EVENTS } from '../src/data/exploration.js';
 import { train } from '../src/systems/army.js';
 import { generateItem } from '../src/systems/items.js';
 import { equipItem } from '../src/systems/tavern.js';
@@ -129,7 +130,7 @@ test('exploration avec choix', () => {
   const s = fresh();
   let tries = 0;
   // Explore jusqu'à obtenir une décision
-  while (!s.pending.length && tries++ < 40) {
+  while (!s.pending.some((p) => p.kind === 'explore') && tries++ < 40) {
     s.army.scout = 5;
     const x = s.world.capital.x + 7 + (tries % 5), y = s.world.capital.y - 7 + Math.floor(tries / 5);
     const r = sendMarch(s, { type: 'explore', x, y, units: { scout: 1 } }, s.meta.lastTick);
@@ -138,11 +139,12 @@ test('exploration avec choix', () => {
   }
   assert.ok(s.pending.length > 0, 'un événement à choix est apparu');
   assert.ok(s.stats.explored > 0);
-  const p = s.pending[0];
-  const res = resolvePending(s, p.id, 2, s.meta.lastTick);
+  const p = s.pending.find((x) => x.kind === 'explore');
+  const idx = EXPLORE_EVENTS[p.event].choices.findIndex((c) => !c.cost);
+  const res = resolvePending(s, p.id, idx, s.meta.lastTick);
   assert.equal(res.ok, true, res.reason);
   advance(s, s.meta.lastTick + 3600 * 1000);
-  assert.equal(s.pending.length, 0);
+  assert.equal(s.pending.filter((x) => x.kind === 'explore').length, 0);
   rng.setSource(null);
 });
 

@@ -76,13 +76,16 @@ export function spawnPoi(world, type, x, y, opts = {}) {
 }
 
 // Régénération des sites (appelée périodiquement)
-export function worldUpkeep(state, dtSec, now) {
+export function worldUpkeep(state, dtSec, now, mods = null) {
   const world = state.world;
   for (const poi of Object.values(world.pois)) {
     const def = POI_TYPES[poi.type];
     if (!def) continue;
-    if (def.kind === 'gather' && poi.amount < poi.max && !poi.depleting) {
-      poi.amount = Math.min(poi.max, poi.amount + (def.regen * dtSec) / 3600);
+    if (def.kind === 'gather') {
+      // Épuisement des sols : un site surexploité se régénère moins vite ; la jachère le restaure
+      const ex = poi.exhaust || 0;
+      if (poi.amount < poi.max && !poi.depleting) poi.amount = Math.min(poi.max, poi.amount + (def.regen * dtSec * (1 + (mods?.['node.regen'] || 0))) / 3600 / (1 + ex));
+      if (ex > 0) poi.exhaust = Math.max(0, ex - (dtSec / 3600) * 0.08);
     }
     if (def.kind === 'danger' && poi.clearedUntil && poi.clearedUntil <= now) {
       poi.clearedUntil = 0;

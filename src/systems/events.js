@@ -8,13 +8,15 @@ import { thLevel } from './city.js';
 import { computeMods } from './modifiers.js';
 import { gain } from './economy.js';
 import { createUniqueItem, generateItem } from './items.js';
+import { grantArtifact } from './collection.js';
 import { spawnPoi, findFreeTile, reveal, poiAt, key, distCap } from './world.js';
 import { spawnMerchant } from './market.js';
 import { log, toast } from './log.js';
+import { calendar, chronicle } from './chronicle.js';
 
 export function changeWeather(state, now) {
   const forced = state.events.find((e) => e.end > now && WORLD_EVENTS[e.key]?.weather);
-  const type = forced ? WORLD_EVENTS[forced.key].weather : rng.weighted(WEATHER_CYCLE);
+  const type = forced ? WORLD_EVENTS[forced.key].weather : rng.weighted(calendar(state, now).season.weather || WEATHER_CYCLE);
   const dur = rng.int(WEATHER_DURATION[0], WEATHER_DURATION[1]) * 1000;
   const changed = state.weather.type !== type;
   state.weather = { type, until: now + dur };
@@ -115,6 +117,9 @@ function bossTick(state, dtSec, now) {
       const reward = Object.fromEntries(Object.entries(def.reward).map(([r, v]) => [r, Math.round(v * k)]));
       gain(state, reward, mods);
       state.stats.bossKills++;
+      (state.bossTrophies ||= {})[b.key] = now;
+      chronicle(state, `${def.name} tombe sous les coups des seigneurs ; ${state.meta.kingdomName} y prend ${(share * 100).toFixed(1)}% de part.`, now);
+      if (share >= 0.1 && rng.chance(0.25)) grantArtifact(state, 'emberHorn', now, def.name);
       state.season.points += SEASON.points.boss;
       let extra = '';
       if (share >= 0.08 || rng.chance(share * 5)) {

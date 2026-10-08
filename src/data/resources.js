@@ -18,6 +18,10 @@ export const RESOURCES = {
   rareOre:     { name: 'Minerai rare',  icon: '☄️', cat: 'rare',     price: 40,   uses: 'Équipements légendaires, bâtiments spéciaux, ascension des héros' },
   ancientWood: { name: 'Bois ancien',   icon: '🌳', cat: 'rare',     price: 22,   uses: 'Arcs d’élite, trébuchets, bâtiments uniques' },
 
+  planks:      { name: 'Planches',      icon: '🪚', cat: 'advanced', price: 2.2,  uses: 'Charpente, armes, caravanes, bâtiments avancés' },
+  frames:      { name: 'Charpente',     icon: '🏗️', cat: 'advanced', price: 9,    uses: 'Machines de siège, automatisation, grands bâtiments' },
+  weapons:     { name: 'Armes',         icon: '⚔️', cat: 'advanced', price: 14,   uses: 'Troupes d’élite (soldats lourds, chevaliers, arbalétriers…)' },
+  rations:     { name: 'Rations',       icon: '🥫', cat: 'advanced', price: 5,    uses: 'Ravitaillement des expéditions et des armées (+moral, +rendement)' },
   grain:       { name: 'Blé',           icon: '🌾', cat: 'inter',    price: 0.6,  uses: 'Moulin → farine' },
   flour:       { name: 'Farine',        icon: '🥣', cat: 'inter',    price: 1.5,  uses: 'Boulangerie → pain' },
   bread:       { name: 'Pain',          icon: '🍞', cat: 'inter',    price: 3.0,  uses: 'Ravitaillement des armées (+moral au combat)' },

@@ -155,6 +155,45 @@ export const BUILDINGS = {
     maxCount: (th) => 1 + Math.floor(th / 6),
   },
 
+  carpentry: {
+    name: 'Menuiserie', icon: '🪚', cat: 'industry', maxLevel: 20, req: { townhall: 3 },
+    desc: 'Chaîne configurable : bois → planches, ou planches + fer → charpente. +10% près d’une scierie.',
+    cost: { wood: 200, stone: 100 }, time: 30,
+    recipes: [
+      { name: 'Planches', in: { wood: 40 }, out: { planks: 22 } },
+      { name: 'Charpente', in: { planks: 24, iron: 6 }, out: { frames: 5 } },
+    ],
+    adj: [{ near: 'sawmill', bonus: 0.1 }],
+    maxCount: (th) => 1 + Math.floor(th / 5),
+  },
+  armory: {
+    name: 'Armurerie', icon: '🗡️', cat: 'industry', maxLevel: 20, req: { townhall: 5 },
+    desc: 'Acier + planches → armes (troupes d’élite). +10% près d’une forge ou d’une fonderie.',
+    cost: { wood: 300, stone: 300, iron: 200 }, time: 75,
+    recipes: [
+      { name: 'Armes', in: { steel: 6, planks: 4 }, out: { weapons: 4 } },
+      { name: 'Armes de chasse', in: { planks: 8, leather: 3 }, out: { weapons: 3 } },
+    ],
+    adj: [{ near: 'forge', bonus: 0.1 }, { near: 'foundry', bonus: 0.1 }],
+    maxCount: (th) => 1 + Math.floor(th / 8),
+  },
+  quartermaster: {
+    name: 'Intendance militaire', icon: '🥫', cat: 'industry', maxLevel: 20, req: { townhall: 4 },
+    desc: 'Pain + nourriture → rations (expéditions et armées). +10% près d’une boulangerie.',
+    cost: { wood: 250, stone: 200, gold: 100 }, time: 50,
+    recipes: [
+      { name: 'Rations', in: { bread: 10, food: 20 }, out: { rations: 12 } },
+      { name: 'Salaisons', in: { food: 50, hides: 4 }, out: { rations: 9 } },
+    ],
+    adj: [{ near: 'bakery', bonus: 0.1 }],
+    maxCount: (th) => 1 + Math.floor(th / 8),
+  },
+  road: {
+    name: 'Route pavée', icon: '🟫', cat: 'core', maxLevel: 1,
+    desc: 'Les bâtiments voisins d’une route reliée à l’hôtel de ville gagnent +5% (logistique).',
+    cost: { stone: 20, wood: 5 }, time: 2,
+    maxCount: (th) => 8 + th * 4,
+  },
   warehouse: {
     name: 'Entrepôt', icon: '📦', cat: 'core', maxLevel: 25,
     desc: 'Augmente la capacité de stockage et protège une partie des ressources des pillages.',

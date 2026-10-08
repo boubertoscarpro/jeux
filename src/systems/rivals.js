@@ -10,6 +10,10 @@ import { armyTotals } from './economy.js';
 import { ENEMY_UNITS } from '../data/units.js';
 import { protectedAmount, gain } from './economy.js';
 import { log, toast } from './log.js';
+import { raidWillingness, allyReinforcements, changeRelation } from './factions.js';
+import { UNITS } from '../data/units.js';
+import { bumpRep, recordMax } from './reputation.js';
+import { chronicle } from './chronicle.js';
 
 export const PROTECTION_TH = 4;
 
@@ -64,10 +68,10 @@ export function rivalTick(state, now) {
   }
   if (thLevel(state) < PROTECTION_TH) return;
   if (state.raids.length || (state.raidCooldown || 0) > now) return;
-  const candidates = kingdoms(state).filter((p) => RIVALS[p.rival]?.style !== 'defensive' || (p.anger || 0) > 0);
+  const candidates = kingdoms(state).filter((p) => raidWillingness(state, p.rival) > 0 || (p.anger || 0) > 0);
   if (!candidates.length) return;
   const p = rng.pick(candidates);
-  const chance = 0.06 + (p.anger || 0) * 0.06;
+  const chance = raidWillingness(state, p.rival) + (p.anger || 0) * 0.06;
   if (!rng.chance(chance)) return;
   const mods = computeMods(state, now);
   const army = raidArmy(state, p, now);
@@ -84,8 +88,11 @@ export function resolveRaid(state, raid, t) {
   const fort = (mods['wall.bonus'] || 0) * (1 + (mods['wall.pct'] || 0));
   const defenders = { ...state.army };
   delete defenders.scout;
+  delete defenders.spy;
   const scouts = state.army.scout || 0;
   if (mods.militia) defenders.militia = 10 + thLevel(state) * 5;
+  const allies = allyReinforcements(state);
+  if (allies) for (const [u, n] of Object.entries(allies)) defenders[u] = (defenders[u] || 0) + n;
   const def = Object.keys(defenders).length && Object.values(defenders).some((n) => n > 0) ? defenders : { militia: 5 };
   const res = simulateBattle(
     { units: raid.army, mods: { 'combat.atk': 0.05 }, formation: 'assault', label: raid.name },
@@ -94,12 +101,16 @@ export function resolveRaid(state, raid, t) {
   );
   // Pertes de la garnison
   const newArmy = { scout: scouts };
-  for (const [u, n] of Object.entries(res.defRemaining)) if (u !== 'militia') newArmy[u] = n;
+  for (const [u, n] of Object.entries(res.defRemaining)) if (UNITS[u] && u !== 'scout') newArmy[u] = n;
+  for (const u of ['spy']) if (state.army[u]) newArmy[u] = state.army[u];
   state.army = newArmy;
   const win = res.winner === 'defender';
   let text;
   if (win) {
     state.stats.raidsRepelled++;
+    bumpRep(state, 'warrior', 5);
+    changeRelation(state, raid.rival, 3);
+    if (allies) chronicle(state, `Avec l’aide de leurs alliés, les défenseurs de ${state.meta.kingdomName} repoussent ${raid.name}.`, t);
     const bounty = { gold: 150 + thLevel(state) * 60, iron: 50 + thLevel(state) * 30 };
     gain(state, bounty, mods);
     text = `Raid de ${raid.name} repoussé ! Butin des vaincus : ${bounty.gold} or, ${bounty.iron} fer.`;

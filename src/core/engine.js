@@ -12,6 +12,13 @@ import { simulateGuild } from '../systems/guild.js';
 import { rivalTick, resolveRaid } from '../systems/rivals.js';
 import { giveXp } from '../systems/heroes.js';
 import { log } from '../systems/log.js';
+import { processExpedition, expNextTime } from '../systems/expeditions.js';
+import { workforceTick } from '../systems/workforce.js';
+import { automationTick } from '../systems/automation.js';
+import { livingTick } from '../systems/living.js';
+import { decisionsTick } from '../systems/decisions.js';
+import { factionsTick, treatiesTick, enemySpyTick } from '../systems/factions.js';
+import { contractsTick } from '../systems/market.js';
 import { bus } from './bus.js';
 
 export const MAX_OFFLINE_MS = 12 * 3600 * 1000;
@@ -24,6 +31,7 @@ function nextEventTime(state) {
   for (const m of state.marches) t = Math.min(t, marchNextTime(m));
   for (const c of state.caravans) t = Math.min(t, c.end);
   for (const r of state.raids) t = Math.min(t, r.arrive);
+  for (const e of state.expeditions || []) t = Math.min(t, expNextTime(e));
   t = Math.min(t, state.meta.nextWorldTick, state.nextRivalTick);
   return t;
 }
@@ -41,6 +49,7 @@ function processDue(state, t) {
     if (marchNextTime(m) <= t) { processMarch(state, m, t); changed = true; }
   }
   for (const c of [...state.caravans]) if (c.end <= t) { completeCaravan(state, c, c.end); changed = true; }
+  for (const e of [...(state.expeditions || [])]) if (expNextTime(e) <= t) { processExpedition(state, e, t); changed = true; }
   for (const r of [...state.raids]) if (r.arrive <= t) {
     state.raids = state.raids.filter((x) => x.id !== r.id);
     resolveRaid(state, r, r.arrive);
@@ -48,16 +57,24 @@ function processDue(state, t) {
   }
   if (state.meta.nextWorldTick <= t) {
     const dt = WORLD_STEP / 1000;
-    worldUpkeep(state, dt, t);
+    const mods = computeMods(state, t);
+    worldUpkeep(state, dt, t, mods);
     worldEventsTick(state, dt, t);
+    livingTick(state, dt, t);
     marketTick(state, t);
     simulateGuild(state, dt, t);
-    const mods = computeMods(state, t);
+    workforceTick(state, dt, t, mods);
+    automationTick(state, t);
+    decisionsTick(state, t);
+    contractsTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;
     changed = true;
   }
   if (state.nextRivalTick <= t) {
+    factionsTick(state, t);
+    treatiesTick(state, t);
+    enemySpyTick(state, t);
     rivalTick(state, t);
     state.nextRivalTick = t + RIVAL_STEP;
   }

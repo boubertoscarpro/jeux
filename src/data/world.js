@@ -40,12 +40,14 @@ export const POI_TYPES = {
                  loot: { gold: 800, silver: 15 }, rare: { gems: [1, 4] }, item: 0.5, respawn: 7200 },
   monsterLair: { name: 'Repaire de bêtes', icon: '🐺', kind: 'danger', terrain: ['forest', 'swamp', 'hills'], danger: [1, 4], enemies: { wolf: 8, spider: 3, troll: 0.2 },
                  loot: { food: 800, hides: 300, leather: 40 }, item: 0.15, respawn: 5400 },
-  dungeon:     { name: 'Donjon des Profondeurs', icon: '🏚️', kind: 'danger', terrain: ['mountain', 'ruins', 'ash'], danger: [4, 6], enemies: { skeleton: 10, wraith: 6, golem: 2, troll: 1 },
+  dungeon:     { name: 'Donjon des Profondeurs', icon: '🏚️', kind: 'danger', dungeon: true, terrain: ['mountain', 'ruins', 'ash'], danger: [4, 6], enemies: { skeleton: 10, wraith: 6, golem: 2, troll: 1 },
                  loot: { gold: 3000, steel: 150, silver: 40 }, rare: { rareOre: [5, 12], crystals: [3, 8] }, item: 1, itemMin: 'epic', respawn: 14400 },
   ruinSite:    { name: 'Ruines de l’Aube', icon: '🏛️', kind: 'danger', terrain: ['ruins', 'ash'], danger: [1, 3], enemies: { skeleton: 4, golem: 0.5 },
                  loot: { stone: 1500, gold: 400 }, rare: { crystals: [1, 3] }, item: 0.35, respawn: 5400 },
 
   // --- Autres ---
+  lostCity:    { name: 'Cité perdue de l’Aube', icon: '🏯', kind: 'danger', terrain: [], danger: [6, 6], enemies: { golem: 4, wraith: 8, skeleton: 14 },
+                 loot: { gold: 8000, silver: 80, stone: 5000 }, rare: { crystals: [10, 20], rareOre: [10, 20] }, item: 1, itemMin: 'legendary', respawn: 86400, dungeon: true },
   village:     { name: 'Village abandonné', icon: '🏚️', kind: 'village', terrain: ['plain', 'forest', 'hills'] },
   town:        { name: 'Cité libre', icon: '🏘️', kind: 'town', terrain: ['plain', 'river', 'hills'] },
   kingdom:     { name: 'Royaume rival', icon: '🏯', kind: 'kingdom', terrain: ['plain', 'hills', 'forest'] },
@@ -60,12 +62,26 @@ POI_TYPES.ironNodeRich = { name: 'Mine reconquise', icon: '⚒️', kind: 'gathe
 export const TOWN_NAMES = ['Valbrume', 'Port-Ardoise', 'Sainte-Gemme', 'Hautegarde', 'Mirecourt', 'Bourg-aux-Saules'];
 // Royaumes rivaux (IA)
 export const RIVALS = [
-  { name: 'Baronnie de Corbeval', lord: 'Baron Mordain', style: 'raider', icon: '🦅' },
-  { name: 'Comté d’Ombrelune', lord: 'Comtesse Isolde', style: 'defensive', icon: '🌙' },
-  { name: 'Clan des Crocs-Gris', lord: 'Ragnulf le Gris', style: 'raider', icon: '🐺' },
-  { name: 'Principauté de Valdor', lord: 'Prince Aurèle', style: 'balanced', icon: '🦁' },
-  { name: 'Ordre de la Cendre', lord: 'Grand Maître Cassien', style: 'defensive', icon: '🔥' },
+  { name: 'Baronnie de Corbeval', lord: 'Baron Mordain', style: 'raider', personality: 'aggressive', icon: '🦅', color: '#c0392b' },
+  { name: 'Comté d’Ombrelune', lord: 'Comtesse Isolde', style: 'defensive', personality: 'isolationist', icon: '🌙', color: '#5d6d9e' },
+  { name: 'Clan des Crocs-Gris', lord: 'Ragnulf le Gris', style: 'raider', personality: 'military', icon: '🐺', color: '#7f8c8d' },
+  { name: 'Principauté de Valdor', lord: 'Prince Aurèle', style: 'balanced', personality: 'commercial', icon: '🦁', color: '#d4a017' },
+  { name: 'Ordre de la Cendre', lord: 'Grand Maître Cassien', style: 'defensive', personality: 'technological', icon: '🔥', color: '#8e44ad' },
 ];
+
+// Personnalités des factions IA
+export const PERSONALITIES = {
+  commercial:    { name: 'Commerciale', icon: '💰', desc: 'Cherche à s’enrichir. Apprécie les marchands, accepte volontiers les pactes commerciaux.', eco: 2.0, mil: 0.7, tech: 1.0, expand: 0.08, base: 15, likes: { merchant: 0.06, diplomat: 0.04 }, dislikes: { tyrant: 0.05 }, raid: 0 },
+  military:      { name: 'Militaire', icon: '⚔️', desc: 'Cherche à conquérir. Respecte la force, méprise la faiblesse.', eco: 1.0, mil: 1.7, tech: 0.8, expand: 0.25, base: -5, likes: { warrior: 0.05 }, dislikes: { merchant: 0.01 }, raid: 0.5 },
+  isolationist:  { name: 'Isolationniste', icon: '🏯', desc: 'Défend son territoire. N’aime ni les guerriers ni les tyrans, mais n’attaque presque jamais.', eco: 1.1, mil: 1.2, tech: 1.0, expand: 0.04, base: 0, likes: { diplomat: 0.03, benefactor: 0.03 }, dislikes: { warrior: 0.03, tyrant: 0.06 }, raid: 0 },
+  aggressive:    { name: 'Agressive', icon: '🩸', desc: 'Attaque régulièrement ses voisins, surtout les plus faibles. Craint les tyrans.', eco: 1.0, mil: 1.4, tech: 0.7, expand: 0.2, base: -25, likes: { tyrant: 0.03 }, dislikes: { benefactor: 0.01 }, raid: 1 },
+  technological: { name: 'Technologique', icon: '🔬', desc: 'Accumule le savoir ancien. Ses espions sont redoutables ; apprécie les explorateurs.', eco: 1.2, mil: 0.9, tech: 2.2, expand: 0.06, base: 5, likes: { explorer: 0.05, diplomat: 0.03 }, dislikes: { tyrant: 0.03 }, raid: 0.2 },
+};
+
+export const STANCES = {
+  neutral: { name: 'Neutre', icon: '⚪' }, war: { name: 'En guerre', icon: '⚔️' }, truce: { name: 'Trêve', icon: '🏳️' },
+  trade: { name: 'Pacte commercial', icon: '🤝' }, alliance: { name: 'Alliance', icon: '🛡️' }, tributary: { name: 'Vous paie tribut', icon: '💰' },
+};
 
 // Boss mondiaux
 export const BOSSES = {

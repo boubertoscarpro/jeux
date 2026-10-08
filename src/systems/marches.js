@@ -19,6 +19,9 @@ import { makeEnemies } from './worldgen.js';
 import { maxHeroes } from './tavern.js';
 import { guildProgress } from './guild.js';
 import { rivalGarrison, onRivalDefeated } from './rivals.js';
+import { runDungeon } from './dungeons.js';
+import { recordMax, bumpRep } from './reputation.js';
+import { changeRelation, diplomacy } from './factions.js';
 
 export const MARCH_TYPES = {
   gather: { name: 'Récolte', icon: '🧺' },
@@ -26,6 +29,7 @@ export const MARCH_TYPES = {
   attack: { name: 'Attaque', icon: '⚔️' },
   scout: { name: 'Espionnage', icon: '👁️' },
   boss: { name: 'Assaut du boss', icon: '🐉' },
+  dungeon: { name: 'Expédition de donjon', icon: '🏚️' },
 };
 
 export const maxMarches = (mods) => 2 + (mods.marches || 0);
@@ -88,6 +92,8 @@ export function planMarch(state, opts, now = Date.now()) {
   } else if (type === 'attack') {
     if (!poi || !['danger', 'kingdom'].includes(def.kind)) return fail('Rien à attaquer ici');
     if (poi.clearedUntil > now) return fail('Site déjà nettoyé (réapparition plus tard)');
+  } else if (type === 'dungeon') {
+    if (!poi || !def.dungeon) return fail('Pas de donjon ici');
   } else if (type === 'boss') {
     if (!state.boss || state.boss.x !== x || state.boss.y !== y || state.boss.hp <= 0) return fail('Pas de boss ici');
   }
@@ -105,7 +111,7 @@ export function sendMarch(state, opts, now = Date.now()) {
   const m = {
     id: uid('m'), type: opts.type, x: opts.x, y: opts.y, units, heroId: opts.heroId || null,
     formation: opts.formation || 'balanced', supply: !!opts.supply, potion: opts.potion || null,
-    phase: 'out', start: now, arrive: now + travel, travel, loot: {}, items: [], log: [],
+    phase: 'out', start: now, arrive: now + travel, travel, loot: {}, items: [], log: [], retreat: opts.retreat ?? 0.5,
   };
   if (m.heroId) state.heroes.find((h) => h.id === m.heroId).marchId = m.id;
   state.marches.push(m);
@@ -229,6 +235,15 @@ function arrive(state, m, t) {
   if (m.type === 'gather') return arriveGather(state, m, t, mods, poi, hero);
   if (m.type === 'attack') return arriveAttack(state, m, t, mods, poi);
   if (m.type === 'boss') return arriveBoss(state, m, t, mods);
+  if (m.type === 'dungeon') {
+    const rep = runDungeon(state, m, poi, mods, t);
+    const hero = heroOf(state, m);
+    if (hero) giveXp(state, hero, 60 + rep.cleared * 25, mods);
+    addReport(state, { t, kind: 'battle', title: `Donjon niv. ${rep.level} — ${rep.done ? 'purgé' : `${rep.cleared}/${rep.total} salles`}`, x: m.x, y: m.y, win: rep.done, text: rep.lines.join(' '), loot: { ...m.loot } });
+    log(state, rep.done ? 'good' : 'combat', `🏚️ Donjon (${m.x}, ${m.y}) : ${rep.cleared}/${rep.total} salles franchies.${rep.done ? ' Donjon purgé !' : ''}`, t);
+    if (!unitCount(m.units)) return homecoming(state, m, t, true);
+    return goBack(m, t);
+  }
   goBack(m, t);
 }
 
@@ -298,6 +313,8 @@ function arriveAttack(state, m, t, mods, poi) {
   let enemies = poi.enemies || {};
   let fort = 0;
   if (def.kind === 'kingdom') {
+    const f = state.factions?.[poi.rival];
+    if (f && f.stance !== 'war') { diplomacy(state, poi.rival, 'war', t); log(state, 'bad', `⚔️ Votre attaque contre ${poi.name} est un acte de guerre.`, t); }
     if (!poi.garrison) poi.garrison = rivalGarrison(state, poi, t);
     enemies = poi.garrison;
     fort = poi.wall || 0;
@@ -334,6 +351,11 @@ function arriveAttack(state, m, t, mods, poi) {
       if (poi.temp) delete state.world.pois[key(poi.x, poi.y)];
     }
     const { got, limited } = lootWithCarry(state, m, baseLoot, mods);
+    bumpRep(state, 'warrior', def.kind === 'kingdom' ? 6 : 1 + Math.floor(poi.danger / 2));
+    if (def.kind === 'kingdom') { bumpRep(state, 'tyrant', 3); changeRelation(state, poi.rival, -10); }
+    recordMax(state, 'biggestLoot', Object.values(got).reduce((a, b) => a + b, 0), `${def.kind === 'kingdom' ? poi.name : def.name} (${Object.values(got).reduce((a, b) => a + b, 0)} ressources)`, t);
+    recordMax(state, 'biggestVictory', Object.values(res.defLosses).reduce((a, b) => a + b, 0), `${Object.values(res.defLosses).reduce((a, b) => a + b, 0)} ennemis — ${def.kind === 'kingdom' ? poi.name : def.name}`, t);
+    state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + Object.values(res.defLosses).reduce((a, b) => a + b, 0);
     lootText = `Butin : ${Object.entries(got).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien'}${limited ? ' (limité par la capacité de transport)' : ''}.` + lootText;
     log(state, 'good', `⚔️ Victoire contre ${def.kind === 'kingdom' ? poi.name : def.name} ! ${lootText}`, t);
   } else {
@@ -372,6 +394,7 @@ function arriveExplore(state, m, t, mods, hero) {
   const radius = 1.5 + (mods['explore.radius'] || 0);
   const found = reveal(world, m.x, m.y, radius);
   state.stats.explored++;
+  bumpRep(state, 'explorer', 1);
   state.season.points += SEASON.points.explore;
   if (hero) giveXp(state, hero, 30, mods);
   const discoveries = found.filter((p) => p.type !== 'capital').map((p) => POI_TYPES[p.type].name);
@@ -395,7 +418,7 @@ function arriveExplore(state, m, t, mods, hero) {
   const ev = EXPLORE_EVENTS[evKey];
   if (ev.choices) {
     m.phase = 'wait';
-    state.pending.push({ id: uid('pd'), marchId: m.id, event: evKey, x: m.x, y: m.y, t, head });
+    state.pending.push({ id: uid('pd'), kind: 'explore', marchId: m.id, event: evKey, x: m.x, y: m.y, t, head });
     log(state, 'explore', `${head} ${ev.title} : une décision vous attend !`, t);
     toast(`🧭 ${ev.title} — une décision vous attend`, 'event');
     return;
@@ -410,7 +433,7 @@ function arriveExplore(state, m, t, mods, hero) {
 
 export function resolvePending(state, pid, choiceIdx, now = Date.now()) {
   const p = state.pending.find((x) => x.id === pid);
-  if (!p) return { ok: false, reason: 'Introuvable' };
+  if (!p || (p.kind && p.kind !== 'explore')) return { ok: false, reason: 'Introuvable' };
   const m = state.marches.find((x) => x.id === p.marchId);
   const ev = EXPLORE_EVENTS[p.event];
   const choice = ev.choices[choiceIdx];
