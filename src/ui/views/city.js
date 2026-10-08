@@ -167,7 +167,7 @@ export default {
     } else {
       panel = `<h3>Votre royaume</h3><p class="muted">Cliquez sur une case : décombres à déblayer, terrain libre pour construire, ou bâtiment pour l’améliorer.</p>
         <p class="small">💡 Le <b>placement compte</b> : une ferme au bord de la rivière produit +10%, une mine près des montagnes +15%, une caserne près de l’hôtel de ville forme plus vite…</p>
-        <h4>Placement rapide</h4><div class="quick-place">${['farm', 'sawmill', 'quarry', 'mine', 'house', 'mill', 'fishery', 'hunter'].map((t) => `<button class="mini" data-action="place-mode" data-type="${t}" title="${esc(BUILDINGS[t].name)}">${BUILDINGS[t].icon} ${esc(BUILDINGS[t].name)}</button>`).join('')}</div>`;
+        <p class="small">Utilisez la barre <b>Construire</b> au-dessus de la ville : chaque case affiche alors le bonus qu’y obtiendrait le bâtiment.</p>`;
     }
     const net = netRates(s, mods);
     const cap = storageCap(s, mods);
@@ -175,6 +175,10 @@ export default {
     for (let y = 0; y < s.city.h; y++) for (let x = 0; x < s.city.w; x++) grid += tileHtml(app, x, y, mods);
     return `<div class="city-layout">
       <div class="city-main">
+        <div class="build-bar card"><span class="muted small">Construire :</span>${Object.entries(BUILDINGS).filter(([, d]) => d.grid !== false && d.cat !== 'unique').map(([t, d]) => {
+          const req = buildRequirement(s, t);
+          return `<button class="bb-btn ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? 'disabled' : ''} title="${esc(d.name)}${req ? ' — ' + esc(req) : ' — ' + esc(d.desc)}">${d.icon}</button>`;
+        }).join('')}${app.ui.citySel || app.ui.placeType || app.ui.moveId ? '<button class="mini ghost" data-action="cancel-mode">✕ Annuler</button>' : ''}</div>
         <div class="city-grid ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div>
         <div class="card"><h3>🧱 Fortifications</h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
         <div class="card"><h3>📊 Bilan horaire</h3><div class="net-grid">${Object.entries(net).filter(([, v]) => Math.abs(v) > 0.05).sort((a, b) => b[1] - a[1]).map(([r, v]) => `<div class="net ${v < 0 ? 'neg' : ''}">${RESOURCES[r].icon} ${esc(RESOURCES[r].name)} <b>${v > 0 ? '+' : ''}${fmt(v)}</b></div>`).join('')}</div>
@@ -209,7 +213,7 @@ export default {
     clear: (app, el) => app.act(() => startClear(app.state, +el.dataset.x, +el.dataset.y), 'Déblaiement lancé'),
     move: (app, el) => { app.ui.moveId = el.dataset.id; app.ui.placeType = null; app.render(); },
     'place-mode': (app, el) => { app.ui.placeType = el.dataset.type; app.ui.moveId = null; app.render(); },
-    'cancel-mode': (app) => { app.ui.moveId = null; app.ui.placeType = null; app.render(); },
+    'cancel-mode': (app) => { app.ui.moveId = null; app.ui.placeType = null; app.ui.citySel = null; app.render(); },
     demolish: (app, el) => {
       if (!confirm('Démolir ce bâtiment ? Aucun remboursement.')) return;
       app.act(() => demolish(app.state, el.dataset.id), 'Bâtiment démoli');

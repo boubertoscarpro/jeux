@@ -187,6 +187,11 @@ select { max-width: 100%; }
 .net b { margin-left: auto; color: var(--good); }
 .net.neg b { color: var(--bad); }
 .quick-place { display: flex; flex-wrap: wrap; gap: 6px; }
+.build-bar { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 8px 10px; margin-bottom: 10px; }
+.bb-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg2); font-size: 18px; font-family: var(--emoji); cursor: pointer; padding: 0; }
+.bb-btn:hover:not(:disabled) { border-color: var(--gold); transform: translateY(-1px); }
+.bb-btn.active { border-color: var(--gold); background: rgba(226, 184, 74, 0.2); }
+.bb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ---------- Carte ---------- */
 .world-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; height: calc(100vh - 110px); min-height: 480px; }

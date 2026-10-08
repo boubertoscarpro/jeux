@@ -3,7 +3,7 @@ import { advance } from '../core/engine.js';
 import { saveGame } from '../core/save.js';
 import { fmtTime } from '../core/util.js';
 import { renderTopbar, renderSide, sideActions } from './hud.js';
-import { esc } from './components.js';
+import { esc, resChips } from './components.js';
 import cityView from './views/city.js';
 import worldView from './views/world.js';
 import heroesView from './views/heroes.js';
@@ -37,12 +37,27 @@ export class App {
     this.bindEvents();
     bus.on('changed', () => { this.dirty = true; });
     bus.on('toast', ({ text, type }) => this.toast(text, type));
+    const away = Date.now() - (this.state.meta.lastTick || Date.now());
+    const before = { ...this.state.resources };
+    const logBefore = this.state.log.length;
     advance(this.state, Date.now());
     this.render();
+    if (away > 2 * 60 * 1000) this.absenceReport(away, before, logBefore);
     this.timer = setInterval(() => this.tick(), 1000);
     this.saveTimer = setInterval(() => this.save(), 15000);
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.save(); else this.tick(); });
     window.addEventListener('beforeunload', () => this.save());
+  }
+
+  absenceReport(away, before, logBefore) {
+    const s = this.state;
+    const diff = {};
+    for (const [r, v] of Object.entries(s.resources)) { const d = v - (before[r] || 0); if (Math.abs(d) >= 1) diff[r] = Math.round(d); }
+    const events = s.log.slice(0, Math.max(0, Math.min(12, s.log.length - logBefore)));
+    this.modal(`<h2>🌅 De retour, seigneur !</h2><p class="muted">Vous étiez absent ${fmtTime(away)}${away > 12 * 3600 * 1000 ? ' (12 h simulées au maximum)' : ''}.</p>
+      <h4>Ressources</h4><div class="chips">${resChips(diff, true) || '<span class="muted small">Aucun changement.</span>'}</div>
+      ${events.length ? `<h4>Pendant ce temps…</h4><div class="log">${events.map((l) => `<div class="log-line small">${esc(l.text)}</div>`).join('')}</div>` : ''}
+      <button class="btn primary" data-action="close-modal">Au travail !</button>`);
   }
 
   save() { if (this.state) saveGame(this.state); }
