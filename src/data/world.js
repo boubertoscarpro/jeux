@@ -21,15 +21,15 @@ export const POI_TYPES = {
   // --- Sites de récolte ---
   woodNode:    { name: 'Bois dense', icon: '🌲', kind: 'gather', terrain: ['forest'], res: 'wood', amount: [1500, 4000], regen: 600, danger: [0, 1] },
   stoneNode:   { name: 'Affleurement rocheux', icon: '🪨', kind: 'gather', terrain: ['hills', 'mountain'], res: 'stone', amount: [1500, 4000], regen: 500, danger: [0, 1] },
-  ironNode:    { name: 'Filon de fer', icon: '⛓️', kind: 'gather', terrain: ['hills', 'mountain'], res: 'iron', amount: [800, 2500], regen: 250, danger: [0, 2] },
+  ironNode:    { name: 'Filon de fer', icon: '⛓️', kind: 'gather', terrain: ['hills', 'mountain'], res: 'iron', amount: [800, 2500], regen: 250, hardness: 1.3, danger: [0, 2] },
   foodNode:    { name: 'Terrain de chasse', icon: '🦌', kind: 'gather', terrain: ['plain', 'forest'], res: 'food', amount: [1500, 3500], regen: 600, danger: [0, 1], bonus: { hides: 0.15 } },
-  herbNode:    { name: 'Prairie d’herbes', icon: '🌿', kind: 'gather', terrain: ['plain', 'swamp', 'forest'], res: 'herbs', amount: [300, 900], regen: 120, danger: [0, 2] },
-  coalNode:    { name: 'Veine de charbon', icon: '🌑', kind: 'gather', terrain: ['hills', 'snow'], res: 'coal', amount: [400, 1200], regen: 120, danger: [1, 2] },
-  silverNode:  { name: 'Veine d’argent', icon: '🥈', kind: 'gather', terrain: ['mountain', 'hills'], res: 'silver', amount: [60, 200], regen: 15, danger: [1, 3], bonus: { gems: 0.05 } },
-  crystalNode: { name: 'Grotte de cristaux', icon: '🔮', kind: 'gather', terrain: ['mountain', 'ash', 'ruins'], res: 'crystals', amount: [30, 100], regen: 6, danger: [2, 4], bonus: { gems: 0.1 } },
-  gemNode:     { name: 'Gisement de gemmes', icon: '💎', kind: 'gather', terrain: ['mountain'], res: 'gems', amount: [40, 120], regen: 8, danger: [2, 4] },
-  ancientGrove:{ name: 'Bosquet ancien', icon: '🌳', kind: 'gather', terrain: ['forest'], res: 'ancientWood', amount: [50, 150], regen: 8, danger: [2, 4] },
-  rareVein:    { name: 'Filon légendaire', icon: '☄️', kind: 'gather', terrain: ['mountain', 'ash'], res: 'rareOre', amount: [40, 120], regen: 4, danger: [3, 5], event: true },
+  herbNode:    { name: 'Prairie d’herbes', icon: '🌿', kind: 'gather', terrain: ['plain', 'swamp', 'forest'], res: 'herbs', amount: [300, 900], regen: 120, hardness: 1.5, danger: [0, 2] },
+  coalNode:    { name: 'Veine de charbon', icon: '🌑', kind: 'gather', terrain: ['hills', 'snow'], res: 'coal', amount: [400, 1200], regen: 120, hardness: 1.5, danger: [1, 2] },
+  silverNode:  { name: 'Veine d’argent', icon: '🥈', kind: 'gather', terrain: ['mountain', 'hills'], res: 'silver', amount: [40, 110], regen: 8, hardness: 3, danger: [1, 3], bonus: { gems: 0.05 } },
+  crystalNode: { name: 'Grotte de cristaux', icon: '🔮', kind: 'gather', terrain: ['mountain', 'ash', 'ruins'], res: 'crystals', amount: [15, 50], regen: 3, hardness: 5, danger: [2, 4], bonus: { gems: 0.1 } },
+  gemNode:     { name: 'Gisement de gemmes', icon: '💎', kind: 'gather', terrain: ['mountain'], res: 'gems', amount: [20, 60], regen: 4, hardness: 5, danger: [2, 4] },
+  ancientGrove:{ name: 'Bosquet ancien', icon: '🌳', kind: 'gather', terrain: ['forest'], res: 'ancientWood', amount: [30, 90], regen: 5, hardness: 4, danger: [2, 4] },
+  rareVein:    { name: 'Filon légendaire', icon: '☄️', kind: 'gather', terrain: ['mountain', 'ash'], res: 'rareOre', amount: [30, 80], regen: 3, hardness: 6, danger: [3, 5], event: true },
 
   // --- Sites dangereux ---
   banditCamp:  { name: 'Camp de bandits', icon: '⛺', kind: 'danger', terrain: ['plain', 'forest', 'hills'], danger: [1, 3], enemies: { bandit: 6, banditArcher: 3, banditRider: 1 },

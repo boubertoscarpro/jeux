@@ -102,9 +102,8 @@ function bossTick(state, dtSec, now) {
   const b = state.boss;
   if (!b) return;
   if (b.hp > 0 && b.until > now) {
-    // Les autres seigneurs du monde attaquent aussi le boss (~0,55% PV max / minute)
-    b.hp = Math.max(0, b.hp - b.maxHp * 0.0055 * (dtSec / 60) * rng.float(0.6, 1.4));
-    b.others = (b.others || 0) + b.maxHp * 0.0055 * (dtSec / 60);
+    // Les autres seigneurs du monde attaquent aussi le boss (~0,9% PV max / minute : chute en ~1 h 50)
+    b.hp = Math.max(0, b.hp - b.maxHp * 0.009 * (dtSec / 60) * rng.float(0.6, 1.4));
   }
   if (b.hp <= 0 && !b.done) {
     b.done = true;

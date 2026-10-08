@@ -39,7 +39,8 @@ export function carryCapacity(units, mods) {
 export function gatherRate(units, mods, res) {
   let g = 0;
   for (const [t, n] of Object.entries(units)) g += (UNITS[t]?.gather || 0) * n;
-  return g * (1 + (mods['gather.all'] || 0) + (mods['gather.' + res] || 0));
+  const hardness = Object.values(POI_TYPES).find((d) => d.res === res)?.hardness || 1;
+  return (g * (1 + (mods['gather.all'] || 0) + (mods['gather.' + res] || 0))) / hardness;
 }
 
 // Modificateurs d'une marche = globaux + commandant + potion

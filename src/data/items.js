@@ -85,13 +85,13 @@ export const UNIQUE_ITEMS = {
 
 // Recettes de forge par emplacement
 export const CRAFT_RECIPES = {
-  weapon: { cost: { steel: 20, wood: 40, coal: 15 }, time: 60 },
-  helmet: { cost: { steel: 12, leather: 8 }, time: 45 },
-  armor:  { cost: { steel: 18, leather: 12, cloth: 10 }, time: 75 },
-  gloves: { cost: { leather: 12, cloth: 6 }, time: 40 },
-  boots:  { cost: { leather: 14, iron: 20 }, time: 40 },
-  ring:   { cost: { silver: 4, gems: 1, gold: 120 }, time: 90 },
-  amulet: { cost: { silver: 4, crystals: 1, gold: 120 }, time: 90 },
+  weapon: { cost: { steel: 20, wood: 40, coal: 15 }, time: 240 },
+  helmet: { cost: { steel: 12, leather: 8 }, time: 180 },
+  armor:  { cost: { steel: 18, leather: 12, cloth: 10 }, time: 300 },
+  gloves: { cost: { leather: 12, cloth: 6 }, time: 160 },
+  boots:  { cost: { leather: 14, iron: 20 }, time: 160 },
+  ring:   { cost: { silver: 4, gems: 1, gold: 120 }, time: 360 },
+  amulet: { cost: { silver: 4, crystals: 1, gold: 120 }, time: 360 },
 };
 // Catalyseurs optionnels
 export const CATALYSTS = {
