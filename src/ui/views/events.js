@@ -60,7 +60,7 @@ function specialPanel(app, cur, def) {
   if (def.special?.siege) parts.push(`<div class="ev-widget"><h4>🏰 Citadelle des Anciens</h4>${bar(cur.citadel, 100, cur.citadel < 30 ? 'bad' : '')}<div class="small">Intégrité ${cur.citadel} %. Prochain assaut : ${countdown(cur.nextAssault)}. Vos participations : ${cur.stats.assaults || 0}.</div></div>`);
   if (cur.coop) {
     const p = coopProgress(cur);
-    parts.push(`<div class="ev-widget"><h4>🐉 ${esc(def.coop.name)} — boss du serveur</h4>${bar(1 - p, 1, 'bad')}<div class="small">${fmt(cur.coop.hp)} PV restants (${Math.round(p * 100)} % infligés par le serveur) · vos dégâts : ${fmt(cur.coop.mine)}</div>
+    parts.push(`<div class="ev-widget"><h4>🐉 ${esc(def.coop.name)} — boss commun</h4>${bar(1 - p, 1, 'bad')}<div class="small">${fmt(cur.coop.hp)} PV restants (${Math.round(p * 100)} % infligés au total, vous et les seigneurs rivaux IA) · vos dégâts : ${fmt(cur.coop.mine)}</div>
       <div class="ev-tiers">${def.coop.tiers.map((t, i) => { const ok = p >= t; const done = cur.coopClaimed[i]; return `<button class="mini ${ok && !done ? 'good' : ''}" data-action="ev-coop" data-i="${i}" ${!ok || done || !cur.coop.mine ? 'disabled' : ''} title="${giveText(def.coop.rewards[i], cur).replace(/<[^>]+>/g, '')}">${Math.round(t * 100)} % ${done ? '✔' : ok ? '🎁' : '🔒'}</button>`; }).join('')}</div>
       ${def.special?.tracking ? `<div class="small">Traque : ${cur.trackStep}/3 pistes suivies${cur.trackStep >= 3 ? ' — l’antre est découvert !' : ''}</div>` : ''}</div>`);
   }
@@ -157,7 +157,7 @@ function lbCard(app, cur) {
   const myReward = lbRewardFor(lb.rank);
   const rw = (r) => [r.title ? `🏅 ${esc(r.title)}` : '', r.deco ? '🗿 déco exclusive' : '', r.insignia ? `${r.insignia} insignes` : '', r.res ? resChips(r.res) : ''].filter(Boolean).join(' · ');
   const row = (x) => `<tr class="${x.me ? 'me' : ''}"><td>${x.rank || lb.top.indexOf(x) + 1}</td><td>${esc(x.name)}</td><td class="num">${fmt(x.score)}</td></tr>`;
-  return `<div class="card"><h3>🏆 Classement</h3><p class="small muted">Récompenses surtout cosmétiques : titres, décorations, insignes. Aucune puissance n’est réservée au sommet.</p>
+  return `<div class="card"><h3>🏆 Tableau d’honneur</h3><p class="small muted">Cendrelande est un jeu <b>solo et hors ligne</b> : les autres seigneurs de ce tableau sont des <b>rivaux IA simulés localement</b> (leur rythme est fixé au début de l’événement). Récompenses surtout cosmétiques : titres, décorations, insignes.</p>
     <table class="table ev-lb"><tbody>${lb.top.map((x, i) => row({ ...x, rank: i + 1 })).join('')}${lb.rank > 10 ? `<tr><td colspan="3" class="muted">…</td></tr>${lb.around.map(row).join('')}` : ''}</tbody></table>
     <div class="small">Votre rang actuel : <b>${lb.rank}</b>${myReward ? ` → ${rw(myReward)}` : ' → pas de récompense (top 100)'}</div>
     <details class="small"><summary>Paliers de récompense</summary>${Object.entries(lb.rewards).map(([k, r]) => `<div>Top ${k} : ${rw(r)}</div>`).join('')}</details></div>`;

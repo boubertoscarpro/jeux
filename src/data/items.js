@@ -37,6 +37,11 @@ export const AFFIXES = {
   'stat.cunning':  { name: 'Ruse', base: 2, pct: false, ctx: 'hero' },
   'stat.lore':     { name: 'Savoir', base: 2, pct: false, ctx: 'hero' },
   'hero.xp':       { name: 'Expérience', base: 0.05, pct: true, ctx: 'hero' },
+  // Affixes des objets uniques (boss, événements, Roue)
+  'siege.power':   { name: 'Puissance de siège', base: 0.05, pct: true, ctx: 'commander' },
+  'class.cavalry.atk': { name: 'Attaque de la cavalerie', base: 0.03, pct: true, ctx: 'commander' },
+  'caravan.gain':  { name: 'Gains commerciaux (royaume)', base: 0.03, pct: true, ctx: 'global' },
+  'city.def':      { name: 'Défense de la ville (royaume)', base: 0.03, pct: true, ctx: 'global' },
 };
 
 // Bases d'objets : chaque base a un affixe signature (fixe) et des affixes possibles.

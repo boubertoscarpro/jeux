@@ -1,4 +1,4 @@
-import { UNITS, UNIT_CLASSES } from '../data/units.js';
+import { UNITS, ALL_UNITS, UNIT_CLASSES } from '../data/units.js';
 import { TECHS } from '../data/techs.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { uid, scaleObj } from '../core/util.js';
@@ -70,8 +70,8 @@ export function dismiss(state, type, n) {
 export function armyPower(units) {
   let p = 0;
   for (const [t, n] of Object.entries(units || {})) {
-    const u = UNITS[t];
-    if (u) p += n * (u.atk + u.def) * Math.sqrt(u.hp / 30);
+    const u = ALL_UNITS[t];
+    if (u && u.class !== 'boss') p += n * (u.atk + u.def) * Math.sqrt(u.hp / 30);
   }
   return Math.round(p);
 }

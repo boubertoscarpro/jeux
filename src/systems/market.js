@@ -1,10 +1,11 @@
-import { RESOURCES, TRADABLE } from '../data/resources.js';
+import { recordLoss } from './losses.js';
+import { RESOURCES, TRADABLE, isCapped } from '../data/resources.js';
 import { WORLD_EVENTS } from '../data/events.js';
 import { rng } from '../core/rng.js';
 import { uid, fmt } from '../core/util.js';
 import { levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
-import { pay, gain } from './economy.js';
+import { pay, gain, storageCap } from './economy.js';
 import { poiAt, distCap } from './world.js';
 import { log } from './log.js';
 import { generateItem } from './items.js';
@@ -46,12 +47,18 @@ export function quote(state, r, qty, dir, mods = computeMods(state)) {
   return { unit, total: Math.round(unit * qty), after, fee };
 }
 
+// Marchandises achetées récemment au marché : elles ne comptent pas comme « produites par le royaume »
+// pour les contrats et les primes des cités (empêche les boucles achat → revente sans risque)
+export const boughtRecent = (state, r) => state.market?.bought?.[r] || 0;
+
 export function sell(state, r, qty, now = Date.now()) {
   qty = Math.floor(qty);
   if (!levelOf(state, 'market')) return { ok: false, reason: 'Marché requis' };
+  if (!TRADABLE.includes(r)) return { ok: false, reason: `${RESOURCES[r]?.name || r} ne se vend pas au marché` };
   if (!(qty > 0) || (state.resources[r] || 0) < qty) return { ok: false, reason: 'Quantité invalide' };
   const mods = computeMods(state, now);
   const q = quote(state, r, qty, -1, mods);
+  q.total = Math.floor(q.unit * qty);
   state.resources[r] -= qty;
   state.resources.gold += q.total;
   state.market.prices[r] = Math.max(RESOURCES[r].price * 0.25, q.after);
@@ -62,24 +69,39 @@ export function sell(state, r, qty, now = Date.now()) {
 export function buy(state, r, qty, now = Date.now()) {
   qty = Math.floor(qty);
   if (!levelOf(state, 'market')) return { ok: false, reason: 'Marché requis' };
+  if (!TRADABLE.includes(r)) return { ok: false, reason: `${RESOURCES[r]?.name || r} ne s’achète pas au marché` };
+  if (RESOURCES[r].cat === 'rare') return { ok: false, reason: 'Ressource rare : introuvable au marché (expéditions, donjons, marchand ambulant)' };
   if (!(qty > 0)) return { ok: false, reason: 'Quantité invalide' };
   const mods = computeMods(state, now);
+  // On n'achète pas ce que l'entrepôt ne peut pas recevoir
+  if (isCapped(r)) {
+    const room = Math.floor(storageCap(state, mods) * 1.5 - (state.resources[r] || 0));
+    if (room <= 0) return { ok: false, reason: 'Entrepôt plein pour cette ressource' };
+    qty = Math.min(qty, room);
+  }
   const q = quote(state, r, qty, 1, mods);
+  q.total = Math.ceil(q.unit * qty);
   if (!pay(state, { gold: q.total })) return { ok: false, reason: `Il faut ${fmt(q.total)} or` };
   gain(state, { [r]: qty }, mods);
+  const b = (state.market.bought ||= {});
+  b[r] = (b[r] || 0) + qty;
   state.market.prices[r] = Math.min(RESOURCES[r].price * 4, q.after);
   state.stats.trades++;
-  return { ok: true, gold: q.total };
+  return { ok: true, gold: q.total, qty };
 }
 
 // Évolution des prix (offre/demande simulée + événements)
 export function marketTick(state, now) {
   const m = state.market;
+  // L'origine « achetée » s'estompe (−25 %/h) ; la saturation des cités retombe (−10 %/h)
+  const dtH = Math.max(0, Math.min(12, (now - (m.last || now)) / 3600000));
+  if (m.bought) for (const r of Object.keys(m.bought)) { m.bought[r] *= Math.pow(0.75, dtH); if (m.bought[r] < 1) delete m.bought[r]; }
+  if (dtH) for (const p of Object.values(state.world.pois)) if (p.sat) for (const r of Object.keys(p.sat)) { p.sat[r] = Math.max(0, p.sat[r] - 0.1 * dtH); if (!p.sat[r]) delete p.sat[r]; }
   for (const r of TRADABLE) {
     const target = RESOURCES[r].price * eventMult(state, r, now);
     let p = m.prices[r];
     p += (target - p) * 0.15; // retour vers l'équilibre
-    p *= 1 + rng.float(-0.04, 0.04); // activité des autres joueurs
+    p *= 1 + rng.float(-0.04, 0.04); // activité des marchands et seigneurs IA
     m.prices[r] = Math.max(RESOURCES[r].price * 0.25, Math.min(RESOURCES[r].price * 4, p));
     m.history[r].push(Math.round(m.prices[r] * 100) / 100);
     if (m.history[r].length > HISTORY) m.history[r].shift();
@@ -91,10 +113,13 @@ export function marketTick(state, now) {
 export const caravanSlots = (mods) => Math.max(0, mods.caravans || 0);
 export const caravanCargo = (state) => 800 + levelOf(state, 'market') * 400 + levelOf(state, 'port') * 600;
 
-export function townPrice(state, town, r, mods) {
-  const base = state.market.prices[r];
-  const wanted = town.wants?.includes(r) ? 1.6 : 1.12;
-  return base * wanted * (1 + (mods['caravan.gain'] || 0) + Math.min(0.2, (town.relation || 0) * 0.01));
+// Prix payé par une cité : prix de référence (pas le cours du marché, que vos propres achats font monter),
+// prime si la cité réclame la marchandise, saturation si vous la livrez trop souvent.
+export function townPrice(state, town, r, mods, now = Date.now()) {
+  const base = (RESOURCES[r].price || 0) * eventMult(state, r, now);
+  const wanted = town.wants?.includes(r) ? 1.5 : 1.12;
+  const sat = Math.max(0.5, 1 - (town.sat?.[r] || 0));
+  return base * wanted * sat * (1 + (mods['caravan.gain'] || 0) + Math.min(0.2, (town.relation || 0) * 0.01));
 }
 
 export function caravanTime(state, town, mods) {
@@ -104,7 +129,7 @@ export function caravanTime(state, town, mods) {
 export const CONVOY_MODES = {
   secure:  { name: 'Sécurisé', icon: '🛡️', desc: 'Lent mais sûr (risque ×0,3, durée ×1,4).', time: 1.4, risk: 0.3, profit: 0.97 },
   fast:    { name: 'Rapide', icon: '💨', desc: 'Durée ×0,7 mais risque ×1,6.', time: 0.7, risk: 1.6, profit: 1 },
-  smuggle: { name: 'Clandestin', icon: '🌑', desc: 'Sans taxe : gains ×1,6, risque ×3. Réputation douteuse.', time: 1, risk: 3, profit: 1.6 },
+  smuggle: { name: 'Clandestin', icon: '🌑', desc: 'Sans taxe : gains ×1,35, risque ×3. Réputation douteuse.', time: 1, risk: 3, profit: 1.35 },
 };
 
 // Risque d'attaque d'un convoi (0..0,95)
@@ -146,7 +171,13 @@ export function sendCaravan(state, x, y, r, qty, repeat = false, now = Date.now(
   const md = CONVOY_MODES[mode];
   const dur = caravanTime(state, town, mods) * md.time;
   const noTax = mode === 'smuggle' ? 1 / (1 - marketFee(mods)) : 1;
-  const gold = Math.round(townPrice(state, town, r, mods) * qty * md.profit * noTax);
+  // La part achetée au marché est payée au prix de référence, sans prime
+  const fromMarket = Math.min(qty, boughtRecent(state, r));
+  if (fromMarket) state.market.bought[r] -= fromMarket;
+  const ref = (RESOURCES[r].price || 0) * eventMult(state, r, now);
+  const gold = Math.round((townPrice(state, town, r, mods, now) * (qty - fromMarket) + ref * fromMarket) * md.profit * noTax);
+  town.sat = town.sat || {};
+  town.sat[r] = Math.min(0.5, (town.sat[r] || 0) + qty / (liquidity(r) * 4));
   const risk = convoyRisk(state, town, mode, guards, mods);
   state.caravans.push({ id: uid('cv'), x, y, town: town.name, res: r, qty, gold, start: now, end: now + dur * 2, repeat, mode, guards, risk });
   return { ok: true, gold, dur: dur * 2, risk };
@@ -172,6 +203,7 @@ export function completeCaravan(state, c, t) {
     if (win) note = ' Des bandits ont attaqué, mais l’escorte les a repoussés !';
     else {
       const lost = c.mode === 'smuggle' ? 1 : rng.float(0.4, 0.8);
+      recordLoss(state, 'caravan', { gold: Math.round(gold * lost) }, t);
       gold = Math.round(gold * (1 - lost));
       note = ` ⚠️ La caravane a été attaquée : ${Math.round(lost * 100)}% de la recette perdue.`;
       state.stats.caravansAttacked = (state.stats.caravansAttacked || 0) + 1;
@@ -205,7 +237,7 @@ export function contractsTick(state, now) {
     const res = rng.pick(['wood', 'stone', 'iron', 'food', 'leather', 'cloth', 'steel', 'planks', 'bread', 'herbs', 'weapons', 'rations', 'coal']);
     const th = levelOf(state, 'townhall');
     const qty = Math.round((300 + th * 250) / Math.max(0.6, Math.sqrt(RESOURCES[res].price)) / 10) * 10;
-    const reward = { gold: Math.round(qty * RESOURCES[res].price * rng.float(1.8, 2.6)) };
+    const reward = { gold: Math.round(qty * RESOURCES[res].price * rng.float(1.4, 1.9)) };
     if (rng.chance(0.25)) reward.silver = rng.int(2, 6);
     if (rng.chance(0.08)) reward.gems = rng.int(1, 3);
     state.contracts.push({ id: uid('ct'), town: town.name, tx: town.x, ty: town.y, res, qty, reward, until: now + rng.int(3, 8) * 3600000 });
@@ -214,7 +246,9 @@ export function contractsTick(state, now) {
 
 export function fulfillContract(state, id, now = Date.now()) {
   const c = (state.contracts || []).find((x) => x.id === id);
-  if (!c) return { ok: false, reason: 'Contrat expiré' };
+  if (!c || c.until <= now) return { ok: false, reason: 'Contrat expiré' };
+  const own = (state.resources[c.res] || 0) - boughtRecent(state, c.res);
+  if ((state.resources[c.res] || 0) >= c.qty && own < c.qty) return { ok: false, reason: `La cité exige des marchandises produites par votre royaume (${fmt(Math.max(0, own))} sur ${fmt(c.qty)} ; le reste a été acheté au marché récemment)` };
   if (!pay(state, { [c.res]: c.qty })) return { ok: false, reason: `Il faut ${fmt(c.qty)} ${RESOURCES[c.res].name}` };
   gain(state, c.reward, computeMods(state, now));
   state.contracts = state.contracts.filter((x) => x.id !== id);

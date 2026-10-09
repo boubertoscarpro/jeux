@@ -31,7 +31,7 @@ export const UNITS = {
   },
   heavy: {
     name: 'Soldat lourd', icon: '🛡️', class: 'infantry', building: 'barracks', bLevel: 5,
-    atk: 17, def: 28, hp: 60, speed: 0.7, carry: 20, gather: 4, upkeep: 3,
+    atk: 20, def: 32, hp: 75, speed: 0.7, carry: 20, gather: 4, upkeep: 3,
     cost: { food: 70, iron: 30, steel: 8, weapons: 1 }, time: 55,
     vs: { infantry: 1.2 }, rangedResist: 0.35,
     desc: 'Encaisse les tirs (−35% dégâts à distance) mais consomme beaucoup de nourriture.',
@@ -40,7 +40,7 @@ export const UNITS = {
   archer: {
     name: 'Archer', icon: '🏹', class: 'ranged', building: 'barracks', bLevel: 1,
     atk: 15, def: 5, hp: 20, speed: 1.0, carry: 15, gather: 5, upkeep: 1,
-    cost: { food: 25, wood: 45 }, time: 22,
+    cost: { food: 25, wood: 52 }, time: 22,
     vs: { infantry: 1.5, beast: 1.3 },
     desc: 'Tire dès la première volée. Fort sur les collines, vulnérable à la cavalerie.',
   },
@@ -54,21 +54,21 @@ export const UNITS = {
   // Cavalerie
   lightcav: {
     name: 'Cavalier léger', icon: '🐎', class: 'cavalry', building: 'stable', bLevel: 1,
-    atk: 16, def: 8, hp: 36, speed: 1.8, carry: 60, gather: 8, upkeep: 2,
+    atk: 18, def: 8, hp: 38, speed: 1.8, carry: 60, gather: 8, upkeep: 2,
     cost: { food: 60, wood: 20, iron: 15, leather: 5 }, time: 35,
-    vs: { ranged: 1.8, siege: 2.0 },
+    vs: { ranged: 2.2, siege: 2.0 },
     desc: 'Rapide, grande capacité de transport. Fond sur les archers.',
   },
   knight: {
     name: 'Chevalier', icon: '🏇', class: 'cavalry', building: 'stable', bLevel: 3,
-    atk: 28, def: 20, hp: 62, speed: 1.4, carry: 40, gather: 6, upkeep: 3,
+    atk: 34, def: 22, hp: 75, speed: 1.4, carry: 40, gather: 6, upkeep: 3,
     cost: { food: 100, iron: 30, steel: 10, leather: 10, weapons: 1 }, time: 70,
     vs: { ranged: 1.6, infantry: 1.15 },
     desc: 'Charge dévastatrice dans les plaines.',
   },
   heavycav: {
     name: 'Cavalier lourd', icon: '🐴', class: 'cavalry', building: 'stable', bLevel: 6,
-    atk: 34, def: 32, hp: 95, speed: 1.1, carry: 35, gather: 5, upkeep: 6,
+    atk: 48, def: 36, hp: 140, speed: 1.1, carry: 35, gather: 5, upkeep: 6,
     cost: { food: 160, steel: 30, leather: 20, iron: 20, weapons: 2 }, time: 120,
     vs: { infantry: 1.5, ranged: 1.5 },
     desc: 'Le marteau de l’armée. Très coûteux en nourriture.',
@@ -202,9 +202,9 @@ export const ALL_UNITS = { ...UNITS, ...ENEMY_UNITS };
 export const FORMATIONS = {
   balanced:  { name: 'Ligne équilibrée', icon: '⚖️', desc: 'Aucun bonus ni malus.', mods: {} },
   assault:   { name: 'Assaut', icon: '⚡', desc: '+15% attaque, −10% défense. Pour finir vite.', mods: { atk: 0.15, def: -0.1 } },
-  shieldwall:{ name: 'Mur de boucliers', icon: '🛡️', desc: 'Infanterie +25% défense, distance −30% dégâts subis, −10% attaque.', mods: { atk: -0.1, classDef: { infantry: 0.25 }, protectRanged: 0.3 } },
+  shieldwall:{ name: 'Mur de boucliers', icon: '🛡️', desc: 'Infanterie +25% défense ; vos tireurs subissent −30% de dégâts de tir ; −10% attaque.', mods: { atk: -0.1, classDef: { infantry: 0.25 }, protectRanged: 0.3 } },
   pincer:    { name: 'Tenaille', icon: '🦀', desc: 'Cavalerie +30% attaque si ≥25% de cavaliers, sinon −10% attaque.', mods: { pincer: true } },
-  skirmish:  { name: 'Escarmouche', icon: '🎯', desc: 'Une volée supplémentaire, distance +15%, infanterie −10% attaque.', mods: { extraVolley: true, classAtk: { ranged: 0.15, infantry: -0.1 } } },
+  skirmish:  { name: 'Escarmouche', icon: '🎯', desc: 'Volée d’ouverture renforcée (×1,5), distance +15%, infanterie −10% attaque.', mods: { extraVolley: true, classAtk: { ranged: 0.15, infantry: -0.1 } } },
 };
 
 // Terrain : bonus par classe (attaque)

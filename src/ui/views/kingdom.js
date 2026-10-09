@@ -68,8 +68,8 @@ export default {
               ${owned ? (c.type === 'deco' ? '<span class="ok small">Possédée</span>' : `<button class="mini ${active ? 'good' : ''}" data-action="apply-cos" data-k="${k}">${active ? 'Actif' : 'Appliquer'}</button>`) : c.seasonal ? '<span class="muted small">Saison</span>' : c.exclusive ? '<span class="tag-ex" title="Roue des Anciens ou événements uniquement">Exclusif</span>' : `<button class="mini" data-action="buy-cos" data-k="${k}">🎖️ ${c.cost}</button>`}</div>`;
           }).join('')}</div></div>
         <div class="card"><h2>💾 Sauvegarde</h2>
-          <p class="muted small">Sauvegarde automatique toutes les 15 s dans votre navigateur. Progression hors-ligne : jusqu’à 12 h.</p>
-          <div class="row gap wrap"><button class="btn" data-action="save-now">💾 Sauvegarder</button><button class="btn" data-action="export">📤 Exporter</button><button class="btn" data-action="import">📥 Importer</button><button class="btn ghost danger" data-action="reset">🗑️ Nouvelle partie</button></div>
+          <p class="muted small">Sauvegarde automatique toutes les 15 s dans votre navigateur (avec une copie de secours toutes les 10 min). Format de sauvegarde v${s.version}. Progression hors-ligne : jusqu’à 12 h.</p>
+          <div class="row gap wrap"><button class="btn" data-action="save-now">💾 Sauvegarder</button><button class="btn" data-action="save-file">⬇️ Télécharger (.json)</button><button class="btn" data-action="export">📤 Code texte</button><label class="btn">📂 Charger un fichier<input type="file" accept=".json,application/json,text/plain" data-change="import-file" hidden></label><button class="btn" data-action="import">📥 Importer le code</button><button class="btn ghost danger" data-action="reset">🗑️ Nouvelle partie</button></div>
           <textarea id="save-box" class="save-box" placeholder="Code de sauvegarde…"></textarea>
           <h3>Comment jouer</h3><ul class="small">
             <li>Déblayez, construisez et placez intelligemment (bonus d’adjacence).</li>
@@ -87,12 +87,28 @@ export default {
     season: (app, el) => app.act(() => claimSeasonTier(app.state, +el.dataset.i), 'Récompense de saison !'),
     'buy-cos': (app, el) => app.act(() => buyCosmetic(app.state, el.dataset.k), 'Cosmétique acquis !'),
     'apply-cos': (app, el) => app.act(() => applyCosmetic(app.state, el.dataset.k)),
-    'save-now': (app) => { saveGame(app.state); app.toast('Partie sauvegardée', 'good'); },
+    'save-now': (app) => app.save(true),
+    'import-file': (app, el) => {
+      const f = el.files?.[0];
+      if (!f) return;
+      if (f.size > 20 * 1024 * 1024) return app.toast('Fichier trop volumineux pour une sauvegarde', 'bad');
+      f.text().then((t) => { document.getElementById('save-box').value = t; app.toast('Fichier chargé : cliquez sur « Importer le code »', 'good'); });
+    },
+    'save-file': (app) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(app.state)], { type: 'application/json' }));
+      a.download = `cendrelande-${app.state.meta.kingdomName.replace(/[^\w-]+/g, '_')}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      app.toast('Fichier de sauvegarde téléchargé', 'good');
+    },
     export: (app) => { const box = document.getElementById('save-box'); box.value = exportSave(app.state); box.select(); app.toast('Code copié dans la zone de texte', 'good'); },
     import: (app) => {
       try {
         const st = importSave(document.getElementById('save-box').value);
-        app.state = st; saveGame(st); app.toast('Sauvegarde importée', 'good'); location.reload();
+        if (!confirm(`Remplacer la partie actuelle par « ${st.meta.kingdomName} » ? Pensez à exporter la partie actuelle d’abord.`)) return;
+        const r = saveGame(st);
+        if (!r.ok) return app.toast(r.error, 'bad');
+        app.state = null; location.reload();
       } catch (e) { app.toast('Code invalide : ' + e.message, 'bad'); }
     },
     reset: (app) => { if (confirm('Effacer définitivement votre royaume et recommencer ?')) { deleteSave(); app.state = null; location.reload(); } },

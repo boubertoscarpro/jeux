@@ -1,3 +1,4 @@
+import { recordLoss } from './losses.js';
 import { EXPEDITION_TYPES, EXPEDITION_EVENTS, PROFESSIONS, FOREMAN_TYPES, TRAITS } from '../data/workers.js';
 import { POI_TYPES, SECONDS_PER_TILE } from '../data/world.js';
 import { RESOURCES } from '../data/resources.js';
@@ -137,6 +138,9 @@ export function startExpedition(state, id, now = Date.now()) {
     if (armyPower(t.escort) < fc.minPower) return { ok: false, reason: `Escorte trop faible (puissance ${fc.minPower} requise)` };
     t.hours = fc.hours; t.repeat = false;
   }
+  const fm0 = teamForeman(state, t);
+  if (fm0 && fm0.job?.type === 'exp' && fm0.job.id !== t.id) return { ok: false, reason: `${fm0.name} dirige déjà une autre expédition` };
+  if (fm0 && fm0.injuredUntil > now) return { ok: false, reason: `${fm0.name} est blessé` };
   const target = t.target === 'auto' ? autoTarget(state, t) : t.target;
   if (!target) return { ok: false, reason: 'Aucun site adapté découvert : explorez la carte' };
   const poi = poiAt(state.world, target.x, target.y);
@@ -390,7 +394,9 @@ function forbiddenOutcome(state, t, now) {
   const r = rng.weighted(o);
   if (r === 'fail') {
     for (const u of Object.keys(t.escort)) t.escort[u] = Math.floor(t.escort[u] * 0.6);
-    for (const k of ['food', 'gold']) state.resources[k] = Math.floor((state.resources[k] || 0) * 0.92);
+    const lostRes = { food: Math.ceil((state.resources.food || 0) * 0.08), gold: Math.ceil((state.resources.gold || 0) * 0.08) };
+    for (const k of ['food', 'gold']) state.resources[k] = Math.max(0, (state.resources[k] || 0) - lostRes[k]);
+    recordLoss(state, 'forbidden', lostRes, now);
     teamLog(t, '⛔ L’expédition interdite tourne au désastre : 40 % de l’escorte perdue, vivres et or entamés.');
     log(state, 'bad', `⛔ ${t.name} : échec de l’expédition interdite.`, now);
   } else {

@@ -108,7 +108,7 @@ export const BUILDINGS = {
   },
   herbalist: {
     name: 'Herboristerie', icon: '🌿', cat: 'food', maxLevel: 20, req: { townhall: 3 },
-    desc: 'Cultive des herbes médicinales. +10% près d’une forêt ou de la rivière.',
+    desc: 'Cultive des herbes médicinales. +10% près d’une forêt, +10% près de la rivière (cumulables).',
     cost: { wood: 140, stone: 60, gold: 40 }, time: 30, prod: { herbs: 18 },
     adj: [{ near: 'forest', bonus: 0.1 }, { near: 'river', bonus: 0.1 }],
     maxCount: (th) => 1 + Math.floor(th / 5),

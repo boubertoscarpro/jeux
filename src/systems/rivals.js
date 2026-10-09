@@ -1,3 +1,4 @@
+import { recordLoss } from './losses.js';
 import { RIVALS, POI_TYPES } from '../data/world.js';
 import { BASE_RES, RESOURCES } from '../data/resources.js';
 import { rng } from '../core/rng.js';
@@ -38,6 +39,11 @@ export function onRivalDefeated(state, poi, now) {
   if (poi.power > 2) loot.steel = Math.round(20 * k);
   poi.garrison = null;
   poi.power = Math.round((poi.power + 0.15) * 100) / 100;
+  // La faction se renforce réellement (sinon le tick des factions écrasait ce gain) …
+  const f = (state.factions || []).find((x) => x.idx === poi.rival);
+  if (f) f.army = Math.min(20, Math.round((f.army + 0.15) * 100) / 100);
+  // … et une cité mise à sac n'a plus rien à piller pendant 6 h
+  poi.clearedUntil = now + 6 * 3600000;
   poi.anger = (poi.anger || 0) + 1;
   poi.lastDefeated = now;
   return loot;
@@ -122,6 +128,7 @@ export function resolveRaid(state, raid, t) {
       const v = Math.floor(Math.max(0, (state.resources[r] || 0) - prot) * 0.3);
       if (v > 0) { stolen[r] = v; state.resources[r] -= v; }
     }
+    recordLoss(state, 'raid', stolen, t);
     text = `La ville est pillée par ${raid.name} : ${Object.entries(stolen).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien (tout était à l’abri)'}.`;
     state.stats.raidsLost = (state.stats.raidsLost || 0) + 1;
     log(state, 'bad', `🔥 ${text}`, t);

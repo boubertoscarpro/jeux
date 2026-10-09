@@ -23,6 +23,7 @@ import { spawnBoss } from './events.js';
 import { findFreeTile, spawnPoi, reveal } from './world.js';
 import { chronicle } from './chronicle.js';
 import { log, toast } from './log.js';
+import { recordLoss } from './losses.js';
 
 const H = 3600000;
 const MIN = 60000;
@@ -203,7 +204,7 @@ export function buyShopItem(state, id, now = Date.now()) {
   const it = shopItems(state).find((i) => i.id === id);
   if (!it) return { ok: false, reason: 'Objet introuvable' };
   if (it.left !== null && it.left <= 0) return { ok: false, reason: 'Stock personnel épuisé' };
-  if (it.globalLeft !== null && it.globalLeft <= 0) return { ok: false, reason: 'Rupture de stock sur le serveur — d’autres seigneurs ont été plus rapides !' };
+  if (it.globalLeft !== null && it.globalLeft <= 0) return { ok: false, reason: 'Rupture de stock : les seigneurs rivaux (IA) ont acheté les derniers exemplaires' };
   if (it.owned && it.exclusive) return { ok: false, reason: 'Déjà possédé' };
   if (cur.wallet < it.price) return { ok: false, reason: `Il faut ${fmt(it.price)} ${LIVE_EVENTS[cur.key].currency.name}` };
   cur.wallet -= it.price;
@@ -655,7 +656,7 @@ function attackLair(state, m, tg, t, def) {
   co.hp -= dmg; co.mine += dmg;
   bump(cur, 'coopDamage', dmg);
   const got = earn(state, Math.round(dmg / 150), t, `coups portés à ${def.coop.name}`);
-  addLiveReport(state, `🐉 ${fmt(dmg)} dégâts à ${def.coop.name} (+${fmt(got)} ${def.currency.icon}). PV du serveur : ${Math.round((co.hp / co.maxHp) * 100)} %.`, t);
+  addLiveReport(state, `🐉 ${fmt(dmg)} dégâts à ${def.coop.name} (+${fmt(got)} ${def.currency.icon}). PV restants : ${Math.round((co.hp / co.maxHp) * 100)} %.`, t);
   if (!unitCount(m.units)) return homeLive(state, m, t);
   goBack(m, t);
 }
@@ -815,6 +816,7 @@ export function liveTick(state, now) {
   }
   const cur = L.current;
   if (cur) currentTick(state, cur, now);
+  if (L.pendingFair) { L.pendingFair = false; startSurprise(state, 'fair', now); }
   surpriseTick(state, now);
   // Décisions expirées : énigme non résolue, anomalie ignorée (aucun gain sans intervention)
   for (const p of state.pending.filter((x) => (x.kind === 'riddle' || x.kind === 'anomaly') && x.deadline <= now)) {
@@ -865,14 +867,14 @@ function currentTick(state, cur, now) {
   if (cur.nextWave && !cur.notified['wave' + cur.nextWave] && cur.nextWave - now <= 30 * MIN) { cur.notified['wave' + cur.nextWave] = true; notify(state, '👻', 'Une vague de morts-vivants arrive dans 30 minutes !', now, 'bad'); }
   // Assauts (Siège)
   if (cur.nextAssault && now >= cur.nextAssault) { cur.nextAssault += (def.special.every || 4) * H; resolveAssault(state, cur, def, now); }
-  // Boss coopératif : le reste du serveur frappe
+  // Boss coopératif : les seigneurs rivaux IA frappent aussi
   if (cur.coop && cur.coop.hp > 0) {
     cur.coop.hp = Math.max(0, cur.coop.hp - cur.coop.maxHp * def.coop.serverRate * dtH * rng.float(0.7, 1.3));
     for (let i = 0; i < def.coop.tiers.length; i++) {
-      if (!cur.notified['coop' + i] && coopProgress(cur) >= def.coop.tiers[i]) { cur.notified['coop' + i] = true; notify(state, '🐉', `Le serveur a atteint ${Math.round(def.coop.tiers[i] * 100)} % des dégâts sur ${def.coop.name}${cur.coop.mine ? ' : une récompense vous attend' : ''}.`, now); }
+      if (!cur.notified['coop' + i] && coopProgress(cur) >= def.coop.tiers[i]) { cur.notified['coop' + i] = true; notify(state, '🐉', `Les seigneurs (vous et les rivaux IA) ont infligé ${Math.round(def.coop.tiers[i] * 100)} % des dégâts à ${def.coop.name}${cur.coop.mine ? ' : une récompense vous attend' : ''}.`, now); }
     }
   }
-  // Stocks serveur : les autres seigneurs achètent aussi
+  // Stock partagé du marchand : les seigneurs rivaux IA achètent aussi
   for (const it of def.shop.fixed.filter((i) => i.global)) {
     cur.shop.globalSold[it.id] = Math.min(it.global, (cur.shop.globalSold[it.id] || 0) + dtH * 0.06 * c.globalStockSpeed * rng.float(0, 2));
   }
@@ -940,6 +942,7 @@ function resolveWave(state, cur, def, now) {
     bump(cur, 'wavesLost');
     const lost = {};
     for (const r of ['food', 'gold']) { const v = Math.floor((state.resources[r] || 0) * 0.08); if (v) { lost[r] = v; state.resources[r] -= v; } }
+    recordLoss(state, 'wave', lost, now);
     addLiveReport(state, `💀 La vague ${n + 1} submerge vos défenses : ${Object.entries(lost).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ')} perdus.`, now, false);
     notify(state, '💀', `La vague ${n + 1} a submergé votre ville.`, now, 'bad');
   }
@@ -1141,7 +1144,7 @@ function surpriseTick(state, now) {
   }
 }
 
-function addLiveNote(state, sp) { (state.serverFeed ||= []).unshift({ t: Date.now(), text: `☄️ Un seigneur rival a extrait l’Éclat de la météorite en (${sp.x}, ${sp.y}).` }); }
+function addLiveNote(state, sp) { log(state, 'info', `☄️ Un seigneur rival (IA) a extrait l’Éclat de la météorite en (${sp.x}, ${sp.y}) avant vous.`, sp.start); }
 
 export function startSurprise(state, k, now = Date.now()) {
   const L = liveState(state);

@@ -9,7 +9,7 @@ import { grantArtifact } from './collection.js';
 import { recordMax, bumpRep } from './reputation.js';
 import { chronicle } from './chronicle.js';
 import { wTerrain } from './world.js';
-import { rollShards, addShards } from './shards.js';
+import { rollShards, addShards, shardState } from './shards.js';
 
 // Génère (ou régénère) la structure d'un donjon : chaque niveau est différent
 export function ensureDungeon(poi) {
@@ -107,11 +107,19 @@ export function runDungeon(state, m, poi, mods, now) {
       if (room.type === 'boss') {
         state.stats.maxDungeonLevel = Math.max(state.stats.maxDungeonLevel || 0, d.level);
         if (d.level >= 6) { const n = rollShards(state, 'dungeon', now, { chance: Math.min(0.3, (d.level - 5) * 0.03), amount: [1, 1 + Math.floor(d.level / 10)] }); if (n) lines.push(`💠 ${n} Éclat(s) Ancien(s) dans le trésor du boss !`); }
-        if (poi.type === 'lostCity') { addShards(state, 5, 'event', now, 'Ruines de l’ancien roi'); lines.push('💠 5 Éclats Anciens reposaient sur le trône de l’ancien roi.'); }
+        // Le trésor du trône (5 Éclats) n'existe qu'une fois : les purges suivantes ne le renouvellent pas
+        if (poi.type === 'lostCity' && !poi.throneLooted) { poi.throneLooted = true; addShards(state, 5, 'event', now, 'Ruines de l’ancien roi'); lines.push('💠 5 Éclats Anciens reposaient sur le trône de l’ancien roi.'); }
         addInto(m.loot, { gold: Math.round(2000 * lootMult), rareOre: rng.int(2, 4 + Math.floor(d.level / 3)), crystals: rng.int(2, 6) });
         m.items.push(generateItem({ ilvl: 8 + d.level, boost: 1.2 + d.level * 0.05, min: d.level >= 10 ? 'epic' : 'rare' }));
-        const artChance = poi.type === 'lostCity' ? 1 : Math.min(0.35, 0.05 + d.level * 0.015);
-        if (rng.chance(artChance)) { const a = grantArtifact(state, poi.type === 'lostCity' && !state.artifacts?.dawnChalice ? 'dawnChalice' : (rng.chance(0.4) && !state.artifacts?.firstKingSword ? 'firstKingSword' : null), now, 'Donjon'); if (a) lines.push(`🏆 Artefact découvert : ${a} !`); }
+        // Artefacts de donjon : liste fermée (pas d'exclusivités de la Roue ni d'artefacts d'autres sources)
+        const firstChalice = poi.type === 'lostCity' && !state.artifacts?.dawnChalice;
+        const artChance = firstChalice ? 1 : Math.min(0.25, 0.04 + d.level * 0.012);
+        if (rng.chance(artChance)) {
+          const pool = poi.type === 'lostCity' ? ['whisperMask', 'kingsLedger', 'firstKingSword'] : ['firstKingSword', 'mountainHeart', 'kingsLedger'];
+          const a = grantArtifact(state, firstChalice ? 'dawnChalice' : null, now, 'Donjon', pool);
+          if (a) lines.push(`🏆 Artefact découvert : ${a} !`);
+          else { shardState(state).relicFragments++; lines.push('🧩 Un fragment de relique (vous possédez déjà les artefacts de ce lieu).'); }
+        }
       }
     }
     room.done = true;

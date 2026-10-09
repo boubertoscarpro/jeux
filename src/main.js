@@ -1,5 +1,5 @@
 import { createNewState } from './core/state.js';
-import { loadGame, saveGame } from './core/save.js';
+import { loadGame, saveGame, CORRUPT_KEY } from './core/save.js';
 import { App } from './ui/app.js';
 import { esc } from './ui/components.js';
 
@@ -32,10 +32,36 @@ function boot() {
     window.cendrelande = app; // accès console pour le débogage
     app.start();
   };
-  let state = null;
-  try { state = loadGame(); } catch (e) { console.error(e); }
-  if (state) start(state);
+  let res = null;
+  try { res = loadGame(); } catch (e) { console.error(e); res = { error: e.message }; }
+  if (res?.state) start(res.state);
+  else if (res?.error) recovery(res, start);
   else intro(start);
+}
+
+// Sauvegarde illisible : on ne l'écrase JAMAIS sans l'accord du joueur
+function recovery(res, start) {
+  const root = document.getElementById('modal-root');
+  root.classList.add('open');
+  const b = res.backup;
+  root.innerHTML = `<div class="modal-backdrop"></div><div class="modal intro" role="dialog">
+    <h2>⚠️ Sauvegarde illisible</h2>
+    <p>Votre sauvegarde n’a pas pu être chargée : <b>${esc(res.error)}</b>.</p>
+    <p class="small">Elle n’a pas été effacée : une copie est conservée dans le navigateur, et vous pouvez la télécharger pour la réparer ou la faire analyser.</p>
+    ${b ? `<button class="btn primary big" id="rec-backup">Restaurer la copie de secours (${new Date(b.meta.lastSave || b.meta.lastTick).toLocaleString('fr-FR')})</button>` : '<p class="small muted">Aucune copie de secours disponible.</p>'}
+    <div class="row gap wrap"><button class="btn" id="rec-dl">⬇️ Télécharger la sauvegarde endommagée</button><button class="btn ghost" id="rec-new">Commencer une nouvelle partie</button></div>
+  </div>`;
+  document.getElementById('rec-dl').onclick = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([res.raw || ''], { type: 'application/json' }));
+    a.download = `cendrelande-sauvegarde-endommagee-${Date.now()}.json`;
+    a.click();
+  };
+  if (b) document.getElementById('rec-backup').onclick = () => { root.classList.remove('open'); root.innerHTML = ''; b.meta.restoredFromBackup = Date.now(); start(b); };
+  document.getElementById('rec-new').onclick = () => {
+    if (!confirm('Commencer une nouvelle partie ? La sauvegarde endommagée reste conservée dans le navigateur (clé « ' + CORRUPT_KEY + ' »), mais ne sera plus chargée.')) return;
+    intro(start);
+  };
 }
 
 boot();

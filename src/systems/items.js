@@ -71,7 +71,7 @@ export function itemScore(item) {
   let s = 0;
   for (const [stat, v] of Object.entries(itemMods(item))) {
     const a = AFFIXES[stat];
-    s += Math.abs(a.pct ? v * 100 : v);
+    s += Math.abs(a?.pct === false ? v : v * 100);
   }
   return Math.round(s * 10) / 10;
 }

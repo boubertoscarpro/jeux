@@ -188,7 +188,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
     case 'peace': {
       if (f.stance !== 'war') return { ok: false, reason: 'Vous n’êtes pas en guerre' };
       const chance = 0.25 + (f.relation + 60) / 250 + f.weariness / 200 + Math.max(0, ratio - 1) * 0.25;
-      if (!rng.chance(Math.min(0.95, chance))) { f.relation -= 3; return { ok: false, reason: `${name} rejette votre proposition (chance ${Math.round(Math.min(0.95, chance) * 100)}%)` }; }
+      if (!rng.chance(Math.min(0.95, chance))) { f.relation = Math.max(-100, f.relation - 3); return { ok: false, reason: `${name} rejette votre proposition (chance ${Math.round(Math.min(0.95, chance) * 100)}%)` }; }
       f.stance = 'truce'; f.treatyAt = now; f.relation = Math.max(f.relation, -10);
       bumpRep(state, 'diplomat', 15);
       chronicle(state, `La paix est signée avec ${name}.`, now);
@@ -199,7 +199,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       const betrayal = ['alliance', 'trade', 'truce'].includes(f.stance);
       f.stance = 'war'; f.treatyAt = now; f.relation = Math.min(f.relation, -50);
       bumpRep(state, 'warrior', 10);
-      if (betrayal) { bumpRep(state, 'tyrant', 25); bumpRep(state, 'diplomat', -40); for (const o of state.factions) if (o !== f) o.relation -= 10; }
+      if (betrayal) { bumpRep(state, 'tyrant', 25); bumpRep(state, 'diplomat', -40); for (const o of state.factions) if (o !== f) o.relation = Math.max(-100, o.relation - 10); }
       state.stats.wars = (state.stats.wars || 0) + 1;
       chronicle(state, `${state.meta.kingdomName} déclare la guerre à ${name}${betrayal ? ', rompant ses serments' : ''}.`, now);
       return { ok: true, msg: `Guerre déclarée à ${name}.` };
@@ -210,11 +210,11 @@ export function diplomacy(state, i, action, now = Date.now()) {
       const resist = { isolationist: 0.6, military: 0.5, aggressive: 0.35, commercial: 0.2, technological: 0.4 }[per];
       bumpRep(state, 'tyrant', 10);
       if (rng.chance(Math.min(0.9, (ratio - 1) * 0.5 + 0.2 - resist * 0.3 + (state.reputation?.tyrant || 0) / 2000))) {
-        f.stance = 'tributary'; f.treatyAt = now; f.relation -= 20;
+        f.stance = 'tributary'; f.treatyAt = now; f.relation = Math.max(-100, f.relation - 20);
         chronicle(state, `${name} accepte de payer tribut à ${state.meta.kingdomName}.`, now);
         return { ok: true, msg: `${name} vous versera un tribut régulier.` };
       }
-      f.relation -= 15;
+      f.relation = Math.max(-100, f.relation - 15);
       if (per === 'aggressive' || per === 'military') { f.stance = 'war'; chronicle(state, `${name} répond à votre ultimatum par la guerre !`, now); }
       return { ok: false, reason: `${name} refuse avec mépris.` };
     }
@@ -264,7 +264,7 @@ export function spyMission(state, i, objective, spies = 1, now = Date.now()) {
   }
   const caught = Math.max(1, Math.ceil(spies * 0.6));
   state.army.spy -= caught;
-  f.relation -= 12;
+  f.relation = Math.max(-100, f.relation - 12);
   bumpRep(state, 'diplomat', -5);
   log(state, 'bad', `🕵️ Vos espions ont été démasqués à ${factionName(i)} (${caught} capturé(s)).`, now);
   return { ok: false, reason: `Démasqués ! ${caught} espion(s) capturé(s), relation −12.` };
@@ -292,7 +292,7 @@ export function enemySpyTick(state, now) {
     if (!rng.chance(per === 'technological' ? 0.06 : 0.02)) continue;
     const detect = Math.min(0.9, 0.2 + levelOf(state, 'watchtower') * 0.04 + (state.army.spy || 0) * 0.03);
     if (rng.chance(detect)) {
-      f.relation -= 4;
+      f.relation = Math.max(-100, f.relation - 4);
       log(state, 'good', `🕵️ Un espion de ${factionName(f.idx)} a été démasqué dans votre ville.`, now);
     } else f.knowsUs = now;
   }

@@ -61,14 +61,20 @@ function initialMorale(side, enemy, notes, label) {
     m -= hit;
     notes.push(`${label} : assassins ennemis −${Math.round(hit)} moral`);
   }
-  if (side.isBoss) m = 1000;
+  if (side.isBoss) m = 100; // le moral d'un colosse ne baisse pas, mais ne lui donne pas de bonus caché
   return m;
 }
 
 const moraleFactor = (m) => clamp(0.55 + 0.45 * (m / 100), 0.5, 1.25);
 
 // Une passe d'attaque d'un côté sur l'autre ; renvoie dégâts par pile cible (index)
-function attackPass(att, def, phase, deterministic) {
+// Règles de rythme (centralisées) :
+// - la volée d'ouverture est une première frappe partielle (×0,6) ;
+// - au corps à corps, les tireurs se battent mal (×0,6) ;
+// - au premier assaut, la cavalerie charge (×1,5).
+export const COMBAT_RULES = { volley: 0.6, rangedMelee: 0.6, charge: 1.5 };
+
+function attackPass(att, def, phase, deterministic, round = 0) {
   const dmg = new Array(def.stacks.length).fill(0);
   const alive = def.stacks.filter((s) => s.count > 0.01);
   if (!alive.length) return dmg;
@@ -80,7 +86,9 @@ function attackPass(att, def, phase, deterministic) {
     if (phase === 'volley' && !isVolley) continue;
     const variance = deterministic ? 1 : rng.float(0.88, 1.12);
     let raw = a.count * a.def.atk * a.atkMult * moraleFactor(att.morale) * variance;
-    if (phase === 'volley' && skirmish) raw *= 1.5;
+    if (phase === 'volley') raw *= COMBAT_RULES.volley * (skirmish ? 1.5 : 1);
+    if (phase === 'melee' && isVolley) raw *= COMBAT_RULES.rangedMelee;
+    if (phase === 'melee' && round === 1 && a.cls === 'cavalry') raw *= COMBAT_RULES.charge;
     if (a.cls === 'special' && a.type === 'scout') raw *= 0.5;
     // Exposition : les tireurs/siège sont protégés derrière la ligne (sauf contre la cavalerie)
     const weights = def.stacks.map((t) => {
@@ -159,8 +167,8 @@ export function simulateBattle(attacker, defender, ctx = {}) {
 
   for (let r = 0; r <= maxRounds; r++) {
     const phase = r === 0 ? 'volley' : 'melee';
-    const dmgToD = attackPass(A, D, phase, deterministic);
-    const dmgToA = attackPass(D, A, phase, deterministic);
+    const dmgToD = attackPass(A, D, phase, deterministic, r);
+    const dmgToA = attackPass(D, A, phase, deterministic, r);
     const resD = applyDamage(D, dmgToD);
     const resA = applyDamage(A, dmgToA);
     if (D.isBoss) bossDamage += resD.hpLost;

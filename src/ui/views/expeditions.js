@@ -108,7 +108,7 @@ export default {
   },
   actions: {
     't-create': (app, el) => app.act(() => createTeam(app.state, { type: el.dataset.type }), 'Équipe créée'),
-    't-delete': (app, el) => app.act(() => deleteTeam(app.state, el.dataset.id)),
+    't-delete': (app, el) => app.confirm('<h2>Dissoudre cette équipe ?</h2><p>Les ouvriers et l’escorte redeviennent disponibles ; le nom, les paramètres et l’historique de l’équipe sont perdus.</p>', 'Dissoudre', () => app.act(() => deleteTeam(app.state, el.dataset.id), 'Équipe dissoute')),
     't-start': (app, el) => app.act(() => startExpedition(app.state, el.dataset.id), 'Expédition en route !'),
     't-recall': (app, el) => app.act(() => recallExpedition(app.state, el.dataset.id), 'Rappel ordonné'),
     't-pick': (app, el) => pickModal(app, el.dataset.id),

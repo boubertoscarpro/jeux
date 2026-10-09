@@ -58,7 +58,12 @@ export function heroMods(state, hero, ctx) {
   for (const s of heroSkills(hero)) {
     if (s.unlocked && s.ctx === ctx) for (const [k, v] of Object.entries(s.mods)) add(out, k, v);
   }
-  if (ctx === 'global') { if (hero.special) for (const [k, v] of Object.entries(hero.special.mods)) add(out, k, v); return out; }
+  if (ctx === 'global') {
+    if (hero.special) for (const [k, v] of Object.entries(hero.special.mods)) add(out, k, v);
+    // Affixes « royaume » des objets équipés : actifs quel que soit le rôle du héros
+    for (const item of equippedItems(state, hero)) for (const [stat, v] of Object.entries(itemMods(item))) if (AFFIXES[stat]?.ctx === 'global') add(out, stat, v);
+    return out;
+  }
   for (const item of equippedItems(state, hero)) {
     for (const [stat, v] of Object.entries(itemMods(item))) {
       if (AFFIXES[stat]?.ctx === ctx) add(out, stat, v);

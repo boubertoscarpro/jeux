@@ -1,6 +1,6 @@
 import { AUTOMATION_LEVELS, ORDER_CONDITIONS, ORDER_ACTIONS, ORDER_TEMPLATES } from '../../data/automation.js';
 import { WORK_SECTORS } from '../../data/workers.js';
-import { RESOURCES, RES_ORDER } from '../../data/resources.js';
+import { RESOURCES, RES_ORDER, TRADABLE } from '../../data/resources.js';
 import { UNITS } from '../../data/units.js';
 import { BUILDINGS } from '../../data/buildings.js';
 import { SEASONS } from '../../data/seasons.js';
@@ -17,7 +17,7 @@ function paramField(name, draft, prefix) {
   const v = draft[name] ?? '';
   const id = `${prefix}-${name}`;
   switch (name) {
-    case 'res': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${resOpts(v || 'food')}</select>`;
+    case 'res': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${prefix === 'action' && ['sellAbove', 'buy'].includes(draft.type) ? opt(TRADABLE.filter((r) => draft.type === 'sellAbove' || RESOURCES[r].cat !== 'rare').map((r) => [r, `${RESOURCES[r].icon} ${RESOURCES[r].name}`]), v || 'wood') : resOpts(v || 'food')}</select>`;
     case 'sector': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt(Object.entries(WORK_SECTORS).map(([k, s]) => [k, `${s.icon} ${s.name}`]), v || 'food')}</select>`;
     case 'unit': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt(Object.entries(UNITS).map(([k, u]) => [k, `${u.icon} ${u.name}`]), v || 'spearman')}</select>`;
     case 'building': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt(CHAIN_BUILDINGS.map((b) => [b, `${BUILDINGS[b].icon} ${BUILDINGS[b].name}`]), v || 'foundry')}</select>`;

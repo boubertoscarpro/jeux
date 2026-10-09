@@ -6,8 +6,8 @@ export const AUTOMATION_LEVELS = [
   { lvl: 3, name: 'Expéditions automatiques', icon: '🔁', desc: 'Les expéditions menées par un contremaître se relancent seules. Mercenaires débloqués.', cost: { wood: 3000, iron: 1000, gold: 1500 }, th: 4, unlocks: ['repeat', 'mercenary'] },
   { lvl: 4, name: 'Gestionnaire', icon: '📋', desc: 'Priorités du royaume (réaffectation automatique des ouvriers) et 3 Ordres du royaume.', cost: { gold: 4000, steel: 100, planks: 300 }, th: 5, unlocks: ['priorities', 'orders'], orders: 3 },
   { lvl: 5, name: 'Intendant', icon: '🧾', desc: '6 ordres. Commerce, recrutement et recherche automatiques.', cost: { gold: 10000, steel: 400, cloth: 200 }, th: 7, unlocks: ['autoTrade', 'autoTrain', 'autoResearch'], orders: 6 },
-  { lvl: 6, name: 'Réseau logistique', icon: '🛤️', desc: '10 ordres. Routes commerciales permanentes, convois automatiques, −15% pertes des chaînes.', cost: { gold: 25000, frames: 150, silver: 60 }, th: 9, unlocks: ['autoConvoy', 'logistics'], orders: 10 },
-  { lvl: 7, name: 'Intendance royale', icon: '👑', desc: '16 ordres. Réparation et défense automatiques. Vos conseillers gèrent le quotidien.', cost: { gold: 60000, crystals: 40, rareOre: 30 }, th: 12, unlocks: ['autoRepair', 'autoDefense', 'royal'], orders: 16 },
+  { lvl: 6, name: 'Réseau logistique', icon: '🛤️', desc: '10 ordres. Réseau logistique : −15% de matières premières consommées par les chaînes de production.', cost: { gold: 25000, frames: 150, silver: 60 }, th: 9, unlocks: ['autoConvoy', 'logistics'], orders: 10 },
+  { lvl: 7, name: 'Intendance royale', icon: '👑', desc: '16 ordres. Réparation automatique des bâtiments endommagés. Vos conseillers gèrent le quotidien.', cost: { gold: 60000, crystals: 40, rareOre: 30 }, th: 12, unlocks: ['autoRepair', 'autoDefense', 'royal'], orders: 16 },
 ];
 
 // Conditions des Ordres du royaume

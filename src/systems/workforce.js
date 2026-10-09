@@ -49,6 +49,7 @@ export function assignWorker(state, wid, sector) {
   const w = state.workers.find((x) => x.id === wid);
   if (!w) return { ok: false };
   if (w.job?.type === 'exp') return { ok: false, reason: 'En expédition' };
+  if (w.foreman && sector) return { ok: false, reason: 'Un contremaître dirige : il ne travaille pas dans un secteur' };
   if (sector && !WORK_SECTORS[sector]) return { ok: false };
   w.job = sector ? { type: 'sector', sector } : null;
   return { ok: true };

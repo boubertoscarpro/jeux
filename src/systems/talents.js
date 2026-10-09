@@ -77,11 +77,38 @@ export function talentMods(state) {
 // ---------- Prestige : fonder une nouvelle dynastie ----------
 export const PRESTIGE_TH = 15;
 export function prestigeGain(state) {
-  return Math.floor(totalLevels(state) / 40 + Object.keys(state.artifacts || {}).length * 2 + (state.stats.bossKills || 0) + (state.stats.dungeons || 0) / 2 + thLevel(state) / 3);
+  // Seuls les artefacts obtenus pendant cette dynastie comptent (les artefacts conservés ne repaient pas)
+  const newArts = Object.values(state.artifacts || {}).filter((a) => (a?.t || 0) >= (state.meta.created || 0)).length;
+  return Math.floor(totalLevels(state) / 40 + newArts * 2 + (state.stats.bossKills || 0) + (state.stats.dungeons || 0) / 2 + thLevel(state) / 3);
 }
 export function canPrestige(state) {
   if (thLevel(state) < PRESTIGE_TH) return { ok: false, reason: `Hôtel de ville niveau ${PRESTIGE_TH} requis` };
   return { ok: true, gain: prestigeGain(state) };
+}
+
+// Ce qui est conservé / réinitialisé (affiché avant confirmation)
+export function prestigePreview(state) {
+  return {
+    gain: prestigeGain(state),
+    kept: [
+      'Points d’héritage et bonus dynastiques achetés',
+      'Doctrines de talents enregistrées (les rangs sont rendus et se regagnent en progressant)',
+      'Artefacts, collections et trophées de boss',
+      'Éclats Anciens, tickets, fragments, garanties de la Roue et exploits accomplis',
+      'Cosmétiques, bannière, titres et insignes',
+      'Records, chronique de l’histoire et bilans d’événements',
+      'Réputation (divisée par deux)',
+    ],
+    reset: [
+      'Ville, bâtiments et technologies',
+      'Ressources (ressources de départ multipliées par « Trésor des ancêtres »)',
+      'Armée, héros (y compris exclusifs), équipement (y compris uniques) et ouvriers',
+      'Carte du monde, territoires, factions et diplomatie',
+      'Quêtes, jalons, saison et guilde',
+      'Événement en cours (sa monnaie et sa progression sont perdues)',
+      'Intendance (sauf paliers « Intendance héréditaire »)',
+    ],
+  };
 }
 
 // Renvoie un NOUVEL état (la nouvelle dynastie)
@@ -95,9 +122,17 @@ export function foundDynasty(state, now = Date.now()) {
   Object.assign(ns.meta, { banner: state.meta.banner, insignia: state.meta.insignia, owned: state.meta.owned, titles: [...(state.meta.titles || []), `Fondateur de la ${d.count + 1}e dynastie`], heroClassesSeen: state.meta.heroClassesSeen });
   ns.artifacts = state.artifacts;              // collections conservées
   ns.bossTrophies = state.bossTrophies;
-  ns.talents = state.talents;                  // talents conservés
+  // Doctrines conservées ; les rangs sont rendus (les points se regagnent avec la progression)
+  ns.talents = { ranks: {}, builds: state.talents?.builds || [], switchAt: 0 };
   ns.records = state.records;
   ns.history = [...(state.history || [])];
+  // Éléments permanents du compte : Éclats Anciens (et exploits déjà accomplis, non rejouables),
+  // historique des événements, notifications et réglages
+  // Les objets et héros exclusifs ne sont pas conservés : leurs marques « possédé » sont effacées
+  // pour qu'ils puissent être obtenus à nouveau (sinon ils se changeraient en fragments)
+  if (state.shards) ns.shards = { ...state.shards, owned: {} };
+  if (state.live) Object.assign(ns.live, { history: state.live.history || [], occ: state.live.occ || {}, reports: state.live.reports || [], totals: state.live.totals || {} });
+  ns.admin = state.admin || {};
   ns.reputation = Object.fromEntries(Object.entries(state.reputation || {}).map(([k, v]) => [k, Math.floor(v / 2)]));
   ns.stats.previousDynasties = [...(state.stats.previousDynasties || []), { th: thLevel(state), levels: totalLevels(state), t: now }];
   // Bonus dynastiques appliqués au départ

@@ -95,7 +95,7 @@ export function spawnBoss(state, bossKey, now) {
   const hpScale = 0.4 + thLevel(state) * 0.12;
   const maxHp = Math.round(def.hp * hpScale);
   state.boss = { key: bossKey, x: pos.x, y: pos.y, hp: maxHp, maxHp, contrib: 0, start: now, until: now + 2 * 3600 * 1000 };
-  world.pois[key(pos.x, pos.y)] = { id: 'boss', type: 'boss', x: pos.x, y: pos.y, danger: 6, scouted: true };
+  world.pois[key(pos.x, pos.y)] = { id: 'boss', type: 'boss', x: pos.x, y: pos.y, danger: 0, scouted: true }; // danger 0 : l'aperçu correspond au combat réel
   reveal(world, pos.x, pos.y, 1);
   log(state, 'event', `🐉 ${def.name} est apparu en (${pos.x}, ${pos.y}) ! Toutes les guildes s’unissent pour l’abattre.`, now);
   toast(`🐉 Boss mondial : ${def.name}`, 'event');
@@ -105,7 +105,7 @@ function bossTick(state, dtSec, now) {
   const b = state.boss;
   if (!b) return;
   if (b.hp > 0 && b.until > now) {
-    // Les autres seigneurs du monde attaquent aussi le boss (~0,9% PV max / minute : chute en ~1 h 50)
+    // Les seigneurs rivaux (IA) attaquent aussi le boss (~0,9% PV max / minute : chute en ~1 h 50)
     b.hp = Math.max(0, b.hp - b.maxHp * 0.009 * (dtSec / 60) * rng.float(0.6, 1.4));
   }
   if (b.hp <= 0 && !b.done) {

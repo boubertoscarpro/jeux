@@ -24,6 +24,8 @@ import talentsView from './views/talents.js';
 import historyView from './views/history.js';
 import statsView from './views/stats.js';
 import treasuryView from './views/treasury.js';
+import ecoReportView from './views/ecoReport.js';
+import goalsView from './views/goals.js';
 import eventView from './views/events.js';
 import eventShopView from './views/eventShop.js';
 import calendarView from './views/calendar.js';
@@ -36,10 +38,10 @@ import { openAdvisor } from './advisor.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView] },
   { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, factionsView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView] },
-  { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [stewardView, workersView, expeditionsView, chainsView] },
+  { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
   { id: 'g-tech', title: 'Technologies', icon: '🔬', tabs: [researchView, talentsView] },
@@ -77,6 +79,14 @@ export class App {
     advance(this.state, Date.now());
     this.render();
     if (away > 2 * 60 * 1000) this.absenceReport(away, before, logBefore);
+    const m = this.state.meta;
+    if (m.migratedFrom || m.repaired || m.restoredFromBackup) {
+      this.modal(`<h2>💾 Sauvegarde mise à jour</h2>${m.migratedFrom ? `<p>Votre partie (format v${m.migratedFrom}) a été convertie au format actuel <b>v${this.state.version}</b>. Rien n’a été perdu : les nouveaux systèmes ont simplement été ajoutés.</p>` : ''}
+        ${m.restoredFromBackup ? '<p>La copie de secours a été restaurée. Les dernières minutes de jeu peuvent manquer.</p>' : ''}
+        ${m.repaired ? `<p class="small">Valeurs invalides corrigées : ${esc(m.repaired.join(', '))}.</p>` : ''}<button class="btn primary" data-action="close-modal">Continuer</button>`, {});
+      delete m.migratedFrom; delete m.repaired; delete m.restoredFromBackup;
+      this.save();
+    }
     this.timer = setInterval(() => this.tick(), 1000);
     this.saveTimer = setInterval(() => this.save(), 15000);
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.save(); else this.tick(); });
@@ -109,7 +119,17 @@ export class App {
       <button class="btn primary" data-action="close-modal">Au travail !</button>`, {}, 'wide');
   }
 
-  save() { if (this.state) saveGame(this.state); }
+  save(manual = false) {
+    if (!this.state) return false;
+    const r = saveGame(this.state);
+    if (!r.ok) {
+      // Message affiché une fois toutes les 5 minutes au plus (pas de spam toutes les 15 s)
+      if (manual || Date.now() - (this._saveErrAt || 0) > 300000) { this.toast(`💾 ${r.error}`, 'bad'); this._saveErrAt = Date.now(); }
+      return false;
+    }
+    if (manual) this.toast('💾 Partie sauvegardée', 'good');
+    return true;
+  }
 
   // Bilan de fin d'événement (affiché une fois)
   showEventReport() {
@@ -229,10 +249,19 @@ export class App {
   }
 
   bindEvents() {
+    let last = { key: '', t: 0 };
     const handle = (ev, attr) => {
       const el = ev.target.closest(`[${attr}]`);
       if (!el || !this.root.contains(el) && !document.getElementById('modal-root').contains(el)) return;
       const name = el.getAttribute(attr);
+      if (el.disabled) return;
+      // Protection contre les doubles clics : même action sur le même élément en moins de 350 ms ignorée
+      if (attr === 'data-action') {
+        const key = `${name}|${el.dataset.id || ''}|${el.dataset.view || ''}|${el.dataset.i || ''}`;
+        const now = performance.now();
+        if (key === last.key && now - last.t < 350) return;
+        last = { key, t: now };
+      }
       const view = this.views[this.ui.view];
       const fn = (this.modalActions && this.modalActions[name]) || view.actions?.[name] || sideActions[name] || this.globalActions[name];
       if (name === 'goto' && this.modalActions) this.closeModal();
@@ -260,6 +289,13 @@ export class App {
     root.innerHTML = `<div class="modal-backdrop" data-action="close-modal"></div><div class="modal ${cls}" role="dialog"><button class="modal-x" data-action="close-modal" aria-label="Fermer">✕</button>${html}</div>`;
     root.classList.add('open');
   }
+  // Fenêtre de confirmation (actions destructrices ou irréversibles)
+  confirm(html, okLabel, onOk, danger = true) {
+    this.modal(`${html}<div class="row gap"><button class="btn ${danger ? 'danger' : 'primary'}" data-action="confirm-ok">${esc(okLabel)}</button><button class="btn ghost" data-action="close-modal">Annuler</button></div>`, {
+      'confirm-ok': (app) => { app.closeModal(); onOk(); },
+    }, 'wide');
+  }
+
   closeModal() {
     const root = document.getElementById('modal-root');
     root.classList.remove('open');

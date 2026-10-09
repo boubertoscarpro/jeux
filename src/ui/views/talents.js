@@ -1,6 +1,6 @@
 import { TALENTS, TALENT_BRANCHES, BUILD_PRESETS, DYNASTY_PERKS } from '../../data/talents.js';
 import { fmtTime } from '../../core/util.js';
-import { talentRanks, talentPoints, freePoints, canLearn, learnTalent, resetTalents, saveBuild, loadBuild, applyPreset, canPrestige, foundDynasty, buyPerk, PRESTIGE_TH, prestigeGain } from '../../systems/talents.js';
+import { talentRanks, talentPoints, freePoints, canLearn, learnTalent, resetTalents, saveBuild, loadBuild, applyPreset, canPrestige, foundDynasty, buyPerk, PRESTIGE_TH, prestigeGain, prestigePreview } from '../../systems/talents.js';
 import { saveGame } from '../../core/save.js';
 import { esc } from '../components.js';
 
@@ -39,10 +39,17 @@ export default {
     'tl-load': (app, el) => app.act(() => loadBuild(app.state, +el.dataset.i), 'Doctrine chargée'),
     perk: (app, el) => app.act(() => buyPerk(app.state, el.dataset.k), 'Héritage renforcé'),
     prestige: (app) => {
-      if (!confirm('Fonder une nouvelle dynastie ? Votre royaume actuel sera remplacé.')) return;
-      const r = foundDynasty(app.state);
-      if (!r.ok) return app.toast(r.reason, 'bad');
-      app.state = r.state; saveGame(r.state); location.reload();
+      const c = canPrestige(app.state);
+      if (!c.ok) return app.toast(c.reason, 'bad');
+      const p = prestigePreview(app.state);
+      app.confirm(`<h2>👑 Fonder une nouvelle dynastie ?</h2><p>Vous recevrez <b>${p.gain} points d’héritage</b>. Cette action est <b>irréversible</b>.</p>
+        <div class="cols-2"><div><h4>✔ Conservé</h4><ul class="small">${p.kept.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>
+        <div><h4>✖ Réinitialisé</h4><ul class="small">${p.reset.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div></div>
+        <p class="small muted">Conseil : exportez votre sauvegarde avant (Saison & boutique → Exporter).</p>`, 'Fonder la dynastie', () => {
+        const r = foundDynasty(app.state);
+        if (!r.ok) return app.toast(r.reason, 'bad');
+        app.state = r.state; saveGame(r.state); location.reload();
+      });
     },
   },
 };

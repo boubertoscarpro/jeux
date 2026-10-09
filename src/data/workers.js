@@ -45,7 +45,7 @@ export const FOREMAN_TYPES = {
   farming:   { name: 'Contremaître agricole', icon: '🌾', desc: '+20% nourriture (secteur)', mods: { 'prod.food': 0.2, 'prod.grain': 0.2 }, exp: ['farming', 'hunting'] },
   logistics: { name: 'Contremaître logistique', icon: '🚚', desc: '−15% temps de transport et de caravane', mods: { 'march.speed': 0.15, 'caravan.speed': 0.15 }, exp: [] },
   military:  { name: 'Contremaître militaire', icon: '🎖️', desc: '+10% vitesse de recrutement', mods: { 'train.speed': 0.1 }, exp: ['mercenary'] },
-  workshop:  { name: 'Maître d’atelier', icon: '🏭', desc: '+15% production des chaînes', mods: { 'prod.flour': 0.15, 'prod.bread': 0.15, 'prod.steel': 0.15, 'prod.planks': 0.15, 'prod.weapons': 0.15, 'prod.rations': 0.15, 'prod.leather': 0.15, 'prod.cloth': 0.15 }, exp: [] },
+  workshop:  { name: 'Maître d’atelier', icon: '🏭', desc: '+15% production des chaînes', mods: { 'prod.flour': 0.15, 'prod.bread': 0.15, 'prod.steel': 0.15, 'prod.planks': 0.15, 'prod.weapons': 0.15, 'prod.rations': 0.15, 'prod.leather': 0.15, 'prod.cloth': 0.15, 'prod.frames': 0.15, 'prod.coal': 0.15 }, exp: [] },
   explorer:  { name: 'Guide', icon: '🧭', desc: 'Mène les expéditions lointaines (+20% vitesse, −20% danger)', mods: { 'explore.speed': 0.1 }, exp: ['exploration', 'prospecting'] },
 };
 

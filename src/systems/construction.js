@@ -49,6 +49,7 @@ export function startBuild(state, type, x, y, now = Date.now()) {
     if (!pc.ok) return pc;
   }
   if (queueFull(state, mods)) return { ok: false, reason: 'File de construction pleine' };
+  if (def.grid === false && state.queues.build.some((q) => q.bid === 'fort:' + type)) return { ok: false, reason: 'Déjà en construction' };
   const { cost, time } = getUpgradeInfo(state, type, 1, mods);
   if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   let bid;

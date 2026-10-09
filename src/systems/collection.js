@@ -6,10 +6,12 @@ import { chronicle } from './chronicle.js';
 import { toast } from './log.js';
 
 // Donne un artefact (aléatoire parmi ceux non possédés si key = null). Renvoie son nom ou null.
-export function grantArtifact(state, key, now = Date.now(), source = '') {
+// pool : liste d'artefacts possibles ; sans pool, tous sauf les exclusivités (Œil de l'Ancien, Roue uniquement)
+export const EXCLUSIVE_ARTIFACTS = ['ancientEye'];
+export function grantArtifact(state, key, now = Date.now(), source = '', pool = null) {
   const owned = (state.artifacts ||= {});
   if (!key) {
-    const left = Object.keys(ARTIFACTS).filter((k) => !owned[k]);
+    const left = (pool || Object.keys(ARTIFACTS)).filter((k) => !owned[k] && ARTIFACTS[k] && (pool || !EXCLUSIVE_ARTIFACTS.includes(k)));
     if (!left.length) return null;
     key = rng.pick(left);
   }

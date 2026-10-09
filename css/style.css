@@ -577,3 +577,12 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .ev-pick .pick { display: flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
 .ev-pick .qty { width: 64px; margin-left: auto; }
 .ev-pick .pick .mini { flex-shrink: 0; }
+.row-bad td { background: rgba(239, 100, 97, 0.08); }
+.eco-table td, .eco-table th { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.goal { background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+.goal.done { border-color: var(--good); }
+.goal.urgent { border-color: var(--warn); }
+.goal-head { display: flex; gap: 8px; align-items: center; }
+.goal-icon { font-size: 18px; font-family: var(--emoji); }
+.goal .mini { align-self: flex-start; }
+.btn.danger { background: rgba(239, 100, 97, 0.18); border-color: var(--bad); color: #ffd9d8; }

@@ -1,3 +1,4 @@
+import { recordLoss } from './losses.js';
 import { BUILDINGS, levelProdFactor } from '../data/buildings.js';
 import { RESOURCES, isCapped } from '../data/resources.js';
 import { UNITS } from '../data/units.js';
@@ -144,7 +145,7 @@ export function advanceEconomy(state, dt, mods) {
 
   // 1) Production simple
   for (const b of buildings) {
-    if (recipeOf(b)) continue;
+    if (b.paused || recipeOf(b)) continue;
     const r = buildingRates(state, b, mods);
     for (const [k, v] of Object.entries(r.out)) {
       const got = addResource(state, k, v * h, mods, cap);
@@ -163,8 +164,11 @@ export function advanceEconomy(state, dt, mods) {
         if (need > 0) frac = Math.min(frac, avail / need);
       }
       b.capped = false;
-      for (const k of Object.keys(r.out)) {
-        if ((isCapped(k) && state.resources[k] >= cap) || (b.quota && state.resources[k] >= b.quota)) { frac = 0; b.capped = true; }
+      // Ne transforme que ce que l'entrepôt ou le quota peut recevoir : aucune matière première gaspillée
+      for (const [k, v] of Object.entries(r.out)) {
+        const limit = Math.min(isCapped(k) ? cap : Infinity, b.quota || Infinity);
+        const room = limit - (state.resources[k] || 0);
+        if (room <= 0) { frac = 0; b.capped = true; } else if (v * h > 0) frac = Math.min(frac, room / (v * h));
       }
       if (frac <= 0) { b.starved = !b.capped && Object.keys(r.in).length > 0; continue; }
       b.starved = frac < 0.99;
@@ -186,6 +190,7 @@ export function advanceEconomy(state, dt, mods) {
     state.resources.food -= upkeep;
     state.famine = false;
   } else {
+    if (upkeep > state.resources.food) recordLoss(state, 'famine', { food: upkeep - state.resources.food }, state.meta.lastTick || Date.now());
     state.resources.food = 0;
     state.famine = upkeep > 0;
   }
@@ -205,7 +210,7 @@ export function missing(state, cost) {
 export function pay(state, cost) {
   if (!canAfford(state, cost)) return false;
   const spent = (state.stats.spent ||= {});
-  for (const [r, v] of Object.entries(cost || {})) { state.resources[r] -= v; spent[r] = (spent[r] || 0) + v; }
+  for (const [r, v] of Object.entries(cost || {})) { state.resources[r] = Math.max(0, state.resources[r] - v); spent[r] = (spent[r] || 0) + v; }
   return true;
 }
 export function gain(state, rewards, mods) {

@@ -5,7 +5,7 @@ import { createHero } from '../systems/heroes.js';
 import { initMarket } from '../systems/market.js';
 import { initFactions } from '../systems/factions.js';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 export const CITY_W = 14;
 export const CITY_H = 10;
 

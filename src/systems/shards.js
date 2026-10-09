@@ -255,10 +255,12 @@ export function grantReward(state, rw, tier, now = Date.now()) {
     state.meta.owned.deco_colossus = true;
     state.army.celestialRider = (state.army.celestialRider || 0) + 25;
     s.jackpots++;
-    text = '👑 JACKPOT ANCESTRAL : trésor colossal, 25 Cavaliers célestes, titre « Élu des Anciens », Colosse de l’Ancien';
+    text = '👑 JACKPOT ANCESTRAL : trésor colossal, 25 Cavaliers célestes, titre « Élu des Anciens », Colosse de l’Ancien, Fête ancestrale (+15 % production 24 h) et Grande Foire';
     chronicle(state, `🏆 ${state.meta.kingdomName} DÉCROCHE LE JACKPOT ANCESTRAL !`, now);
-    (state.serverFeed ||= []).unshift({ t: now, text: `🏆 ${state.meta.kingdomName} vient de trouver le JACKPOT ANCESTRAL !`, me: true });
-    toast('🏆 UN JOUEUR VIENT DE TROUVER LE JACKPOT ANCESTRAL !', 'event');
+    // Événement réel dans votre royaume : 24 h de Fête ancestrale et une Grande Foire immédiate
+    state.buffs.push({ name: 'Fête ancestrale', mods: { 'prod.all': 0.15, 'combat.morale': 10 }, until: now + 24 * 3600000 });
+    if (state.live) state.live.pendingFair = true;
+    toast('🏆 JACKPOT ANCESTRAL ! Une Fête ancestrale et une Grande Foire commencent dans votre royaume.', 'event');
   }
   return { text };
 }
@@ -316,17 +318,9 @@ export function craftLegendary(state, rewardId, now = Date.now()) {
   return { ok: true, text: grantReward(state, rw, 'legendary', now).text };
 }
 
-// ---------- Fil « serveur » simulé (communauté) ----------
-const LORDS = ['Baronne Elvire', 'Sire Gondemar', 'Dame Ysolde', 'Comte Aubri', 'Margrave Ulric', 'Duchesse Ermengarde', 'Seigneur Hugues', 'Vicomtesse Blanche'];
-export function serverFeedTick(state, now) {
-  const f = (state.serverFeed ||= []);
-  if (rng.chance(0.04)) {
-    const roll = rng.random();
-    const what = roll < 0.002 ? '👑 le JACKPOT ANCESTRAL' : roll < 0.05 ? 'une récompense mythique' : 'une récompense légendaire';
-    f.unshift({ t: now, text: `${rng.pick(LORDS)} a obtenu ${what} à la Roue des Anciens.` });
-    if (f.length > 30) f.length = 30;
-  }
-}
+// Ancien fil « serveur » : supprimé (le jeu est solo ; afficher de faux gains d'autres joueurs serait trompeur).
+// Conservé comme fonction vide pour la compatibilité des appels existants.
+export function serverFeedTick(state) { if (state.serverFeed?.length) state.serverFeed = []; }
 
 // ---------- Modèle économique (estimation pour l'outil de suivi) ----------
 // Gains attendus par jour selon un profil d'activité, à partir de la configuration réelle

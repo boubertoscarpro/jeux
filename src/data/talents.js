@@ -57,7 +57,7 @@ export const BUILD_PRESETS = {
 
 // Héritage dynastique (prestige)
 export const DYNASTY_PERKS = {
-  bounty:   { name: 'Trésor des ancêtres', desc: 'Ressources de départ ×2 par rang', max: 5, cost: 1 },
+  bounty:   { name: 'Trésor des ancêtres', desc: 'Ressources de départ +100 % par rang', max: 5, cost: 1 },
   prod:     { name: 'Sang bâtisseur', desc: '+5% toute production par rang', max: 10, cost: 1, mods: { 'prod.all': 0.05 } },
   steward:  { name: 'Intendance héréditaire', desc: 'Commence avec +1 palier d’Intendance par rang', max: 3, cost: 2 },
   talents:  { name: 'Mémoire des rois', desc: '+2 points de talent par rang', max: 5, cost: 1 },

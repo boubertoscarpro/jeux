@@ -92,6 +92,7 @@ export function planMarch(state, opts, now = Date.now()) {
     if (!gatherRate(units, mods, def.res)) return fail('Ces unités ne peuvent pas récolter');
   } else if (type === 'attack') {
     if (!poi || !['danger', 'kingdom'].includes(def.kind)) return fail('Rien à attaquer ici');
+    if (def.dungeon) return fail('Un donjon se parcourt salle par salle : lancez une « Expédition de donjon »');
     if (poi.clearedUntil > now) return fail('Site déjà nettoyé (réapparition plus tard)');
   } else if (type === 'dungeon') {
     if (!poi || !def.dungeon) return fail('Pas de donjon ici');
@@ -394,6 +395,16 @@ function arriveExplore(state, m, t, mods, hero) {
   const wasRevealed = isRevealed(world, m.x, m.y);
   const radius = 1.5 + (mods['explore.radius'] || 0);
   const found = reveal(world, m.x, m.y, radius);
+  // Une case déjà fouillée dans les 24 dernières heures ne rapporte plus rien (anti-boucle d'exploration)
+  const ek = `${m.x},${m.y}`;
+  const fresh = !wasRevealed || !(world.exploredAt?.[ek] > t - 24 * 3600000);
+  (world.exploredAt ||= {})[ek] = t;
+  if (!fresh) {
+    const head0 = `🧭 Exploration (${m.x}, ${m.y}) : la zone a déjà été fouillée récemment, rien de nouveau.`;
+    log(state, 'explore', head0, t);
+    addReport(state, { t, kind: 'explore', title: 'Exploration', x: m.x, y: m.y, text: head0, win: true });
+    return goBack(m, t);
+  }
   state.stats.explored++;
   bumpRep(state, 'explorer', 1);
   rollShards(state, 'exploration', t, { label: 'Fragment d’un ancien artefact découvert' });
@@ -406,7 +417,7 @@ function arriveExplore(state, m, t, mods, hero) {
   let evKey;
   if (poi && poi.type === 'village' && !poi.visited) { evKey = 'village'; poi.visited = true; }
   else if (poi && POI_TYPES[poi.type].kind !== 'gather') evKey = rng.chance(0.5) ? null : 'nothing';
-  else if (wasRevealed && rng.chance(0.5)) evKey = 'nothing';
+  else if (wasRevealed && rng.chance(0.65)) evKey = 'nothing';
   else {
     const weights = Object.fromEntries(Object.entries(EXPLORE_EVENTS).map(([k, e]) => [k, e.weight * (k === 'cache' || k === 'deposit' ? 1 + (mods['loot.rare'] || 0) * 5 : 1)]));
     evKey = rng.weighted(weights);
@@ -513,6 +524,8 @@ function applyEffects(state, m, fx, t, mods) {
 }
 
 function homecoming(state, m, t, wiped = false) {
+  // Une armée anéantie ne rapporte rien : personne pour porter le butin
+  if (wiped) { if (Object.keys(m.loot).length || m.items.length) log(state, 'bad', '💀 Vos troupes ont péri : le butin est perdu.', t); m.loot = {}; m.items = []; }
   for (const [u, n] of Object.entries(m.units)) state.army[u] = (state.army[u] || 0) + n;
   const mods = computeMods(state, t);
   const got = gain(state, m.loot, mods);

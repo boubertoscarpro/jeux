@@ -211,7 +211,7 @@ export const LIVE_EVENTS = {
       { id: 'fire', label: 'Sang de dragon (+20 % attaque, 3 h)', icon: '🩸', price: 1000, give: { buff: { name: 'Sang de dragon', mods: { 'combat.atk': 0.2 }, h: 3 } } },
     ]),
     guild: { label: 'Votre guilde doit infliger 5 000 000 de dégâts au dragon', stat: 'coopDamage', target: 5000000, reward: { chest: 'epic', dragonScales: 1500 } },
-    special: { tracking: true, coop: true, desc: 'Traque : suivez les pistes (3 étapes) pour localiser l’antre. Coopératif : tout le serveur frappe le même dragon ; plus il est entamé, meilleures sont les récompenses globales.' },
+    special: { tracking: true, coop: true, desc: 'Traque : suivez les pistes (3 étapes) pour localiser l’antre. Coopératif : vous et les seigneurs rivaux (IA, simulés localement) frappez le même dragon ; plus il est entamé, meilleures sont les récompenses — à condition d’avoir participé.' },
   },
 
   // 6 ─────────────────────────────────────────────────────────────
@@ -358,7 +358,7 @@ export const LIVE_EVENTS = {
       { id: 'wall', label: 'Remparts renforcés (+25 % défense de la ville, 6 h)', icon: '🧱', price: 900, give: { buff: { name: 'Remparts renforcés', mods: { 'city.def': 0.25 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit tenir 300 assauts', stat: 'assaults', target: 300, reward: { chest: 'epic', citadelSeals: 1000 } },
-    special: { siege: true, every: 4, coop: true, desc: 'Envoyez des troupes en garnison dans la Citadelle. Toutes les 4 h, un assaut frappe : votre garnison combat aux côtés des seigneurs du serveur. Si la Citadelle tient jusqu’au bout, tous les défenseurs reçoivent une grande récompense.' },
+    special: { siege: true, every: 4, coop: true, desc: 'Envoyez des troupes en garnison dans la Citadelle. Toutes les 4 h, un assaut frappe : votre garnison combat aux côtés des seigneurs alliés (IA). L’intégrité de la Citadelle baisse à chaque assaut, moins si vous repoussez l’ennemi ; si elle tient jusqu’au bout, vous recevez une grande récompense.' },
   },
 };
 

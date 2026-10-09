@@ -414,7 +414,7 @@ export default {
     'goto-boss': (app) => { const c = cam(app), b = app.state.boss; if (!b) return; c.x = b.x + 0.5; c.y = b.y + 0.5; app.ui.worldSel = { x: b.x, y: b.y }; app.render(); },
     march: (app, el) => marchDialog(app, el.dataset.type),
     claim: (app) => app.act(() => claimTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), 'Avant-poste établi'),
-    abandon: (app) => app.act(() => abandonTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y)),
+    abandon: (app) => app.confirm('<h2>Abandonner ce territoire ?</h2><p>Son bonus disparaît et le coût d’établissement n’est <b>pas remboursé</b>.</p>', 'Abandonner', () => app.act(() => abandonTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), 'Territoire abandonné')),
     'cv-res': (app, el) => { app.ui.cvRes = el.value; },
     'goto-convoys': (app) => { const t = app.ui.worldSel; app.ui.cv = { ...(app.ui.cv || { res: 'wood', qty: 500, mode: 'secure', guards: 0 }), town: `${t.x},${t.y}` }; app.go('convoys'); },
     caravan: (app) => {

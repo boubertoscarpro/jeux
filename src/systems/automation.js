@@ -1,3 +1,4 @@
+import { TRADABLE } from '../data/resources.js';
 import { AUTOMATION_LEVELS, ORDER_CONDITIONS, ORDER_ACTIONS } from '../data/automation.js';
 import { WORK_SECTORS } from '../data/workers.js';
 import { RESOURCES } from '../data/resources.js';
@@ -135,7 +136,8 @@ function runAction(state, o, now) {
   const a = o.action;
   switch (a.type) {
     case 'assign': { const n = assignMany(state, a.sector, a.count, now, true); return n ? { ok: true, msg: `${n} ouvrier(s) affecté(s)` } : { ok: false, reason: 'aucun ouvrier disponible' }; }
-    case 'sellAbove': { const q = Math.min(20000, Math.floor((state.resources[a.res] || 0) - a.value)); return q > 0 ? withMsg(sell(state, a.res, q, now), (r) => `vendu ${fmt(q)} (+${fmt(r.gold)} or)`) : { ok: false, reason: 'pas de surplus' }; }
+    case 'sellAbove': {
+      if (!TRADABLE.includes(a.res)) return { ok: false, reason: `${a.res} ne se vend pas` }; const q = Math.min(20000, Math.floor((state.resources[a.res] || 0) - a.value)); return q > 0 ? withMsg(sell(state, a.res, q, now), (r) => `vendu ${fmt(q)} (+${fmt(r.gold)} or)`) : { ok: false, reason: 'pas de surplus' }; }
     case 'buy': return withMsg(buy(state, a.res, a.count, now), (r) => `acheté (−${fmt(r.gold)} or)`);
     case 'train': return withMsg(train(state, a.unit, a.count, now), () => `${a.count} en formation`);
     case 'relaunch': { const n = relaunchIdle(state, now, true); return n ? { ok: true, msg: `${n} équipe(s) relancée(s)` } : { ok: false, reason: 'aucune équipe prête' }; }
