@@ -22,6 +22,9 @@ import { contractsTick } from '../systems/market.js';
 import { checkFeats, serverFeedTick } from '../systems/shards.js';
 import { netRates } from '../systems/economy.js';
 import { liveTick, liveNextTime, processLiveMarches } from '../systems/liveEvents.js';
+import { territoryTick } from '../systems/territory.js';
+import { seasonTick } from '../systems/quests.js';
+import { inventoryCapTick } from '../systems/crafting.js';
 import { bus } from './bus.js';
 
 export const MAX_OFFLINE_MS = 12 * 3600 * 1000;
@@ -30,13 +33,15 @@ const RIVAL_STEP = 10 * 60 * 1000;
 
 function nextEventTime(state) {
   let t = Infinity;
-  for (const k of ['build', 'research', 'train', 'craft']) for (const q of state.queues[k]) t = Math.min(t, q.end);
-  for (const m of state.marches) t = Math.min(t, marchNextTime(m));
-  for (const c of state.caravans) t = Math.min(t, c.end);
-  for (const r of state.raids) t = Math.min(t, r.arrive);
-  for (const e of state.expeditions || []) t = Math.min(t, expNextTime(e));
-  t = Math.min(t, liveNextTime(state));
-  t = Math.min(t, state.meta.nextWorldTick, state.nextRivalTick);
+  const min = (v) => { if (Number.isFinite(v) && v < t) t = v; };
+  // Une échéance invalide (NaN, absente) est ignorée au lieu de figer toute la simulation
+  for (const k of ['build', 'research', 'train', 'craft']) for (const q of state.queues[k]) min(q.end);
+  for (const m of state.marches) min(marchNextTime(m));
+  for (const c of state.caravans) min(c.end);
+  for (const r of state.raids) min(r.arrive);
+  for (const e of state.expeditions || []) min(expNextTime(e));
+  min(liveNextTime(state));
+  min(state.meta.nextWorldTick); min(state.nextRivalTick);
   return t;
 }
 
@@ -76,6 +81,9 @@ function processDue(state, t) {
     checkFeats(state, t);
     serverFeedTick(state, t);
     liveTick(state, t);
+    territoryTick(state, dt, t);
+    seasonTick(state, t);
+    inventoryCapTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;
     changed = true;
@@ -93,13 +101,28 @@ function processDue(state, t) {
 // Fait avancer la simulation jusqu'à `now` (gère aussi la progression hors-ligne)
 export function advance(state, now = Date.now()) {
   let t = state.meta.lastTick || now;
+  // Horloge reculée (changement d'heure manuel, sauvegarde venue d'un appareil en avance) :
+  // on repart de maintenant au lieu de figer le royaume jusqu'à ce que l'heure rattrape l'ancienne date
+  if (t - now > 60000) {
+    log(state, 'info', `⏰ L’horloge de l’appareil a reculé de ${Math.round((t - now) / 60000)} min : la simulation reprend à l’heure actuelle.`, now);
+    state.meta.lastTick = now;
+    state.meta.nextWorldTick = Math.min(state.meta.nextWorldTick || now, now + WORLD_STEP);
+    state.nextRivalTick = Math.min(state.nextRivalTick || now, now + RIVAL_STEP);
+    return true;
+  }
   if (now <= t) return false;
   if (now - t > MAX_OFFLINE_MS) {
     const skipped = now - t - MAX_OFFLINE_MS;
     t = now - MAX_OFFLINE_MS;
     // Les échéances passées pendant la période ignorée sont recalées
-    const shift = (o, k) => { if (o[k] < t) o[k] = t; };
-    for (const k of ['build', 'research', 'train', 'craft']) for (const q of state.queues[k]) { q.start += 0; shift(q, 'end'); }
+    // Toutes les échéances tombées dans la période ignorée sont recalées au début de la période simulée
+    const shift = (o, ...ks) => { for (const k of ks) if (Number.isFinite(o[k]) && o[k] < t) o[k] = t; };
+    for (const k of ['build', 'research', 'train', 'craft']) for (const q of state.queues[k]) shift(q, 'end');
+    for (const m of [...state.marches, ...(state.live?.marches || [])]) shift(m, 'arrive', 'workEnd', 'returnAt');
+    for (const c of state.caravans) shift(c, 'end');
+    for (const r of state.raids) shift(r, 'arrive');
+    for (const e of state.expeditions || []) shift(e, 'arrive', 'workEnd', 'returnAt', 'nextEventAt', 'decisionAt');
+    for (const p of state.pending) shift(p, 'deadline');
     log(state, 'info', `Absence prolongée : seules les 12 dernières heures sont simulées (${Math.round(skipped / 3600000)} h ignorées).`, now);
   }
   if (!state.meta.nextWorldTick) state.meta.nextWorldTick = t + WORLD_STEP;
@@ -109,6 +132,7 @@ export function advance(state, now = Date.now()) {
   let guard = 0;
   while (t < now && guard++ < 50000) {
     const next = Math.min(now, Math.max(t, nextEventTime(state)));
+    if (!Number.isFinite(next)) break;
     const mods = computeMods(state, t);
     advanceEconomy(state, (next - t) / 1000, mods);
     t = next;

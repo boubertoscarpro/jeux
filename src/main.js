@@ -1,5 +1,5 @@
 import { createNewState } from './core/state.js';
-import { loadGame, saveGame, CORRUPT_KEY } from './core/save.js';
+import { loadGame, saveGame, deserialize, CORRUPT_KEY, SAVE_KEY, BACKUP_KEY } from './core/save.js';
 import { App } from './ui/app.js';
 import { esc } from './ui/components.js';
 
@@ -27,10 +27,18 @@ function intro(onStart) {
 function boot() {
   const root = document.getElementById('app');
   const start = (state) => {
-    saveGame(state);
+    if (state.meta.bootOk === undefined) saveGame(state);
     const app = new App(root, state);
     window.cendrelande = app; // accès console pour le débogage
-    app.start();
+    try { app.start(); } catch (e) {
+      // Une sauvegarde chargée mais impossible à faire tourner ne doit pas laisser un écran vide
+      console.error(e);
+      clearInterval(app.timer); clearInterval(app.saveTimer);
+      app.state = null;
+      let backup = null;
+      try { const b = localStorage.getItem(BACKUP_KEY); if (b) backup = deserialize(b); } catch { backup = null; }
+      recovery({ error: `la partie ne démarre pas (${e.message})`, raw: localStorage.getItem(SAVE_KEY), backup }, start);
+    }
   };
   let res = null;
   try { res = loadGame(); } catch (e) { console.error(e); res = { error: e.message }; }

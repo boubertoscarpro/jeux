@@ -12,6 +12,7 @@ import { repMods } from './reputation.js';
 import { collectionMods } from './collection.js';
 import { talentMods } from './talents.js';
 import { liveMods } from './liveMods.js';
+import { territoryMods } from './territory.js';
 
 const add = (o, k, v) => { if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 const merge = (o, src, mult = 1) => { for (const [k, v] of Object.entries(src || {})) add(o, k, v * mult); };
@@ -46,7 +47,7 @@ export function computeMods(state, now = Date.now()) {
   // Buffs temporaires (potions, bénédictions)
   for (const b of state.buffs) if (b.until > now) merge(m, b.mods);
   // Territoires
-  for (const t of Object.values(state.territories)) merge(m, TERRAINS[t.terrain]?.territory);
+  merge(m, territoryMods(state, now));
   // Guilde
   if (state.guild) {
     merge(m, GUILDS[state.guild.key]?.perk);

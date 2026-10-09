@@ -26,6 +26,7 @@ import statsView from './views/stats.js';
 import treasuryView from './views/treasury.js';
 import ecoReportView from './views/ecoReport.js';
 import goalsView from './views/goals.js';
+import territoriesView from './views/territories.js';
 import eventView from './views/events.js';
 import eventShopView from './views/eventShop.js';
 import calendarView from './views/calendar.js';
@@ -39,7 +40,7 @@ import { openAdvisor } from './advisor.js';
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
   { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView] },
-  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, factionsView] },
+  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView] },
@@ -148,9 +149,11 @@ export class App {
   }
 
   tick() {
+    if (!this.state) return;
     const now = Date.now();
     if (!document.hidden) this.state.meta.playTime = (this.state.meta.playTime || 0) + 1000;
     advance(this.state, now);
+    this.state.meta.bootOk = true;
     this.showEventReport();
     if (this.dirty) this.render();
     else {

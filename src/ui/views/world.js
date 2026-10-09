@@ -265,11 +265,11 @@ function tilePanel(app) {
   }
   // Territoire
   if (terr) {
-    html += `<div class="panel-sub"><h4>🚩 Votre avant-poste</h4><div class="small">Bonus : ${Object.entries(TERRAINS[terr.terrain].territory).map(([k, v]) => `${k} +${Math.round(v * 100)}%`).join(', ')}</div><button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
+    html += `<div class="panel-sub"><h4>🚩 Votre avant-poste ${terr.spec ? '' : '<span class="req small">à spécialiser</span>'}</h4><div class="small">Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats</div><button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
   } else if (!poi || !['capital', 'town', 'kingdom', 'boss'].includes(POI_TYPES[poi.type].kind)) {
     const c = canClaim(s, x, y, now);
     const bonus = TERRAINS[ter].territory;
-    html += `<div class="panel-sub"><h4>🚩 Avant-poste</h4><div class="small">Bonus de terrain : ${Object.entries(bonus).map(([k, v]) => `${k} +${Math.round(v * 100)}%`).join(', ')} · ${Object.keys(s.territories).length}/${territoryLimit(s, mods)}</div>
+    html += `<div class="panel-sub"><h4>🚩 Avant-poste</h4><div class="small">Bonus de terrain : ${Object.entries(bonus).map(([k, v]) => `${k} +${Math.round(v * 100)}%`).join(', ')} · ${Object.keys(s.territories).length}/${territoryLimit(s, mods)}</div><div class="small muted">Demande ensuite une spécialisation, une garnison et un entretien (or + nourriture).</div>
       ${c.ok ? `${costList(c.cost, s)} <button class="mini primary" data-action="claim">Établir</button>` : `<div class="req">${esc(c.reason)}</div>`}</div>`;
   }
   return html;

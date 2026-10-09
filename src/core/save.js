@@ -35,12 +35,45 @@ function fill(target, src) {
   }
 }
 
-// Corrige les valeurs numériques invalides (NaN, Infinity, négatives) qui bloqueraient la partie
-function sanitize(d) {
+// Remplace tout champ dont le TYPE ne correspond pas à un état neuf (tableau attendu mais objet reçu, etc.)
+const DYNAMIC = new Set(['buildings', 'pois', 'territories', 'techs', 'army', 'owned', 'artifacts', 'ledger', 'losses', 'resources', 'records', 'reputation', 'bossTrophies', 'occ', 'heat', 'daily', 'feats', 'perks', 'ranks', 'claimed', 'done', 'milestones', 'routes', 'consumables', 'prices', 'history', 'admin', 'thresholds', 'sat', 'bought', 'produced', 'spent']);
+function conform(target, fresh, path, fixes) {
+  for (const [k, v] of Object.entries(fresh)) {
+    const cur = target[k];
+    if (cur === undefined) continue;
+    if (Array.isArray(v) && !Array.isArray(cur)) { target[k] = v; fixes.push(path + k); continue; }
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      if (cur === null) continue;
+      if (typeof cur !== 'object' || Array.isArray(cur)) { target[k] = v; fixes.push(path + k); continue; }
+      if (!DYNAMIC.has(k)) conform(cur, v, path + k + '.', fixes);
+    } else if (typeof v === 'number' && typeof cur !== 'number') {
+      const n = Number(cur);
+      target[k] = Number.isFinite(n) ? n : v; fixes.push(path + k);
+    }
+  }
+}
+
+const finite = Number.isFinite;
+// Corrige les valeurs invalides (NaN, Infinity, négatives, échéances absentes) qui bloqueraient la partie
+function sanitize(d, fresh) {
   const fixes = [];
-  for (const [r, v] of Object.entries(d.resources || {})) if (!Number.isFinite(v) || v < 0) { fixes.push(r); d.resources[r] = Number.isFinite(v) ? 0 : 0; }
+  conform(d, fresh, '', fixes);
+  for (const [r, v] of Object.entries(d.resources || {})) { const n = Number(v); if (!finite(n) || n < 0) { fixes.push(r); d.resources[r] = 0; } else d.resources[r] = n; }
   for (const [u, n] of Object.entries(d.army || {})) if (!Number.isFinite(n) || n < 0) { fixes.push(u); d.army[u] = 0; }
-  for (const q of ['build', 'train', 'research', 'craft']) d.queues[q] = (d.queues[q] || []).filter((x) => x && Number.isFinite(x.end));
+  for (const q of ['build', 'train', 'research', 'craft']) d.queues[q] = (Array.isArray(d.queues[q]) ? d.queues[q] : []).filter((x) => x && finite(x.end));
+  // Échéances absentes ou invalides : l'entrée est retirée (ou remise au repos) plutôt que de figer le temps
+  const before = (d.marches.length + d.caravans.length + d.raids.length);
+  const marchOk = (m) => m && m.units && ({ out: finite(m.arrive), work: finite(m.workEnd), back: finite(m.returnAt), wait: true, hold: true })[m.phase];
+  d.marches = d.marches.filter(marchOk);
+  d.caravans = d.caravans.filter((c) => c && finite(c.end));
+  d.raids = d.raids.filter((r) => r && finite(r.arrive) && r.army);
+  if (d.live) d.live.marches = (Array.isArray(d.live.marches) ? d.live.marches : []).filter(marchOk);
+  for (const t of d.expeditions || []) {
+    const due = { out: t.arrive, work: t.workEnd, back: t.returnAt }[t.status];
+    if (t.status !== 'idle' && !finite(due)) { t.status = 'idle'; fixes.push('expédition ' + (t.name || t.id)); }
+  }
+  if (d.marches.length + d.caravans.length + d.raids.length < before) fixes.push('trajets invalides');
+  d.pending = d.pending.filter((p) => p && p.id);
   if (d.shards) for (const k of ['count', 'tickets', 'mythicFragments', 'legendaryFragments', 'relicFragments']) if (!Number.isFinite(d.shards[k]) || d.shards[k] < 0) d.shards[k] = 0;
   // Références orphelines : héros marquant une marche disparue
   const marchIds = new Set([...(d.marches || []).map((m) => m.id), ...(d.live?.marches || []).map((m) => m.id)]);
@@ -64,7 +97,7 @@ export function migrate(data) {
   for (let v = from; v < SAVE_VERSION; v++) if (MIGRATIONS[v]) data = MIGRATIONS[v](data) || data;
   const fresh = createNewState({ seed: data?.meta?.seed || 1, now: data?.meta?.lastTick || Date.now() });
   fill(data, fresh);
-  const fixes = sanitize(data);
+  const fixes = sanitize(data, createNewState({ seed: 1, now: Date.now() }));
   data.version = SAVE_VERSION;
   if (from < SAVE_VERSION) data.meta.migratedFrom = from;
   if (fixes.length) data.meta.repaired = fixes;
@@ -82,18 +115,27 @@ export function deserialize(json) {
 export function saveGame(state, now = Date.now()) {
   const s = storage();
   if (!s) return { ok: false, error: 'Stockage du navigateur indisponible' };
+  const isQuota = (e) => /quota/i.test(`${e?.name} ${e?.message}`);
   try {
-    const json = serialize(state);
-    const prev = s.getItem(SAVE_KEY);
-    // Rotation de la copie de secours : la précédente sauvegarde saine est conservée
-    if (prev && now - (state.meta.lastBackup || 0) > BACKUP_EVERY) {
-      try { JSON.parse(prev); s.setItem(BACKUP_KEY, prev); state.meta.lastBackup = now; } catch { /* précédente illisible : on ne la copie pas */ }
-    }
-    s.setItem(SAVE_KEY, json);
+    // La copie de secours est faite depuis l'état EN MÉMOIRE, seulement si la partie a tourné sans erreur
+    // (une sauvegarde importée ou réparée qui planterait ne remplace jamais la copie saine)
+    const rotate = state.meta.bootOk && now - (state.meta.lastBackup || 0) > BACKUP_EVERY;
     state.meta.lastSave = now;
+    if (rotate) state.meta.lastBackup = now;
+    const json = serialize(state);
+    try {
+      if (rotate) s.setItem(BACKUP_KEY, json);
+      s.setItem(SAVE_KEY, json);
+    } catch (e) {
+      if (!isQuota(e)) throw e;
+      // Stockage plein : on libère la copie de secours et la copie endommagée, puis on réessaie
+      s.removeItem(BACKUP_KEY); s.removeItem(CORRUPT_KEY);
+      s.setItem(SAVE_KEY, json);
+      return { ok: true, warning: 'Stockage presque plein : la copie de secours a été supprimée. Exportez votre sauvegarde.' };
+    }
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: /quota/i.test(e?.name + e?.message) ? 'Stockage plein : exportez votre sauvegarde' : `Échec de la sauvegarde (${e?.message || e})` };
+    return { ok: false, error: isQuota(e) ? 'Stockage plein : exportez votre sauvegarde (Saison & boutique → Télécharger)' : `Échec de la sauvegarde (${e?.message || e})` };
   }
 }
 
@@ -112,7 +154,7 @@ export function loadGame() {
   }
 }
 
-export function deleteSave() { const s = storage(); s?.removeItem(SAVE_KEY); }
+export function deleteSave() { const s = storage(); for (const k of [SAVE_KEY, BACKUP_KEY, CORRUPT_KEY]) s?.removeItem(k); }
 
 export function exportSave(state) {
   return btoa(unescape(encodeURIComponent(serialize(state))));

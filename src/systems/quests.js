@@ -60,7 +60,21 @@ export function seasonInfo(state, now = Date.now()) {
   return { ...SEASON, end, remaining: end - now, points: Math.floor(state.season.points) };
 }
 
+// Fin de saison : une nouvelle saison commence (points et paliers remis à zéro, récompenses déjà prises conservées)
+export function seasonTick(state, now = Date.now()) {
+  const len = SEASON.lengthDays * 86400000;
+  if (now < state.season.start + len) return false;
+  const n = Math.floor((now - state.season.start) / len);
+  state.season.start += n * len;
+  state.season.points = 0;
+  state.season.claimed = {};
+  state.season.number = (state.season.number || 1) + n;
+  log(state, 'event', `🎖️ Une nouvelle saison commence (saison ${state.season.number}) : les paliers de récompense sont à nouveau disponibles.`, now);
+  return true;
+}
+
 export function claimSeasonTier(state, idx, now = Date.now()) {
+  seasonTick(state, now);
   const tier = SEASON.tiers[idx];
   if (!tier || state.season.claimed[idx] || state.season.points < tier.pts) return { ok: false };
   state.season.claimed[idx] = true;

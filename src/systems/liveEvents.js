@@ -231,7 +231,7 @@ export function rollMystery(state, now = Date.now()) {
 export function buyMystery(state, idx, now = Date.now()) {
   const cur = liveState(state).current;
   const it = cur?.mystery?.items[idx];
-  if (!it || it.bought) return { ok: false, reason: 'Indisponible' };
+  if (!it || it.bought || now >= cur.end || cur.mystery.day !== dayKey(now)) return { ok: false, reason: 'Le marchand mystère est reparti' };
   const price = Math.round(it.price * liveCfg(state).priceMult);
   if (cur.wallet < price) return { ok: false, reason: 'Monnaie insuffisante' };
   cur.wallet -= price;

@@ -12,7 +12,7 @@ const DAY = 86400000;
 
 export const LOSS_LABELS = {
   raid: '🚨 Pillages', wave: '👻 Vagues de morts-vivants', caravan: '🐪 Convois attaqués', forbidden: '⛔ Expédition interdite',
-  famine: '🍖 Famine (entretien non payé)', event: '🎪 Événements', decision: '⚖️ Décisions',
+  famine: '🍖 Famine (entretien non payé)', outpost: '🔥 Avant-postes pillés', event: '🎪 Événements', decision: '⚖️ Décisions',
 };
 
 export function lossSummary(state, now = Date.now()) {

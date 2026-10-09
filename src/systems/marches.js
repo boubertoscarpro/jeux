@@ -451,9 +451,9 @@ export function resolvePending(state, pid, choiceIdx, now = Date.now()) {
   const ev = EXPLORE_EVENTS[p.event];
   const choice = ev.choices[choiceIdx];
   if (!choice) return { ok: false };
+  if (!m) { state.pending = state.pending.filter((x) => x.id !== pid); return { ok: true, text: 'La troupe concernée n’est plus là.' }; }
   if (choice.cost && !pay(state, choice.cost)) return { ok: false, reason: 'Ressources insuffisantes' };
   state.pending = state.pending.filter((x) => x.id !== pid);
-  if (!m) return { ok: true, text: '' };
   const mods = marchMods(state, m.heroId, m.potion, now);
   const out = rng.weighted(choice.outcomes);
   const text = applyEffects(state, m, out.effects, now, mods);

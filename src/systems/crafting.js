@@ -4,7 +4,7 @@ import { uid, scaleObj } from '../core/util.js';
 import { levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing, gain } from './economy.js';
-import { generateItem, upgradeCost, salvageYield, MAX_PLUS } from './items.js';
+import { generateItem, upgradeCost, salvageYield, MAX_PLUS, itemScore } from './items.js';
 import { log } from './log.js';
 
 export function craftCost(slot, catalyst = 'none') {
@@ -99,6 +99,25 @@ export function salvageItem(state, itemId, now = Date.now()) {
   gain(state, y, mods);
   state.inventory.items = state.inventory.items.filter((i) => i.id !== itemId);
   return { ok: true, yield: y };
+}
+
+// Inventaire plafonné : au-delà de 300 objets non équipés et non verrouillés, les plus faibles sont recyclés
+// automatiquement (leurs matériaux sont rendus). Évite une sauvegarde qui grossit sans limite.
+export const INVENTORY_CAP = 300;
+export function inventoryCapTick(state, now = Date.now()) {
+  const items = state.inventory.items;
+  const free = items.filter((i) => !i.equippedBy && !i.locked && !Object.values(state.heroes).some((h) => Object.values(h.equipment || {}).includes(i.id)));
+  if (items.length <= INVENTORY_CAP || !free.length) return 0;
+  const excess = Math.min(free.length, items.length - INVENTORY_CAP);
+  const victims = [...free].sort((a, b) => itemScore(a) - itemScore(b)).slice(0, excess);
+  const mods = computeMods(state, now);
+  const total = {};
+  for (const it of victims) for (const [r, v] of Object.entries(salvageYield(it, mods['salvage.bonus'] || 0))) total[r] = (total[r] || 0) + v;
+  gain(state, total, mods);
+  const ids = new Set(victims.map((i) => i.id));
+  state.inventory.items = items.filter((i) => !ids.has(i.id));
+  log(state, 'info', `🎒 Inventaire plein (${INVENTORY_CAP}) : ${victims.length} objet(s) parmi les plus faibles recyclé(s) automatiquement. Verrouillez 🔒 ceux à garder.`, now);
+  return victims.length;
 }
 
 export function toggleLock(state, itemId) {

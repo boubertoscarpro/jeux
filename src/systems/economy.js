@@ -91,6 +91,8 @@ export function armyTotals(state) {
   const tot = { ...state.army };
   for (const m of state.marches) for (const [u, n] of Object.entries(m.units || {})) tot[u] = (tot[u] || 0) + n;
   for (const e of state.expeditions || []) for (const [u, n] of Object.entries(e.escort || {})) tot[u] = (tot[u] || 0) + n;
+  for (const t of Object.values(state.territories || {})) for (const [u, n] of Object.entries(t.garrison || {})) tot[u] = (tot[u] || 0) + n;
+  for (const m of state.live?.marches || []) for (const [u, n] of Object.entries(m.units || {})) tot[u] = (tot[u] || 0) + n;
   return tot;
 }
 

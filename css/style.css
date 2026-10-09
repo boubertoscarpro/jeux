@@ -586,3 +586,8 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .goal-icon { font-size: 18px; font-family: var(--emoji); }
 .goal .mini { align-self: flex-start; }
 .btn.danger { background: rgba(239, 100, 97, 0.18); border-color: var(--bad); color: #ffd9d8; }
+.outpost { margin-bottom: 10px; }
+.spec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.spec { display: flex; flex-direction: column; gap: 3px; text-align: left; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; color: var(--text); cursor: pointer; font-family: inherit; }
+.spec.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold2); cursor: default; }
+.spec:hover:not(.active) { border-color: var(--gold2); }
