@@ -19,6 +19,9 @@ import { livingTick } from '../systems/living.js';
 import { decisionsTick } from '../systems/decisions.js';
 import { factionsTick, treatiesTick, enemySpyTick } from '../systems/factions.js';
 import { contractsTick } from '../systems/market.js';
+import { checkFeats, serverFeedTick } from '../systems/shards.js';
+import { netRates } from '../systems/economy.js';
+import { liveTick, liveNextTime, processLiveMarches } from '../systems/liveEvents.js';
 import { bus } from './bus.js';
 
 export const MAX_OFFLINE_MS = 12 * 3600 * 1000;
@@ -32,6 +35,7 @@ function nextEventTime(state) {
   for (const c of state.caravans) t = Math.min(t, c.end);
   for (const r of state.raids) t = Math.min(t, r.arrive);
   for (const e of state.expeditions || []) t = Math.min(t, expNextTime(e));
+  t = Math.min(t, liveNextTime(state));
   t = Math.min(t, state.meta.nextWorldTick, state.nextRivalTick);
   return t;
 }
@@ -50,6 +54,7 @@ function processDue(state, t) {
   }
   for (const c of [...state.caravans]) if (c.end <= t) { completeCaravan(state, c, c.end); changed = true; }
   for (const e of [...(state.expeditions || [])]) if (expNextTime(e) <= t) { processExpedition(state, e, t); changed = true; }
+  if (processLiveMarches(state, t)) changed = true;
   for (const r of [...state.raids]) if (r.arrive <= t) {
     state.raids = state.raids.filter((x) => x.id !== r.id);
     resolveRaid(state, r, r.arrive);
@@ -67,6 +72,10 @@ function processDue(state, t) {
     automationTick(state, t);
     decisionsTick(state, t);
     contractsTick(state, t);
+    state._goldRate = netRates(state, mods).gold || 0;
+    checkFeats(state, t);
+    serverFeedTick(state, t);
+    liveTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;
     changed = true;

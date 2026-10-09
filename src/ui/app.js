@@ -24,6 +24,14 @@ import talentsView from './views/talents.js';
 import historyView from './views/history.js';
 import statsView from './views/stats.js';
 import treasuryView from './views/treasury.js';
+import eventView from './views/events.js';
+import eventShopView from './views/eventShop.js';
+import calendarView from './views/calendar.js';
+import wheelView from './views/wheel.js';
+import shardsView from './views/shards.js';
+import adminView from './views/admin.js';
+import { reportHtml } from './views/calendar.js';
+import { notifications } from '../systems/liveEvents.js';
 import { openAdvisor } from './advisor.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
@@ -35,6 +43,8 @@ export const GROUPS = [
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
   { id: 'g-tech', title: 'Technologies', icon: '🔬', tabs: [researchView, talentsView] },
+  { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },
+  { id: 'g-wheel', title: 'Roue', icon: '🎡', tabs: [wheelView, shardsView] },
   { id: 'g-guild', title: 'Guilde', icon: '🏛️', tabs: [guildView] },
   { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, historyView, statsView, treasuryView, kingdomView] },
 ];
@@ -101,10 +111,27 @@ export class App {
 
   save() { if (this.state) saveGame(this.state); }
 
+  // Bilan de fin d'événement (affiché une fois)
+  showEventReport() {
+    const L = this.state.live;
+    if (!L?.unseenReport || document.getElementById('modal-root')?.classList.contains('open')) return;
+    const r = L.unseenReport;
+    L.unseenReport = null;
+    this.modal(`<h2>📜 Bilan de l’événement</h2>${reportHtml(r)}<button class="btn primary" data-action="close-modal">Fermer</button>`, {}, 'wide');
+  }
+
+  openNotifications() {
+    const list = notifications(this.state);
+    this.modal(`<h2>🔔 Notifications</h2><div class="log">${list.map((n) => `<div class="log-line small ${n.read ? 'muted' : ''}">${n.icon} ${esc(n.text)} <span class="muted">· ${new Date(n.t).toLocaleString('fr-FR')}</span></div>`).join('') || '<p class="muted">Rien pour l’instant.</p>'}</div>
+      <div class="row gap"><button class="btn" data-action="goto" data-view="event">🎪 Événement</button><button class="btn" data-action="goto" data-view="calendar">📅 Calendrier</button><button class="btn ghost" data-action="close-modal">Fermer</button></div>`, {}, 'wide');
+    for (const n of list) n.read = true;
+  }
+
   tick() {
     const now = Date.now();
     if (!document.hidden) this.state.meta.playTime = (this.state.meta.playTime || 0) + 1000;
     advance(this.state, now);
+    this.showEventReport();
     if (this.dirty) this.render();
     else {
       this.$('#topbar').innerHTML = renderTopbar(this);
@@ -145,6 +172,8 @@ export class App {
   }
 
   render() {
+    // Pendant l'animation de la Roue, seul le bandeau est rafraîchi
+    if (this.ui.freezeUntil > Date.now()) { this.$('#topbar').innerHTML = renderTopbar(this); this.dirty = true; return; }
     this.dirty = false;
     const view = this.views[this.ui.view];
     const group = groupOf(view.id);
@@ -206,6 +235,7 @@ export class App {
       const name = el.getAttribute(attr);
       const view = this.views[this.ui.view];
       const fn = (this.modalActions && this.modalActions[name]) || view.actions?.[name] || sideActions[name] || this.globalActions[name];
+      if (name === 'goto' && this.modalActions) this.closeModal();
       if (fn) { ev.preventDefault?.(); fn(this, el, ev); }
     };
     document.addEventListener('click', (ev) => handle(ev, 'data-action'));
@@ -220,6 +250,7 @@ export class App {
     'toggle-res': (app) => { app.ui.showAllRes = !app.ui.showAllRes; app.render(); },
     'toggle-side': (app) => { app.root.classList.toggle('show-side'); },
     advisor: (app) => openAdvisor(app),
+    notifs: (app) => { app.openNotifications(); app.$('#topbar').innerHTML = renderTopbar(app); },
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),
   };
 

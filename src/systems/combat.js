@@ -30,8 +30,9 @@ function sideMults(side, enemy, ctx, notes, label) {
 
   for (const st of side.stacks) {
     let a = 1 + (mods['combat.atk'] || 0) + (fm.atk || 0);
-    a += terrain.classAtk?.[st.cls] || 0;
-    a += weather.classAtk?.[st.cls] || 0;
+    const ign = st.def.ignoreTerrain ? (v) => Math.max(0, v || 0) : (v) => v || 0;
+    a += ign(terrain.classAtk?.[st.cls]);
+    a += ign(weather.classAtk?.[st.cls]);
     a += weather.unitAtk?.[st.type] || 0;
     a += mods[`class.${st.cls}.atk`] || 0;
     a += mods[`unit.${st.type}.atk`] || 0;

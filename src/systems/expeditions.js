@@ -14,6 +14,10 @@ import { log, toast } from './log.js';
 import { chronicle } from './chronicle.js';
 import { grantArtifact } from './collection.js';
 import { recordMax, bumpRep } from './reputation.js';
+import { rollShards, addShards, shardState } from './shards.js';
+import { shardCfg } from './config.js';
+import { armyPower } from './army.js';
+import { ANOMALY } from '../data/workers.js';
 
 export const maxTeams = (state) => (automationLevel(state) >= 1 ? 1 + automationLevel(state) : 0);
 const EVENT_EVERY = 20 * 60 * 1000;
@@ -48,7 +52,7 @@ export function deleteTeam(state, id) {
 export function autoTarget(state, team) {
   const def = EXPEDITION_TYPES[team.type];
   const w = state.world;
-  if (team.type === 'exploration') {
+  if (team.type === 'exploration' || def.forbidden) {
     for (let i = 0; i < 80; i++) {
       const ang = rng.float(0, Math.PI * 2), d = rng.float(7, 18);
       const x = Math.round(w.capital.x + Math.cos(ang) * d), y = Math.round(w.capital.y + Math.sin(ang) * d);
@@ -126,6 +130,13 @@ export function startExpedition(state, id, now = Date.now()) {
     if (w.stamina < 25) return { ok: false, reason: `${w.name} est épuisé (endurance ${Math.round(w.stamina)})` };
   }
   for (const [u, n] of Object.entries(t.escort)) if ((state.army[u] || 0) < n) return { ok: false, reason: `Pas assez de ${UNITS[u].name} pour l’escorte` };
+  if (def.forbidden) {
+    const fc = shardCfg(state).forbidden;
+    const sh = shardState(state);
+    if (now - (sh.forbiddenAt || 0) < fc.cooldownHours * 3600000) return { ok: false, reason: `Les chemins interdits se referment : réouverture dans ${Math.ceil((sh.forbiddenAt + fc.cooldownHours * 3600000 - now) / 3600000)} h` };
+    if (armyPower(t.escort) < fc.minPower) return { ok: false, reason: `Escorte trop faible (puissance ${fc.minPower} requise)` };
+    t.hours = fc.hours; t.repeat = false;
+  }
   const target = t.target === 'auto' ? autoTarget(state, t) : t.target;
   if (!target) return { ok: false, reason: 'Aucun site adapté découvert : explorez la carte' };
   const poi = poiAt(state.world, target.x, target.y);
@@ -368,8 +379,32 @@ function mercenaryBattle(state, t, poi, now) {
   t.status = 'back'; t.returnAt = now + t.travel;
 }
 
+function forbiddenOutcome(state, t, now) {
+  const fc = shardCfg(state).forbidden;
+  shardState(state).forbiddenAt = t.start;
+  const power = armyPower(t.escort);
+  const fm = teamForeman(state, t);
+  const o = { ...fc.outcomes };
+  const boost = Math.max(0, Math.min(0.15, (power / fc.minPower - 1) * 0.05)) + (fm?.foreman === 'explorer' ? 0.05 : 0);
+  o.fail = Math.max(0.15, o.fail - boost); o.success += boost / 2; o.partial = Math.max(0, 1 - o.fail - o.success);
+  const r = rng.weighted(o);
+  if (r === 'fail') {
+    for (const u of Object.keys(t.escort)) t.escort[u] = Math.floor(t.escort[u] * 0.6);
+    for (const k of ['food', 'gold']) state.resources[k] = Math.floor((state.resources[k] || 0) * 0.92);
+    teamLog(t, '⛔ L’expédition interdite tourne au désastre : 40 % de l’escorte perdue, vivres et or entamés.');
+    log(state, 'bad', `⛔ ${t.name} : échec de l’expédition interdite.`, now);
+  } else {
+    const [a, b] = r === 'success' ? fc.success : fc.partial;
+    const n = addShards(state, rng.int(a, b), 'forbidden', now, 'Expédition interdite');
+    teamLog(t, `⛔ ${r === 'success' ? 'Triomphe' : 'Succès partiel'} : ${n} Éclats Anciens rapportés des terres interdites.`);
+    if (r === 'success' && rng.chance(0.2)) grantArtifact(state, null, now, 'Terres interdites');
+    for (const u of Object.keys(t.escort)) t.escort[u] = Math.floor(t.escort[u] * 0.85);
+  }
+}
+
 function finishWork(state, t, now) {
   accrue(state, t, now);
+  if (EXPEDITION_TYPES[t.type].forbidden) { forbiddenOutcome(state, t, now); t.status = 'back'; t.returnAt = now + t.travel; t.nextEventAt = 0; state.pending = state.pending.filter((p) => p.expId !== t.id); return; }
   const def = EXPEDITION_TYPES[t.type];
   const poi = poiAt(state.world, t.at.x, t.at.y);
   if (poi && POI_TYPES[poi.type].kind === 'gather') {
@@ -415,6 +450,15 @@ function homecoming(state, t, now) {
   if (fm) { fm.job = null; workerXp(state, fm, 60, now); }
   for (const [u, n] of Object.entries(t.escort)) state.army[u] = (state.army[u] || 0) + n;
   t.runs++; t.totalYield += total;
+  // Éclats : expéditions rares (site dangereux ou prospection) ; anomalies nécessitant le joueur
+  if (!EXPEDITION_TYPES[t.type].forbidden && t.at) {
+    const poi = poiAt(state.world, t.at.x, t.at.y);
+    if ((poi?.danger || 0) >= 3 || t.type === 'prospecting') rollShards(state, 'expedition', now);
+    if (rng.chance(0.02 * (1 + (poi?.danger || 0) * 0.3)) && !state.pending.some((p) => p.kind === 'anomaly')) {
+      state.pending.push({ id: uid('pd'), kind: 'anomaly', expId: t.id, t: now, deadline: now + 3600000, x: t.at.x, y: t.at.y });
+      toast('⚠️ Une concentration d’énergie ancienne vient d’être détectée !', 'event');
+    }
+  }
   state.stats.expeditions = (state.stats.expeditions || 0) + 1;
   state.stats.gathered += total;
   state.stats.distance = (state.stats.distance || 0) + 2 * distCap(state.world, t.at.x, t.at.y);
@@ -447,3 +491,19 @@ export function relaunchIdle(state, now, force = false) {
 
 export const policyName = { ask: 'Me demander', safe: 'Prudente', bold: 'Audacieuse' };
 export { TRAITS };
+
+// Anomalie : résolue uniquement par le joueur (le défaut — ignorer — ne rapporte rien)
+export function resolveAnomaly(state, pid, idx, now = Date.now()) {
+  const p = state.pending.find((x) => x.id === pid);
+  if (!p) return { ok: false };
+  if (idx === 0) {
+    if ((state.resources.food || 0) < 300 || (state.resources.rations || 0) < 40) return { ok: false, reason: '300 nourriture et 40 rations requises' };
+    state.resources.food -= 300; state.resources.rations -= 40;
+    state.pending = state.pending.filter((x) => x.id !== pid);
+    if (rng.chance(0.6)) { const n = rollShards(state, 'anomaly', now, { chance: 1 }); return { ok: true, text: n ? `Vos hommes reviennent avec ${n} Éclat(s) Ancien(s) !` : 'L’énergie s’est dissipée…' }; }
+    return { ok: true, text: 'L’énergie s’est évanouie avant leur arrivée.' };
+  }
+  state.pending = state.pending.filter((x) => x.id !== pid);
+  return { ok: true, text: 'Vous laissez l’énergie se dissiper.' };
+}
+export { ANOMALY };

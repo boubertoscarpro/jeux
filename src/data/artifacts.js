@@ -11,6 +11,7 @@ export const ARTIFACTS = {
   sealOfStewards: { name: 'Sceau des intendants', icon: '🔏', desc: '+10% rendement des expéditions, ouvriers +20% XP', mods: { 'expedition.yield': 0.1, 'worker.xp': 0.2 }, source: 'Événements de royaume' },
   whisperMask: { name: 'Masque des murmures', icon: '🎭', desc: '+25% réussite d’espionnage', mods: { 'spy.power': 0.25 }, source: 'Espionnage, cités perdues' },
   tideStone: { name: 'Pierre des marées', icon: '🌊', desc: '+20% vitesse des caravanes, −30% risque des convois', mods: { 'caravan.speed': 0.2, 'convoy.risk': -0.3 }, source: 'Inondations, routes' },
+  ancientEye: { name: 'Œil de l’Ancien', icon: '👁️‍🗨️', desc: '+5 % butin rare, +3 % détection des Éclats', mods: { 'loot.rare': 0.05, 'shard.detect': 0.03 }, source: 'Roue des Anciens uniquement' },
   kingsLedger: { name: 'Registre du roi ancien', icon: '📕', desc: '+15% vitesse de recherche', mods: { 'research.speed': 0.15 }, source: 'Ruines, bibliothèques perdues' },
 };
 

@@ -11,6 +11,7 @@ import { livingMods } from './living.js';
 import { repMods } from './reputation.js';
 import { collectionMods } from './collection.js';
 import { talentMods } from './talents.js';
+import { liveMods } from './liveMods.js';
 
 const add = (o, k, v) => { if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 const merge = (o, src, mult = 1) => { for (const [k, v] of Object.entries(src || {})) add(o, k, v * mult); };
@@ -58,6 +59,7 @@ export function computeMods(state, now = Date.now()) {
   merge(m, repMods(state));
   merge(m, collectionMods(state));
   merge(m, talentMods(state));
+  merge(m, liveMods(state, now));
   // Traités
   for (const f of state.factions || []) {
     if (f.stance === 'trade' || f.stance === 'alliance') { add(m, 'market.fee', -0.02); add(m, 'caravan.gain', 0.05); }

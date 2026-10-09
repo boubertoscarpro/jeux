@@ -5,7 +5,7 @@ import { createHero } from '../systems/heroes.js';
 import { initMarket } from '../systems/market.js';
 import { initFactions } from '../systems/factions.js';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const CITY_W = 14;
 export const CITY_H = 10;
 
@@ -100,6 +100,12 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     scarcity: null,
     nextDilemma: now + 40 * 60 * 1000,
     domain: 0,
+    // --- Événements & Éclats Anciens ---
+    live: { calendar: [], history: [], occ: {}, current: null, marches: [], reports: [], surprises: [], nextSurprise: 0, nextFair: now + 5 * 86400000, unseenReport: null, totals: {} },
+    shards: { count: 0, tickets: 0, relicFragments: 0, mythicFragments: 0, legendaryFragments: 0, heat: {}, daily: {}, lastFreeTicket: 0, pity: { rare: 0, epic: 0, legendary: 0, mythic: 0 }, history: [], ledger: {}, feats: {}, forbiddenAt: 0, owned: {}, spins: 0, jackpots: 0 },
+    notifications: [],
+    serverFeed: [],
+    admin: {},
   };
 
   // Bâtiments de départ (hameau presque abandonné)

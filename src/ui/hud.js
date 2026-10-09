@@ -20,6 +20,9 @@ import { CATASTROPHES } from '../data/seasons.js';
 import { EXPEDITION_TYPES } from '../data/workers.js';
 import { activeQuests, claimQuest } from '../systems/quests.js';
 import { thLevel } from '../systems/city.js';
+import { LIVE_EVENTS } from '../data/liveEvents.js';
+import { SURPRISE_EVENTS } from '../data/liveEvents.js';
+import { shardState } from '../systems/shards.js';
 import { esc, countdown, progress, resChips } from './components.js';
 
 const MAIN = ['wood', 'stone', 'iron', 'food', 'gold'];
@@ -48,6 +51,13 @@ export function renderTopbar(app) {
     </div>
     <div class="resbar">${res}<button class="res-more" data-action="toggle-res" title="Toutes les ressources">${app.ui.showAllRes ? '−' : '+'}</button>
       <div class="res cap" title="Capacité de l'entrepôt">📦 <span class="res-val">${fmt(cap)}</span></div></div>
+    <div class="top-prestige">
+      <button class="chip chip-shard" data-action="nav" data-view="g-wheel" title="Éclats Anciens (monnaie rare, jamais vendue) — ouvrir la Roue des Anciens">💎 ${fmt(shardState(s).count)}</button>
+      <button class="chip chip-ticket" data-action="nav" data-view="g-wheel" title="Tickets de la Roue des Anciens">🎟️ ${shardState(s).tickets}</button>
+      ${s.live?.current ? `<button class="chip chip-event" data-action="nav" data-view="event" style="--evc:${LIVE_EVENTS[s.live.current.key].color}" title="${esc(LIVE_EVENTS[s.live.current.key].name)} — ${esc(LIVE_EVENTS[s.live.current.key].currency.name)}">${LIVE_EVENTS[s.live.current.key].icon} ${LIVE_EVENTS[s.live.current.key].currency.icon} ${fmt(s.live.current.wallet)} · ${countdown(s.live.current.end)}</button>` : ''}
+      ${(s.live?.surprises || []).filter((x) => x.end > now).map((x) => `<span class="chip chip-event" title="${esc(SURPRISE_EVENTS[x.key].desc)}">${SURPRISE_EVENTS[x.key].icon} ${countdown(x.end)}</span>`).join('')}
+      <button class="chip chip-bell ${(s.notifications || []).some((n) => !n.read) ? 'on' : ''}" data-action="notifs" title="Notifications">🔔${(s.notifications || []).filter((n) => !n.read).length || ''}</button>
+    </div>
     <button class="res-more side-toggle" data-action="toggle-side" title="Files & objectifs">📋</button>
     <div class="top-status">
       <span class="chip" title="${esc(calendar(s, now).season.desc)}">${calendar(s, now).season.icon} An ${calendar(s, now).year} · ${esc(calendar(s, now).season.name)}</span>

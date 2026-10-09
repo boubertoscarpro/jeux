@@ -20,6 +20,7 @@ import { maxHeroes } from './tavern.js';
 import { guildProgress } from './guild.js';
 import { rivalGarrison, onRivalDefeated } from './rivals.js';
 import { runDungeon } from './dungeons.js';
+import { rollShards } from './shards.js';
 import { recordMax, bumpRep } from './reputation.js';
 import { changeRelation, diplomacy } from './factions.js';
 
@@ -395,6 +396,7 @@ function arriveExplore(state, m, t, mods, hero) {
   const found = reveal(world, m.x, m.y, radius);
   state.stats.explored++;
   bumpRep(state, 'explorer', 1);
+  rollShards(state, 'exploration', t, { label: 'Fragment d’un ancien artefact découvert' });
   state.season.points += SEASON.points.explore;
   if (hero) giveXp(state, hero, 30, mods);
   const discoveries = found.filter((p) => p.type !== 'capital').map((p) => POI_TYPES[p.type].name);

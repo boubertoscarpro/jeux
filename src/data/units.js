@@ -120,6 +120,32 @@ export const UNITS = {
     cost: { food: 40, wood: 30, iron: 20, gold: 30 }, time: 45, wallBreak: 0.004,
     desc: 'Bâtit des retranchements (+0,5% défense chacun, max 20%) et renforce le siège.',
   },
+  // --- Unités spéciales (Roue des Anciens, événements) : puissantes mais situationnelles, non recrutables ---
+  royalChampion: {
+    name: 'Chevalier royal', icon: '🏇', class: 'cavalry', building: 'stable', bLevel: 99, special: true,
+    atk: 30, def: 24, hp: 66, speed: 1.4, carry: 40, gather: 4, upkeep: 3, cost: {}, time: 0,
+    vs: { infantry: 1.3, cavalry: 1.2 }, desc: 'Héraut royal : polyvalent face à l’infanterie et à la cavalerie.',
+  },
+  imperialArcher: {
+    name: 'Archer impérial', icon: '🏹', class: 'ranged', building: 'barracks', bLevel: 99, special: true,
+    atk: 21, def: 9, hp: 24, speed: 1.0, carry: 15, gather: 4, upkeep: 1.5, cost: {}, time: 0,
+    vs: { cavalry: 1.25, beast: 1.3 }, pierce: 0.45, desc: 'Flèches perforantes (−45 % de défense ennemie).',
+  },
+  celestialRider: {
+    name: 'Cavalier céleste', icon: '🐎', class: 'cavalry', building: 'stable', bLevel: 99, special: true,
+    atk: 24, def: 16, hp: 50, speed: 2.0, carry: 50, gather: 6, upkeep: 2.5, cost: {}, time: 0,
+    vs: { ranged: 1.6, siege: 1.8 }, ignoreTerrain: true, desc: 'Ignore les malus de terrain et de météo.',
+  },
+  ancestralGuardian: {
+    name: 'Gardien ancestral', icon: '🛡️', class: 'infantry', building: 'barracks', bLevel: 99, special: true,
+    atk: 12, def: 34, hp: 80, speed: 0.7, carry: 20, gather: 3, upkeep: 2.5, cost: {}, time: 0,
+    vs: { cavalry: 1.5 }, rangedResist: 0.5, desc: 'Rempart vivant : −50 % de dégâts à distance.',
+  },
+  steppeLancer: {
+    name: 'Lancier des steppes', icon: '🐴', class: 'cavalry', building: 'stable', bLevel: 99, special: true,
+    atk: 20, def: 12, hp: 42, speed: 1.9, carry: 70, gather: 8, upkeep: 2, cost: {}, time: 0,
+    vs: { ranged: 1.7 }, desc: 'Cavalier nomade rallié (événement des Steppes).',
+  },
 };
 
 // Unités ennemies (non recrutables)
@@ -137,7 +163,32 @@ export const ENEMY_UNITS = {
   guard:       { name: 'Garde royal', icon: '💂', class: 'infantry', atk: 18, def: 22, hp: 50, vs: { cavalry: 1.4 } },
   royalArcher: { name: 'Archer royal', icon: '🏹', class: 'ranged', atk: 19, def: 8, hp: 24, vs: { infantry: 1.4 } },
   royalKnight: { name: 'Chevalier royal', icon: '🏇', class: 'cavalry', atk: 28, def: 20, hp: 60, vs: { ranged: 1.6 } },
+  // Événements
+  nomadRider:  { name: 'Cavalier nomade', icon: '🐎', class: 'cavalry', atk: 16, def: 8, hp: 34, vs: { ranged: 1.6 } },
+  horseArcher: { name: 'Archer monté', icon: '🏹', class: 'ranged', atk: 15, def: 6, hp: 26, vs: { infantry: 1.3 } },
+  nomadGuard:  { name: 'Garde de yourte', icon: '🛡️', class: 'infantry', atk: 11, def: 15, hp: 36, vs: { cavalry: 1.6 } },
+  corsair:     { name: 'Corsaire', icon: '🏴‍☠️', class: 'infantry', atk: 15, def: 9, hp: 32, vs: { infantry: 1.2 } },
+  gunner:      { name: 'Arquebusier', icon: '🎯', class: 'ranged', atk: 20, def: 6, hp: 22, pierce: 0.3 },
+  frostGiant:  { name: 'Géant du givre', icon: '🧊', class: 'beast', atk: 45, def: 30, hp: 220, vs: { infantry: 1.2 } },
+  iceWolf:     { name: 'Loup des glaces', icon: '🐺', class: 'beast', atk: 15, def: 7, hp: 30, vs: { ranged: 1.5 } },
+  warden:      { name: 'Gardien des ruines', icon: '🗿', class: 'beast', atk: 26, def: 40, hp: 200, rangedResist: 0.4 },
+  dragonling:  { name: 'Dragonnet', icon: '🦎', class: 'beast', atk: 24, def: 14, hp: 60, vs: { cavalry: 1.3 } },
+  ghoul:       { name: 'Goule', icon: '🧟', class: 'undead', atk: 14, def: 8, hp: 34 },
+  deathKnight: { name: 'Chevalier de la mort', icon: '💀', class: 'undead', atk: 30, def: 26, hp: 80, vs: { infantry: 1.2 } },
+  magmaling:   { name: 'Élémentaire de magma', icon: '🔥', class: 'beast', atk: 28, def: 22, hp: 90, rangedResist: 0.3 },
+  prospector:  { name: 'Prospecteur armé', icon: '⛏️', class: 'infantry', atk: 12, def: 12, hp: 34 },
+  ancientSoldier: { name: 'Soldat des Anciens', icon: '⚔️', class: 'infantry', atk: 18, def: 20, hp: 48, vs: { cavalry: 1.3 } },
   // Boss
+  khan:        { name: 'Khan des Steppes', icon: '👑', class: 'boss', atk: 420, def: 55, hp: 1, vs: { infantry: 1.3 } },
+  seaCaptain:  { name: 'Capitaine Barbe-Noire', icon: '🦜', class: 'boss', atk: 380, def: 50, hp: 1, vs: { ranged: 1.3 } },
+  giantKing:   { name: 'Roi des Géants', icon: '🏔️', class: 'boss', atk: 520, def: 80, hp: 1, vs: { infantry: 1.3 } },
+  ruinKeeper:  { name: 'Gardien éternel', icon: '🗿', class: 'boss', atk: 450, def: 95, hp: 1, rangedResist: 0.4 },
+  elderDragon: { name: 'Vorthak l’Ancien', icon: '🐲', class: 'boss', atk: 700, def: 70, hp: 1, vs: { cavalry: 1.5 } },
+  warlord:     { name: 'Seigneur de guerre', icon: '⚔️', class: 'boss', atk: 450, def: 60, hp: 1 },
+  goldBaron:   { name: 'Baron de l’Or', icon: '💰', class: 'boss', atk: 360, def: 60, hp: 1 },
+  magmaLord:   { name: 'Seigneur de magma', icon: '🌋', class: 'boss', atk: 600, def: 75, hp: 1, rangedResist: 0.3 },
+  boneKing:    { name: 'Roi des Os', icon: '☠️', class: 'boss', atk: 550, def: 65, hp: 1, vs: { infantry: 1.3 } },
+  siegeMaster: { name: 'Maître de siège', icon: '🏗️', class: 'boss', atk: 500, def: 70, hp: 1 },
   dragon:      { name: 'Dragon de Cendre', icon: '🐉', class: 'boss', atk: 900, def: 60, hp: 1, vs: { cavalry: 1.5 }, rangedResist: 0.2 },
   giant:       { name: 'Géant des Collines', icon: '🗻', class: 'boss', atk: 700, def: 80, hp: 1, vs: { infantry: 1.4 } },
   banditKing:  { name: 'Roi des Bandits', icon: '👑', class: 'boss', atk: 500, def: 50, hp: 1, vs: { ranged: 1.4 } },

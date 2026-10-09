@@ -65,7 +65,7 @@ export default {
             const active = (c.type === 'banner' && s.meta.banner === c.color) || (c.type === 'theme' && s.meta.theme === k);
             return `<div class="shop-item ${owned ? 'owned' : ''}">${c.type === 'banner' ? `<span class="banner" style="--banner:${c.color}"></span>` : `<span class="shop-icon">${c.icon || '🎨'}</span>`}
               <div><b>${esc(c.name)}</b><div class="muted small">${{ banner: 'Bannière', theme: 'Thème de la ville', deco: 'Décoration (à placer sur une case libre)' }[c.type]}</div></div>
-              ${owned ? (c.type === 'deco' ? '<span class="ok small">Possédée</span>' : `<button class="mini ${active ? 'good' : ''}" data-action="apply-cos" data-k="${k}">${active ? 'Actif' : 'Appliquer'}</button>`) : c.seasonal ? '<span class="muted small">Saison</span>' : `<button class="mini" data-action="buy-cos" data-k="${k}">🎖️ ${c.cost}</button>`}</div>`;
+              ${owned ? (c.type === 'deco' ? '<span class="ok small">Possédée</span>' : `<button class="mini ${active ? 'good' : ''}" data-action="apply-cos" data-k="${k}">${active ? 'Actif' : 'Appliquer'}</button>`) : c.seasonal ? '<span class="muted small">Saison</span>' : c.exclusive ? '<span class="tag-ex" title="Roue des Anciens ou événements uniquement">Exclusif</span>' : `<button class="mini" data-action="buy-cos" data-k="${k}">🎖️ ${c.cost}</button>`}</div>`;
           }).join('')}</div></div>
         <div class="card"><h2>💾 Sauvegarde</h2>
           <p class="muted small">Sauvegarde automatique toutes les 15 s dans votre navigateur. Progression hors-ligne : jusqu’à 12 h.</p>

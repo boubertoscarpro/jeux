@@ -9,6 +9,7 @@ import { computeMods } from './modifiers.js';
 import { gain } from './economy.js';
 import { createUniqueItem, generateItem } from './items.js';
 import { grantArtifact } from './collection.js';
+import { rollShards } from './shards.js';
 import { spawnPoi, findFreeTile, reveal, poiAt, key, distCap } from './world.js';
 import { spawnMerchant } from './market.js';
 import { log, toast } from './log.js';
@@ -120,6 +121,8 @@ function bossTick(state, dtSec, now) {
       (state.bossTrophies ||= {})[b.key] = now;
       chronicle(state, `${def.name} tombe sous les coups des seigneurs ; ${state.meta.kingdomName} y prend ${(share * 100).toFixed(1)}% de part.`, now);
       if (share >= 0.1 && rng.chance(0.25)) grantArtifact(state, 'emberHorn', now, def.name);
+      if (share >= 0.03) rollShards(state, 'boss', now, { label: `combat contre ${def.name}` });
+      if (share >= 0.15) rollShards(state, 'boss', now, { chance: 0.25, amount: [1, 1], label: 'meilleur contributeur' });
       state.season.points += SEASON.points.boss;
       let extra = '';
       if (share >= 0.08 || rng.chance(share * 5)) {

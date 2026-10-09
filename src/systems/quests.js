@@ -77,7 +77,7 @@ export function claimSeasonTier(state, idx, now = Date.now()) {
 export function buyCosmetic(state, key) {
   const c = COSMETICS[key];
   if (!c || state.meta.owned[key]) return { ok: false, reason: 'Déjà possédé' };
-  if (c.seasonal) return { ok: false, reason: 'Récompense de saison uniquement' };
+  if (c.seasonal || c.exclusive) return { ok: false, reason: c.exclusive ? 'Récompense exclusive (Roue, événements)' : 'Récompense de saison uniquement' };
   if ((state.meta.insignia || 0) < c.cost) return { ok: false, reason: 'Pas assez d’insignes' };
   state.meta.insignia -= c.cost;
   state.meta.owned[key] = true;

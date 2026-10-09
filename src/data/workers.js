@@ -58,10 +58,21 @@ export const EXPEDITION_TYPES = {
   hunting:     { name: 'Grande chasse', icon: '🦌', prof: 'hunter', nodes: ['foodNode'], per: 80, automation: 1 },
   prospecting: { name: 'Prospection', icon: '💎', prof: 'prospector', nodes: ['silverNode', 'gemNode', 'crystalNode', 'rareVein'], per: 10, automation: 2 },
   exploration: { name: 'Exploration lointaine', icon: '🏛️', prof: 'porter', nodes: [], per: 0, automation: 2 },
+  forbidden:   { name: 'Expédition interdite', icon: '⛔', prof: null, nodes: [], per: 0, automation: 3, forbidden: true },
   mercenary:   { name: 'Mercenaires', icon: '⚔️', prof: null, nodes: ['banditCamp', 'monsterLair', 'ruinSite', 'crypt', 'abandonedMine'], per: 0, automation: 3 },
 };
 
 export const EXPEDITION_DURATIONS = [1, 2, 4, 8]; // heures
+
+// Anomalie : énergie ancienne détectée par une expédition — l'intervention du joueur est requise
+export const ANOMALY = {
+  title: 'Concentration d’énergie ancienne', icon: '⚠️',
+  text: 'Une de vos équipes a détecté une concentration d’énergie ancienne. Les contremaîtres n’osent pas s’en approcher sans votre ordre.',
+  choices: [
+    { label: 'Envoyer une équipe immédiatement', desc: 'Coûte 300 nourriture et 40 rations ; 60 % de chance de récupérer 1 à 3 Éclats Anciens.' },
+    { label: 'Ignorer', desc: 'L’énergie se dissipe.' },
+  ], default: 1,
+};
 
 // Événements pouvant survenir pendant une expédition
 // kinds: types d'expédition concernés ; danger: pondération par danger du site

@@ -9,6 +9,7 @@ import { grantArtifact } from './collection.js';
 import { recordMax, bumpRep } from './reputation.js';
 import { chronicle } from './chronicle.js';
 import { wTerrain } from './world.js';
+import { rollShards, addShards } from './shards.js';
 
 // Génère (ou régénère) la structure d'un donjon : chaque niveau est différent
 export function ensureDungeon(poi) {
@@ -104,6 +105,9 @@ export function runDungeon(state, m, poi, mods, now) {
       lines.push(`${rt.icon} ${rt.name} : victoire (${Object.entries(res.attLosses).filter(([, n]) => n).map(([u, n]) => `−${n} ${ALL_UNITS[u].name}`).join(', ') || 'sans pertes'}).`);
       if (room.type === 'miniboss') { addInto(m.loot, { gold: Math.round(500 * lootMult), crystals: rng.int(1, 3) }); if (rng.chance(0.5)) m.items.push(generateItem({ ilvl: 4 + d.level, boost: 0.8, min: 'rare' })); }
       if (room.type === 'boss') {
+        state.stats.maxDungeonLevel = Math.max(state.stats.maxDungeonLevel || 0, d.level);
+        if (d.level >= 6) { const n = rollShards(state, 'dungeon', now, { chance: Math.min(0.3, (d.level - 5) * 0.03), amount: [1, 1 + Math.floor(d.level / 10)] }); if (n) lines.push(`💠 ${n} Éclat(s) Ancien(s) dans le trésor du boss !`); }
+        if (poi.type === 'lostCity') { addShards(state, 5, 'event', now, 'Ruines de l’ancien roi'); lines.push('💠 5 Éclats Anciens reposaient sur le trône de l’ancien roi.'); }
         addInto(m.loot, { gold: Math.round(2000 * lootMult), rareOre: rng.int(2, 4 + Math.floor(d.level / 3)), crystals: rng.int(2, 6) });
         m.items.push(generateItem({ ilvl: 8 + d.level, boost: 1.2 + d.level * 0.05, min: d.level >= 10 ? 'epic' : 'rare' }));
         const artChance = poi.type === 'lostCity' ? 1 : Math.min(0.35, 0.05 + d.level * 0.015);
