@@ -117,9 +117,13 @@ export function foundDynasty(state, now = Date.now()) {
   if (!c.ok) return c;
   const d = { ...(state.dynasty || { count: 0, points: 0, perks: {} }) };
   d.count++; d.points += c.gain;
-  const ns = createNewState({ kingdomName: state.meta.kingdomName, lordName: state.meta.lordName, now });
+  // La spécialisation, l'origine et la difficulté sont conservées (seule une nouvelle partie permet d'en changer)
+  const k = state.kingdom || {};
+  const ns = createNewState({ kingdomName: state.meta.kingdomName, lordName: state.meta.lordName, now, kingdomType: k.type, origin: k.origin, difficulty: k.difficulty });
   ns.dynasty = d;
-  Object.assign(ns.meta, { banner: state.meta.banner, insignia: state.meta.insignia, owned: state.meta.owned, titles: [...(state.meta.titles || []), `Fondateur de la ${d.count + 1}e dynastie`], heroClassesSeen: state.meta.heroClassesSeen });
+  Object.assign(ns.meta, { banner: state.meta.banner, insignia: state.meta.insignia, owned: state.meta.owned, titles: [...(state.meta.titles || []), `Fondateur de la ${d.count + 1}e dynastie`], heroClassesSeen: state.meta.heroClassesSeen, tipsSeen: state.meta.tipsSeen, tipsOff: state.meta.tipsOff, advice: state.meta.advice });
+  // Le parcours guidé n'est pas rejoué : récompenses déjà réclamées, chapitres déjà ouverts
+  if (state.campaign) ns.campaign = state.campaign;
   ns.artifacts = state.artifacts;              // collections conservées
   ns.bossTrophies = state.bossTrophies;
   // Doctrines conservées ; les rangs sont rendus (les points se regagnent avec la progression)

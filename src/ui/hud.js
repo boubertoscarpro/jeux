@@ -7,6 +7,7 @@ import { EXPLORE_EVENTS } from '../data/exploration.js';
 import { CONSUMABLES, SLOTS } from '../data/items.js';
 import { POI_TYPES } from '../data/world.js';
 import { fmt } from '../core/util.js';
+import { kingdomBadge } from './creation.js';
 import { computeMods } from '../systems/modifiers.js';
 import { storageCap, netRates } from '../systems/economy.js';
 import { buildSlots, cancelBuild, cancelPlanned } from '../systems/construction.js';
@@ -48,7 +49,7 @@ export function renderTopbar(app) {
   return `
     <div class="brand" data-action="nav" data-view="kingdom" title="Royaume">
       <span class="banner" style="--banner:${s.meta.banner}"></span>
-      <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))}</div></div>
+      <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))} ${kingdomBadge(s)}</div></div>
     </div>
     <div class="resbar">${res}<button class="res-more" data-action="toggle-res" title="Toutes les ressources">${app.ui.showAllRes ? '−' : '+'}</button>
       <div class="res cap" title="Capacité de l'entrepôt">📦 <span class="res-val">${fmt(cap)}</span></div></div>

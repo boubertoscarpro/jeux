@@ -15,8 +15,19 @@ const path = require('path');
   page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('fonts.g')) errors.push(`${ctx}: ${m.text()}`); });
   page.on('dialog', (d) => d.dismiss());
   await page.goto('file://' + path.resolve(__dirname, '../dist/cendrelande.html'));
+  // Écran de création : la confirmation n'est possible qu'après avoir choisi une spécialisation
+  if (!(await page.isDisabled('#intro-review'))) errors.push('création : bouton actif sans spécialisation');
+  await page.click('[data-kt="merchants"]');
+  await page.click('[data-kt="bastions"]');
+  await page.click('.kt-options summary');
+  await page.check('input[name="kt-diff"][value="guided"]', { force: true });
+  await page.click('#intro-review');
+  await page.click('#intro-back');
+  await page.click('#intro-review');
   await page.click('#intro-start');
   await page.waitForTimeout(500);
+  const k = await page.evaluate(() => window.cendrelande.state.kingdom);
+  if (k.type !== 'bastions' || k.difficulty !== 'guided') errors.push('création : choix non enregistré ' + JSON.stringify(k));
   await page.evaluate(() => {
     const a = window.cendrelande, s = a.state;
     for (const r in s.resources) s.resources[r] = 50000;

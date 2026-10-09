@@ -595,3 +595,46 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .boss-phase.phase-2 { border-color: var(--warn); }
 .boss-phase.phase-3 { border-color: var(--bad); }
 .card .spec { width: 100%; margin-bottom: 6px; }
+
+/* ---------- Création du royaume ---------- */
+.modal.creation { width: min(1120px, calc(100vw - 16px)); max-height: calc(100vh - 16px); padding: 18px 20px; }
+.modal.creation.confirm { width: min(720px, calc(100vw - 16px)); }
+.creation-top { text-align: center; }
+.creation-top h1 { margin-bottom: 4px; }
+.creation-top .story { max-width: 720px; margin: 4px auto 8px; }
+.kt-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.kt-card { display: flex; flex-direction: column; gap: 6px; text-align: left; background: var(--panel2); border: 1px solid var(--line); border-top: 4px solid var(--kt); border-radius: var(--radius); padding: 10px; color: var(--text); font: inherit; cursor: pointer; transition: transform 0.12s, border-color 0.12s; }
+.kt-card:hover { transform: translateY(-2px); border-color: var(--kt); }
+.kt-card.sel { border-color: var(--kt); box-shadow: 0 0 0 2px var(--kt), var(--shadow); }
+.kt-head { display: flex; align-items: center; gap: 8px; }
+.kt-icon { font-family: var(--emoji); font-size: 24px; }
+.kt-name { font-family: var(--title); font-weight: 700; color: var(--gold); font-size: 14px; }
+.kt-diff { color: var(--gold); font-size: 12px; letter-spacing: 1px; }
+.kt-style { color: var(--muted); min-height: 3em; }
+.kt-list { margin: 0; padding-left: 16px; }
+.good-list li::marker { content: '＋ '; color: var(--good); }
+.bad-list li::marker { content: '－ '; color: var(--bad); }
+.kt-pick { margin-top: auto; align-self: flex-end; font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--kt); color: var(--text); }
+.kt-card.sel .kt-pick { background: var(--kt); color: #111; font-weight: 700; }
+.kt-detail { background: var(--bg2); border: 1px solid var(--line); border-left: 4px solid var(--kt); border-radius: var(--radius); padding: 12px 14px; margin: 8px 0; text-align: left; }
+.kt-detail h3 { color: var(--gold); }
+.kt-detail h4 { margin: 8px 0 4px; font-size: 13px; }
+.kt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.kt-options { margin: 8px 0; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; }
+.kt-options summary { cursor: pointer; }
+.kt-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.kt-opt { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); cursor: pointer; }
+.kt-opt.sel { border-color: var(--gold2); }
+.kt-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.kt-opt:focus-within { outline: 2px solid var(--gold2); }
+.creation-foot { position: sticky; bottom: -18px; background: var(--panel); padding: 10px 0 4px; text-align: center; }
+.kingdom-badge { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--kt, var(--gold2)); border-radius: 99px; padding: 1px 8px; font-size: 11px; color: var(--text); background: none; cursor: pointer; font-family: inherit; }
+@media (max-width: 900px) {
+  .kt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kt-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .kt-grid { grid-template-columns: 1fr; }
+  .kt-style { min-height: 0; }
+  .modal.creation { padding: 12px; }
+}

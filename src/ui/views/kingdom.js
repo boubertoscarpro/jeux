@@ -9,6 +9,8 @@ import { revealedCount, territoryLimit } from '../../systems/world.js';
 import { milestoneList, claimMilestone, seasonInfo, claimSeasonTier, buyCosmetic, applyCosmetic } from '../../systems/quests.js';
 import { exportSave, importSave, deleteSave, saveGame } from '../../core/save.js';
 import { esc, resChips, bar } from '../components.js';
+import { kingdomBadge } from '../creation.js';
+import { kingdomDef, originDef, difficultyDef } from '../../systems/kingdom.js';
 
 const MOD_NAMES = {
   'prod.all': 'Toute production', 'prod.food': 'Nourriture', 'prod.wood': 'Bois', 'prod.stone': 'Pierre', 'prod.iron': 'Fer', 'prod.gold': 'Or', 'prod.steel': 'Acier',
@@ -40,6 +42,8 @@ export default {
           <div><span>Territoires</span><b>${Object.keys(s.territories).length}/${territoryLimit(s, mods)}</b></div><div><span>Boss vaincus</span><b>${st.bossKills}</b></div>
           <div><span>Royaume fondé il y a</span><b>${fmtTime(Date.now() - s.meta.created)}</b></div><div><span>Insignes</span><b>🎖️ ${s.meta.insignia || 0}</b></div>
         </div>
+        <h3>Spécialisation</h3><div class="row gap wrap">${kingdomBadge(s)}<span class="small muted">${esc(originDef(s).icon + ' ' + originDef(s).name)} · ${esc(difficultyDef(s).icon + ' ' + difficultyDef(s).name)}</span></div>
+        <div class="small"><span class="ok">${kingdomDef(s).bonuses.map(esc).join(' · ')}</span><br><span class="bad">${kingdomDef(s).maluses.map(esc).join(' · ')}</span></div>
         <h3>Bonus actifs</h3><div class="mods-grid">${keyMods.map(([k, n]) => `<div class="small">${esc(n)} <b class="${(k === 'upkeep' || k === 'market.fee') === (mods[k] < 0) ? 'ok' : (mods[k] < 0 ? 'bad' : 'ok')}">${['combat.morale'].includes(k) ? (mods[k] > 0 ? '+' : '') + Math.round(mods[k]) : (mods[k] > 0 ? '+' : '') + Math.round(mods[k] * 1000) / 10 + '%'}</b></div>`).join('') || '<span class="muted small">Aucun pour l’instant.</span>'}</div>
         ${Object.keys(s.territories).length ? `<h3>Territoires</h3><div class="small">${Object.values(s.territories).map((t) => `🚩 (${t.x},${t.y}) ${esc(TERRAINS[t.terrain].name)}`).join(' · ')}</div>` : ''}
       </div>
@@ -112,6 +116,6 @@ export default {
         app.state = null; location.reload();
       } catch (e) { app.toast('Code invalide : ' + e.message, 'bad'); }
     },
-    reset: (app) => { if (confirm('Effacer définitivement votre royaume et recommencer ?')) { deleteSave(); app.state = null; location.reload(); } },
+    reset: (app) => app.confirm('<h3>🗑️ Nouvelle partie</h3><p>Effacer définitivement ce royaume et en fonder un nouveau ? Vous pourrez choisir une autre spécialisation, origine et difficulté.</p><p class="small muted">Conseil : téléchargez d’abord votre sauvegarde (.json) si vous voulez pouvoir y revenir.</p>', 'Effacer et recommencer', () => { deleteSave(); app.state = null; location.reload(); }),
   },
 };

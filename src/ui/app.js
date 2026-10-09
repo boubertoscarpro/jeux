@@ -19,6 +19,7 @@ import expeditionsView from './views/expeditions.js';
 import chainsView from './views/chains.js';
 import stewardView from './views/steward.js';
 import factionsView from './views/factions.js';
+import { kingdomInfoHtml } from './creation.js';
 import convoysView from './views/convoys.js';
 import talentsView from './views/talents.js';
 import historyView from './views/history.js';
@@ -284,6 +285,7 @@ export class App {
     'toggle-res': (app) => { app.ui.showAllRes = !app.ui.showAllRes; app.render(); },
     'toggle-side': (app) => { app.root.classList.toggle('show-side'); },
     advisor: (app) => openAdvisor(app),
+    'kingdom-info': (app) => app.modal(`<h2>Votre royaume</h2>${kingdomInfoHtml(app.state)}`, {}, 'wide'),
     notifs: (app) => { app.openNotifications(); app.$('#topbar').innerHTML = renderTopbar(app); },
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),
   };
