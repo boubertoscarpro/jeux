@@ -573,6 +573,7 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
   .ev-layout, .wh-layout { grid-template-columns: 1fr; }
   .ev-cell { font-size: 11px; }
 }
-.ev-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; margin: 8px 0; }
+.ev-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; margin: 8px 0; }
 .ev-pick .pick { display: flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
-.ev-pick .qty { width: 70px; margin-left: auto; }
+.ev-pick .qty { width: 64px; margin-left: auto; }
+.ev-pick .pick .mini { flex-shrink: 0; }

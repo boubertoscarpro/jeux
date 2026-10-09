@@ -178,7 +178,8 @@ function buildShop(state, def, occ, seed) {
   const rot = [...def.shop.rotating];
   const picks = [];
   // Rotation : chaque occurrence propose une sélection différente
-  while (picks.length < Math.min(def.shop.picks, rot.length)) picks.push(rot.splice(Math.floor(r() * rot.length), 1)[0].id);
+  const n = Math.min(def.shop.picks, rot.length);
+  while (picks.length < n) picks.push(rot.splice(Math.floor(r() * rot.length), 1)[0].id);
   return { rotating: picks, bought: {}, globalSold: {} };
 }
 

@@ -26,6 +26,8 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 | 🚚 Commerce | Marché dynamique (saisons, guerres, pénuries, rumeurs), convois sécurisés/rapides/clandestins, routes, contrats |
 | 🧙 Héros | 6 classes, raretés, compétences, intendants/commandants, équipement, forge, potions |
 | 🔬 Technologies | Arbre technologique à maîtrises, recherche automatique, talents permanents, doctrines, prestige dynastique |
+| 🎪 Événements | Un grand événement de 72 h tous les ~3 jours (10 événements en rotation : Cavaliers des Steppes, Corsaires, Hiver des Géants, Ruines, Chasse au Dragon, Guerre des Royaumes, Ruée vers l'Or, Volcan, Nuit des Morts, Siège des Anciens), cartes dédiées, monnaies, boutiques à stock limité, marchand mystère, passe gratuite, classement, boss à paliers, surprises (météores, dragon errant, Grande Foire, éclipse) |
+| 🎡 Roue | **Éclats Anciens** (monnaie rare, jamais vendue) et **Roue des Anciens** : probabilités affichées, pitié visible, fragments, saisons, exclusivités, jackpot ancestral, expédition interdite |
 | 🏛️ Guilde | Dons, niveaux, objectifs collectifs, escortes et renforts |
 | 📜 Chronique | Journal, histoire datée du royaume, statistiques et records, salle du trésor (artefacts, collections, réputations), saison |
 
@@ -34,7 +36,8 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 31 tests (moteur, systèmes de la phase 2, bot qui joue 3 jours)
+npm test        # 51 tests (moteur, phase 2, bot, événements, Roue, profils économiques)
+node tools/economySim.js 90 40   # simulation de l'économie des Éclats (occasionnel / actif / hardcore)
 npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
 ```
 
@@ -43,4 +46,4 @@ npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
 - `src/systems` : un module par système de jeu (pur, sans DOM, testable)
 - `src/ui` : application, HUD, vues
 
-Documentation : [`docs/DESIGN.md`](docs/DESIGN.md) (phase 1), [`docs/PHASE2.md`](docs/PHASE2.md) (phase 2 et mécaniques originales).
+Documentation : [`docs/DESIGN.md`](docs/DESIGN.md) (phase 1), [`docs/PHASE2.md`](docs/PHASE2.md) (phase 2 et mécaniques originales), [`docs/EVENTS.md`](docs/EVENTS.md) (événements temporaires), [`docs/ECONOMY.md`](docs/ECONOMY.md) (Éclats Anciens, Roue, équilibrage). Outils de réglage : ajoutez `?dev` à l'adresse pour l'onglet Admin.
