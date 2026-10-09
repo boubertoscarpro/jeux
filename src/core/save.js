@@ -1,6 +1,8 @@
 import { initLegacyCampaign } from '../systems/campaign.js';
 import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
-import { createNewState, SAVE_VERSION } from './state.js';
+import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './state.js';
+import { extendWorld } from '../systems/worldgen.js';
+import { mulberry32 } from './rng.js';
 
 export const SAVE_KEY = 'cendrelande_save';
 export const BACKUP_KEY = 'cendrelande_save_backup';     // dernière sauvegarde saine (rotation toutes les 10 min)
@@ -35,6 +37,19 @@ export const MIGRATIONS = {
     d.campaign = null;
     d.meta.advice ??= 'full';
     // Les fiches de chapitre ne sont pas imposées à un joueur déjà avancé
+    return d;
+  },
+  // v7 → v8 : cartes agrandies. Rien n'est déplacé : la ville et le monde s'étendent vers l'est et le sud.
+  // Ville : au moins 24×16 (+4 colonnes / +2 rangées par agrandissement déjà acheté), sans décombres ajoutés.
+  // Monde : 48×48 → 96×96, nouvelles régions explorables (brouillard), capitale et sites existants inchangés.
+  7: (d) => {
+    const seed = Number(d.meta?.seed) || 1;
+    const dom = Math.max(0, Math.floor(d.domain || 0));
+    if (Array.isArray(d.city?.terrain) && d.city.w > 0 && d.city.h > 0 && d.city.terrain.length === d.city.w * d.city.h) {
+      extendCity(d, CITY_W + 4 * dom, CITY_H + 2 * dom, mulberry32(seed ^ 0x77), 0);
+    }
+    const w = d.world;
+    if (w && typeof w.terrain === 'string' && Array.isArray(w.revealed) && w.size > 0 && w.terrain.length === w.size * w.size && w.capital && w.pois) extendWorld(w, seed);
     return d;
   },
 };

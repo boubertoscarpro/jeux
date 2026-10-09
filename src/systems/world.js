@@ -1,7 +1,7 @@
-import { CHAR_TO_TERRAIN, POI_TYPES, SECONDS_PER_TILE, TERRAINS } from '../data/world.js';
+import { CHAR_TO_TERRAIN, POI_TYPES, SECONDS_PER_TILE, TERRAINS, EVENT_REACH } from '../data/world.js';
 import { UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
-import { key, makePoi, makeEnemies } from './worldgen.js';
+import { key, makePoi, makeEnemies, dangerNorm } from './worldgen.js';
 import { thLevel } from './city.js';
 
 export { key };
@@ -10,6 +10,14 @@ export const wTerrain = (world, x, y) => (x < 0 || y < 0 || x >= world.size || y
 export const isRevealed = (world, x, y) => !!world.revealed[y * world.size + x];
 export const poiAt = (world, x, y) => world.pois[key(x, y)] || null;
 export const distCap = (world, x, y) => Math.hypot(x - world.capital.x, y - world.capital.y);
+// Échelle des événements : proportionnelle au monde, plafonnée (un grand monde n'impose pas de trajets démesurés)
+export const worldScale = (world) => Math.min(world.size, EVENT_REACH * 2);
+const clampW = (world, v, m = 3) => Math.max(m, Math.min(world.size - 1 - m, v));
+// Point à une distance [dMin, dMax] de la capitale, dans un angle aléatoire, à l'intérieur de la carte
+export function aroundCapital(world, dMin, dMax) {
+  const ang = rng.float(0, Math.PI * 2), d = rng.float(dMin, dMax);
+  return { x: clampW(world, Math.round(world.capital.x + Math.cos(ang) * d)), y: clampW(world, Math.round(world.capital.y + Math.sin(ang) * d)) };
+}
 
 export function setTerrain(world, x, y, ter) {
   const i = y * world.size + x;
@@ -67,8 +75,7 @@ export function findFreeTile(world, x, y, terrains = null, maxR = 4) {
 }
 
 export function spawnPoi(world, type, x, y, opts = {}) {
-  const d = distCap(world, x, y) / (world.size / 2);
-  const poi = makePoi(type, x, y, rng.random, Math.min(1, d), opts);
+  const poi = makePoi(type, x, y, rng.random, dangerNorm(world.size, distCap(world, x, y)), opts);
   poi.id = `p_${x}_${y}_${type}_${Date.now().toString(36)}`;
   Object.assign(poi, opts.extra || {});
   world.pois[key(x, y)] = poi;

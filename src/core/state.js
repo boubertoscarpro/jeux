@@ -6,39 +6,73 @@ import { initMarket } from '../systems/market.js';
 import { initFactions } from '../systems/factions.js';
 import { applyKingdomChoice } from '../systems/kingdom.js';
 
-export const SAVE_VERSION = 7;
-export const CITY_W = 14;
-export const CITY_H = 10;
+export const SAVE_VERSION = 8;
+// Royaume de départ 24×16 (384 cases, contre 14×10 auparavant) ; chaque agrandissement ajoute 4 colonnes et 2 rangées.
+export const CITY_W = 24;
+export const CITY_H = 16;
+// Centre du hameau (hôtel de ville)
+export const TOWN_X = 11;
+export const TOWN_Y = 7;
+export const RUBBLE_COUNT = 14; // inchangé : un royaume plus grand ne donne pas plus de butin de déblaiement
 
 // Génère le terrain de la ville : rivière, forêts, montagnes, décombres
-export function generateCity(seed) {
+export function generateCity(seed, W = CITY_W, H = CITY_H) {
   const r = mulberry32(seed ^ 0xc17e);
   const tiles = [];
-  for (let y = 0; y < CITY_H; y++) for (let x = 0; x < CITY_W; x++) tiles.push('plain');
-  const set = (x, y, t) => { if (x >= 0 && y >= 0 && x < CITY_W && y < CITY_H) tiles[y * CITY_W + x] = t; };
-  // Rivière sinueuse (colonne 3 ± 1)
-  let rx = 3;
-  for (let y = 0; y < CITY_H; y++) {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) tiles.push('plain');
+  const set = (x, y, t) => { if (x >= 0 && y >= 0 && x < W && y < H) tiles[y * W + x] = t; };
+  const get = (x, y) => tiles[y * W + x];
+  const nearTown = (x, y, d) => Math.abs(x - TOWN_X) <= d && Math.abs(y - TOWN_Y) <= d;
+  // Rivière sinueuse (colonnes 3 à 5)
+  let rx = 4;
+  for (let y = 0; y < H; y++) {
     set(rx, y, 'river');
     const d = r() < 0.33 ? -1 : r() < 0.5 ? 1 : 0;
-    const nx = Math.max(2, Math.min(4, rx + d));
+    const nx = Math.max(3, Math.min(5, rx + d));
     if (nx !== rx) set(nx, y, 'river');
     rx = nx;
   }
-  // Montagnes en haut à droite
-  for (let y = 0; y < 3; y++) for (let x = CITY_W - 4; x < CITY_W; x++) if (r() < 0.8 - y * 0.2 + (x - (CITY_W - 4)) * 0.1) set(x, y, 'mountain');
-  // Forêts : bord gauche et bas
-  for (let y = 0; y < CITY_H; y++) for (let x = 0; x < 2; x++) if (r() < 0.75 && tiles[y * CITY_W + x] === 'plain') set(x, y, 'forest');
-  for (let x = 5; x < CITY_W; x++) if (r() < 0.6) set(x, CITY_H - 1, 'forest');
-  for (let i = 0; i < 3; i++) set(9 + Math.floor(r() * 4), CITY_H - 2, 'forest');
-  // Décombres
-  let placed = 0;
-  while (placed < 14) {
-    const x = 5 + Math.floor(r() * (CITY_W - 6));
-    const y = 1 + Math.floor(r() * (CITY_H - 3));
-    if (tiles[y * CITY_W + x] === 'plain' && !(Math.abs(x - 7) <= 1 && Math.abs(y - 4) <= 1)) { set(x, y, 'rubble'); placed++; }
+  // Chaîne de montagnes au nord-est, et un éperon rocheux au sud-est
+  for (let y = 0; y < 4; y++) for (let x = W - 7; x < W; x++) if (r() < 0.85 - y * 0.2 + (x - (W - 7)) * 0.05) set(x, y, 'mountain');
+  const sx = W - 4, sy = H - 6;
+  for (let y = sy - 2; y <= sy + 2; y++) for (let x = sx - 2; x <= sx + 2; x++) if (Math.hypot(x - sx, y - sy) < 1.6 + r() * 0.8) set(x, y, 'mountain');
+  // Forêts : lisière ouest, bordure sud, bosquets
+  for (let y = 0; y < H; y++) for (let x = 0; x < 3; x++) if (get(x, y) === 'plain' && r() < (x < 2 ? 0.75 : 0.25)) set(x, y, 'forest');
+  for (let x = 6; x < W; x++) { if (r() < 0.6) set(x, H - 1, 'forest'); if (r() < 0.25 && get(x, H - 2) === 'plain') set(x, H - 2, 'forest'); }
+  for (let g = 0; g < 4; g++) {
+    let gx, gy, k = 0;
+    do { gx = 7 + Math.floor(r() * (W - 9)); gy = 1 + Math.floor(r() * (H - 3)); k++; } while (k < 20 && (nearTown(gx, gy, 3) || get(gx, gy) !== 'plain'));
+    for (let y = gy - 1; y <= gy + 1; y++) for (let x = gx - 1; x <= gx + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H && get(x, y) === 'plain' && !nearTown(x, y, 2) && r() < 0.6) set(x, y, 'forest');
+  }
+  // Décombres (même nombre qu'avant), autour du hameau
+  let placed = 0, tries = 0;
+  while (placed < RUBBLE_COUNT && tries++ < 5000) {
+    const x = 6 + Math.floor(r() * Math.min(W - 7, 14));
+    const y = 1 + Math.floor(r() * (H - 3));
+    if (get(x, y) === 'plain' && !nearTown(x, y, 1)) { set(x, y, 'rubble'); placed++; }
   }
   return tiles;
+}
+
+// Agrandit la grille vers l'est et le sud sans rien déplacer : les cases existantes gardent leurs coordonnées.
+// Les nouvelles cases viennent de terrain généré ; aucun décombre n'est ajouté si rubbleP = 0.
+export function extendCity(state, nw, nh, rand, rubbleP = 0) {
+  const { w, h, terrain } = state.city;
+  if (nw <= w && nh <= h) return false;
+  nw = Math.max(nw, w); nh = Math.max(nh, h);
+  const gen = generateCity(state.meta.seed, nw, nh);
+  const t = new Array(nw * nh);
+  for (let y = 0; y < nh; y++) for (let x = 0; x < nw; x++) {
+    if (x < w && y < h) { t[y * nw + x] = terrain[y * w + x]; continue; }
+    let ter = gen[y * nw + x];
+    if (ter === 'rubble' || ter === 'river') ter = 'plain';
+    // La rivière existante continue vers le sud
+    if (y >= h && x < w && terrain[(h - 1) * w + x] === 'river') ter = 'river';
+    if (ter === 'plain' && rubbleP && rand() < rubbleP) ter = 'rubble';
+    t[y * nw + x] = ter;
+  }
+  Object.assign(state.city, { w: nw, h: nh, terrain: t });
+  return true;
 }
 
 export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdomName = 'Cendrelande', lordName = 'Seigneur', now = Date.now(), kingdomType = null, origin = 'none', difficulty = 'classic' } = {}) {
@@ -119,9 +153,9 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     state.city.buildings[id] = { id, type, level, x, y };
     state.city.terrain[y * CITY_W + x] = 'plain';
   };
-  place('townhall', 7, 4, 1);
-  place('house', 8, 5, 1);
-  place('warehouse', 6, 5, 1);
+  place('townhall', TOWN_X, TOWN_Y, 1);
+  place('house', TOWN_X + 1, TOWN_Y + 1, 1);
+  place('warehouse', TOWN_X - 1, TOWN_Y + 1, 1);
 
   state.world = generateWorld(seed);
   initFactions(state);

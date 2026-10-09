@@ -5,7 +5,7 @@ import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { buildingRates, netRates, storageCap, protectedAmount, recipeOf, roadConnected, sectorOfBuilding } from '../../systems/economy.js';
 import { repairBuilding, repairCost } from '../../systems/automation.js';
-import { nextDomainStep, expandDomain } from '../../systems/domain.js';
+import { nextDomainStep, expandDomain, DOMAIN_GROW } from '../../systems/domain.js';
 import { WORK_SECTORS } from '../../data/workers.js';
 import { allBuildings, buildingAt, terrainAt, adjacencyBonus, placementCheck, thLevel, proximityEffects } from '../../systems/city.js';
 import { startBuild, startUpgrade, startClear, buildRequirement, getUpgradeInfo, moveBuilding, demolish, moveCost, CLEAR_COST, placeDeco, planConstruction } from '../../systems/construction.js';
@@ -13,6 +13,7 @@ import { startBuild, startUpgrade, startClear, buildRequirement, getUpgradeInfo,
 // File pleine : le chantier est planifié et démarrera seul (ressources payées au démarrage)
 const orPlan = (s, r, item) => (r.ok === false && /File de construction pleine/.test(r.reason || '') ? planConstruction(s, item) : r);
 const planMsg = (label) => (r) => (r.planned ? '🗓️ File pleine : chantier planifié, il démarrera automatiquement' : label);
+import { bindPanZoom, zoomAt, fitZoom } from '../panzoom.js';
 import { esc, costList, resChips, countdown, progress, pct } from '../components.js';
 
 const TERRAIN_ICON = { forest: '🌲', mountain: '⛰️', river: '', rubble: '🧱', plain: '' };
@@ -66,7 +67,7 @@ function buildMenu(app, x, y, mods) {
         return `<div class="b-option ${disabled ? 'disabled' : ''}">
           <div class="b-opt-head"><span class="b-icon">${def.icon}</span><b>${esc(def.name)}</b>${adj.total > 0 ? `<span class="bonus-tag">+${Math.round(adj.total * 100)}% ici</span>` : ''}</div>
           <div class="muted small">${esc(def.desc)}</div>
-          ${disabled ? `<div class="req">${esc(req || p.reason)}</div>` : `<div class="b-opt-foot">${Object.keys(cost).length ? costList(cost, s) : '<span class="ok small" title="Le premier exemplaire de ce producteur de base est offert quand vous n’en avez aucun : impossible de rester bloqué sans bois, pierre ou nourriture.">🎁 Offert (premier exemplaire)</span>'} <span class="muted small">⏱ ${fmtTime(time)}</span>
+          ${disabled ? `<div class="req">${esc(req || p.reason)}</div>` : `<div class="b-opt-foot">${Object.keys(cost).length ? costList(cost, s) : '<span class="ok small" title="Vous n’en possédez aucun et ne pouvez pas le payer : le premier exemplaire est offert, pour ne jamais rester bloqué sans bois, pierre ou nourriture.">🎁 Offert (secours)</span>'} <span class="muted small">⏱ ${fmtTime(time)}</span>
             <button class="mini primary" data-action="build" data-type="${type}" data-x="${x}" data-y="${y}">Construire</button></div>`}
         </div>`;
       }).join('')}</div>`).join('')}
@@ -152,8 +153,27 @@ function fortPanel(app, mods) {
   }).join('');
 }
 
+// Caméra de la carte du royaume (conservée entre deux rendus)
+const CITY_ZMIN = 0.3, CITY_ZMAX = 2;
+function cityCam(app) { return (app.ui.cityCam ||= { x: 0, y: 0, z: 1, init: false }); }
+function centerOnTown(app, vp) {
+  const cam = cityCam(app);
+  const th = Object.values(app.state.city.buildings).find((b) => b.type === 'townhall');
+  const el = th && vp.querySelector(`.tile[data-x="${th.x}"][data-y="${th.y}"]`);
+  cam.z = window.innerWidth < 700 ? 0.8 : 1;
+  if (el) { cam.x = vp.clientWidth / 2 - (el.offsetLeft + el.offsetWidth / 2) * cam.z; cam.y = vp.clientHeight / 2 - (el.offsetTop + el.offsetHeight / 2) * cam.z; }
+  cam.init = true;
+}
+
 export default {
   id: 'city', title: 'Royaume', icon: '🏰',
+  after(app) {
+    const vp = document.getElementById('city-vp');
+    if (!vp) return;
+    if (!cityCam(app).init) centerOnTown(app, vp);
+    bindPanZoom(vp, { getCam: () => cityCam(app), zMin: CITY_ZMIN, zMax: CITY_ZMAX });
+    if (!app._cityResize) { app._cityResize = true; window.addEventListener('resize', () => document.getElementById('city-vp')?._apply?.()); }
+  },
   render(app) {
     const s = app.state;
     const mods = computeMods(s);
@@ -190,8 +210,12 @@ export default {
           const req = buildRequirement(s, t);
           return `<button class="bb-btn ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? 'disabled' : ''} title="${esc(d.name)}${req ? ' — ' + esc(req) : ' — ' + esc(d.desc)}">${d.icon}</button>`;
         }).join('')}${app.ui.citySel || app.ui.placeType || app.ui.moveId ? '<button class="mini ghost" data-action="cancel-mode">✕ Annuler</button>' : ''}</div>
-        <div class="city-grid ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div>
-        ${(() => { const st = nextDomainStep(s); return st ? `<div class="card domain-card"><h3>🗺️ Agrandir le domaine <span class="muted small">${s.city.w}×${s.city.h} cases</span></h3><div class="small muted">Étape « ${esc(st.name)} » : +2 colonnes et +1 rangée de terrain vierge à aménager (forêts, montagnes, décombres, rivière).</div><div class="b-opt-foot">${costList(st.cost, s)} <span class="small ${thLevel(s) >= st.th ? 'ok' : 'req'}">HdV ${st.th}</span><button class="mini primary" data-action="expand">Agrandir</button></div></div>` : ''; })()}
+        <div class="mapvp city-vp" id="city-vp">
+          <div class="mapvp-inner" style="transform: translate(${cityCam(app).x}px, ${cityCam(app).y}px) scale(${cityCam(app).z})"><div class="city-grid ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div></div>
+          <div class="map-tools"><button class="mini" data-action="city-zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="city-zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="city-fit" title="Vue d’ensemble du royaume">⤢</button><button class="mini" data-action="city-center" title="Recentrer sur l’hôtel de ville (zoom par défaut)">🏛️</button></div>
+          <div class="map-hint muted small">${s.city.w}×${s.city.h} · glisser pour déplacer · molette pour zoomer</div>
+        </div>
+        ${(() => { const st = nextDomainStep(s); return st ? `<div class="card domain-card"><h3>🗺️ Agrandir le domaine <span class="muted small">${s.city.w}×${s.city.h} cases</span></h3><div class="small muted">Étape « ${esc(st.name)} » : +${DOMAIN_GROW.w} colonnes à l’est et +${DOMAIN_GROW.h} rangées au sud de terrain vierge à aménager (forêts, montagnes, quelques décombres, rivière).</div><div class="b-opt-foot">${costList(st.cost, s)} <span class="small ${thLevel(s) >= st.th ? 'ok' : 'req'}">HdV ${st.th}</span><button class="mini primary" data-action="expand">Agrandir</button></div></div>` : ''; })()}
         <div class="card"><h3>🧱 Fortifications</h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
         <div class="card"><h3>📊 Bilan horaire</h3><div class="net-grid">${Object.entries(net).filter(([, v]) => Math.abs(v) > 0.05).sort((a, b) => b[1] - a[1]).map(([r, v]) => `<div class="net ${v < 0 ? 'neg' : ''}">${RESOURCES[r].icon} ${esc(RESOURCES[r].name)} <b>${v > 0 ? '+' : ''}${fmt(v)}</b></div>`).join('')}</div>
           <p class="muted small">Capacité : ${fmt(cap)} · Protégé des pillages : ${fmt(protectedAmount(s, mods))} par ressource. Les ressources rares et l’or ne sont pas plafonnés.</p></div>
@@ -234,6 +258,9 @@ export default {
     repair: (app, el) => app.act(() => repairBuilding(app.state, el.dataset.id), 'Bâtiment réparé'),
     recipe: (app, el) => { app.state.city.buildings[el.dataset.id].recipe = +el.value; app.render(); app.save(); },
     expand: (app) => app.act(() => expandDomain(app.state), 'Le domaine s’agrandit !'),
+    'city-zoom': (app, el) => { const vp = document.getElementById('city-vp'); if (!vp) return; zoomAt(cityCam(app), +el.dataset.z, vp.clientWidth / 2, vp.clientHeight / 2, CITY_ZMIN, CITY_ZMAX); vp._apply(); },
+    'city-fit': (app) => { const vp = document.getElementById('city-vp'); if (!vp) return; const c = vp.querySelector('.mapvp-inner'); const cam = cityCam(app); cam.z = Math.max(CITY_ZMIN, Math.min(1, fitZoom(vp.clientWidth, vp.clientHeight, c.offsetWidth, c.offsetHeight))); vp._apply(); },
+    'city-center': (app) => { const vp = document.getElementById('city-vp'); if (!vp) return; centerOnTown(app, vp); vp._apply(); },
     pause: (app, el) => { const b = app.state.city.buildings[el.dataset.id]; b.paused = !b.paused; app.render(); },
     deco: (app, el) => app.act(() => placeDeco(app.state, el.dataset.key, +el.dataset.x, +el.dataset.y), 'Décoration placée'),
   },

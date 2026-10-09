@@ -10,7 +10,7 @@ import { gain } from './economy.js';
 import { createUniqueItem, generateItem } from './items.js';
 import { grantArtifact } from './collection.js';
 import { rollShards } from './shards.js';
-import { spawnPoi, findFreeTile, reveal, poiAt, key, distCap } from './world.js';
+import { spawnPoi, findFreeTile, reveal, poiAt, key, distCap, aroundCapital, worldScale } from './world.js';
 import { spawnMerchant } from './market.js';
 import { log, toast } from './log.js';
 import { calendar, chronicle } from './chronicle.js';
@@ -36,7 +36,7 @@ export function startWorldEvent(state, evKey, now) {
       let pos;
       for (let k = 0; k < 30 && !pos; k++) {
         const ang = rng.float(0, Math.PI * 2);
-        const d = far ? rng.float(world.size * 0.3, world.size * 0.45) : rng.float(3, near);
+        const d = far ? rng.float(worldScale(world) * 0.3, worldScale(world) * 0.45) : rng.float(3, near);
         const x = Math.round(world.capital.x + Math.cos(ang) * d), y = Math.round(world.capital.y + Math.sin(ang) * d);
         pos = findFreeTile(world, x, y, null, 2);
       }
@@ -63,9 +63,8 @@ export function startWorldEvent(state, evKey, now) {
   if (ev.merchant) spawnMerchant(state, now, ev.duration);
   if (ev.boss) spawnBoss(state, ev.boss, now);
   if (ev.revealRegion) {
-    const ang = rng.float(0, Math.PI * 2);
-    const x = Math.round(world.capital.x + Math.cos(ang) * world.size * 0.38), y = Math.round(world.capital.y + Math.sin(ang) * world.size * 0.38);
-    reveal(world, Math.max(3, Math.min(world.size - 4, x)), Math.max(3, Math.min(world.size - 4, y)), 4);
+    const { x, y } = aroundCapital(world, worldScale(world) * 0.38, worldScale(world) * 0.38);
+    reveal(world, x, y, 4);
   }
   log(state, 'event', `${ev.icon} ${ev.name} : ${ev.text}`, now);
   toast(`${ev.icon} ${ev.name}`, 'event');

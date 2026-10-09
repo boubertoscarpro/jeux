@@ -17,7 +17,7 @@ const T0 = Date.UTC(2026, 4, 1);
 const H = 3600000;
 function rich(seed) {
   const s = createNewState({ seed, now: T0 });
-  s.city.buildings.b_townhall_7_4.level = 8;
+  s.city.buildings.b_townhall_11_7.level = 8;
   s.city.buildings.m = { id: 'm', type: 'market', level: 3, x: 9, y: 4 };
   for (const r of Object.keys(s.resources)) s.resources[r] = 40000;
   s.army = { spearman: 300, swordsman: 200, archer: 200, scout: 20 };

@@ -1,5 +1,12 @@
 // Carte du monde
-export const WORLD_SIZE = 48;
+// Monde 96×96 (9 216 cases, 4× la surface d'origine 48×48). Les sites sont répartis avec la même densité
+// qu'avant : les environs de la capitale restent aussi riches, et les régions lointaines sont plus dangereuses.
+export const WORLD_SIZE = 96;
+export const LEGACY_WORLD_SIZE = 48;
+// Distance (cases) à laquelle les sites atteignent leur danger maximal ; au-delà, les « terres lointaines »
+export const DANGER_RADIUS = 34;
+// Rayon de référence des événements (boss, ruines, gisements) : évite des trajets démesurés sur un grand monde
+export const EVENT_REACH = 24;
 export const SECONDS_PER_TILE = 18; // vitesse 1.0
 
 export const TERRAINS = {
@@ -59,7 +66,7 @@ export const POI_TYPES = {
 POI_TYPES.ironNodeRich = { name: 'Mine reconquise', icon: '⚒️', kind: 'gather', terrain: [], res: 'iron', amount: [10000, 10000], regen: 900, danger: [1, 1], bonus: { coal: 0.1, rareOre: 0.004 } };
 
 // Cités libres (commerce)
-export const TOWN_NAMES = ['Valbrume', 'Port-Ardoise', 'Sainte-Gemme', 'Hautegarde', 'Mirecourt', 'Bourg-aux-Saules'];
+export const TOWN_NAMES = ['Valbrume', 'Port-Ardoise', 'Sainte-Gemme', 'Hautegarde', 'Mirecourt', 'Bourg-aux-Saules', 'Ormeval', 'Brise-Lame', 'Saint-Arlan', 'Vieux-Gué', 'Marchebrune', 'Roche-Aigle'];
 // Royaumes rivaux (IA)
 export const RIVALS = [
   { name: 'Baronnie de Corbeval', lord: 'Baron Mordain', style: 'raider', personality: 'aggressive', icon: '🦅', color: '#c0392b' },

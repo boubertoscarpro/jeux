@@ -5,7 +5,7 @@ import { CONSUMABLES } from '../../data/items.js';
 import { HERO_CLASSES } from '../../data/heroes.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
-import { wTerrain, isRevealed, poiAt, distCap, travelTime, key, territoryLimit, territoryRange } from '../../systems/world.js';
+import { wTerrain, isRevealed, poiAt, distCap, travelTime, key, territoryLimit, territoryRange, revealedCount } from '../../systems/world.js';
 import { planMarch, sendMarch, carryCapacity, gatherRate, breadNeeded, MARCH_TYPES } from '../../systems/marches.js';
 import { previewBattle } from '../../systems/combat.js';
 import { armyPower } from '../../systems/army.js';
@@ -17,12 +17,47 @@ import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons
 import { esc, costList, resChips, bar, countdown } from '../components.js';
 
 const BASE_TILE = 26;
+const Z_MAX = 3;
 
 function cam(app) {
   const w = app.state.world;
   if (!app.ui.cam) app.ui.cam = { x: w.capital.x + 0.5, y: w.capital.y + 0.5, zoom: 1 };
   return app.ui.cam;
 }
+// Zoom minimal : le monde entier tient dans la fenêtre (jamais moins de 0,15)
+const zMinFor = (W, H, S) => Math.max(0.15, Math.min(1, Math.min(W, H) / (S * BASE_TILE)));
+// La caméra ne sort jamais de la carte ; si la carte est plus petite que la fenêtre, elle est centrée
+export function clampWorldCam(c, W, H, S) {
+  c.zoom = Math.max(zMinFor(W, H, S), Math.min(Z_MAX, c.zoom));
+  const T = BASE_TILE * c.zoom, hw = W / 2 / T, hh = H / 2 / T;
+  c.x = S <= 2 * hw ? S / 2 : Math.max(hw, Math.min(S - hw, c.x));
+  c.y = S <= 2 * hh ? S / 2 : Math.max(hh, Math.min(S - hh, c.y));
+  return c;
+}
+// Zoom centré sur un point de l'écran (px, py relatifs au canvas) : la case sous le curseur reste en place
+export function zoomWorldAt(c, factor, px, py, W, H, S) {
+  const T1 = BASE_TILE * c.zoom;
+  const wx = (px - W / 2) / T1 + c.x, wy = (py - H / 2) / T1 + c.y;
+  c.zoom = Math.max(zMinFor(W, H, S), Math.min(Z_MAX, c.zoom * factor));
+  const T2 = BASE_TILE * c.zoom;
+  c.x = wx - (px - W / 2) / T2; c.y = wy - (py - H / 2) / T2;
+  return clampWorldCam(c, W, H, S);
+}
+// Catégories de lieux (filtres de la carte)
+const POI_CAT = (p) => {
+  const def = POI_TYPES[p.type];
+  if (!def) return 'other';
+  if (def.kind === 'gather') return 'gather';
+  if (def.dungeon || p.type === 'lostCity' || p.type === 'ruinSite') return 'dungeon';
+  if (def.kind === 'danger') return 'danger';
+  if (def.kind === 'town' || def.kind === 'kingdom' || def.kind === 'village') return 'social';
+  return 'always';
+};
+export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes' };
+const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', dungeon: '#c99cff', social: '#ffd56b', always: '#ffffff', other: '#cccccc' };
+const filters = (app) => (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true });
+let rafPending = false;
+const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawMap(app); }); };
 
 function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span class="ok">Sûr</span>'; }
 
@@ -37,8 +72,9 @@ export function drawMap(app) {
   }
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const T = BASE_TILE * c.zoom;
   const W = rect.width, H = rect.height;
+  clampWorldCam(c, W, H, w.size);
+  const T = BASE_TILE * c.zoom;
   const ox = W / 2 - c.x * T, oy = H / 2 - c.y * T;
   ctx.fillStyle = '#0d0f14'; ctx.fillRect(0, 0, W, H);
   const x0 = Math.max(0, Math.floor(-ox / T)), y0 = Math.max(0, Math.floor(-oy / T));
@@ -84,19 +120,34 @@ export function drawMap(app) {
   ctx.setLineDash([]);
   // Sites
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const F = filters(app);
+  const labels = [];
   for (const p of Object.values(w.pois)) {
     if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
     if (!isRevealed(w, p.x, p.y)) continue;
     const def = POI_TYPES[p.type];
+    if (!def) continue;
+    const cat = POI_CAT(p);
+    if (F[cat] === false) continue;
     const px = ox + (p.x + 0.5) * T, py = oy + (p.y + 0.5) * T;
     const cleared = p.clearedUntil > now || (def.kind === 'gather' && p.amount < 1);
+    const major = def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'town' || def.kind === 'boss';
+    // Vue d'ensemble : les sites mineurs deviennent des points colorés, les lieux majeurs gardent leur icône
+    if (T < 13 && !major) {
+      ctx.globalAlpha = cleared ? 0.35 : 0.95;
+      ctx.fillStyle = CAT_COLOR[cat];
+      ctx.beginPath(); ctx.arc(px, py, Math.max(1.6, T * 0.3), 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    if ((def.kind === 'town' || def.kind === 'kingdom') && T >= 20) labels.push({ px, py: py + T * 0.62, text: p.name || def.name });
     if (def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'boss') {
       ctx.fillStyle = def.kind === 'capital' ? (s.meta.banner || '#e2b84a') : def.kind === 'boss' ? '#c0392b' : '#7b2d8b';
       ctx.beginPath(); ctx.arc(px, py, T * 0.55, 0, 7); ctx.fill();
     }
     ctx.globalAlpha = cleared ? 0.35 : 1;
     const icon = p.type === 'kingdom' ? RIVALS[p.rival]?.icon || def.icon : p.type === 'boss' && s.boss ? ALL_UNITS[BOSSES[s.boss.key].unit].icon : def.icon;
-    ctx.font = `${Math.round(T * (def.kind === 'boss' ? 0.95 : 0.7))}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+    ctx.font = `${Math.max(major ? 13 : 0, Math.round(T * (def.kind === 'boss' ? 0.95 : 0.7)))}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
     ctx.fillText(icon, px, py + 1);
     ctx.globalAlpha = 1;
     if (p.danger > 0 && def.kind !== 'boss' && T > 16) {
@@ -132,30 +183,123 @@ export function drawMap(app) {
     ctx.strokeStyle = 'rgba(255,40,40,0.9)'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
     ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke(); ctx.setLineDash([]);
   }
+  // Noms des cités et royaumes (zoom rapproché)
+  ctx.font = '600 11px Inter, system-ui, sans-serif';
+  for (const l of labels) {
+    const tw = ctx.measureText(l.text).width;
+    ctx.fillStyle = 'rgba(13,15,20,0.72)'; ctx.fillRect(l.px - tw / 2 - 4, l.py - 1, tw + 8, 15);
+    ctx.fillStyle = '#f3e6c4'; ctx.fillText(l.text, l.px, l.py + 6.5);
+  }
   const sel = app.ui.worldSel;
-  if (sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.strokeRect(ox + sel.x * T + 1, oy + sel.y * T + 1, T - 2, T - 2); }
+  if (sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.strokeRect(ox + sel.x * T + 1, oy + sel.y * T + 1, Math.max(3, T - 2), Math.max(3, T - 2)); }
+  drawMini(app, W, H);
+}
+
+// Mini-carte : terrain découvert, lieux majeurs, cadre de la vue ; cliquer ou glisser déplace la caméra
+function drawMini(app, W, H) {
+  const mini = document.getElementById('world-mini');
+  if (!mini || mini.hidden) return;
+  const s = app.state, w = s.world, c = cam(app), S = w.size;
+  const dpr = window.devicePixelRatio || 1;
+  const size = mini.clientWidth;
+  if (mini.width !== Math.round(size * dpr)) { mini.width = Math.round(size * dpr); mini.height = Math.round(size * dpr); }
+  const ctx = mini.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const k = size / S;
+  // Le fond (terrain) est mis en cache tant que le brouillard ne change pas
+  const sig = `${S}:${revealedCount(w)}:${Math.floor(Date.now() / 60000)}`;
+  if (!app._miniBg || app._miniSig !== sig) {
+    const bg = document.createElement('canvas');
+    bg.width = S; bg.height = S;
+    const b = bg.getContext('2d');
+    const img = b.createImageData(S, S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+      const i = (y * S + x) * 4;
+      const hex = isRevealed(w, x, y) ? TERRAINS[wTerrain(w, x, y)].color : '#1c1f29';
+      img.data[i] = parseInt(hex.slice(1, 3), 16); img.data[i + 1] = parseInt(hex.slice(3, 5), 16); img.data[i + 2] = parseInt(hex.slice(5, 7), 16); img.data[i + 3] = 255;
+    }
+    b.putImageData(img, 0, 0);
+    app._miniBg = bg; app._miniSig = sig;
+  }
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(app._miniBg, 0, 0, size, size);
+  for (const p of Object.values(w.pois)) {
+    const kind = POI_TYPES[p.type]?.kind;
+    if (!['capital', 'kingdom', 'town', 'boss'].includes(kind) || !isRevealed(w, p.x, p.y)) continue;
+    ctx.fillStyle = kind === 'capital' ? '#ffd24a' : kind === 'kingdom' ? RIVALS[p.rival]?.color || '#b04ad0' : kind === 'boss' ? '#ff3b3b' : '#ffe9a8';
+    ctx.fillRect((p.x - 0.8) * k, (p.y - 0.8) * k, Math.max(3, 2.6 * k), Math.max(3, 2.6 * k));
+  }
+  for (const t of Object.values(s.territories || {})) { ctx.fillStyle = '#e2b84a'; ctx.fillRect(t.x * k, t.y * k, Math.max(2, k), Math.max(2, k)); }
+  const T = BASE_TILE * c.zoom;
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+  ctx.strokeRect((c.x - W / 2 / T) * k, (c.y - H / 2 / T) * k, (W / T) * k, (H / T) * k);
+}
+
+// Accès rapide : lieux découverts notables, du plus proche au plus lointain
+export function notablePlaces(state) {
+  const w = state.world;
+  const out = [];
+  for (const p of Object.values(w.pois)) {
+    if (!isRevealed(w, p.x, p.y)) continue;
+    const def = POI_TYPES[p.type];
+    if (!def) continue;
+    if (['town', 'kingdom', 'boss'].includes(def.kind) || def.dungeon || p.type === 'lostCity') {
+      const label = def.kind === 'kingdom' ? `${RIVALS[p.rival]?.icon || def.icon} ${p.name}` : def.kind === 'town' ? `${def.icon} ${p.name}` : `${def.icon} ${def.name}`;
+      out.push({ x: p.x, y: p.y, label, d: distCap(w, p.x, p.y) });
+    }
+  }
+  for (const t of Object.values(state.territories || {})) out.push({ x: t.x, y: t.y, label: `🚩 Avant-poste (${t.x}, ${t.y})`, d: distCap(w, t.x, t.y) });
+  return out.sort((a, b) => a.d - b.d);
+}
+
+function focusTile(app, x, y, zoom = null) {
+  const c = cam(app);
+  c.x = x + 0.5; c.y = y + 0.5;
+  if (zoom) c.zoom = Math.max(c.zoom, zoom);
+  app.ui.worldSel = { x, y };
+  const panel = document.getElementById('world-panel');
+  if (panel) panel.innerHTML = tilePanel(app);
+  drawMap(app);
 }
 
 function bindCanvas(app) {
   const canvas = document.getElementById('world-canvas');
   if (!canvas || canvas.dataset.bound) return;
   canvas.dataset.bound = '1';
-  let drag = null;
-  canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, moved: false }; canvas.setPointerCapture(e.pointerId); });
+  const pts = new Map();
+  let drag = null, pinch = null;
+  const size = () => { const r = canvas.getBoundingClientRect(); return { r, W: r.width, H: r.height, S: app.state.world.size }; };
+  canvas.addEventListener('pointerdown', (e) => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, moved: false, id: e.pointerId };
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cam(app).zoom }; if (drag) drag.moved = true; }
+    canvas.setPointerCapture(e.pointerId);
+  });
   canvas.addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    const c = cam(app), T = BASE_TILE * c.zoom;
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const c = cam(app), { r, W, H, S } = size();
+    if (pinch && pts.size >= 2) {
+      const [a, b] = [...pts.values()];
+      const target = pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d;
+      zoomWorldAt(c, target / c.zoom, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top, W, H, S);
+      redraw(app);
+      return;
+    }
+    if (!drag || drag.id !== e.pointerId) return;
+    const T = BASE_TILE * c.zoom;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
-    if (drag.moved) { c.x -= dx / T; c.y -= dy / T; drag.x = e.clientX; drag.y = e.clientY; drawMap(app); }
+    if (drag.moved) { c.x -= dx / T; c.y -= dy / T; clampWorldCam(c, W, H, S); drag.x = e.clientX; drag.y = e.clientY; redraw(app); }
   });
-  canvas.addEventListener('pointerup', (e) => {
-    if (drag && !drag.moved) {
-      const rect = canvas.getBoundingClientRect();
+  const end = (e) => {
+    pts.delete(e.pointerId);
+    if (pts.size < 2) pinch = null;
+    if (drag && drag.id === e.pointerId && !drag.moved && e.type === 'pointerup') {
+      const { r, W, H, S } = size();
       const c = cam(app), T = BASE_TILE * c.zoom;
-      const x = Math.floor((e.clientX - rect.left - rect.width / 2) / T + c.x);
-      const y = Math.floor((e.clientY - rect.top - rect.height / 2) / T + c.y);
-      const S = app.state.world.size;
+      const x = Math.floor((e.clientX - r.left - W / 2) / T + c.x);
+      const y = Math.floor((e.clientY - r.top - H / 2) / T + c.y);
       if (x >= 0 && y >= 0 && x < S && y < S) {
         app.ui.worldSel = { x, y };
         const panel = document.getElementById('world-panel');
@@ -163,14 +307,26 @@ function bindCanvas(app) {
         drawMap(app);
       }
     }
-    drag = null;
-  });
+    if (drag && drag.id === e.pointerId) drag = null;
+  };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const c = cam(app);
-    c.zoom = Math.max(0.5, Math.min(2.4, c.zoom * (e.deltaY < 0 ? 1.12 : 0.89)));
-    drawMap(app);
+    const { r, W, H, S } = size();
+    zoomWorldAt(cam(app), Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), e.clientX - r.left, e.clientY - r.top, W, H, S);
+    redraw(app);
   }, { passive: false });
+  // Mini-carte : cliquer ou glisser recentre la vue
+  const mini = document.getElementById('world-mini');
+  if (mini) {
+    let down = false;
+    const go = (e) => { const r = mini.getBoundingClientRect(), S = app.state.world.size, c = cam(app); c.x = ((e.clientX - r.left) / r.width) * S; c.y = ((e.clientY - r.top) / r.height) * S; redraw(app); };
+    mini.addEventListener('pointerdown', (e) => { down = true; mini.setPointerCapture(e.pointerId); go(e); e.stopPropagation(); });
+    mini.addEventListener('pointermove', (e) => { if (down) go(e); });
+    mini.addEventListener('pointerup', () => { down = false; });
+    mini.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+  }
   if (!app._resizeBound) {
     app._resizeBound = true;
     window.addEventListener('resize', () => { if (app.ui.view === 'world') drawMap(app); });
@@ -191,7 +347,7 @@ function tilePanel(app) {
   const sel = app.ui.worldSel;
   const now = Date.now();
   if (!sel) {
-    return `<h3>🗺️ Les Terres Brisées</h3><p class="muted">Cliquez sur une case pour l’inspecter. Glissez pour vous déplacer, molette pour zoomer.</p>
+    return `<h3>🗺️ Les Terres Brisées</h3><p class="muted">Cliquez sur une case pour l’inspecter. Glissez pour vous déplacer, molette (ou pincement) pour zoomer, ⤢ pour la vue d’ensemble. La mini-carte et « Aller à… » mènent directement aux lieux découverts.</p>
       <ul class="small legend"><li>🌫️ Cases sombres : inexplorées — envoyez des <b>éclaireurs</b>.</li><li>☠ Barres de couleur : niveau de danger.</li><li>Cercle doré : portée de vos avant-postes.</li><li>Plus un site est dangereux, plus il rapporte.</li></ul>`;
   }
   const { x, y } = sel;
@@ -401,7 +557,11 @@ export default {
     return `<div class="world-layout">
       <div class="world-canvas-wrap card">
         <canvas id="world-canvas"></canvas>
-        <div class="map-tools"><button class="mini" data-action="zoom" data-z="1.2">＋</button><button class="mini" data-action="zoom" data-z="0.83">－</button><button class="mini" data-action="center" title="Centrer sur la capitale">🏰</button>${app.state.boss ? '<button class="mini warn" data-action="goto-boss" title="Boss mondial">🐉</button>' : ''}</div>
+        <div class="map-tools"><button class="mini" data-action="zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="fit" title="Vue d’ensemble du monde">⤢</button><button class="mini" data-action="center" title="Recentrer sur la capitale (zoom par défaut)">🏰</button>${app.state.boss ? '<button class="mini warn" data-action="goto-boss" title="Boss mondial">🐉</button>' : ''}<button class="mini" data-action="mini-toggle" title="Afficher / masquer la mini-carte">🗺️</button></div>
+        <div class="map-filters">${Object.entries(MAP_FILTERS).map(([k, l]) => `<button class="chip ${filters(app)[k] ? 'on' : 'off'}" data-action="map-filter" data-k="${k}" aria-pressed="${filters(app)[k]}">${l}</button>`).join('')}
+          <select class="map-places" data-change="map-place" aria-label="Aller à un lieu découvert"><option value="">📍 Aller à…</option>${notablePlaces(app.state).map((p) => `<option value="${p.x},${p.y}">${esc(p.label)} · ${Math.round(p.d)} cases</option>`).join('')}</select></div>
+        <canvas id="world-mini" class="world-mini" ${app.ui.miniOff ? 'hidden' : ''} title="Mini-carte : cliquez pour vous y rendre"></canvas>
+        <div class="map-hint muted small">${app.state.world.size}×${app.state.world.size} · glisser · molette ou pincement pour zoomer</div>
       </div>
       <div class="world-panel card" id="world-panel">${tilePanel(app)}</div>
     </div>`;
@@ -409,9 +569,13 @@ export default {
   after(app) { bindCanvas(app); requestAnimationFrame(() => drawMap(app)); },
   tick(app) { drawMap(app); },
   actions: {
-    zoom: (app, el) => { const c = cam(app); c.zoom = Math.max(0.5, Math.min(2.4, c.zoom * +el.dataset.z)); drawMap(app); },
-    center: (app) => { const c = cam(app); c.x = app.state.world.capital.x + 0.5; c.y = app.state.world.capital.y + 0.5; drawMap(app); },
-    'goto-boss': (app) => { const c = cam(app), b = app.state.boss; if (!b) return; c.x = b.x + 0.5; c.y = b.y + 0.5; app.ui.worldSel = { x: b.x, y: b.y }; app.render(); },
+    zoom: (app, el) => { const cv = document.getElementById('world-canvas'); if (!cv) return; const r = cv.getBoundingClientRect(); zoomWorldAt(cam(app), +el.dataset.z, r.width / 2, r.height / 2, r.width, r.height, app.state.world.size); drawMap(app); },
+    fit: (app) => { const c = cam(app), S = app.state.world.size; c.zoom = 0; c.x = S / 2; c.y = S / 2; drawMap(app); },
+    center: (app) => { const c = cam(app); c.x = app.state.world.capital.x + 0.5; c.y = app.state.world.capital.y + 0.5; c.zoom = 1; drawMap(app); },
+    'mini-toggle': (app) => { app.ui.miniOff = !app.ui.miniOff; const m = document.getElementById('world-mini'); if (m) m.hidden = app.ui.miniOff; drawMap(app); },
+    'map-filter': (app, el) => { const f = filters(app); f[el.dataset.k] = !f[el.dataset.k]; el.classList.toggle('on', f[el.dataset.k]); el.classList.toggle('off', !f[el.dataset.k]); el.setAttribute('aria-pressed', f[el.dataset.k]); drawMap(app); },
+    'map-place': (app, el) => { if (!el.value) return; const [x, y] = el.value.split(',').map(Number); el.value = ''; focusTile(app, x, y, 1.2); },
+    'goto-boss': (app) => { const b = app.state.boss; if (b) focusTile(app, b.x, b.y, 1); },
     march: (app, el) => marchDialog(app, el.dataset.type),
     claim: (app) => app.act(() => claimTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), 'Avant-poste établi'),
     abandon: (app) => app.confirm('<h2>Abandonner ce territoire ?</h2><p>Son bonus disparaît et le coût d’établissement n’est <b>pas remboursé</b>.</p>', 'Abandonner', () => app.act(() => abandonTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), 'Territoire abandonné')),

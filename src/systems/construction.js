@@ -21,13 +21,12 @@ export function costWithMods(cost, mods, type = null) {
 }
 export const timeWithMods = (ms, mods) => ms / (1 + (mods['build.speed'] || 0));
 
-// Producteurs de base : le premier exemplaire est offert quand le royaume n'en possède aucun.
-// Sans cela, un royaume sans carrière et sans pierre ne pourrait plus jamais en construire (blocage définitif).
+// Producteurs de base : filet de sécurité contre un blocage définitif. Si le royaume n'en possède aucun ET ne peut
+// pas en payer un (ex. plus de pierre ni de carrière), le premier exemplaire est offert. Sinon, prix normal.
 export const STARTER_FREE = ['sawmill', 'quarry', 'farm'];
-export const isStarterFree = (state, type, nextLevel) => nextLevel === 1 && STARTER_FREE.includes(type) && countOf(state, type) === 0;
-
 export function getUpgradeInfo(state, type, nextLevel, mods = computeMods(state)) {
-  const cost = isStarterFree(state, type, nextLevel) ? {} : costWithMods(buildingCost(type, nextLevel), mods, type);
+  let cost = costWithMods(buildingCost(type, nextLevel), mods, type);
+  if (nextLevel === 1 && STARTER_FREE.includes(type) && countOf(state, type) === 0 && !canAfford(state, cost)) cost = {};
   return { cost, time: timeWithMods(buildingTime(type, nextLevel), mods) };
 }
 

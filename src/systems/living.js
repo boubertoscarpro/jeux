@@ -6,7 +6,7 @@ import { rng } from '../core/rng.js';
 import { fmt } from '../core/util.js';
 import { allBuildings, neighbors, thLevel } from './city.js';
 import { calendar, chronicle } from './chronicle.js';
-import { key, poiAt, setTerrain, spawnPoi, findFreeTile, reveal, distCap, wTerrain } from './world.js';
+import { key, poiAt, setTerrain, spawnPoi, findFreeTile, reveal, distCap, wTerrain, aroundCapital, worldScale } from './world.js';
 import { gain } from './economy.js';
 import { computeMods } from './modifiers.js';
 import { log, toast } from './log.js';
@@ -97,7 +97,8 @@ export function startCatastrophe(state, k, now) {
   if (c.crystals) {
     const w = state.world;
     for (let i = 0; i < 3; i++) {
-      const pos = findFreeTile(w, w.size - 4 - rng.int(0, 3), rng.int(5, w.size - 5), null, 4);
+      const at = aroundCapital(w, worldScale(w) * 0.35, worldScale(w) * 0.45);
+      const pos = findFreeTile(w, at.x, at.y, null, 4);
       if (pos) { const p = spawnPoi(w, 'crystalNode', pos.x, pos.y); p.expires = now + 12 * 3600000; p.temp = true; setTerrain(w, pos.x, pos.y, 'ash'); }
     }
   }
@@ -139,7 +140,7 @@ function mineCollapse(state, now) {
 function villageVanishes(state, now) {
   const w = state.world;
   const vs = Object.values(w.pois).filter((p) => p.type === 'village' && !p.visited);
-  if (vs.length < 3) { const pos = findFreeTile(w, rng.int(5, w.size - 5), rng.int(5, w.size - 5), ['plain', 'forest', 'hills'], 3); if (pos) spawnPoi(w, 'village', pos.x, pos.y); return; }
+  if (vs.length < 3) { const at = aroundCapital(w, 5, worldScale(w) * 0.45); const pos = findFreeTile(w, at.x, at.y, ['plain', 'forest', 'hills'], 3); if (pos) spawnPoi(w, 'village', pos.x, pos.y); return; }
   const v = rng.pick(vs);
   delete w.pois[key(v.x, v.y)];
   if (w.revealed[v.y * w.size + v.x]) log(state, 'event', `🏚️ Le village abandonné en (${v.x}, ${v.y}) a disparu, englouti par la lande.`, now);

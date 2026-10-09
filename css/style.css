@@ -194,7 +194,7 @@ select { max-width: 100%; }
 .bb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ---------- Carte ---------- */
-.world-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; height: calc(100vh - 110px); min-height: 480px; }
+.world-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; height: calc(100vh - 175px); min-height: 460px; }
 .world-canvas-wrap { position: relative; padding: 0; overflow: hidden; margin: 0; }
 #world-canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
 #world-canvas:active { cursor: grabbing; }
@@ -655,3 +655,28 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .chapter-pill.locked { opacity: 0.55; }
 .goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .tabs.wrap { flex-wrap: wrap; }
+
+/* ---------- Cartes agrandies : fenêtre avec zoom et déplacement ---------- */
+.mapvp { position: relative; overflow: hidden; height: min(68vh, 680px); min-height: 320px; border-radius: var(--radius); background: #1a2414; border: 2px solid #4a3d22; margin-bottom: 14px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.mapvp.dragging { cursor: grabbing; }
+.mapvp.dragging .tile { pointer-events: none; }
+.mapvp-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.city-vp .city-grid { grid-template-columns: repeat(var(--cw), 46px); margin: 0; border: 0; border-radius: 0; }
+.city-vp .tile { width: 46px; }
+.city-vp .t-icon { font-size: 26px; }
+.map-hint { position: absolute; left: 10px; bottom: 8px; background: rgba(13, 15, 20, 0.7); padding: 2px 8px; border-radius: 99px; pointer-events: none; }
+.map-tools { z-index: 3; }
+@media (max-width: 900px) {
+  .mapvp { height: 58vh; }
+}
+.map-filters { position: absolute; top: 10px; left: 10px; right: 56px; display: flex; flex-wrap: wrap; gap: 4px; z-index: 3; pointer-events: none; }
+.map-filters > * { pointer-events: auto; }
+.map-filters .chip { cursor: pointer; background: rgba(20, 23, 31, 0.85); color: var(--text); font-family: inherit; }
+.map-filters .chip.off { opacity: 0.45; text-decoration: line-through; }
+.map-places { width: auto; max-width: 220px; font-size: 12px; padding: 3px 6px; background: rgba(20, 23, 31, 0.9); }
+.world-mini { position: absolute; right: 10px; bottom: 10px; width: 150px; height: 150px; border: 2px solid var(--gold2); border-radius: 6px; background: #0d0f14; cursor: crosshair; touch-action: none; z-index: 3; box-shadow: var(--shadow); }
+.world-mini[hidden] { display: none; }
+@media (max-width: 900px) {
+  .world-mini { width: 104px; height: 104px; }
+  .map-filters .chip { font-size: 11px; padding: 2px 6px; }
+}

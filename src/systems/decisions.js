@@ -13,7 +13,7 @@ import { chronicle } from './chronicle.js';
 import { grantArtifact } from './collection.js';
 import { createHero } from './heroes.js';
 import { createWorker, housing } from './workforce.js';
-import { spawnPoi, findFreeTile, reveal, setTerrain, key } from './world.js';
+import { spawnPoi, findFreeTile, reveal, setTerrain, key, aroundCapital, worldScale } from './world.js';
 import { maxHeroes } from './tavern.js';
 import { log, toast } from './log.js';
 import { shardState } from './shards.js';
@@ -144,9 +144,8 @@ export function applyDecisionFx(state, p, fx, now) {
   if (fx.research) { const q = state.queues.research[0]; if (q) { q.end -= fx.research * 1000; q.start -= fx.research * 1000; parts.push('recherche accélérée'); } }
   if (fx.reveal) {
     const w = state.world;
-    const ang = rng.float(0, Math.PI * 2);
-    const x = Math.round(w.capital.x + Math.cos(ang) * w.size * 0.35), y = Math.round(w.capital.y + Math.sin(ang) * w.size * 0.35);
-    reveal(w, Math.max(3, Math.min(w.size - 4, x)), Math.max(3, Math.min(w.size - 4, y)), 4);
+    const { x, y } = aroundCapital(w, worldScale(w) * 0.35, worldScale(w) * 0.35);
+    reveal(w, x, y, 4);
     parts.push(`région révélée vers (${x}, ${y})`);
   }
   if (fx.chance) {
@@ -162,7 +161,8 @@ export function applyDecisionFx(state, p, fx, now) {
 function applySecret(state, k, fx, now) {
   const w = state.world;
   if (fx.crater || k === 'meteorite') {
-    const pos = findFreeTile(w, rng.int(6, w.size - 6), rng.int(6, w.size - 6), null, 5);
+    const c0 = aroundCapital(w, 6, worldScale(w) * 0.45);
+    const pos = findFreeTile(w, c0.x, c0.y, null, 5);
     if (!pos) return;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = pos.x + dx, y = pos.y + dy; if (x >= 0 && y >= 0 && x < w.size && y < w.size && !w.pois[key(x, y)]) setTerrain(w, x, y, 'ash'); }
     const p = spawnPoi(w, 'rareVein', pos.x, pos.y, { danger: 3 });
@@ -171,7 +171,8 @@ function applySecret(state, k, fx, now) {
     log(state, 'event', `☄️ Un cratère fumant en (${pos.x}, ${pos.y}) : minerai rare… et peut-être du fer étoilé pour une expédition de prospection.`, now);
   }
   if (fx.lostCity || k === 'lostCity') {
-    const pos = findFreeTile(w, rng.int(4, w.size - 4), rng.int(4, w.size - 4), null, 5);
+    const c1 = aroundCapital(w, 8, worldScale(w) * 0.45);
+    const pos = findFreeTile(w, c1.x, c1.y, null, 5);
     if (!pos) return;
     const p = spawnPoi(w, 'lostCity', pos.x, pos.y, { danger: 6 });
     reveal(w, pos.x, pos.y, 1);
