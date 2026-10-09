@@ -5,6 +5,7 @@ import { RESOURCES } from '../data/resources.js';
 import { UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
 import { uid, fmt, addInto } from '../core/util.js';
+import { costMult } from './kingdom.js';
 import { computeMods } from './modifiers.js';
 import { gain } from './economy.js';
 import { simulateBattle } from './combat.js';
@@ -72,7 +73,7 @@ export function autoTarget(state, team) {
 function teamSpeed(state, team, mods) {
   const ws = teamWorkers(state, team);
   const swift = ws.length ? ws.reduce((a, w) => a + traitMod(w, 'speed'), 0) / ws.length : 0;
-  let s = 1 + swift + (mods['march.speed'] || 0);
+  let s = 1 + swift + (mods['march.speed'] || 0) + (mods['expedition.speed'] || 0);
   const esc = Object.entries(team.escort).filter(([, n]) => n > 0);
   if (esc.length) s *= Math.min(1, ...esc.map(([u]) => UNITS[u].speed));
   const fm = teamForeman(state, team);
@@ -148,7 +149,7 @@ export function startExpedition(state, id, now = Date.now()) {
   const mods = computeMods(state, now);
   // Ravitaillement : rations si disponibles (bonus), sinon nourriture
   const n = ws.length + Object.values(t.escort).reduce((a, b) => a + b, 0);
-  const need = Math.ceil(n * t.hours * 0.5);
+  const need = Math.ceil(n * t.hours * 0.5 * costMult(mods, 'expedition'));
   t.rationsOn = false;
   if (t.rations && (state.resources.rations || 0) >= need) { state.resources.rations -= need; t.rationsOn = true; }
   else {

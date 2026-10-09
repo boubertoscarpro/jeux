@@ -6,6 +6,7 @@ import { levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing } from './economy.js';
 import { log } from './log.js';
+import { costMult, applyCostMult } from './kingdom.js';
 
 const UNLOCK_TECH = Object.fromEntries(Object.entries(TECHS).filter(([, t]) => t.unlock).map(([id, t]) => [t.unlock, id]));
 
@@ -20,6 +21,9 @@ export function unitStatus(state, type) {
   return { ok: true };
 }
 
+// Coût unitaire après spécialisation : cost.train + cost.train.<classe> + cost.unit.<type> (plancher 50 %)
+export const unitCost = (type, mods) => applyCostMult(UNITS[type].cost, costMult(mods, 'train', 'train.' + UNITS[type].class, 'unit.' + type));
+
 export const trainTime = (type, n, mods) => (UNITS[type].time * n * 1000) / (1 + (mods['train.speed'] || 0));
 
 export function train(state, type, n, now = Date.now()) {
@@ -29,9 +33,9 @@ export function train(state, type, n, now = Date.now()) {
   if (!st.ok) return st;
   if (state.famine) return { ok: false, reason: 'Famine : impossible de former des troupes' };
   const u = UNITS[type];
-  const cost = scaleObj(u.cost, n);
-  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   const mods = computeMods(state, now);
+  const cost = scaleObj(unitCost(type, mods), n);
+  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   // File séquentielle par bâtiment
   const last = state.queues.train.filter((q) => q.building === u.building).reduce((m, q) => Math.max(m, q.end), now);
   const start = Math.max(now, last);

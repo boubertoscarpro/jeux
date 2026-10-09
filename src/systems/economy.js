@@ -13,8 +13,9 @@ const SECTOR_OF = {};
 for (const [k, sec] of Object.entries(WORK_SECTORS)) for (const b of sec.buildings) SECTOR_OF[b] = k;
 export const sectorOfBuilding = (type) => SECTOR_OF[type] || null;
 
-export function storageCap(state, mods) {
-  return Math.floor((1500 + (mods.storage || 0)) * (1 + (mods['storage.pct'] || 0)));
+// Capacité : (1500 + storage) × (1 + storage.pct + storage.<res>) — storage.<res> vient de la spécialisation
+export function storageCap(state, mods, res = null) {
+  return Math.floor((1500 + (mods.storage || 0)) * (1 + (mods['storage.pct'] || 0) + (res ? mods['storage.' + res] || 0 : 0)));
 }
 
 export function protectedAmount(state, mods) {
@@ -130,7 +131,7 @@ export function addResource(state, res, amount, mods, cap = null) {
   const before = state.resources[res] || 0;
   let after = before + amount;
   if (amount > 0 && isCapped(res)) {
-    const c = cap ?? storageCap(state, mods);
+    const c = cap ?? storageCap(state, mods, res);
     if (before >= c) after = before; // ne détruit pas un excédent existant (récompenses)
     else after = Math.min(after, c);
   }
@@ -142,7 +143,8 @@ export function addResource(state, res, amount, mods, cap = null) {
 export function advanceEconomy(state, dt, mods) {
   if (dt <= 0) return;
   const h = dt / 3600;
-  const cap = storageCap(state, mods);
+  const caps = {};
+  const capOf = (r) => (caps[r] ??= storageCap(state, mods, r));
   const produced = state.stats.produced;
   const spent = (state.stats.spent ||= {});
   const buildings = allBuildings(state).filter((b) => b.level > 0);
@@ -153,7 +155,7 @@ export function advanceEconomy(state, dt, mods) {
     if (b.paused || recipeOf(b)) continue;
     const r = buildingRates(state, b, mods, roads);
     for (const [k, v] of Object.entries(r.out)) {
-      const got = addResource(state, k, v * h, mods, cap);
+      const got = addResource(state, k, v * h, mods, capOf(k));
       produced[k] = (produced[k] || 0) + got;
     }
   }
@@ -171,7 +173,7 @@ export function advanceEconomy(state, dt, mods) {
       b.capped = false;
       // Ne transforme que ce que l'entrepôt ou le quota peut recevoir : aucune matière première gaspillée
       for (const [k, v] of Object.entries(r.out)) {
-        const limit = Math.min(isCapped(k) ? cap : Infinity, b.quota || Infinity);
+        const limit = Math.min(isCapped(k) ? capOf(k) : Infinity, b.quota || Infinity);
         const room = limit - (state.resources[k] || 0);
         if (room <= 0) { frac = 0; b.capped = true; } else if (v * h > 0) frac = Math.min(frac, room / (v * h));
       }
@@ -183,7 +185,7 @@ export function advanceEconomy(state, dt, mods) {
         spent[k] = (spent[k] || 0) + use;
       }
       for (const [k, v] of Object.entries(r.out)) {
-        const got = addResource(state, k, v * h * frac, mods, cap);
+        const got = addResource(state, k, v * h * frac, mods, capOf(k));
         produced[k] = (produced[k] || 0) + got;
       }
     }
@@ -224,7 +226,7 @@ export function gain(state, rewards, mods) {
     if (!RESOURCES[r]) continue;
     if (v < 0) { state.resources[r] = Math.max(0, (state.resources[r] || 0) + v); got[r] = v; continue; }
     // Les récompenses peuvent dépasser la capacité de 50%
-    got[r] = addResource(state, r, v, mods, storageCap(state, mods) * 1.5);
+    got[r] = addResource(state, r, v, mods, storageCap(state, mods, r) * 1.5);
   }
   return got;
 }

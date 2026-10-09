@@ -2,7 +2,7 @@ import { UNITS, UNIT_CLASSES, FORMATIONS, TERRAIN_COMBAT, WEATHER } from '../../
 import { BUILDINGS } from '../../data/buildings.js';
 import { fmt, fmtTime, scaleObj } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
-import { unitStatus, train, trainTime, dismiss, armyPower } from '../../systems/army.js';
+import { unitStatus, unitCost, train, trainTime, dismiss, armyPower } from '../../systems/army.js';
 import { upkeepPerHour, armyTotals } from '../../systems/economy.js';
 import { esc, costList } from '../components.js';
 
@@ -19,7 +19,7 @@ function unitRow(app, type, mods) {
     <td class="num">${u.atk}</td><td class="num">${u.def}</td><td class="num">${u.hp}</td><td class="num">${u.speed}</td><td class="num">${u.carry}</td><td class="num">${u.upkeep}</td>
     <td>${vs}${u.pierce ? ' <span class="vs" title="Perforant">🎯</span>' : ''}${u.rangedResist ? ` <span class="vs" title="Résiste aux tirs">🛡️${Math.round(u.rangedResist * 100)}%</span>` : ''}${u.wallBreak ? ' <span class="vs" title="Brise les murailles">🧱</span>' : ''}</td>
     <td class="num"><b>${fmt(have)}</b></td>
-    <td>${st.ok ? `<div class="train-ctl">${costList(u.cost, s)}<div class="row gap"><input type="number" min="1" value="5" id="tr-${type}" class="qty"><button class="mini primary" data-action="train" data-type="${type}">Former</button></div><div class="muted small">⏱ ${fmtTime(trainTime(type, 1, mods))} / u</div></div>` : `<span class="req">${esc(st.reason)}</span>`}</td>
+    <td>${st.ok ? `<div class="train-ctl">${costList(unitCost(type, mods), s)}<div class="row gap"><input type="number" min="1" value="5" id="tr-${type}" class="qty"><button class="mini primary" data-action="train" data-type="${type}">Former</button></div><div class="muted small">⏱ ${fmtTime(trainTime(type, 1, mods))} / u</div></div>` : `<span class="req">${esc(st.reason)}</span>`}</td>
   </tr>`;
 }
 

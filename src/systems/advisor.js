@@ -57,7 +57,7 @@ export function analyze(state, now = Date.now()) {
   const army = armyUpkeep(state, mods);
   if (food.prod > 0 && army / food.prod > 0.6) push('warn', `Votre armée consomme ${Math.round((army / food.prod) * 100)}% de votre production de nourriture.`, 'army');
   // Stockage plein
-  const full = Object.keys(state.resources).filter((r) => isCapped(r) && (state.resources[r] || 0) >= cap * 0.95 && net[r] > 0);
+  const full = Object.keys(state.resources).filter((r) => isCapped(r) && (state.resources[r] || 0) >= storageCap(state, mods, r) * 0.95 && net[r] > 0);
   if (full.length) {
     const best = full.map((r) => ({ r, gold: quote(state, r, Math.min(2000, state.resources[r]), -1, mods).total })).sort((a, b) => b.gold - a.gold)[0];
     push('warn', `Entrepôt plein pour ${full.map(R).join(', ')} : la production est perdue. Améliorez l’entrepôt ou vendez (ex. 2 000 ${RESOURCES[best.r].name} ≈ ${fmt(best.gold)} or).`, 'market');

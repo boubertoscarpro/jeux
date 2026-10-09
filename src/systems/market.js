@@ -76,7 +76,7 @@ export function buy(state, r, qty, now = Date.now()) {
   const mods = computeMods(state, now);
   // On n'achète pas ce que l'entrepôt ne peut pas recevoir
   if (isCapped(r)) {
-    const room = Math.floor(storageCap(state, mods) * 1.5 - (state.resources[r] || 0));
+    const room = Math.floor(storageCap(state, mods, r) * 1.5 - (state.resources[r] || 0));
     if (room <= 0) return { ok: false, reason: 'Entrepôt plein pour cette ressource' };
     qty = Math.min(qty, room);
   }
@@ -307,8 +307,10 @@ export function fulfillContract(state, id, now = Date.now()) {
     if (!p.done) return { ok: false, reason: `Objectif non atteint (${fmt(p.cur)}/${fmt(p.max)})` };
   }
   const fast = c.posted && now - c.posted <= (c.until - c.posted) * 0.4;
-  const reward = Object.fromEntries(Object.entries(c.reward).map(([r, v]) => [r, Math.round(v * (fast ? 1.25 : 1))]));
-  gain(state, reward, computeMods(state, now));
+  const mods = computeMods(state, now);
+  const k = (fast ? 1.25 : 1) * (1 + (mods['contract.reward'] || 0)); // contract.reward : spécialisation
+  const reward = Object.fromEntries(Object.entries(c.reward).map(([r, v]) => [r, Math.round(v * k)]));
+  gain(state, reward, mods);
   if (c.insignia) state.meta.insignia = (state.meta.insignia || 0) + c.insignia;
   state.contracts = state.contracts.filter((x) => x.id !== id);
   const town = poiAt(state.world, c.tx, c.ty);

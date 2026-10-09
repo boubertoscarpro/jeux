@@ -36,9 +36,10 @@ export function renderTopbar(app) {
   const list = app.ui.showAllRes ? RES_ORDER : [...MAIN, 'bread', 'steel'];
   const res = list.map((r) => {
     const v = s.resources[r] || 0;
-    const full = isCapped(r) && v >= cap * 0.98;
+    const capR = storageCap(s, mods, r);
+    const full = isCapped(r) && v >= capR * 0.98;
     const rate = net[r] || 0;
-    return `<div class="res ${full ? 'full' : ''}" title="${esc(RESOURCES[r].name)} — ${esc(RESOURCES[r].uses)}${isCapped(r) ? `\nCapacité : ${fmt(cap)}` : ''}\n${rate >= 0 ? '+' : ''}${fmt(rate)}/h">
+    return `<div class="res ${full ? 'full' : ''}" title="${esc(RESOURCES[r].name)} — ${esc(RESOURCES[r].uses)}${isCapped(r) ? `\nCapacité : ${fmt(capR)}` : ''}\n${rate >= 0 ? '+' : ''}${fmt(rate)}/h">
       <span class="res-icon">${RESOURCES[r].icon}</span><span class="res-val">${fmt(v)}</span>${rate ? `<span class="res-rate ${rate < 0 ? 'neg' : ''}">${rate > 0 ? '+' : ''}${fmt(rate)}/h</span>` : ''}</div>`;
   }).join('');
   const w = WEATHER[s.weather.type];

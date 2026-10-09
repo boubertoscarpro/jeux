@@ -6,11 +6,13 @@ import { computeMods } from './modifiers.js';
 import { pay, missing, gain } from './economy.js';
 import { generateItem, upgradeCost, salvageYield, MAX_PLUS, itemScore } from './items.js';
 import { log } from './log.js';
+import { costMult, applyCostMult } from './kingdom.js';
 
-export function craftCost(slot, catalyst = 'none') {
+// Coût de fabrication ; la réduction cost.craft (spécialisation) s'applique si mods est fourni
+export function craftCost(slot, catalyst = 'none', mods = null) {
   const c = { ...CRAFT_RECIPES[slot].cost };
   for (const [r, v] of Object.entries(CATALYSTS[catalyst].cost)) c[r] = (c[r] || 0) + v;
-  return c;
+  return mods ? applyCostMult(c, costMult(mods, 'craft')) : c;
 }
 
 export function craftQuality(state, catalyst, mods) {
@@ -22,9 +24,9 @@ export function startCraft(state, slot, catalyst = 'none', now = Date.now()) {
   if (!forge) return { ok: false, reason: 'Forge requise' };
   if (!SLOTS[slot]) return { ok: false };
   if (state.queues.craft.some((q) => q.kind === 'item')) return { ok: false, reason: 'La forge est occupée' };
-  const cost = craftCost(slot, catalyst);
-  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   const mods = computeMods(state, now);
+  const cost = craftCost(slot, catalyst, mods);
+  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   const dur = (CRAFT_RECIPES[slot].time * 1000) / (1 + (mods['craft.speed'] || 0));
   state.queues.craft.push({ id: uid('c'), kind: 'item', slot, catalyst, ilvl: 1 + forge * 2, quality: craftQuality(state, catalyst, mods), start: now, end: now + dur, cost });
   return { ok: true };

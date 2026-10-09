@@ -11,8 +11,10 @@ import { log } from './log.js';
 
 export const buildSlots = (mods) => 1 + (mods.buildQueue || 0);
 
-export function costWithMods(cost, mods) {
-  const k = Math.max(0.5, 1 + (mods['build.cost'] || 0));
+// build.cost (technologies, héros…) + cost.build + cost.build.<catégorie> (spécialisation) : plancher 50 %
+export function costWithMods(cost, mods, type = null) {
+  const cat = type && BUILDINGS[type]?.cat;
+  const k = Math.max(0.5, 1 + (mods['build.cost'] || 0) + (mods['cost.build'] || 0) + (cat ? mods['cost.build.' + cat] || 0 : 0));
   const out = {};
   for (const [r, v] of Object.entries(cost)) out[r] = Math.ceil(v * k);
   return out;
@@ -20,7 +22,7 @@ export function costWithMods(cost, mods) {
 export const timeWithMods = (ms, mods) => ms / (1 + (mods['build.speed'] || 0));
 
 export function getUpgradeInfo(state, type, nextLevel, mods = computeMods(state)) {
-  return { cost: costWithMods(buildingCost(type, nextLevel), mods), time: timeWithMods(buildingTime(type, nextLevel), mods) };
+  return { cost: costWithMods(buildingCost(type, nextLevel), mods, type), time: timeWithMods(buildingTime(type, nextLevel), mods) };
 }
 
 // Vérifie les prérequis d'un type de bâtiment (construction neuve)

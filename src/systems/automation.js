@@ -8,6 +8,8 @@ import { TECHS, techCost } from '../data/techs.js';
 import { uid, fmt } from '../core/util.js';
 import { thLevel, allBuildings, levelOf } from './city.js';
 import { pay, missing } from './economy.js';
+import { computeMods } from './modifiers.js';
+import { costMult } from './kingdom.js';
 import { automationLevel, assignMany, isAvailable } from './workforce.js';
 import { relaunchIdle, recallExpedition } from './expeditions.js';
 import { sell, buy } from './market.js';
@@ -209,11 +211,12 @@ export function autoResearch(state, now, force = false) {
 }
 
 // ---------- Dégâts & réparations ----------
-export const repairCost = (b) => Object.fromEntries(Object.entries(buildingCost(b.type, Math.max(1, b.level))).map(([r, v]) => [r, Math.ceil(v * 0.25)]));
+// 25 % du coût du niveau ; cost.repair (spécialisation) s'applique, plancher 50 %
+export const repairCost = (b, mods = {}) => { const k = 0.25 * costMult(mods, 'repair'); return Object.fromEntries(Object.entries(buildingCost(b.type, Math.max(1, b.level))).map(([r, v]) => [r, Math.ceil(v * k)])); };
 export function repairBuilding(state, bid) {
   const b = state.city.buildings[bid];
   if (!b?.damaged) return { ok: false, reason: 'Intact' };
-  const cost = repairCost(b);
+  const cost = repairCost(b, computeMods(state));
   if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   b.damaged = false;
   return { ok: true };

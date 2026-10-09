@@ -4,8 +4,9 @@ import { generateWorld } from '../systems/worldgen.js';
 import { createHero } from '../systems/heroes.js';
 import { initMarket } from '../systems/market.js';
 import { initFactions } from '../systems/factions.js';
+import { applyKingdomChoice } from '../systems/kingdom.js';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 export const CITY_W = 14;
 export const CITY_H = 10;
 
@@ -40,7 +41,7 @@ export function generateCity(seed) {
   return tiles;
 }
 
-export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdomName = 'Cendrelande', lordName = 'Seigneur', now = Date.now() } = {}) {
+export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdomName = 'Cendrelande', lordName = 'Seigneur', now = Date.now(), kingdomType = null, origin = 'none', difficulty = 'classic' } = {}) {
   if (typeof seed === 'string') seed = hashString(seed);
   const resources = Object.fromEntries(Object.keys(RESOURCES).map((r) => [r, 0]));
   Object.assign(resources, { wood: 600, stone: 450, iron: 150, food: 500, gold: 250, grain: 50, herbs: 10 });
@@ -107,6 +108,9 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     sagas: { active: null, done: {}, nextAt: now + 90 * 60000, log: [] },
     serverFeed: [],
     admin: {},
+    // --- Spécialisation & parcours guidé ---
+    kingdom: { type: null, origin: 'none', difficulty: 'classic', chosenAt: now },
+    campaign: { chapter: 1, done: {}, claimed: {}, chapterClaimed: {}, unlockedAt: { 1: now }, flags: {}, snoozed: {}, dismissed: {}, daily: null },
   };
 
   // Bâtiments de départ (hameau presque abandonné)
@@ -127,6 +131,8 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
   const r = mulberry32(seed ^ 0xbeef);
   state.heroes.push(createHero({ cls: 'general', rarity: 'rare', rand: r, name: 'Aldric le Hardi' }));
   state.army = { spearman: 10, archer: 6, scout: 2 };
+
+  applyKingdomChoice(state, { type: kingdomType, origin, difficulty }, now);
 
   state.log.push({ t: now, type: 'story', text: `Vous prenez possession du hameau de ${kingdomName}. Les décombres de la Fracture encombrent encore les rues…` });
   return state;

@@ -69,10 +69,11 @@ export function economicReport(state, now = Date.now()) {
     const net = prod - use;
     const capped = isCapped(r);
     const hoursLeft = net < -1e-6 ? stock / -net : Infinity;
-    const hoursFull = capped && net > 1e-6 ? Math.max(0, (cap - stock) / net) : Infinity;
+    const capR = storageCap(state, mods, r);
+    const hoursFull = capped && net > 1e-6 ? Math.max(0, (capR - stock) / net) : Infinity;
     list.push({
-      res: r, name: RESOURCES[r].name, icon: RESOURCES[r].icon, stock, prod, use, net, cap: capped ? cap : null,
-      hoursLeft, hoursFull, shortage: hoursLeft < 6, full: capped && stock >= cap * 0.98,
+      res: r, name: RESOURCES[r].name, icon: RESOURCES[r].icon, stock, prod, use, net, cap: capped ? capR : null,
+      hoursLeft, hoursFull, shortage: hoursLeft < 6, full: capped && stock >= capR * 0.98,
       sources: x?.sources || {}, users: { ...(x?.users || {}), ...(x?.upkeep ? { 'Entretien (armée + ouvriers)': x.upkeep } : {}) },
     });
   }

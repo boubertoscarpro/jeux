@@ -1,7 +1,7 @@
 import { TECHS, BRANCHES, MAX_MASTERIES, techCost, techLibraryReq } from '../../data/techs.js';
 import { fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
-import { techStatus, startResearch, researchTime, masteriesTaken } from '../../systems/research.js';
+import { techStatus, startResearch, researchTime, researchCost, masteriesTaken } from '../../systems/research.js';
 import { levelOf } from '../../systems/city.js';
 import { esc, costList, countdown, progress } from '../components.js';
 
@@ -31,7 +31,7 @@ export default {
             <div class="small">${esc(t.desc)}</div>
             ${t.excl ? '<div class="small warn-text">⚖ Choix exclusif</div>' : ''}${t.mastery ? '<div class="small gold-text">★ Maîtrise</div>' : ''}
             ${st.status === 'done' ? '<div class="small ok">✔ Acquise</div>' : st.status === 'active' ? '<div class="small">⏳ En cours</div>' : `
-              <div class="tech-cost">${costList(techCost(id), s)} <span class="muted small">⏱ ${fmtTime(researchTime(id, mods))}${techLibraryReq(id) > 1 ? ` · Bibl. ${techLibraryReq(id)}` : ''}</span></div>
+              <div class="tech-cost">${costList(researchCost(id, mods), s)} <span class="muted small">⏱ ${fmtTime(researchTime(id, mods))}${techLibraryReq(id) > 1 ? ` · Bibl. ${techLibraryReq(id)}` : ''}</span></div>
               ${st.status === 'available' ? `<button class="mini primary" data-action="research" data-id="${id}" ${active ? 'disabled' : ''}>Rechercher</button>` : `<div class="req small">${esc(st.reason)}</div>`}`}
           </div>`;
         }).join('')}</div>`;

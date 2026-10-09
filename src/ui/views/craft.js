@@ -56,7 +56,7 @@ export default {
           ${!forge ? '<p class="muted">Construisez une Forge (Hôtel de ville niv. 3) pour fabriquer de l’équipement.</p>' : `
           <div class="tabs">${SLOT_ORDER.map((k) => `<button class="tab ${slot === k ? 'active' : ''}" data-action="craft-slot" data-slot="${k}">${SLOTS[k].icon} ${SLOTS[k].name}</button>`).join('')}</div>
           <div class="form-row"><label>Catalyseur</label><select data-change="catalyst" id="catalyst">${Object.entries(CATALYSTS).map(([k, c]) => `<option value="${k}" ${cat === k ? 'selected' : ''}>${esc(c.name)}${c.desc ? ' — ' + esc(c.desc) : ''}</option>`).join('')}</select></div>
-          <div class="panel-sub"><h4>Coût</h4>${costList(craftCost(slot, cat), s)} <span class="muted small">⏱ ${fmtTime((CRAFT_RECIPES[slot].time * 1000) / (1 + (mods['craft.speed'] || 0)))}</span></div>
+          <div class="panel-sub"><h4>Coût</h4>${costList(craftCost(slot, cat, mods), s)} <span class="muted small">⏱ ${fmtTime((CRAFT_RECIPES[slot].time * 1000) / (1 + (mods['craft.speed'] || 0)))}</span></div>
           <div class="panel-sub"><h4>Chances de rareté</h4><div class="odds">${RARITY_ORDER.map((r) => `<div><span style="color:${RARITIES[r].color}">${RARITIES[r].name}</span><b>${(odds[r] * 100).toFixed(1)}%</b></div>`).join('')}</div>
             <div class="muted small">Qualité : niveau de forge, héros intendant de la Forge (Forgeron ★), technologies d’Artisanat, catalyseur.</div></div>
           ${forgeJob ? '<div class="req">La forge est occupée.</div>' : `<button class="btn primary" data-action="craft">Forger</button>`}`}

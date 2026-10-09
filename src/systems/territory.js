@@ -1,4 +1,5 @@
 import { POI_TYPES } from '../data/world.js';
+import { costMult } from './kingdom.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing } from './economy.js';
 import { wTerrain, isRevealed, poiAt, distCap, key, territoryLimit, territoryRange, TERRITORY_COST } from './world.js';
@@ -17,7 +18,8 @@ import { toast } from './log.js';
 
 export function territoryCost(state) {
   const n = Object.keys(state.territories).length;
-  return Object.fromEntries(Object.entries(TERRITORY_COST(n)).map(([r, v]) => [r, Math.round(v)]));
+  const k = costMult(computeMods(state), 'territory'); // cost.territory (spécialisation)
+  return Object.fromEntries(Object.entries(TERRITORY_COST(n)).map(([r, v]) => [r, Math.round(v * k)]));
 }
 
 export function canClaim(state, x, y, now = Date.now()) {
@@ -151,7 +153,7 @@ export function territoryTick(state, dtSec, now) {
     const st = outpostStatus(state, t, now);
     const sp = specOf(t);
     if (sp?.prod && st.eff > 0) gain(state, Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * h])), mods);
-    if (sp?.relicChance && st.eff > 0 && rng.chance(sp.relicChance * (t.level || 1) * h * st.eff)) {
+    if (sp?.relicChance && st.eff > 0 && rng.chance(sp.relicChance * (1 + (mods['relic.find'] || 0)) * (t.level || 1) * h * st.eff)) {
       shardState(state).relicFragments++;
       log(state, 'good', `🏺 Les fouilles de (${t.x}, ${t.y}) mettent au jour un fragment de relique !`, now);
     }
@@ -166,7 +168,7 @@ export function outpostThreat(state, k, t, now = Date.now()) {
   const sc = (0.6 + 0.35 * (t.level || 1)) * (0.6 + thLevel(state) * 0.12);
   const enemies = Object.fromEntries(Object.entries(th.units).map(([u, n]) => [u, Math.max(1, Math.round(n * sc))]));
   const sp = specOf(t);
-  const def = { units: t.garrison && unitSum(t.garrison) ? t.garrison : { militia: 2 }, mods: { 'combat.def': (sp?.garrisonBonus || 0) + 0.1 }, formation: 'shieldwall', label: 'Garnison' };
+  const def = { units: t.garrison && unitSum(t.garrison) ? t.garrison : { militia: 2 }, mods: { 'combat.def': (sp?.garrisonBonus || 0) + 0.1 + (computeMods(state, now)['garrison.def'] || 0) }, formation: 'shieldwall', label: 'Garnison' };
   const res = simulateBattle({ units: enemies, mods: {}, label: th.name }, def, { terrain: t.terrain === 'ash' ? 'ruins' : t.terrain, weather: state.weather?.type || 'clear' });
   if (t.garrison) t.garrison = Object.fromEntries(Object.entries(res.defRemaining).filter(([u, n]) => n > 0 && t.garrison[u]));
   const lostUnits = Object.values(res.defLosses).reduce((a, b) => a + b, 0);

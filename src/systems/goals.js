@@ -1,7 +1,7 @@
 // Tableau des objectifs : prochaines étapes à court, moyen et long terme, calculées depuis l'état réel du jeu.
 // Chaque objectif indique sa progression, ses prérequis, sa récompense et l'écran où agir.
 import { BUILDINGS } from '../data/buildings.js';
-import { TECHS, techCost } from '../data/techs.js';
+import { TECHS } from '../data/techs.js';
 import { RARITY_ORDER } from '../data/heroes.js';
 import { FEATS } from '../data/shards.js';
 import { LIVE_EVENTS } from '../data/liveEvents.js';
@@ -11,7 +11,7 @@ import { thLevel, levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
 import { canAfford } from './economy.js';
 import { getUpgradeInfo } from './construction.js';
-import { techStatus } from './research.js';
+import { techStatus, researchCost } from './research.js';
 import { activeQuests, milestoneList } from './quests.js';
 import { collectionStatus } from './collection.js';
 import { PRESTIGE_TH } from './talents.js';
@@ -48,8 +48,8 @@ export function goals(state, now = Date.now()) {
   }
 
   // ── Moyen terme ──
-  const avail = Object.keys(TECHS).filter((id) => techStatus(state, id).status === 'available').sort((a, b) => Object.values(techCost(a)).reduce((x, y) => x + y, 0) - Object.values(techCost(b)).reduce((x, y) => x + y, 0));
-  if (avail.length) mid.push({ icon: '🔬', title: `Recherche : ${TECHS[avail[0]].name}`, desc: TECHS[avail[0]].desc, prereq: `Coût : ${costText(techCost(avail[0]))}`, view: 'research', extra: avail.length > 1 ? `${avail.length - 1} autre(s) technologie(s) disponible(s)` : '' });
+  const avail = Object.keys(TECHS).filter((id) => techStatus(state, id).status === 'available').sort((a, b) => Object.values(researchCost(a, mods)).reduce((x, y) => x + y, 0) - Object.values(researchCost(b, mods)).reduce((x, y) => x + y, 0));
+  if (avail.length) mid.push({ icon: '🔬', title: `Recherche : ${TECHS[avail[0]].name}`, desc: TECHS[avail[0]].desc, prereq: `Coût : ${costText(researchCost(avail[0], mods))}`, view: 'research', extra: avail.length > 1 ? `${avail.length - 1} autre(s) technologie(s) disponible(s)` : '' });
   else if (!levelOf(state, 'library')) mid.push({ icon: '🔬', title: 'Construire une Bibliothèque', desc: 'Ouvre l’arbre technologique.', view: 'city' });
   const tLimit = territoryLimit(state, mods), tCount = Object.keys(state.territories).length;
   if (tCount < tLimit) mid.push({ icon: '🚩', title: 'Établir un avant-poste', desc: 'Un territoire spécialisé rapporte un bonus local (et demande un entretien).', cur: tCount, max: tLimit, view: 'world' });

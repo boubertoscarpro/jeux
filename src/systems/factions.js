@@ -11,6 +11,7 @@ import { bumpRep } from './reputation.js';
 import { chronicle } from './chronicle.js';
 import { startWorldEvent } from './events.js';
 import { log, toast } from './log.js';
+import { costMult } from './kingdom.js';
 
 export { STANCES, PERSONALITIES };
 
@@ -147,7 +148,8 @@ export function raidWillingness(state, i) {
 }
 
 // ---------- Diplomatie ----------
-export const ENVOY_COST = (state) => ({ gold: 200 + thLevel(state) * 60 });
+// cost.diplomacy (spécialisation) réduit le prix des ambassadeurs, plancher 50 %
+export const ENVOY_COST = (state) => ({ gold: Math.ceil((200 + thLevel(state) * 60) * costMult(computeMods(state), 'diplomacy')) });
 
 export function diplomacy(state, i, action, now = Date.now()) {
   const f = factionOf(state, i);

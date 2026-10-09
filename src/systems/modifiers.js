@@ -13,6 +13,7 @@ import { collectionMods } from './collection.js';
 import { talentMods } from './talents.js';
 import { liveMods } from './liveMods.js';
 import { territoryMods } from './territory.js';
+import { kingdomMods } from './kingdom.js';
 
 const add = (o, k, v) => { if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 const merge = (o, src, mult = 1) => { for (const [k, v] of Object.entries(src || {})) add(o, k, v * mult); };
@@ -21,6 +22,8 @@ const merge = (o, src, mult = 1) => { for (const [k, v] of Object.entries(src ||
 // Clés : prod.<res>, prod.all, combat.atk, storage (absolu), city.def, marches, …
 export function computeMods(state, now = Date.now()) {
   const m = {};
+  // Spécialisation du royaume, origine et difficulté (permanents)
+  merge(m, kingdomMods(state));
   // Bâtiments
   for (const b of allBuildings(state)) {
     if (b.level <= 0) continue;

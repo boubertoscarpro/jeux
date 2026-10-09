@@ -1,3 +1,4 @@
+import { computeMods } from './modifiers.js';
 import { ROOM_TYPES, DUNGEON_THEMES, DUNGEON_AFFIXES } from '../data/dungeons.js';
 import { ALL_UNITS } from '../data/units.js';
 import { RESOURCES } from '../data/resources.js';
@@ -113,7 +114,8 @@ export function runDungeon(state, m, poi, mods, now) {
         m.items.push(generateItem({ ilvl: 8 + d.level, boost: 1.2 + d.level * 0.05, min: d.level >= 10 ? 'epic' : 'rare' }));
         // Artefacts de donjon : liste fermée (pas d'exclusivités de la Roue ni d'artefacts d'autres sources)
         const firstChalice = poi.type === 'lostCity' && !state.artifacts?.dawnChalice;
-        const artChance = firstChalice ? 1 : Math.min(0.25, 0.04 + d.level * 0.012);
+        // artifact.chance (spécialisation) multiplie la chance de base, jamais les Éclats
+        const artChance = firstChalice ? 1 : Math.min(0.25, 0.04 + d.level * 0.012) * (1 + (computeMods(state, now)['artifact.chance'] || 0));
         if (rng.chance(artChance)) {
           const pool = poi.type === 'lostCity' ? ['whisperMask', 'kingsLedger', 'firstKingSword'] : ['firstKingSword', 'mountainHeart', 'kingsLedger'];
           const a = grantArtifact(state, firstChalice ? 'dawnChalice' : null, now, 'Donjon', pool);

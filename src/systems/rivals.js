@@ -84,7 +84,7 @@ export function rivalTick(state, now) {
   const army = raidArmy(state, p, now);
   const warn = raidWarning(state, mods);
   state.raidCooldown = now + warn + 3 * 3600 * 1000; // trêve après chaque raid
-  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 });
+  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0 });
   if (p.anger) p.anger--;
   log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre votre ville ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);
   toast(`🚨 Raid en approche : ${p.name}`, 'bad');

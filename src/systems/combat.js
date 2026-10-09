@@ -43,6 +43,7 @@ function sideMults(side, enemy, ctx, notes, label) {
     let d = 1 + (mods['combat.def'] || 0) + (fm.def || 0) + entrench;
     d += fm.classDef?.[st.cls] || 0;
     d += terrain.classDef?.[st.cls] || 0;
+    d += mods[`class.${st.cls}.def`] || 0;
     if (side.fort) d += side.fort;
     st.atkMult = Math.max(0.2, a);
     st.defMult = Math.max(0.2, d);
@@ -54,7 +55,10 @@ function initialMorale(side, enemy, notes, label) {
   const mods = side.mods || {};
   let m = 100 + (mods['combat.morale'] || 0);
   if (side.supply) { m += 15; notes.push(`${label} : rations de pain +15 moral`); }
-  if (side.famine) { m -= 30; notes.push(`${label} : famine −30 moral`); }
+  if (side.famine) {
+    const hit = Math.round(30 * Math.max(0, 1 - (mods['famine.resist'] || 0)));
+    m -= hit; notes.push(`${label} : famine −${hit} moral`);
+  }
   const assassins = enemy.stacks.find((s) => s.type === 'assassin')?.count || 0;
   if (assassins) {
     const hit = Math.min(25, assassins * 1.5);

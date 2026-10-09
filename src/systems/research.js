@@ -5,9 +5,12 @@ import { levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing } from './economy.js';
 import { log } from './log.js';
+import { costMult, applyCostMult } from './kingdom.js';
 
 export const researchSlots = (state) => 1 + (levelOf(state, 'library') >= 10 ? 1 : 0);
 export const masteriesTaken = (state) => Object.keys(state.techs).filter((id) => TECHS[id]?.mastery).length;
+// Coût après spécialisation : cost.research + cost.research.<branche> (plancher 50 %)
+export const researchCost = (id, mods) => applyCostMult(techCost(id), costMult(mods, 'research', 'research.' + TECHS[id]?.branch));
 export const researchTime = (id, mods) => techTime(id) / (1 + (mods['research.speed'] || 0));
 
 // Statut d'une techno : done | active | available | locked (+ raison)
@@ -34,9 +37,9 @@ export function startResearch(state, id, now = Date.now()) {
   const st = techStatus(state, id);
   if (st.status !== 'available') return { ok: false, reason: st.reason || 'Indisponible' };
   if (state.queues.research.length >= researchSlots(state)) return { ok: false, reason: 'Une recherche est déjà en cours' };
-  const cost = techCost(id);
-  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   const mods = computeMods(state, now);
+  const cost = researchCost(id, mods);
+  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   state.queues.research.push({ id: uid('r'), tech: id, start: now, end: now + researchTime(id, mods), cost });
   return { ok: true };
 }
