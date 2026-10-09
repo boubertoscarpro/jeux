@@ -14,6 +14,8 @@ carte, alliances), avec ses propres mécaniques.
 
 Au lancement d'une nouvelle partie, vous choisissez le **nom** et la **spécialisation** de votre royaume : 8 spécialisations avec bonus et malus réels, plus une origine et une difficulté facultatives. Un **parcours guidé en 8 chapitres** vous accompagne ensuite, avec un conseiller réglable et des fiches de tutoriel.
 
+L'écran de démarrage contient un encart **facultatif** pour soutenir le développement du jeu (lien PayPal externe, rien n'est bloqué ni payant dans le jeu).
+
 La partie est sauvegardée automatiquement dans le navigateur ; le royaume continue de vivre pendant
 votre absence (12 h simulées au maximum) et un rapport vous attend à votre retour.
 
@@ -23,8 +25,8 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 |---|---|
 | 👑 Spécialisations | Moissons, Fer, Marchands, Érudits, Pionniers, Bastions, Ombres, Anciens : bonus et malus permanents branchés sur les formules du jeu ; origines (province impériale, colonie frontalière, communauté reconstruite) ; difficultés (Guidé, Classique, Expert) — voir [`docs/KINGDOMS.md`](docs/KINGDOMS.md) |
 | 📖 Parcours | 8 chapitres (du *Dernier hameau* au *Royaume prend son envol*), missions détectées automatiquement, récompenses uniques, exercice d'entraînement sans perte, missions royales du jour, objectifs à long terme, conseiller du tableau de bord (complet / réduit / désactivé), tutoriel relisible |
-| 🏰 Royaume | Grille de construction avec bonus d'adjacence (rivière, forêt, montagne), routes, agrandissement du domaine, fortifications ; **tableau des objectifs** (court / moyen / long terme) et **sagas** narratives |
-| 🗺️ Monde | Carte procédurale 48×48, brouillard, sites de farm à risque, donjons procéduraux, boss mondiaux, 5 factions IA, diplomatie, espionnage ; **territoires spécialisés** (avant-postes, garnison, entretien, menaces) |
+| 🏰 Royaume | Grille de construction **24×16 dès le départ** (jusqu'à 40×24), zoom et déplacement, bonus d'adjacence (rivière, forêt, montagne), routes, agrandissement du domaine, fortifications ; **tableau des objectifs** (court / moyen / long terme) et **sagas** narratives |
+| 🗺️ Monde | Carte procédurale **96×96** (plus de 600 lieux, 12 cités libres), zoom à la molette ou au pincement centré sur le curseur, mini-carte, filtres de lieux, accès rapide aux lieux découverts, brouillard, sites de farm à risque, donjons procéduraux, boss mondiaux, 5 factions IA, diplomatie, espionnage ; **territoires spécialisés** (avant-postes, garnison, entretien, menaces) |
 | ⚔️ Armée | 15 unités, contres, formations, terrain, météo, moral, ravitaillement, siège |
 | ⛏️ Production | Ouvriers & contremaîtres, expéditions automatiques, chaînes configurables, Intendance, priorités, **Ordres du royaume** (SI → ALORS), **bilan économique** (production/consommation par heure, pénuries, chaînes bloquées, pertes) |
 | 🚚 Commerce | Marché dynamique (saisons, guerres, pénuries, rumeurs), convois sécurisés/rapides/clandestins, routes, contrats en 7 catégories (commerce, urgence, artisanat, exploration, militaire, diplomatie, guilde) |
@@ -40,7 +42,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 112 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours)
+npm test        # 122 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/economySim.js 90 40   # simulation de l'économie des Éclats (occasionnel / actif / hardcore)
@@ -53,4 +55,4 @@ npm run smoke   # test de fumée de la version compilée dans Chromium (nécessi
 - `src/systems` : un module par système de jeu (pur, sans DOM, testable)
 - `src/ui` : application, HUD, vues
 
-Documentation : [`docs/DESIGN.md`](docs/DESIGN.md) (phase 1), [`docs/PHASE2.md`](docs/PHASE2.md) (phase 2 et mécaniques originales), [`docs/EVENTS.md`](docs/EVENTS.md) (événements temporaires), [`docs/ECONOMY.md`](docs/ECONOMY.md) (Éclats Anciens, Roue, équilibrage), [`docs/AUDIT.md`](docs/AUDIT.md) (audit, bugs corrigés), [`docs/BALANCE.md`](docs/BALANCE.md) (simulations par profil), [`docs/KINGDOMS.md`](docs/KINGDOMS.md) (spécialisations, formules de cumul, parcours guidé). Outils de réglage : ajoutez `?dev` à l'adresse pour l'onglet Admin.
+Documentation : [`docs/DESIGN.md`](docs/DESIGN.md) (phase 1), [`docs/PHASE2.md`](docs/PHASE2.md) (phase 2 et mécaniques originales), [`docs/EVENTS.md`](docs/EVENTS.md) (événements temporaires), [`docs/ECONOMY.md`](docs/ECONOMY.md) (Éclats Anciens, Roue, équilibrage), [`docs/AUDIT.md`](docs/AUDIT.md) (audit, bugs corrigés), [`docs/BALANCE.md`](docs/BALANCE.md) (simulations par profil), [`docs/KINGDOMS.md`](docs/KINGDOMS.md) (spécialisations, formules de cumul, parcours guidé), [`docs/MAPS.md`](docs/MAPS.md) (cartes agrandies, navigation, migration, soutien au projet). Outils de réglage : ajoutez `?dev` à l'adresse pour l'onglet Admin.

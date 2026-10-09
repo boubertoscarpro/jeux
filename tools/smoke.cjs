@@ -15,6 +15,9 @@ const path = require('path');
   page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('fonts.g')) errors.push(`${ctx}: ${m.text()}`); });
   page.on('dialog', (d) => d.dismiss());
   await page.goto('file://' + path.resolve(__dirname, '../dist/cendrelande.html'));
+  // Encart de soutien : facultatif, lien externe exact, nouvel onglet sécurisé
+  const sup = await page.$eval('.support-btn', (el) => ({ href: el.getAttribute('href'), target: el.target, rel: el.rel }));
+  if (sup.href !== 'https://paypal.me/Oscarwildrift' || sup.target !== '_blank' || !/noopener/.test(sup.rel)) errors.push('soutien : lien incorrect ' + JSON.stringify(sup));
   // Écran de création : la confirmation n'est possible qu'après avoir choisi une spécialisation
   if (!(await page.isDisabled('#intro-review'))) errors.push('création : bouton actif sans spécialisation');
   await page.click('[data-kt="merchants"]');
@@ -62,6 +65,29 @@ const path = require('path');
     return out;
   });
   errors.push(...guide.map((e) => 'parcours : ' + e));
+  // Cartes : zoom, vue d'ensemble, sélection exacte d'une case après zoom, mini-carte, accès rapide
+  ctx = 'cartes';
+  await page.evaluate(() => { const a = window.cendrelande; a.closeModal(); a.go('city'); });
+  await page.waitForTimeout(100);
+  for (const act of ['city-zoom', 'city-fit', 'city-center']) await page.click(`#city-vp [data-action="${act}"]`);
+  const vpBox = await (await page.$('#city-vp')).boundingBox();
+  await page.mouse.move(vpBox.x + vpBox.width / 2, vpBox.y + vpBox.height / 2);
+  await page.mouse.wheel(0, 400);
+  const tileEl = await page.$('.tile[data-x="12"][data-y="7"]');
+  const tb = await tileEl.boundingBox();
+  await page.mouse.click(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  const cs = await page.evaluate(() => window.cendrelande.ui.citySel);
+  if (!cs || cs.x !== 12 || cs.y !== 7) errors.push('ville : sélection décalée après zoom ' + JSON.stringify(cs));
+  await page.evaluate(() => { const a = window.cendrelande; a.ui.citySel = null; a.state.world.revealed.fill(1); a.go('world'); });
+  await page.waitForTimeout(150);
+  for (const act of ['zoom', 'fit', 'center', 'mini-toggle', 'mini-toggle']) { await page.click(`.world-canvas-wrap [data-action="${act}"]`); await page.waitForTimeout(400); }
+  await page.selectOption('.map-places', { index: 1 });
+  const ws = await page.evaluate(() => window.cendrelande.ui.worldSel);
+  if (!ws) errors.push('monde : « Aller à… » ne sélectionne rien');
+  const mb = await (await page.$('#world-mini')).boundingBox();
+  await page.mouse.click(mb.x + 10, mb.y + 10);
+  const wc = await page.evaluate(() => window.cendrelande.ui.cam);
+  if (!(wc.x < 48 && wc.y < 48)) errors.push('mini-carte : la caméra ne suit pas ' + JSON.stringify(wc));
   const views = await page.evaluate(() => Object.keys(window.cendrelande.views));
   const SKIP = /reset|delete|import|adm-reset|wh-spin|leave|dismiss|prestige/;
   let clicks = 0;

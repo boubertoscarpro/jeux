@@ -680,3 +680,11 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
   .world-mini { width: 104px; height: 104px; }
   .map-filters .chip { font-size: 11px; padding: 2px 6px; }
 }
+
+/* ---------- Soutien facultatif (écran de démarrage) ---------- */
+.support-box { margin: 12px auto 4px; max-width: 720px; padding: 10px 14px; border: 1px solid var(--gold2); border-radius: var(--radius); background: linear-gradient(180deg, rgba(226, 184, 74, 0.06), rgba(226, 184, 74, 0.02)); text-align: center; }
+.support-box h3 { font-size: 15px; margin-bottom: 6px; }
+.support-box p { margin: 4px 0; color: var(--muted); }
+.support-btn { display: inline-block; margin-top: 6px; padding: 6px 14px; font-size: 13px; text-decoration: none; color: var(--text); border-color: var(--gold2); }
+.support-btn:hover { background: rgba(226, 184, 74, 0.12); }
+@media (max-width: 480px) { .support-box { padding: 8px 10px; } .support-box h3 { font-size: 14px; } }

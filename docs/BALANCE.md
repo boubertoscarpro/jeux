@@ -21,21 +21,21 @@ Chaque profil est un « bot » qui joue selon un rythme et des priorités.
 | Armée | Actif | Formation et attaques |
 | Exploration | Actif | Éclaireurs, territoires |
 
-## Résultats sur 7 jours (moyenne de 2 parties)
+## Résultats sur 7 jours (moyenne de 2 parties, royaume 24×16 et monde 96×96)
 
 | Profil | HdV | Chapitres finis | Niveaux de bâtiments | Technos | Victoires | Défaites | Cases explorées | Territoires | Contrats | Or/h | Nourriture nette/h | Famine (h) | Heures au plafond | Raids perdus | Sauvegarde |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Occasionnel | 8,5 | 2 | 36,5 | 0 | 1 | 1 | 4 | 0 | 0 | 832 | +804 | 9 | 17,5 | 28 | 144 Ko |
-| Actif | 11 | 6 | 227 | 26 | 11,5 | 19,5 | 63,5 | 4 | 33 | 2 612 | +5 626 | 0,5 | 77 | 36 | 184 Ko |
-| Très optimisé | 15 | 7 | 720 | 41 | 114 | 35 | 224 | 8 | 100 | 13 528 | +114 402 | 0 | 126 | 24 | 216 Ko |
-| Économie | 11 | 6 | 227 | 26 | 5 | 8 | 38 | 4 | 30 | 3 394 | +8 040 | 0,5 | 37,5 | 36 | 180 Ko |
-| Armée | 11 | 6,5 | 227 | 26 | 53 | 43 | 34 | 4 | 20 | 2 344 | +6 205 | 0 | 91,5 | 31 | 200 Ko |
-| Exploration | 9 | 4,5 | 220 | 26 | 0,5 | 10,5 | 162 | 4 | 10 | 2 804 | +9 392 | 0,5 | 86,5 | 37,5 | 170 Ko |
+| Occasionnel | 8 | 2 | 35 | 0 | 0,5 | 0,5 | 4 | 0 | 0 | 656 | +558 | 0 | 17,5 | 30 | 240 Ko |
+| Actif | 11 | 6,5 | 226 | 26 | 11 | 18,5 | 58 | 4 | 32,5 | 2 383 | +7 673 | 0 | 82 | 35 | 275 Ko |
+| Très optimisé | 15 | 7 | 720 | 41 | 120 | 34 | 197 | 8 | 106 | 8 994 | +110 139 | 0 | 124 | 22,5 | 310 Ko |
+| Économie | 11 | 4,5 | 227 | 26 | 4,5 | 9 | 44 | 4 | 29 | 2 883 | +9 119 | 0 | 40 | 38,5 | 272 Ko |
+| Armée | 11 | 7 | 227 | 26 | 44,5 | 48 | 31 | 4 | 21,5 | 3 322 | +6 635 | 0 | 85 | 33,5 | 292 Ko |
+| Exploration | 9 | 6 | 220 | 26 | 2 | 11 | 160 | 4 | 16 | 2 744 | +7 036 | 0,5 | 85,5 | 34,5 | 262 Ko |
 
 Aucune valeur invalide (NaN, ressource négative).
 
 - Le bot suit désormais le parcours guidé (missions de construction, entraînement, ambassadeur, caravane, expédition) et réclame ses récompenses.
-- La famine du joueur occasionnel (9 h sur 168) survient au tout début, avant sa première ferme.
+- Le passage aux cartes agrandies ne change pas le rythme de progression (mêmes hôtels de ville, mêmes niveaux de bâtiments qu'avec le monde 48×48). Les sauvegardes passent d'environ 180 Ko à environ 275 Ko.
 - « Chapitres finis » : le joueur occasionnel en termine 2 ; il bute sur les éclaireurs, car le bot n'en forme presque pas.
 
 ## Déséquilibres démontrés et corrigés
@@ -63,7 +63,7 @@ Aucune valeur invalide (NaN, ressource négative).
 **4. Blocage définitif possible en tout début de partie** (révélé par la simulation du parcours guidé).
 
 - Un royaume qui dépense toute sa pierre avant de bâtir une carrière ne pouvait plus jamais en construire, puisque la carrière coûte de la pierre. Même chose pour le bois et la scierie.
-- Correction : le **premier exemplaire** d'un producteur de base (scierie, carrière, ferme) est offert quand le royaume n'en possède aucun. C'est affiché « 🎁 Offert » dans le menu de construction.
+- Correction : quand le royaume ne possède **aucun** producteur de base (scierie, carrière, ferme) **et ne peut pas en payer un**, le premier exemplaire est offert. C'est affiché « 🎁 Offert (secours) » dans le menu de construction. Dans tous les autres cas, le prix normal s'applique : aucun cadeau en début de partie.
 - Pas d'abus possible : la démolition ne rembourse rien, et l'annulation rembourse 80 % de ce qui a été payé (donc rien).
 - Le cas est couvert par un test de non-régression.
 
@@ -97,26 +97,24 @@ Aucune valeur invalide (NaN, ressource négative).
 
 | Spécialisation | HdV | Niv. bâtiments | Technos | Chapitres finis | Victoires | Cases explorées | Armée | Or/h (fin) | Nourriture nette/h (fin) | Famine (h) | Raids perdus |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Sans spécialisation | 5 / 7.5 / 11 | 41.5 / 96.5 / 226.5 | 4 / 11 / 26 | 6 | 2 / 3.5 / 9.5 | 6.5 / 27 / 60 | 1.5 / 15 / 12 | 3467 | 6657 | 1 | 37 |
-| Royaume des Moissons | 6 / 8.5 / 11 | 44.5 / 99.5 / 227 | 2 / 11 / 26 | 7 | 0.5 / 1.5 / 8.5 | 8 / 26 / 57 | 1 / 4.5 / 23.5 | 2893 | 6615 | 0 | 34 |
-| Royaume de Fer | 5.5 / 8.5 / 11 | 43.5 / 99.5 / 227 | 4 / 11 / 26 | 6.5 | 1.5 / 5 / 20 | 5 / 24 / 60.5 | 1.5 / 8 / 13.5 | 2572 | 7445 | 0 | 34 |
-| Royaume des Marchands | 5 / 8.5 / 11 | 41 / 99.5 / 227 | 4 / 11 / 26 | 6 | 2 / 3.5 / 7.5 | 6.5 / 25.5 / 67 | 1.5 / 6.5 / 6.5 | 3057 | 6702 | 1 | 36 |
-| Royaume des Érudits | 5.5 / 8 / 11 | 42 / 98 / 227 | 3.5 / 11 / 26 | 7 | 0.5 / 4 / 12 | 6.5 / 18.5 / 59 | 0.5 / 10 / 21 | 2741 | 6614 | 1 | 35 |
-| Royaume des Pionniers | 5 / 8 / 11 | 40.5 / 98 / 227 | 1.5 / 11 / 26 | 7 | 0.5 / 2.5 / 12 | 7.5 / 26 / 58.5 | 9 / 11.5 / 23 | 2541 | 4819 | 0 | 33 |
-| Royaume des Bastions | 5.5 / 8 / 11 | 44 / 99 / 227.5 | 4.5 / 11 / 26 | 6 | 2 / 4 / 14 | 4.5 / 17 / 54.5 | 1 / 4.5 / 5 | 2740 | 6365 | 0 | 37 |
-| Royaume des Ombres | 5 / 8 / 11 | 40.5 / 98 / 227 | 2 / 11 / 26 | 7 | 0.5 / 2 / 8.5 | 8 / 25 / 58 | 3 / 9 / 5.5 | 2219 | 6609 | 0 | 37 |
-| Royaume des Anciens | 5.5 / 8 / 11 | 43.5 / 98 / 227 | 4.5 / 11 / 26 | 7 | 1.5 / 4 / 15.5 | 8 / 19 / 53 | 1 / 11 / 19.5 | 2366 | 4164 | 0 | 35 |
+| Sans spécialisation | 4.5 / 7 / 10.5 | 39.5 / 94.5 / 225 | 3.5 / 11 / 26 | 7 | 2 / 4.5 / 14.5 | 5.5 / 24 / 59.5 | 1 / 8.5 / 5 | 2719 | 6885 | 0 | 35 |
+| Royaume des Moissons | 5 / 8 / 11 | 42 / 98 / 227 | 4 / 11 / 26 | 6.5 | 1 / 4 / 11.5 | 9 / 21.5 / 59.5 | 21 / 24 / 23 | 3085 | 6646 | 0 | 33 |
+| Royaume de Fer | 5 / 7 / 11 | 41.5 / 95 / 227 | 4 / 11 / 26 | 7 | 3 / 7 / 16 | 9 / 28 / 60.5 | 2 / 25.5 / 12 | 2137 | 5198 | 0 | 34 |
+| Royaume des Marchands | 5 / 8.5 / 11 | 40.5 / 98.5 / 226 | 3 / 11 / 26 | 7 | 2.5 / 6.5 / 17.5 | 6 / 21.5 / 59.5 | 1.5 / 10.5 / 3.5 | 3162 | 7106 | 0 | 36 |
+| Royaume des Érudits | 5 / 7.5 / 11 | 40.5 / 96 / 226.5 | 2 / 11 / 26 | 7 | 1.5 / 2 / 14 | 7 / 22.5 / 54 | 1 / 4 / 27 | 2362 | 6929 | 0 | 35 |
+| Royaume des Pionniers | 5 / 8 / 11 | 41 / 98 / 227 | 3.5 / 11 / 26 | 7 | 1.5 / 3.5 / 9.5 | 10 / 27 / 62.5 | 23.5 / 4.5 / 16 | 2368 | 4961 | 1 | 35 |
+| Royaume des Bastions | 5 / 8.5 / 11 | 42 / 100.5 / 228 | 3.5 / 11 / 26 | 6.5 | 2 / 6.5 / 13.5 | 12 / 28.5 / 59 | 1.5 / 45 / 22.5 | 2247 | 4651 | 0 | 35 |
+| Royaume des Ombres | 5 / 7.5 / 11 | 40.5 / 96 / 226.5 | 3.5 / 11 / 26 | 6.5 | 1.5 / 4.5 / 9 | 8 / 23.5 / 61 | 3 / 12 / 15 | 2185 | 8295 | 0 | 34 |
+| Royaume des Anciens | 5 / 8 / 11 | 41.5 / 98 / 226.5 | 4.5 / 11 / 26 | 7 | 1 / 5 / 17.5 | 7 / 20 / 54 | 1.5 / 19 / 11.5 | 2449 | 10526 | 0 | 33 |
 
 Lecture :
 
-- **Aucune spécialisation ne domine ni n'est obligatoire.** Toutes atteignent l'hôtel de ville 11 et 227 niveaux de bâtiments en 7 jours, et terminent 6 à 7 chapitres sur 8 (le chapitre 8 demande un héros intendant et une défense que le bot ne gère pas).
-- **Les écarts vont dans le sens annoncé** :
-  - Moissons : le départ le plus rapide (HdV 6 au jour 1) grâce aux réserves de nourriture.
-  - Fer : le plus de victoires (20 contre 9,5 sans spécialisation).
-  - Pionniers et Anciens : nourriture nette la plus basse (−10 % et −7 % de nourriture).
-  - Ombres : or/h le plus bas (−5 % de toute production).
-  - Les écarts restent de l'ordre de la variance entre parties. Aucun choix ne ferme de porte.
-- **Les maluses restent gérables** : au plus 1 h de famine, et entre 33 et 37 raids perdus sur 7 jours pour toutes (ce chiffre vient surtout du bot, qui envoie toute son armée en campagne).
+- **Aucune spécialisation ne domine ni n'est obligatoire.** Toutes atteignent l'hôtel de ville 10,5 à 11 et environ 227 niveaux de bâtiments en 7 jours, et terminent 6,5 à 7 chapitres sur 8 (le chapitre 8 demande un héros intendant et une défense que le bot ne gère pas).
+- **Ce qui ressort malgré la variance** :
+  - Moissons : une armée nombreuse en ville dès le début et maintenue (21 à 24 unités aux trois relevés), grâce aux réserves de nourriture.
+  - Pionniers : le plus de cases explorées au jour 7 (62,5), mais une nourriture nette parmi les plus basses (−10 % de nourriture).
+  - Les autres écarts (victoires, or/h) sont du même ordre que l'écart entre deux parties de la même spécialisation.
+- **Les maluses restent gérables** : au plus 1 h de famine, et entre 33 et 36 raids perdus sur 7 jours pour toutes (ce chiffre vient surtout du bot, qui envoie toute son armée en campagne).
 - **Limite** : le bot joue de la même façon quelle que soit la spécialisation (il n'explore pas davantage en Pionniers, ne fait pas plus de diplomatie en Ombres). Le tableau mesure donc surtout l'absence de déséquilibre, pas le plein potentiel de chaque style. Les bonus eux-mêmes sont vérifiés formule par formule dans `tests/kingdoms.test.js`.
 
 ## Limites de la simulation

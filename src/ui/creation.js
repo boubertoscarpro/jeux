@@ -7,6 +7,18 @@ import { kingdomDef, originDef, difficultyDef } from '../systems/kingdom.js';
 
 const DIFF_LABEL = ['', 'Accessible', 'Intermédiaire', 'Exigeant'];
 
+// Soutien facultatif au développement : un simple lien externe. Le jeu ne contient aucun paiement, ne bloque
+// aucun contenu et ne sait pas si un don a été fait.
+export const SUPPORT_URL = 'https://paypal.me/Oscarwildrift';
+export function supportHtml() {
+  return `<aside class="support-box" aria-labelledby="support-title">
+    <h3 id="support-title">Soutenez le développement de Cendrelande</h3>
+    <p class="small">« Cendrelande est un projet en développement. Si vous appréciez le jeu et souhaitez soutenir son évolution, vous pouvez faire un don pour m'aider à continuer à l'améliorer et à ajouter de nouvelles fonctionnalités.</p>
+    <p class="small">Chaque soutien est apprécié, mais reste entièrement facultatif. Merci de faire vivre Cendrelande ! »</p>
+    <a class="btn support-btn" href="${SUPPORT_URL}" target="_blank" rel="noopener noreferrer">❤️ Soutenir le projet</a>
+  </aside>`;
+}
+
 function card(key, k, sel) {
   return `<button type="button" class="kt-card ${sel ? 'sel' : ''}" data-kt="${key}" style="--kt:${k.color}" aria-pressed="${sel}">
     <div class="kt-head"><span class="kt-icon">${k.icon}</span><span class="kt-name">${esc(k.name)}</span></div>
@@ -80,6 +92,7 @@ export function creationScreen(onStart, prev = {}) {
         <h4>Origine</h4><div class="kt-opts">${optRadio('kt-origin', ORIGINS, st.origin)}</div>
         <h4>Difficulté</h4><div class="kt-opts">${optRadio('kt-diff', DIFFICULTIES, st.difficulty)}</div>
       </details>
+      ${supportHtml()}
       <div class="creation-foot"><button class="btn primary big" id="intro-review" ${k ? '' : 'disabled'}>${k ? `Continuer avec ${k.icon} ${esc(k.name)} →` : 'Choisissez une spécialisation'}</button></div>
     </div>`;
     const keep = () => { st.name = root.querySelector('#intro-name').value.trim() || 'Cendrelande'; st.seed = root.querySelector('#intro-seed').value.trim(); };
