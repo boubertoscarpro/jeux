@@ -69,7 +69,7 @@ export default {
           }).join('')}</div></div>
         <div class="card"><h2>💾 Sauvegarde</h2>
           <p class="muted small">Sauvegarde automatique toutes les 15 s dans votre navigateur (avec une copie de secours toutes les 10 min). Format de sauvegarde v${s.version}. Progression hors-ligne : jusqu’à 12 h.</p>
-          <div class="row gap wrap"><button class="btn" data-action="save-now">💾 Sauvegarder</button><button class="btn" data-action="save-file">⬇️ Télécharger (.json)</button><button class="btn" data-action="export">📤 Code texte</button><label class="btn">📂 Charger un fichier<input type="file" accept=".json,application/json,text/plain" data-change="import-file" hidden></label><button class="btn" data-action="import">📥 Importer le code</button><button class="btn ghost danger" data-action="reset">🗑️ Nouvelle partie</button></div>
+          <div class="row gap wrap"><button class="btn" data-action="tips-toggle">${s.meta.tipsOff ? '📘 Réactiver les conseils' : '📘 Désactiver les conseils'}</button><button class="btn" data-action="save-now">💾 Sauvegarder</button><button class="btn" data-action="save-file">⬇️ Télécharger (.json)</button><button class="btn" data-action="export">📤 Code texte</button><label class="btn">📂 Charger un fichier<input type="file" accept=".json,application/json,text/plain" data-change="import-file" hidden></label><button class="btn" data-action="import">📥 Importer le code</button><button class="btn ghost danger" data-action="reset">🗑️ Nouvelle partie</button></div>
           <textarea id="save-box" class="save-box" placeholder="Code de sauvegarde…"></textarea>
           <h3>Comment jouer</h3><ul class="small">
             <li>Déblayez, construisez et placez intelligemment (bonus d’adjacence).</li>
@@ -88,6 +88,7 @@ export default {
     'buy-cos': (app, el) => app.act(() => buyCosmetic(app.state, el.dataset.k), 'Cosmétique acquis !'),
     'apply-cos': (app, el) => app.act(() => applyCosmetic(app.state, el.dataset.k)),
     'save-now': (app) => app.save(true),
+    'tips-toggle': (app) => { app.state.meta.tipsOff = !app.state.meta.tipsOff; if (!app.state.meta.tipsOff) app.state.meta.tipsSeen = {}; app.render(); },
     'import-file': (app, el) => {
       const f = el.files?.[0];
       if (!f) return;

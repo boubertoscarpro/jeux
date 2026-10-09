@@ -36,6 +36,7 @@ import adminView from './views/admin.js';
 import { reportHtml } from './views/calendar.js';
 import { notifications } from '../systems/liveEvents.js';
 import { openAdvisor } from './advisor.js';
+import { showTip } from './tips.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
@@ -155,6 +156,7 @@ export class App {
     advance(this.state, now);
     this.state.meta.bootOk = true;
     this.showEventReport();
+    showTip(this);
     if (this.dirty) this.render();
     else {
       this.$('#topbar').innerHTML = renderTopbar(this);

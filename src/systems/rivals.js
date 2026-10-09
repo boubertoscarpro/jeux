@@ -3,7 +3,8 @@ import { RIVALS, POI_TYPES } from '../data/world.js';
 import { BASE_RES, RESOURCES } from '../data/resources.js';
 import { rng } from '../core/rng.js';
 import { uid, fmt } from '../core/util.js';
-import { thLevel, levelOf } from './city.js';
+import { thLevel, levelOf, allBuildings } from './city.js';
+import { BUILDINGS } from '../data/buildings.js';
 import { computeMods } from './modifiers.js';
 import { simulateBattle } from './combat.js';
 import { armyPower } from './army.js';
@@ -134,7 +135,15 @@ export function resolveRaid(state, raid, t) {
     log(state, 'bad', `🔥 ${text}`, t);
     const k = Object.values(state.world.pois).find((p) => p.type === 'kingdom' && p.rival === raid.rival);
     if (k) k.anger = (k.anger || 0) + 1;
+    // Les assaillants incendient 1 à 2 bâtiments (production −50 % jusqu'à réparation)
+    const targets = allBuildings(state).filter((b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco'].includes(b.type));
+    const burnt = [];
+    for (let i = 0; i < Math.min(targets.length, rng.int(1, 2)); i++) { const b = targets.splice(rng.int(0, targets.length - 1), 1)[0]; b.damaged = true; burnt.push(BUILDINGS[b.type]?.name || b.type); }
+    if (burnt.length) text += ` Bâtiments incendiés (production −50 % jusqu’à réparation) : ${burnt.join(', ')}.`;
   }
+  const nDef = Object.values(def).reduce((a, b) => a + b, 0);
+  const prep = `Préparation : ${nDef} défenseurs${allies ? ' (dont renforts alliés)' : ''}, muraille +${Math.round(fort * 100)} % de défense, ${(state.resources.bread || 0) > 50 ? 'rations de pain distribuées' : 'pas de pain (moral réduit)'}${mods['city.def'] ? `, défense de la ville +${Math.round(mods['city.def'] * 100)} %` : ''}.`;
+  text = `${text} ${prep}`;
   state.reports.unshift({ id: uid('rep'), t, kind: 'defense', title: `${win ? 'Défense réussie' : 'Ville pillée'} — ${raid.name}`, win, result: res, enemies: raid.army, text, terrain: 'city', weather: state.weather.type, defense: true, read: false });
   if (state.reports.length > 60) state.reports.length = 60;
 }

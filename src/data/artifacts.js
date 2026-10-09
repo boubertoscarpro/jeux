@@ -1,18 +1,28 @@
 // Artefacts : objets extrêmement rares à bonus permanents (exposés dans la Salle du trésor).
+// Catégories de reliques (effets réellement différents)
+export const ARTIFACT_CATS = {
+  economy: { name: 'Reliques économiques', icon: '💰' },
+  military: { name: 'Reliques militaires', icon: '⚔️' },
+  exploration: { name: 'Reliques d’exploration', icon: '🧭' },
+  diplomacy: { name: 'Reliques diplomatiques', icon: '🕊️' },
+  automation: { name: 'Reliques d’intendance', icon: '🧾' },
+  ancient: { name: 'Reliques anciennes (défis de haut niveau)', icon: '🏛️' },
+};
+
 export const ARTIFACTS = {
-  mountainHeart: { name: 'Cœur de la montagne', icon: '🫀', desc: '+10% extraction (pierre, fer, charbon)', mods: { 'prod.stone': 0.1, 'prod.iron': 0.1, 'prod.coal': 0.1, 'gather.iron': 0.1 }, source: 'Mines, boss souterrains' },
-  merchantCrown: { name: 'Couronne du marchand', icon: '👑', desc: '+15% gains commerciaux, −2% taxe', mods: { 'caravan.gain': 0.15, 'market.fee': -0.02 }, source: 'Contrats, marchand mystérieux' },
-  explorerEye: { name: 'Œil de l’explorateur', icon: '👁️', desc: '+20% chance de trésors, +1 rayon d’exploration', mods: { 'loot.rare': 0.04, 'explore.radius': 1 }, source: 'Exploration lointaine' },
-  firstKingSword: { name: 'Épée du premier roi', icon: '⚔️', desc: '+15% puissance militaire', mods: { 'combat.atk': 0.15 }, source: 'Donjons, événements secrets' },
-  dawnChalice: { name: 'Calice de l’Aube', icon: '🏆', desc: '+8% toute production', mods: { 'prod.all': 0.08 }, source: 'Cité perdue' },
-  emberHorn: { name: 'Cor des Braises', icon: '📯', desc: '+15 moral, −10% pertes', mods: { 'combat.morale': 15, 'combat.losses': -0.1 }, source: 'Boss mondiaux' },
-  seedOfAges: { name: 'Graine des âges', icon: '🌰', desc: '+20% nourriture, +30% régénération des sites', mods: { 'prod.food': 0.2, 'node.regen': 0.3 }, source: 'Bosquets anciens, saisons' },
-  starIron: { name: 'Fer étoilé', icon: '☄️', desc: '+25% qualité de forge', mods: { 'craft.quality': 0.25 }, source: 'Météorites' },
-  sealOfStewards: { name: 'Sceau des intendants', icon: '🔏', desc: '+10% rendement des expéditions, ouvriers +20% XP', mods: { 'expedition.yield': 0.1, 'worker.xp': 0.2 }, source: 'Événements de royaume' },
-  whisperMask: { name: 'Masque des murmures', icon: '🎭', desc: '+25% réussite d’espionnage', mods: { 'spy.power': 0.25 }, source: 'Espionnage, cités perdues' },
-  tideStone: { name: 'Pierre des marées', icon: '🌊', desc: '+20% vitesse des caravanes, −30% risque des convois', mods: { 'caravan.speed': 0.2, 'convoy.risk': -0.3 }, source: 'Inondations, routes' },
-  ancientEye: { name: 'Œil de l’Ancien', icon: '👁️‍🗨️', desc: '+5 % butin rare, +3 % détection des Éclats', mods: { 'loot.rare': 0.05, 'shard.detect': 0.03 }, source: 'Roue des Anciens uniquement' },
-  kingsLedger: { name: 'Registre du roi ancien', icon: '📕', desc: '+15% vitesse de recherche', mods: { 'research.speed': 0.15 }, source: 'Ruines, bibliothèques perdues' },
+  mountainHeart: { cat: 'economy', name: 'Cœur de la montagne', icon: '🫀', desc: '+10% extraction (pierre, fer, charbon)', mods: { 'prod.stone': 0.1, 'prod.iron': 0.1, 'prod.coal': 0.1, 'gather.iron': 0.1 }, source: 'Mines, boss souterrains' },
+  merchantCrown: { cat: 'economy', name: 'Couronne du marchand', icon: '👑', desc: '+15% gains commerciaux, −2% taxe', mods: { 'caravan.gain': 0.15, 'market.fee': -0.02 }, source: 'Contrats, marchand mystérieux' },
+  explorerEye: { cat: 'exploration', name: 'Œil de l’explorateur', icon: '👁️', desc: '+20% chance de trésors, +1 rayon d’exploration', mods: { 'loot.rare': 0.04, 'explore.radius': 1 }, source: 'Exploration lointaine' },
+  firstKingSword: { cat: 'military', name: 'Épée du premier roi', icon: '⚔️', desc: '+15% puissance militaire', mods: { 'combat.atk': 0.15 }, source: 'Donjons, événements secrets' },
+  dawnChalice: { cat: 'ancient', name: 'Calice de l’Aube', icon: '🏆', desc: '+8% toute production', mods: { 'prod.all': 0.08 }, source: 'Cité perdue' },
+  emberHorn: { cat: 'military', name: 'Cor des Braises', icon: '📯', desc: '+15 moral, −10% pertes', mods: { 'combat.morale': 15, 'combat.losses': -0.1 }, source: 'Boss mondiaux' },
+  seedOfAges: { cat: 'economy', name: 'Graine des âges', icon: '🌰', desc: '+20% nourriture, +30% régénération des sites', mods: { 'prod.food': 0.2, 'node.regen': 0.3 }, source: 'Bosquets anciens, saisons' },
+  starIron: { cat: 'military', name: 'Fer étoilé', icon: '☄️', desc: '+25% qualité de forge', mods: { 'craft.quality': 0.25 }, source: 'Météorites' },
+  sealOfStewards: { cat: 'automation', name: 'Sceau des intendants', icon: '🔏', desc: '+10% rendement des expéditions, ouvriers +20% XP', mods: { 'expedition.yield': 0.1, 'worker.xp': 0.2 }, source: 'Événements de royaume' },
+  whisperMask: { cat: 'diplomacy', name: 'Masque des murmures', icon: '🎭', desc: '+25% réussite d’espionnage', mods: { 'spy.power': 0.25 }, source: 'Espionnage, cités perdues' },
+  tideStone: { cat: 'diplomacy', name: 'Pierre des marées', icon: '🌊', desc: '+20% vitesse des caravanes, −30% risque des convois', mods: { 'caravan.speed': 0.2, 'convoy.risk': -0.3 }, source: 'Inondations, routes' },
+  ancientEye: { cat: 'ancient', name: 'Œil de l’Ancien', icon: '👁️‍🗨️', desc: '+5 % butin rare, +3 % détection des Éclats', mods: { 'loot.rare': 0.05, 'shard.detect': 0.03 }, source: 'Roue des Anciens uniquement' },
+  kingsLedger: { cat: 'ancient', name: 'Registre du roi ancien', icon: '📕', desc: '+15% vitesse de recherche', mods: { 'research.speed': 0.15 }, source: 'Ruines, bibliothèques perdues' },
 };
 
 // Ensembles de collection : bonus lorsque tout l'ensemble est réuni
