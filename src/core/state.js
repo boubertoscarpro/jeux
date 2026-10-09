@@ -104,6 +104,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     live: { calendar: [], history: [], occ: {}, current: null, marches: [], reports: [], surprises: [], nextSurprise: 0, nextFair: now + 5 * 86400000, unseenReport: null, totals: {} },
     shards: { count: 0, tickets: 0, relicFragments: 0, mythicFragments: 0, legendaryFragments: 0, heat: {}, daily: {}, lastFreeTicket: 0, pity: { rare: 0, epic: 0, legendary: 0, mythic: 0 }, history: [], ledger: {}, feats: {}, forbiddenAt: 0, owned: {}, spins: 0, jackpots: 0 },
     notifications: [],
+    sagas: { active: null, done: {}, nextAt: now + 90 * 60000, log: [] },
     serverFeed: [],
     admin: {},
   };

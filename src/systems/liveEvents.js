@@ -1,7 +1,7 @@
 // Moteur générique des événements temporaires : calendrier, rotation, cartes, marches,
 // monnaies, boutiques, objectifs, passe, classement, guilde, boss, surprises et notifications.
 // Toutes les règles propres à un événement viennent de data/liveEvents.js.
-import { LIVE_EVENTS, SURPRISE_EVENTS, FAIR_OFFERS, MYSTERY_POOL, RIDDLES, rewardsPass, LB_REWARDS } from '../data/liveEvents.js';
+import { LIVE_EVENTS, SURPRISE_EVENTS, FAIR_OFFERS, MYSTERY_POOL, RIDDLES, rewardsPass, LB_REWARDS, EVENT_STANCES, DAILY_TEMPLATES } from '../data/liveEvents.js';
 import { LIVE_CONFIG } from '../data/liveConfig.js';
 import { ALL_UNITS, UNITS } from '../data/units.js';
 import { RESOURCES } from '../data/resources.js';
@@ -242,12 +242,13 @@ export function buyMystery(state, idx, now = Date.now()) {
 // ───────────────────────── Récompenses génériques ─────────────────────────
 export function liveTotals(state) { return (liveState(state).totals ||= {}); }
 
-function earn(state, n, now, why = '') {
+function earn(state, n, now, why = '', kind = null) {
   const L = liveState(state);
   const cur = L.current;
   if (!cur || n <= 0) return 0;
   const def = LIVE_EVENTS[cur.key];
   let k = liveCfg(state).currencyMult;
+  if (kind) k *= EVENT_STANCES[cur.stance || 'balanced']?.[kind] ?? 1;
   if (def.special?.hearth) k *= 1 + Math.min(150, cur.warmth) / 300;
   const v = Math.round(n * k);
   cur.wallet += v;
@@ -497,11 +498,13 @@ function liveBattle(state, m, enemies, t, opts = {}) {
   const cur = liveState(state).current;
   const mods = { ...marchMods(state, m.heroId, null, t) };
   if (opts.bonusAtk) mods['combat.atk'] = (mods['combat.atk'] || 0) + opts.bonusAtk;
+  const stance = EVENT_STANCES[cur.stance || 'balanced'];
+  if (stance?.losses) mods['combat.losses'] = (mods['combat.losses'] || 0) + stance.losses;
   const terrain = cur.map.tiles[m.y * cur.map.w + m.x];
   const tier = opts.tier || 1;
   const res = simulateBattle(
     { units: m.units, mods, formation: m.formation, label: 'Vous' },
-    { units: enemies, mods: { 'combat.atk': 0.04 * tier, 'combat.def': 0.04 * tier }, label: opts.label || 'Ennemi' },
+    { units: enemies, mods: { 'combat.atk': 0.04 * tier + (opts.enemyMods?.['combat.atk'] || 0), 'combat.def': 0.04 * tier }, label: opts.label || 'Ennemi' },
     { terrain: terrain === 'ash' ? 'ruins' : terrain, weather: state.weather.type, bossHp: opts.bossHp },
   );
   m.units = Object.fromEntries(Object.entries(res.attRemaining).filter(([, n]) => n > 0));
@@ -522,7 +525,7 @@ function arriveLive(state, m, t) {
   if (m.action === 'explore') {
     const n = revealAround(cur.map, m.x, m.y, 2);
     bump(cur, 'explored', n);
-    if (rng.chance(0.15)) earn(state, 60, t, 'exploration');
+    if (rng.chance(0.15)) earn(state, 60, t, 'exploration', 'peace');
     addLiveReport(state, `🧭 Exploration en (${m.x}, ${m.y}) : ${n} case(s) révélée(s).`, t);
     return goBack(m, t);
   }
@@ -534,12 +537,12 @@ function arriveLive(state, m, t) {
     case 'spy': {
       tg.spied = true;
       addLiveReport(state, `👁️ ${name} espionnée : cargaison de ${tg.cargo}, destination (${tg.dest.x}, ${tg.dest.y}), ${unitCount(tg.enemies || def.enemies[tg.type] || {})} gardes.`, t);
-      earn(state, 40, t, 'espionnage');
+      earn(state, 40, t, 'espionnage', 'peace');
       return goBack(m, t);
     }
     case 'trade': {
       const v = tg.type === 'port' ? 300 : 150 + 60 * tg.tier;
-      const got = earn(state, v, t, 'commerce');
+      const got = earn(state, v, t, 'commerce', 'peace');
       bump(cur, 'trades');
       if (tg.type === 'port') tg.tradeCd = t + 30 * MIN;
       else { m.loot.silver = (m.loot.silver || 0) + tg.tier * 2; }
@@ -551,11 +554,11 @@ function arriveLive(state, m, t) {
         cur.warmth = Math.min(200, cur.warmth + 10);
         tg.cooldown = t + 30 * MIN;
         bump(cur, 'deliveries'); cur.stats.warmth = Math.max(cur.stats.warmth || 0, cur.warmth);
-        const got = earn(state, 120, t, 'brasier');
+        const got = earn(state, 120, t, 'brasier', 'peace');
         addLiveReport(state, `🔥 Brasier alimenté : chaleur ${Math.round(cur.warmth)}, +${fmt(got)} ${def.currency.icon}.`, t);
       } else {
         bump(cur, 'deliveries');
-        const got = earn(state, 250, t, 'village');
+        const got = earn(state, 250, t, 'village', 'peace');
         tg.done = true; tg.respawnAt = t + liveCfg(state).respawnMin * MIN * 2;
         addLiveReport(state, `📦 Vivres livrés au village : +${fmt(got)} ${def.currency.icon}.`, t);
       }
@@ -604,7 +607,7 @@ function attackTarget(state, m, tg, t, def, name) {
   else if (tg.type === 'ship') { v = (400 + 100 * tg.tier) * (tg.spied ? 1.5 : 1); bump(cur, 'ships'); loot.gold = 600 * tg.tier; }
   else { v = campReward(tg.tier); if (tg.type !== 'pack') bump(cur, 'camps'); else bump(cur, 'packs'); if (tg.tier >= 7) bump(cur, 'tier7'); }
   if (tg.type === 'crypt') cur.wavesWeak = Math.min(0.6, cur.wavesWeak + 0.04);
-  const got = earn(state, v, t, name);
+  const got = earn(state, v, t, name, 'combat');
   Object.assign(m.loot, Object.fromEntries(Object.entries(loot).map(([r, n]) => [r, Math.round(n * thScale(state))])));
   if (rng.chance(0.04 * tg.tier)) m.items.push(generateItem({ ilvl: 3 + tg.tier + thLevel(state), boost: 0.2 * tg.tier, min: tg.tier >= 5 ? 'rare' : 'common' }));
   if (tg.type === 'zone') {
@@ -624,12 +627,15 @@ function attackBoss(state, m, tg, t, def) {
   const cur = liveState(state).current;
   const b = def.bosses[0];
   if (cur.bossIdx >= b.tiers.length) { addLiveReport(state, `👑 ${b.name} a déjà été vaincu à tous les rangs.`, t); return goBack(m, t); }
-  const res = liveBattle(state, m, { [b.unit]: 1 }, t, { bossHp: cur.bossHp, label: b.name, tier: 3 + cur.bossIdx });
-  const dmg = Math.min(cur.bossHp, res.bossDamage);
+  const ph = bossPhase(state, cur, def);
+  const res = liveBattle(state, m, { [b.unit]: 1 }, t, { bossHp: cur.bossHp, label: b.name, tier: 3 + cur.bossIdx, enemyMods: ph.enemyMods });
+  // Phase « Dernier rempart » : seuls les engins de siège percent vraiment la carapace
+  const hasSiege = Object.keys(m.units).some((u) => UNITS[u]?.class === 'siege') || Object.keys(res.attLosses).some((u) => UNITS[u]?.class === 'siege');
+  const dmg = Math.min(cur.bossHp, Math.round(res.bossDamage * (ph.dmgMult ? (hasSiege ? ph.dmgMult.siege : ph.dmgMult.other) : 1)));
   cur.bossHp -= dmg;
   bump(cur, 'bossDamage', dmg);
-  earn(state, Math.round(dmg / 200), t, `assaut contre ${b.name}`);
-  let text = `👑 ${fmt(dmg)} dégâts infligés à ${b.name} (rang ${cur.bossIdx + 1}).`;
+  earn(state, Math.round(dmg / 200), t, `assaut contre ${b.name}`, 'combat');
+  let text = `👑 ${fmt(dmg)} dégâts infligés à ${b.name} (rang ${cur.bossIdx + 1}, ${ph.name}).`;
   if (cur.bossHp <= 0) {
     const tier = b.tiers[cur.bossIdx];
     const got = grantGive(state, { ...tier.reward }, t, `${b.name} rang ${cur.bossIdx + 1}`);
@@ -655,7 +661,7 @@ function attackLair(state, m, tg, t, def) {
   const dmg = Math.min(co.hp, res.bossDamage);
   co.hp -= dmg; co.mine += dmg;
   bump(cur, 'coopDamage', dmg);
-  const got = earn(state, Math.round(dmg / 150), t, `coups portés à ${def.coop.name}`);
+  const got = earn(state, Math.round(dmg / 150), t, `coups portés à ${def.coop.name}`, 'combat');
   addLiveReport(state, `🐉 ${fmt(dmg)} dégâts à ${def.coop.name} (+${fmt(got)} ${def.currency.icon}). PV restants : ${Math.round((co.hp / co.maxHp) * 100)} %.`, t);
   if (!unitCount(m.units)) return homeLive(state, m, t);
   goBack(m, t);
@@ -673,13 +679,13 @@ function finishLiveWork(state, m, t) {
       const res = liveBattle(state, m, scaleEnemies(state, def, 'camp', Math.max(1, tg.tier - 1)), t, { tier: tg.tier, label: 'Embuscade' });
       if (res.winner !== 'attacker') { addLiveReport(state, `🗡️ Embuscade pendant l’escorte : la caravane est perdue.`, t, false); tg.done = true; tg.respawnAt = t + 30 * MIN; return unitCount(m.units) ? goBack(m, t) : homeLive(state, m, t); }
     }
-    const got = earn(state, 200 + 80 * tg.tier, t, 'escorte');
+    const got = earn(state, 200 + 80 * tg.tier, t, 'escorte', 'peace');
     bump(cur, 'escorts'); bump(cur, 'caravans');
     m.loot.gold = (m.loot.gold || 0) + 200 * tg.tier;
     addLiveReport(state, `🛡️ Escorte réussie : la caravane vous remercie (+${fmt(got)} ${def.currency.icon}).`, t);
     tg.done = true; tg.respawnAt = t + 30 * MIN;
   } else if (m.action === 'dig') {
-    const got = earn(state, rng.int(200, 450), t, 'trésor');
+    const got = earn(state, rng.int(200, 450), t, 'trésor', 'peace');
     bump(cur, 'treasures');
     const loot = { gold: rng.int(300, 900), gems: rng.int(1, 4) };
     for (const [r, v] of Object.entries(loot)) m.loot[r] = (m.loot[r] || 0) + Math.round(v * thScale(state));
@@ -689,7 +695,7 @@ function finishLiveWork(state, m, t) {
   } else if (m.action === 'track') {
     bump(cur, 'traces');
     cur.trackStep++;
-    earn(state, 300, t, 'traque');
+    earn(state, 300, t, 'traque', 'peace');
     tg.done = true; tg.gone = true;
     if (cur.trackStep >= 3) {
       const r = mulberry32(cur.seed ^ 0x1a1);
@@ -705,7 +711,7 @@ function finishLiveWork(state, m, t) {
     const gatherers = Object.entries(m.units).reduce((s, [u, n]) => s + (UNITS[u]?.gather || 0) * n, 0);
     const units = Math.min(tg.amount, Math.max(1, Math.floor(gatherers / 120)));
     tg.amount -= units;
-    const got = earn(state, units * 110, t, 'filon');
+    const got = earn(state, units * 110, t, 'filon', 'peace');
     bump(cur, 'veins');
     m.loot.gold = (m.loot.gold || 0) + units * 250;
     if (rng.chance(0.15)) m.loot.silver = (m.loot.silver || 0) + rng.int(3, 8);
@@ -718,7 +724,7 @@ function finishLiveWork(state, m, t) {
       for (const u of Object.keys(m.units)) { const l = Math.floor(m.units[u] * 0.15); m.units[u] -= l; lost += l; }
       addLiveReport(state, `🌋 La lave cerne l’évent : ${lost} hommes perdus pendant la récolte.`, t, false);
     }
-    const got = earn(state, 110 + rng.int(0, 70), t, 'évent');
+    const got = earn(state, 110 + rng.int(0, 70), t, 'évent', 'peace');
     bump(cur, 'vents');
     m.loot.crystals = (m.loot.crystals || 0) + rng.int(3, 8);
     m.loot.rareOre = (m.loot.rareOre || 0) + rng.int(2, 6);
@@ -759,7 +765,7 @@ export function resolveRiddle(state, pid, idx, now = Date.now()) {
   let text;
   if (cur && tg && idx === q.ok) {
     const def = LIVE_EVENTS[cur.key];
-    const got = earn(state, 500, now, 'énigme');
+    const got = earn(state, 500, now, 'énigme', 'peace');
     bump(cur, 'riddles');
     tg.done = true; tg.gone = true;
     let extra = '';
@@ -878,8 +884,9 @@ function currentTick(state, cur, now) {
   for (const it of def.shop.fixed.filter((i) => i.global)) {
     cur.shop.globalSold[it.id] = Math.min(it.global, (cur.shop.globalSold[it.id] || 0) + dtH * 0.06 * c.globalStockSpeed * rng.float(0, 2));
   }
-  // Marchand mystère quotidien
+  // Marchand mystère et missions du jour
   rollMystery(state, now);
+  rollDaily(state, now);
   // Automatisation : petit revenu passif plafonné
   const working = (state.expeditions || []).filter((e) => e.status === 'work').length;
   if (working) {
@@ -896,7 +903,7 @@ function hourly(state, cur, def, now) {
   const map = cur.map;
   if (def.special?.zones) {
     for (const z of map.targets.filter((t) => t.type === 'zone' && t.owned)) {
-      earn(state, 40 * z.tier, now, 'régions tenues');
+      earn(state, 40 * z.tier, now, 'régions tenues', 'combat');
       if (z.nextCounter && now >= z.nextCounter) {
         z.nextCounter = now + 2 * H;
         const m = liveState(state).marches.find((x) => x.targetId === z.id && x.phase === 'hold');
@@ -935,7 +942,7 @@ function resolveWave(state, cur, def, now) {
   cur.wavesWeak = 0;
   if (res.winner === 'defender') {
     bump(cur, 'waves');
-    const got = earn(state, 300 + n * 60, now, 'vague repoussée');
+    const got = earn(state, 300 + n * 60, now, 'vague repoussée', 'combat');
     addLiveReport(state, `👻 Vague ${n + 1} repoussée ! +${fmt(got)} ${def.currency.icon}.`, now);
     notify(state, '👻', `Vague ${n + 1} repoussée ! +${fmt(got)} ${def.currency.icon}`, now, 'good');
   } else {
@@ -967,7 +974,7 @@ function resolveAssault(state, cur, def, now) {
     const res = liveBattle(state, m, enemies, now, { tier: 3, label: 'Assaut' });
     const killed = Object.values(res.defLosses).reduce((a, b) => a + b, 0);
     bump(cur, 'assaults');
-    const got = earn(state, 200 + killed * 4, now, 'défense de la Citadelle');
+    const got = earn(state, 200 + killed * 4, now, 'défense de la Citadelle', 'combat');
     if (res.winner === 'attacker') dmg = Math.max(0, dmg - 2);
     addLiveReport(state, `🏰 Assaut ${n} : votre garnison abat ${killed} assaillants (+${fmt(got)} ${def.currency.icon}).`, now, res.winner === 'attacker');
     if (!unitCount(m.units)) homeLive(state, m, now);
@@ -1077,6 +1084,10 @@ export function endEvent(state, now = Date.now()) {
   // Récompenses non réclamées : objectifs et passe sont versés automatiquement
   for (const o of objectives(state)) if (o.done && !o.claimed) rewards.push(claimObjective(state, o.id, now).text);
   for (const l of passInfo(state).levels) if (l.ready && !l.claimed) rewards.push(claimPass(state, l.level, now).text);
+  dailyMissions(state).forEach((d, i) => { if (d.done && !d.claimed) rewards.push(claimDaily(state, i, now).text); });
+  const ch = challengeInfo(state);
+  if (ch?.done && !ch.claimed) rewards.push(claimChallenge(state, now).text);
+  if (cur.earned >= 500) rewards.push(`Participation : ${grantGive(state, { chest: 'rare', insignia: 2 }, now, 'Participation')}`);
   if (cur.coop?.mine) def.coop.tiers.forEach((tr, i) => { if (!cur.coopClaimed[i] && coopProgress(cur) >= tr) rewards.push(claimCoop(state, i, now).text); });
   if (def.special?.siege && cur.citadel > 0 && (cur.stats.assaults || 0) > 0) {
     rewards.push(grantGive(state, { [def.currency.key]: 1500 + 200 * cur.stats.assaults, chest: 'epic' }, now, 'Citadelle tenue'));
@@ -1217,4 +1228,75 @@ export function adminReroll(state, now = Date.now()) {
   L.calendar = [];
   ensureCalendar(state, now);
   return { ok: true };
+}
+
+// ───────── Phases de boss ─────────
+// Chaque rang du boss se joue en trois phases selon ses PV restants : préparez l'armée en conséquence.
+export function bossPhase(state, cur, def) {
+  const b = def.bosses?.[0];
+  const tier = b?.tiers[cur.bossIdx];
+  if (!tier) return { n: 0, name: '—' };
+  const frac = cur.bossHp / Math.round(tier.hp * liveCfg(state).bossHpMult);
+  if (frac > 0.66) return { n: 1, name: 'Phase 1 : Assaut', desc: 'Le boss se bat normalement.' };
+  if (frac > 0.33) return { n: 2, name: 'Phase 2 : Enragé', desc: 'Attaque du boss +30 % : envoyez des troupes solides (lanciers, infanterie lourde).', enemyMods: { 'combat.atk': 0.3 } };
+  return { n: 3, name: 'Phase 3 : Dernier rempart', desc: 'Carapace : dégâts −40 %, sauf avec des engins de siège (+15 %).', dmgMult: { other: 0.6, siege: 1.15 } };
+}
+
+// ───────── Stratégie d'événement ─────────
+export function setStance(state, key, now = Date.now()) {
+  const cur = liveState(state).current;
+  if (!cur) return { ok: false, reason: 'Aucun événement en cours' };
+  if (!EVENT_STANCES[key]) return { ok: false };
+  if ((cur.stance || 'balanced') === key) return { ok: false, reason: 'Déjà adoptée' };
+  if (cur.stanceDay === dayKey(now)) return { ok: false, reason: 'Une seule décision de stratégie par jour' };
+  cur.stance = key; cur.stanceDay = dayKey(now);
+  return { ok: true };
+}
+
+// ───────── Missions du jour ─────────
+export function rollDaily(state, now = Date.now()) {
+  const cur = liveState(state).current;
+  if (!cur) return;
+  const d = dayKey(now);
+  if (cur.daily?.day === d) return;
+  // Les missions non réclamées de la veille sont versées automatiquement
+  if (cur.daily) dailyMissions(state).forEach((m, i) => { if (m.done && !m.claimed) claimDaily(state, i, now); });
+  const def = LIVE_EVENTS[cur.key];
+  const stats = new Set(['earned', ...def.objectives.map((o) => o.stat), ...(def.bosses?.length ? ['bossDamage'] : []), ...(def.coop ? ['coopDamage'] : []), ...(def.special?.caravans ? ['caravans', 'escorts', 'trades'] : [])]);
+  const pool = [...stats].filter((k) => DAILY_TEMPLATES[k]);
+  const r = mulberry32(cur.seed ^ d);
+  const picks = [];
+  while (picks.length < Math.min(3, pool.length)) { const k = pool.splice(Math.floor(r() * pool.length), 1)[0]; picks.push(k); }
+  const scale = 0.8 + Math.min(1.2, thLevel(state) * 0.08);
+  cur.daily = { day: d, base: { ...cur.stats }, missions: picks.map((k, i) => { const T = DAILY_TEMPLATES[k]; const target = Math.max(1, Math.round(T.per * (k.endsWith('Damage') || k === 'earned' ? scale : 1))); return { id: `${d}_${i}`, stat: k, target, label: T.label(target), reward: T.reward, claimed: false }; }) };
+}
+export function dailyMissions(state) {
+  const cur = liveState(state).current;
+  if (!cur?.daily) return [];
+  return cur.daily.missions.map((m) => { const value = Math.floor((cur.stats[m.stat] || 0) - (cur.daily.base[m.stat] || 0)); return { ...m, value, done: value >= m.target }; });
+}
+export function claimDaily(state, i, now = Date.now()) {
+  const cur = liveState(state).current;
+  const m = dailyMissions(state)[i];
+  if (!m || !m.done || m.claimed) return { ok: false, reason: 'Mission non accomplie' };
+  cur.daily.missions[i].claimed = true;
+  return { ok: true, text: grantGive(state, { [LIVE_EVENTS[cur.key].currency.key]: m.reward }, now, 'Mission du jour') };
+}
+
+// ───────── Défi héroïque ─────────
+export function challengeInfo(state) {
+  const cur = liveState(state).current;
+  if (!cur) return null;
+  const def = LIVE_EVENTS[cur.key];
+  let c;
+  if (def.bosses?.length) c = { label: `Vaincre ${def.bosses[0].name} au rang III`, value: cur.bossIdx, target: 3 };
+  else if (def.coop) c = { label: `Infliger 150 000 dégâts à ${def.coop.name}`, value: Math.floor(cur.coop?.mine || 0), target: 150000 };
+  else c = { label: 'Gagner 25 000 de monnaie d’événement', value: Math.floor(cur.earned), target: 25000 };
+  return { ...c, done: c.value >= c.target, claimed: !!cur.challengeClaimed, reward: { legendaryFragments: 10, relicFragments: 1, title: `Héros — ${def.name}` } };
+}
+export function claimChallenge(state, now = Date.now()) {
+  const c = challengeInfo(state);
+  if (!c || !c.done || c.claimed) return { ok: false, reason: 'Défi non relevé' };
+  liveState(state).current.challengeClaimed = true;
+  return { ok: true, text: grantGive(state, c.reward, now, 'Défi héroïque') };
 }

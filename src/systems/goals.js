@@ -18,7 +18,8 @@ import { PRESTIGE_TH } from './talents.js';
 import { territoryLimit } from './world.js';
 import { shardState } from './shards.js';
 import { wheelCfg } from './config.js';
-import { objectives as eventObjectives } from './liveEvents.js';
+import { objectives as eventObjectives, dailyMissions } from './liveEvents.js';
+import { contractProgress } from './market.js';
 
 const costText = (c) => Object.entries(c || {}).map(([r, v]) => `${Math.round(v)} ${RESOURCES[r]?.icon || r}`).join(' ');
 
@@ -30,8 +31,8 @@ export function goals(state, now = Date.now()) {
   // ── Court terme ──
   for (const q of activeQuests(state)) short.push({ icon: '📌', title: q.title, desc: q.desc, cur: q.cur, max: q.target, done: q.done, reward: costText(q.reward), view: 'city', claim: q.done ? 'Réclamez-la dans le panneau Objectifs' : null });
   for (const c of (state.contracts || []).slice(0, 2)) {
-    const have = state.resources[c.res] || 0;
-    short.push({ icon: '📜', title: `Contrat : ${c.qty} ${RESOURCES[c.res].name} pour ${c.town}`, cur: Math.min(have, c.qty), max: c.qty, done: have >= c.qty, reward: costText(c.reward), until: c.until, view: 'convoys' });
+    const p = contractProgress(state, c);
+    short.push({ icon: '📜', title: c.title || `Contrat : ${c.qty} ${RESOURCES[c.res].name} pour ${c.town}`, cur: p.cur, max: p.max, done: p.done, reward: costText(c.reward), until: c.until, view: 'convoys' });
   }
   if (state.pending.length) short.push({ icon: '⚖️', title: `${state.pending.length} décision(s) en attente`, desc: 'Sans réponse, le choix par défaut s’applique à l’échéance.', view: null, urgent: true });
   const thUp = getUpgradeInfo(state, 'townhall', th + 1, mods);
@@ -42,7 +43,7 @@ export function goals(state, now = Date.now()) {
   const cur = state.live?.current;
   if (cur) {
     const def = LIVE_EVENTS[cur.key];
-    const daily = (cur.daily?.missions || []).filter((m) => !m.claimed);
+    const daily = dailyMissions(state).filter((m) => !m.claimed);
     for (const m of daily.slice(0, 2)) short.push({ icon: '🗓️', title: `${def.icon} Mission du jour : ${m.label}`, cur: Math.min(m.value || 0, m.target), max: m.target, done: (m.value || 0) >= m.target, reward: `${m.reward} ${def.currency.icon}`, view: 'event' });
   }
 

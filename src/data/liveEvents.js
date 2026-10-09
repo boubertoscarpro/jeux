@@ -360,6 +360,39 @@ export const LIVE_EVENTS = {
     guild: { label: 'Votre guilde doit tenir 300 assauts', stat: 'assaults', target: 300, reward: { chest: 'epic', citadelSeals: 1000 } },
     special: { siege: true, every: 4, coop: true, desc: 'Envoyez des troupes en garnison dans la Citadelle. Toutes les 4 h, un assaut frappe : votre garnison combat aux côtés des seigneurs alliés (IA). L’intégrité de la Citadelle baisse à chaque assaut, moins si vous repoussez l’ennemi ; si elle tient jusqu’au bout, vous recevez une grande récompense.' },
   },
+  // 11 ────────────────────────────────────────────────────────────
+  sevenMerchants: {
+    name: 'Le Convoi des Sept Marchands', icon: '🐫', color: '#b88a3a', tags: ['caravan', 'market'], weight: 7, duration: 72,
+    story: 'Les Sept Maisons marchandes de Valbrume traversent les Terres Brisées avec leurs plus riches convois. Les brigands les guettent, les taxes s’envolent et chaque seigneur doit choisir : protéger, commercer… ou piller. Les Sceaux des Sept récompensent les uns comme les autres.',
+    faction: { name: 'Compagnie des brigands', icon: '🗡️', desc: 'Pillards montés et archers ; les lanciers brisent leurs charges.' },
+    currency: { key: 'merchantSeals', name: 'Sceaux des Sept', icon: '📜', convert: { res: 'gold', per: 100, amount: 110 } },
+    mods: { 'market.fee': 0.04, 'caravan.gain': 0.25 },
+    enemies: { camp: { bandit: 8, banditArcher: 5, banditRider: 3 }, caravan: { guard: 6, royalArcher: 4 }, fortress: { bandit: 40, banditArcher: 30, banditRider: 25 } },
+    map: { w: 18, h: 11, terrain: { plain: 0.55, hills: 0.2, forest: 0.15, river: 0.1 }, targets: [{ type: 'caravan', count: 7 }, { type: 'camp', count: 8, tiers: [1, 6] }, { type: 'village', count: 3 }, { type: 'treasure', count: 2 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
+    objectives: [
+      { id: 'esc5', label: 'Escorter 5 convois', stat: 'escorts', target: 5, reward: { merchantSeals: 700, res: { silver: 20 } } },
+      { id: 'tr8', label: 'Conclure 8 échanges avec les marchands', stat: 'trades', target: 8, reward: { merchantSeals: 600, chest: 'rare' } },
+      { id: 'b8', label: 'Démanteler 8 repaires de brigands', stat: 'camps', target: 8, reward: { merchantSeals: 500 } },
+      { id: 'car10', label: 'Intercepter ou escorter 10 convois', stat: 'caravans', target: 10, reward: { merchantSeals: 1200, chest: 'epic' } },
+      { id: 'king', label: 'Vaincre le Roi des Brigands', stat: 'bossKills', target: 1, reward: { merchantSeals: 1000, mythicFragments: 5 } },
+    ],
+    bosses: [{ id: 'brigand', name: 'Roi des Brigands', unit: 'banditKing', tiers: [{ hp: 25000, reward: { merchantSeals: 1000 } }, { hp: 70000, reward: { merchantSeals: 2200, chest: 'epic' } }, { hp: 160000, reward: { merchantSeals: 4000, unique: 'merchantSignet' } }, { hp: 350000, reward: { merchantSeals: 7000, res: { silver: 80, gems: 30 } } }] }],
+    shop: shop('Comptoir des Sept', [
+      { id: 'signet', label: 'Chevalière des Sept Marchands', icon: '💍', price: 9000, give: { unique: 'merchantSignet' }, stock: 1, exclusive: true },
+      { id: 'deco', label: 'Décoration : Caravane des Sept', icon: '🐫', price: 2000, give: { deco: 'deco_caravan' }, stock: 1, exclusive: true },
+      { id: 'cav', label: '30 Cavaliers légers', icon: '🐎', price: 1200, give: { units: { lightcav: 30 } } },
+    ], [
+      { id: 'silver', label: '35 argent', icon: '🥈', price: 1000, give: { res: { silver: 35 } } },
+      { id: 'cloth', label: '500 tissu', icon: '🧵', price: 500, give: { res: { cloth: 500 } } },
+      { id: 'leather', label: '500 cuir', icon: '🟫', price: 500, give: { res: { leather: 500 } } },
+      { id: 'fortune', label: 'Lettre de crédit (+30 % caravanes, 6 h)', icon: '📜', price: 900, give: { buff: { name: 'Lettre de crédit', mods: { 'caravan.gain': 0.3 }, h: 6 } } },
+      { id: 'mythf', label: 'Fragments mythiques ×8', icon: '🧩', price: 2500, give: { mythicFragments: 8 }, stock: 2 },
+      { id: 'pikes', label: '60 Lanciers', icon: '🔱', price: 600, give: { units: { spearman: 60 } } },
+    ]),
+    guild: { label: 'Votre guilde doit escorter 500 convois', stat: 'escorts', target: 500, reward: { chest: 'epic', merchantSeals: 1000 } },
+    special: { caravans: true, desc: 'Marché bouleversé : taxe du marché +4 %, caravanes vers les cités +25 %. Les convois des Sept traversent la carte : escortez-les (récompense sûre), commercez avec eux, ou pillez-les (plus lucratif, mais ce sont des gardes d’élite).' },
+  },
+
 };
 
 // Événements surprises (hors rotation)
@@ -406,3 +439,33 @@ export const RIDDLES = [
   { q: 'Une salle contient 3 statues. Celle de gauche ment toujours, celle du centre dit toujours vrai. Celle de droite dit : « La statue du centre ment. » Que fait celle de droite ?', a: ['Elle dit vrai', 'Elle ment', 'Impossible à savoir'], ok: 1 },
   { q: 'On me prend avant de me donner. Que suis-je ?', a: ['Une promesse', 'Un coup', 'La parole'], ok: 0 },
 ];
+
+// Stratégies d'événement : un choix par jour qui oriente la progression (aucune n'est meilleure en tout)
+export const EVENT_STANCES = {
+  balanced: { name: 'Équilibre', icon: '⚖️', desc: 'Aucun bonus ni malus.', combat: 1, peace: 1 },
+  raid: { name: 'Razzia', icon: '⚔️', desc: '+25 % de monnaie au combat, −20 % pour le commerce, les escortes et les fouilles.', combat: 1.25, peace: 0.8 },
+  trade: { name: 'Diplomatie marchande', icon: '🤝', desc: '+30 % de monnaie pour les activités pacifiques, −20 % au combat.', combat: 0.8, peace: 1.3 },
+  caution: { name: 'Prudence', icon: '🛡️', desc: 'Pertes au combat −25 %, mais −10 % de monnaie partout.', combat: 0.9, peace: 0.9, losses: -0.25 },
+};
+
+// Missions quotidiennes : trois par jour, tirées parmi les activités propres à l'événement
+export const DAILY_TEMPLATES = {
+  camps: { label: (n) => `Vaincre ${n} cibles ennemies`, per: 4, reward: 300 },
+  caravans: { label: (n) => `Intercepter ou escorter ${n} convois`, per: 2, reward: 350 },
+  escorts: { label: (n) => `Escorter ${n} convois`, per: 2, reward: 350 },
+  trades: { label: (n) => `Conclure ${n} échanges`, per: 3, reward: 300 },
+  treasures: { label: (n) => `Déterrer ${n} trésors`, per: 2, reward: 300 },
+  ships: { label: (n) => `Aborder ${n} navire(s)`, per: 1, reward: 350 },
+  deliveries: { label: (n) => `Effectuer ${n} livraisons`, per: 3, reward: 300 },
+  riddles: { label: (n) => `Résoudre ${n} énigme(s)`, per: 1, reward: 400 },
+  explored: { label: (n) => `Explorer ${n} cases`, per: 15, reward: 250 },
+  veins: { label: (n) => `Exploiter ${n} filons`, per: 3, reward: 300 },
+  vents: { label: (n) => `Récolter ${n} évents`, per: 2, reward: 300 },
+  waves: { label: (n) => `Repousser ${n} vague(s)`, per: 1, reward: 400 },
+  assaults: { label: (n) => `Défendre la Citadelle lors de ${n} assauts`, per: 2, reward: 400 },
+  defended: { label: (n) => `Repousser ${n} contre-attaque(s)`, per: 1, reward: 350 },
+  traces: { label: (n) => `Suivre ${n} piste(s)`, per: 1, reward: 300 },
+  coopDamage: { label: (n) => `Infliger ${n} dégâts au colosse`, per: 15000, reward: 400 },
+  bossDamage: { label: (n) => `Infliger ${n} dégâts au boss`, per: 20000, reward: 400 },
+  earned: { label: (n) => `Gagner ${n} de monnaie`, per: 2000, reward: 250 },
+};

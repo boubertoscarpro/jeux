@@ -69,5 +69,6 @@ export const COSMETICS = {
   deco_lava:     { type: 'deco', name: 'Brasier de lave', icon: '🌋', cost: 0, exclusive: true },
   deco_lantern:  { type: 'deco', name: 'Lanterne des morts', icon: '🏮', cost: 0, exclusive: true },
   deco_tower:    { type: 'deco', name: 'Tour des Anciens', icon: '🏯', cost: 0, exclusive: true },
+  deco_caravan:  { type: 'deco', name: 'Caravane des Sept', icon: '🐫', cost: 0, exclusive: true },
   deco_bonfire:  { type: 'deco', name: 'Feu de joie', icon: '🔥', cost: 4 },
 };

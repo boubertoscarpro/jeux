@@ -7,7 +7,10 @@ import {
   liveState, ensureCalendar, actionsFor, ACTIONS, TARGET_INFO, targetName, isVisible, sendLive, recallLive, planLive, actionCost,
   objectives, claimObjective, passInfo, claimPass, leaderboard, lbRewardFor, guildInfo, claimGuild, coopProgress, claimCoop,
   lightFires, liveMarchNext, maxLiveMarches, liveTarget, lavaNear, scaleEnemies,
+  bossPhase, setStance, dailyMissions, claimDaily, challengeInfo, claimChallenge,
 } from '../../systems/liveEvents.js';
+import { EVENT_STANCES } from '../../data/liveEvents.js';
+import { dayKey } from '../../systems/shards.js';
 import { esc, countdown, progress, bar, resChips } from '../components.js';
 
 const giveText = (g, cur) => {
@@ -110,7 +113,7 @@ function selPanel(app, cur, def) {
   const info = [];
   if (t.enemies) info.push(`<h4>Défenseurs</h4><div class="chips">${enemyList(t.enemies)}</div>`);
   if (t.type === 'caravan' || t.type === 'ship') info.push(t.spied ? `<div class="small">👁️ Cargaison : <b>${esc(t.cargo)}</b> · destination (${t.dest.x}, ${t.dest.y}) · gardes : ${enemyList(scaleEnemies(s, def, t.type, t.tier))}</div>` : `<div class="small muted">En mouvement vers l’est. Espionnez-la pour connaître sa cargaison (+50 % de butin).</div>`);
-  if (t.type === 'boss') { const b = def.bosses[0]; const tier = b.tiers[cur.bossIdx]; if (tier) info.push(`<div class="small">PV : ${fmt(cur.bossHp)} / ${fmt(Math.round(tier.hp))}</div>${bar(cur.bossHp, tier.hp, 'bad')}<div class="small">Récompense du rang ${cur.bossIdx + 1} : ${giveText(tier.reward, cur)}</div><div class="small muted">Rangs : ${b.tiers.map((x, i) => `${i < cur.bossIdx ? '✔' : i === cur.bossIdx ? '▶' : '·'} ${['I', 'II', 'III', 'IV'][i]}`).join(' ')}</div>`); }
+  if (t.type === 'boss') { const b = def.bosses[0]; const tier = b.tiers[cur.bossIdx]; const ph = bossPhase(app.state, cur, def); if (tier) info.push(`<div class="small boss-phase phase-${ph.n}"><b>${esc(ph.name)}</b> — ${esc(ph.desc || '')}</div>`); if (tier) info.push(`<div class="small">PV : ${fmt(cur.bossHp)} / ${fmt(Math.round(tier.hp))}</div>${bar(cur.bossHp, tier.hp, 'bad')}<div class="small">Récompense du rang ${cur.bossIdx + 1} : ${giveText(tier.reward, cur)}</div><div class="small muted">Rangs : ${b.tiers.map((x, i) => `${i < cur.bossIdx ? '✔' : i === cur.bossIdx ? '▶' : '·'} ${['I', 'II', 'III', 'IV'][i]}`).join(' ')}</div>`); }
   if (t.type === 'vein') info.push(`<div class="small">Poches restantes : ${t.amount}/${t.max}. Des prospecteurs rivaux revendiquent les filons libres.</div>`);
   if (t.type === 'vent') info.push(`<div class="small">${lavaNear(cur.map, t.x, t.y) ? '<span class="bad">⚠️ La lave cerne cet évent : pertes probables.</span>' : 'Accès dégagé pour l’instant.'}${t.cooldown > Date.now() ? ` Se recharge : ${countdown(t.cooldown)}` : ''}</div>`);
   if (t.type === 'riddle' && t.sealedUntil > Date.now()) info.push(`<div class="small bad">Salle scellée encore ${countdown(t.sealedUntil)}.</div>`);
@@ -133,6 +136,22 @@ function marchList(app, cur) {
     return `<div class="q-row"><div class="q-top"><span>${ACTIONS[m.action]?.icon || '🚶'} ${t ? esc(targetName(cur, t)) : `(${m.x}, ${m.y})`} · ${phase}</span>${end < Infinity ? countdown(end) : ''}${m.phase !== 'back' ? `<button class="mini ghost" data-action="ev-recall" data-id="${m.id}">↩</button>` : ''}</div>
       <div class="muted small">${Object.values(m.units).reduce((a, b) => a + b, 0)} unités${Object.keys(m.loot).length ? ' · ' + resChips(m.loot) : ''}</div>${end < Infinity ? progress(start, end) : ''}</div>`;
   }).join('')}</div>`;
+}
+
+function planCard(app, cur, def) {
+  const st = cur.stance || 'balanced';
+  const changed = cur.stanceDay === dayKey(Date.now());
+  const ds = dailyMissions(app.state);
+  const ch = challengeInfo(app.state);
+  return `<div class="cols-3">
+    <div class="card"><h3>🧭 Stratégie <span class="muted small">${changed ? 'déjà changée aujourd’hui' : '1 changement par jour'}</span></h3>
+      ${Object.entries(EVENT_STANCES).map(([k, x]) => `<button class="spec ${st === k ? 'active' : ''}" data-action="ev-stance" data-k="${k}" ${st === k || changed ? 'disabled' : ''}><b>${x.icon} ${esc(x.name)}</b><span class="small muted">${esc(x.desc)}</span></button>`).join('')}</div>
+    <div class="card"><h3>🗓️ Missions du jour <span class="muted small">renouvelées à minuit</span></h3>
+      ${ds.map((m, i) => `<div class="objective ${m.done ? 'done' : ''}"><div class="row between"><span>${m.claimed ? '✔' : m.done ? '🎁' : '◻'} ${esc(m.label)}</span><span class="muted small">${fmt(Math.min(m.value, m.target))}/${fmt(m.target)}</span></div>${bar(m.value, m.target)}
+        <div class="row between small"><span>${fmt(m.reward)} ${def.currency.icon}</span>${m.done && !m.claimed ? `<button class="mini good" data-action="ev-daily" data-i="${i}">Réclamer</button>` : ''}</div></div>`).join('') || '<p class="muted small">Les missions arrivent au prochain tick.</p>'}</div>
+    <div class="card"><h3>🔥 Défi héroïque</h3>${ch ? `<div class="objective ${ch.done ? 'done' : ''}"><div>${esc(ch.label)}</div>${bar(ch.value, ch.target)}<div class="small muted">${fmt(Math.min(ch.value, ch.target))}/${fmt(ch.target)}</div>
+      <div class="small">🎁 10 fragments légendaires, 1 fragment de relique, titre « ${esc(ch.reward.title)} »</div>${ch.done && !ch.claimed ? '<button class="mini good" data-action="ev-challenge">Réclamer</button>' : ch.claimed ? '<span class="ok small">✔ Relevé</span>' : ''}</div>` : ''}
+      <p class="small muted">Réservé aux seigneurs préparés. Récompense de participation (coffre rare + 2 insignes) dès 500 de monnaie gagnée.</p></div></div>`;
 }
 
 function objectivesCard(app, cur) {
@@ -209,7 +228,7 @@ export default {
   badge: (app) => {
     const cur = app.state.live?.current;
     if (!cur) return 0;
-    return objectives(app.state).filter((o) => o.done && !o.claimed).length + passInfo(app.state).levels.filter((l) => l.ready && !l.claimed).length;
+    return objectives(app.state).filter((o) => o.done && !o.claimed).length + passInfo(app.state).levels.filter((l) => l.ready && !l.claimed).length + dailyMissions(app.state).filter((m) => m.done && !m.claimed).length;
   },
   render(app) {
     const s = app.state;
@@ -218,6 +237,7 @@ export default {
     const def = LIVE_EVENTS[cur.key];
     return `${header(app, cur, def)}${specialPanel(app, cur, def)}
       <div class="ev-layout"><div class="card">${mapView(app, cur)}</div><div class="ev-side">${selPanel(app, cur, def)}${marchList(app, cur)}</div></div>
+      ${planCard(app, cur, def)}
       <div class="cols-2">${objectivesCard(app, cur)}${lbCard(app, cur)}</div>
       ${passCard(app, cur)}${logCard(cur)}`;
   },
@@ -234,6 +254,9 @@ export default {
     'ev-pass': (app, el) => app.act(() => claimPass(app.state, el.dataset.l), (r) => `🎫 ${r.text}`),
     'ev-guild': (app) => app.act(() => claimGuild(app.state), (r) => `🏛️ ${r.text}`),
     'ev-coop': (app, el) => app.act(() => claimCoop(app.state, +el.dataset.i), (r) => `🐉 ${r.text}`),
+    'ev-stance': (app, el) => app.act(() => setStance(app.state, el.dataset.k), 'Stratégie adoptée pour aujourd’hui'),
+    'ev-daily': (app, el) => app.act(() => claimDaily(app.state, +el.dataset.i), (r) => `🗓️ ${r.text}`),
+    'ev-challenge': (app) => app.act(() => claimChallenge(app.state), (r) => `🔥 ${r.text}`),
     'ev-fires': (app) => app.act(() => lightFires(app.state), '🔥 Les Feux sacrés protègent la ville jusqu’à la prochaine vague'),
   },
 };

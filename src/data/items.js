@@ -98,6 +98,7 @@ export const UNIQUE_ITEMS = {
   obsidianHelm: { slot: 'helmet', name: 'Heaume d’obsidienne', rarity: 'legendary', affixes: { 'combat.def': 0.12, 'combat.losses': -0.08 } },
   boneCrown:    { slot: 'helmet', name: 'Couronne d’os', rarity: 'legendary', affixes: { 'combat.morale': 12, 'city.def': 0.1 } },
   bastionShield:{ slot: 'armor', name: 'Bouclier des Anciens', rarity: 'legendary', affixes: { 'city.def': 0.15, 'combat.def': 0.1 } },
+  merchantSignet: { slot: 'ring', name: 'Chevalière des Sept Marchands', rarity: 'legendary', affixes: { 'caravan.gain': 0.12, 'loot.rare': 0.03, 'stat.lore': 8 } },
   emberCompass: { slot: 'amulet', name: 'Boussole des Braises', rarity: 'epic', affixes: { 'explore.speed': 0.25, 'loot.rare': 0.04 } },
 };
 

@@ -1,6 +1,7 @@
 import { recordLoss } from './losses.js';
 import { RESOURCES, TRADABLE, isCapped } from '../data/resources.js';
 import { WORLD_EVENTS } from '../data/events.js';
+import { RIVALS } from '../data/world.js';
 import { rng } from '../core/rng.js';
 import { uid, fmt } from '../core/util.js';
 import { levelOf } from './city.js';
@@ -225,39 +226,97 @@ export function completeCaravan(state, c, t) {
   }
 }
 
-// ---------- Contrats des cités (livraisons à échéance) ----------
+// ---------- Contrats et commissions ----------
+// Catégories : commerce, livraison urgente, artisanat, exploration, militaire, diplomatie, guilde.
+// Chaque contrat a une difficulté (1 à 3), une échéance, une récompense et un bonus de rapidité (+25 %
+// s'il est rempli dans les premiers 40 % du délai). Les objectifs « à accomplir » se mesurent à partir
+// de la publication du contrat.
+export const CONTRACT_KINDS = {
+  trade: { name: 'Commande commerciale', icon: '📦' },
+  urgent: { name: 'Livraison urgente', icon: '⏰' },
+  craft: { name: 'Commande d’artisanat', icon: '⚒️' },
+  explore: { name: 'Mission d’exploration', icon: '🧭' },
+  military: { name: 'Contrat militaire', icon: '⚔️' },
+  diplomacy: { name: 'Mission diplomatique', icon: '🕊️' },
+  guild: { name: 'Objectif de guilde', icon: '🏛️' },
+};
+const BASIC_GOODS = ['wood', 'stone', 'iron', 'food', 'herbs', 'coal', 'leather', 'cloth'];
+const CRAFT_GOODS = ['planks', 'steel', 'weapons', 'bread', 'rations', 'frames'];
+
+function makeContract(state, town, now) {
+  const th = levelOf(state, 'townhall');
+  const kinds = { trade: 4, urgent: 2, craft: 2, explore: 2, military: 2, diplomacy: (state.factions || []).length ? 1.5 : 0, guild: state.guild ? 1.5 : 0 };
+  const kind = rng.weighted(kinds);
+  const diff = rng.int(1, 3);
+  const c = { id: uid('ct'), kind, diff, town: town.name, tx: town.x, ty: town.y, posted: now, reward: {} };
+  const dur = (h) => { c.until = now + h * 3600000; };
+  const delivery = (pool, k, hours) => {
+    const res = rng.pick(pool);
+    const qty = Math.round(((300 + th * 250) * (0.6 + diff * 0.4)) / Math.max(0.6, Math.sqrt(RESOURCES[res].price)) / 10) * 10;
+    Object.assign(c, { res, qty, title: `${fmt(qty)} ${RESOURCES[res].name}` });
+    c.reward.gold = Math.round(qty * RESOURCES[res].price * rng.float(1.4, 1.9) * k);
+    dur(hours);
+  };
+  if (kind === 'trade') delivery(BASIC_GOODS, 1, rng.int(4, 8));
+  if (kind === 'urgent') { delivery(BASIC_GOODS, 1.45, rng.int(1, 2)); c.reward.silver = 2 + diff * 2; }
+  if (kind === 'craft') { delivery(CRAFT_GOODS, 1.25, rng.int(6, 10)); if (diff >= 2) c.reward.gems = diff; }
+  const goal = (stat, n, title, hours) => { Object.assign(c, { stat, n, base: statValue(state, stat, c), title }); dur(hours); };
+  if (kind === 'explore') { goal('explored', 2 + diff * 2, `Explorer ${2 + diff * 2} nouvelles zones`, 10); c.reward = { gold: 250 * diff * (1 + th * 0.3) | 0, crystals: diff * 2 }; c.rep = 'explorer'; }
+  if (kind === 'military') { goal('battlesWon', 1 + diff * 2, `Remporter ${1 + diff * 2} batailles`, 10); c.reward = { gold: 300 * diff * (1 + th * 0.3) | 0, iron: 200 * diff }; c.rep = 'warrior'; }
+  if (kind === 'diplomacy') {
+    const f = rng.pick(state.factions);
+    c.faction = f.idx;
+    goal('relation', 6 + diff * 4, `Améliorer de ${6 + diff * 4} la relation avec ${RIVALS[f.idx]?.name || 'une faction'}`, 16);
+    c.reward = { gold: 280 * diff * (1 + th * 0.3) | 0 }; c.rep = 'diplomat'; c.insignia = 1;
+  }
+  if (kind === 'guild') { goal('guild', 200 * diff * (1 + th * 0.2) | 0, 'Contribuer à votre guilde (dons, objectifs)', 12); c.reward = { gold: 200 * diff * (1 + th * 0.3) | 0 }; c.insignia = diff; }
+  c.title = `${CONTRACT_KINDS[kind].icon} ${CONTRACT_KINDS[kind].name} — ${c.title}`;
+  return c;
+}
+
+function statValue(state, stat, c) {
+  if (stat === 'relation') return (state.factions || []).find((f) => f.idx === c.faction)?.relation || 0;
+  if (stat === 'guild') return state.guild?.contributed || 0;
+  return state.stats[stat] || 0;
+}
+
+export function contractProgress(state, c) {
+  if (c.res) { const have = state.resources[c.res] || 0; return { cur: Math.min(have, c.qty), max: c.qty, done: have >= c.qty }; }
+  const v = statValue(state, c.stat, c) - (c.base || 0);
+  return { cur: Math.max(0, Math.min(v, c.n)), max: c.n, done: v >= c.n };
+}
+
 export function contractsTick(state, now) {
   state.contracts = (state.contracts || []).filter((c) => c.until > now);
   const towns = Object.values(state.world.pois).filter((p) => p.type === 'town' && state.world.revealed[p.y * state.world.size + p.x]);
   if (!towns.length || !levelOf(state, 'market')) return;
-  if (state.contracts.length >= 3 || (state.nextContract || 0) > now) return;
+  if (state.contracts.length >= 4 || (state.nextContract || 0) > now) return;
   state.nextContract = now + 25 * 60000;
-  {
-    const town = rng.pick(towns);
-    const res = rng.pick(['wood', 'stone', 'iron', 'food', 'leather', 'cloth', 'steel', 'planks', 'bread', 'herbs', 'weapons', 'rations', 'coal']);
-    const th = levelOf(state, 'townhall');
-    const qty = Math.round((300 + th * 250) / Math.max(0.6, Math.sqrt(RESOURCES[res].price)) / 10) * 10;
-    const reward = { gold: Math.round(qty * RESOURCES[res].price * rng.float(1.4, 1.9)) };
-    if (rng.chance(0.25)) reward.silver = rng.int(2, 6);
-    if (rng.chance(0.08)) reward.gems = rng.int(1, 3);
-    state.contracts.push({ id: uid('ct'), town: town.name, tx: town.x, ty: town.y, res, qty, reward, until: now + rng.int(3, 8) * 3600000 });
-  }
+  state.contracts.push(makeContract(state, rng.pick(towns), now));
 }
 
 export function fulfillContract(state, id, now = Date.now()) {
   const c = (state.contracts || []).find((x) => x.id === id);
   if (!c || c.until <= now) return { ok: false, reason: 'Contrat expiré' };
-  const own = (state.resources[c.res] || 0) - boughtRecent(state, c.res);
-  if ((state.resources[c.res] || 0) >= c.qty && own < c.qty) return { ok: false, reason: `La cité exige des marchandises produites par votre royaume (${fmt(Math.max(0, own))} sur ${fmt(c.qty)} ; le reste a été acheté au marché récemment)` };
-  if (!pay(state, { [c.res]: c.qty })) return { ok: false, reason: `Il faut ${fmt(c.qty)} ${RESOURCES[c.res].name}` };
-  gain(state, c.reward, computeMods(state, now));
+  if (c.res) {
+    const own = (state.resources[c.res] || 0) - boughtRecent(state, c.res);
+    if ((state.resources[c.res] || 0) >= c.qty && own < c.qty) return { ok: false, reason: `La cité exige des marchandises produites par votre royaume (${fmt(Math.max(0, own))} sur ${fmt(c.qty)} ; le reste a été acheté au marché récemment)` };
+    if (!pay(state, { [c.res]: c.qty })) return { ok: false, reason: `Il faut ${fmt(c.qty)} ${RESOURCES[c.res].name}` };
+  } else {
+    const p = contractProgress(state, c);
+    if (!p.done) return { ok: false, reason: `Objectif non atteint (${fmt(p.cur)}/${fmt(p.max)})` };
+  }
+  const fast = c.posted && now - c.posted <= (c.until - c.posted) * 0.4;
+  const reward = Object.fromEntries(Object.entries(c.reward).map(([r, v]) => [r, Math.round(v * (fast ? 1.25 : 1))]));
+  gain(state, reward, computeMods(state, now));
+  if (c.insignia) state.meta.insignia = (state.meta.insignia || 0) + c.insignia;
   state.contracts = state.contracts.filter((x) => x.id !== id);
   const town = poiAt(state.world, c.tx, c.ty);
   if (town) town.relation = (town.relation || 0) + 3;
-  bumpRep(state, 'merchant', 6);
+  bumpRep(state, c.rep || 'merchant', 6);
   state.stats.contracts = (state.stats.contracts || 0) + 1;
   if (state.stats.contracts === 25) grantArtifact(state, 'merchantCrown', now, 'Contrats');
-  return { ok: true, reward: c.reward };
+  return { ok: true, reward, fast };
 }
 
 export function cancelRoute(state, cid) {

@@ -162,10 +162,13 @@ test('convois : les gardes réduisent le risque, les contrats rapportent', () =>
   assert.equal(c.ok, true, c.reason);
   assert.equal(s.army.spearman, 30);
   s.world.revealed[town.y * s.world.size + town.x] = 1;
-  contractsTick(s, T0);
-  assert.equal(s.contracts.length, 1);
+  let t = T0;
+  for (let i = 0; i < 40 && !s.contracts.some((c) => c.res); i++) { s.contracts = []; s.nextContract = 0; contractsTick(s, t); t += 1000; }
+  const ct = s.contracts.find((c) => c.res);
+  assert.ok(ct, 'un contrat de livraison est publié');
+  s.resources[ct.res] = ct.qty;
   const gold = s.resources.gold;
-  assert.equal(fulfillContract(s, s.contracts[0].id, T0).ok, true);
+  assert.equal(fulfillContract(s, ct.id, t).ok, true);
   assert.ok(s.resources.gold > gold);
 });
 

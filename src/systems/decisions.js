@@ -16,6 +16,7 @@ import { createWorker, housing } from './workforce.js';
 import { spawnPoi, findFreeTile, reveal, setTerrain, key } from './world.js';
 import { maxHeroes } from './tavern.js';
 import { log, toast } from './log.js';
+import { shardState } from './shards.js';
 
 const DECISION_TTL = 2 * 3600000;
 
@@ -84,7 +85,7 @@ export function resolveDecision(state, pid, idx, now = Date.now(), auto = false)
   return { ok: true, text };
 }
 
-function applyDecisionFx(state, p, fx, now) {
+export function applyDecisionFx(state, p, fx, now) {
   const mods = computeMods(state, now);
   const parts = [];
   if (fx.res) {
@@ -98,8 +99,9 @@ function applyDecisionFx(state, p, fx, now) {
     gain(state, d, mods);
     parts.push(Object.entries(d).map(([r, v]) => `${v > 0 ? '+' : ''}${fmt(v)} ${RESOURCES[r].icon}`).join(' '));
   }
-  if (fx.rep) for (const [a, n] of Object.entries(fx.rep)) bumpRep(state, a, n);
-  if (fx.relation) changeRelation(state, p.faction, fx.relation);
+  const REP = { benefactor: 'bienfaiteur', merchant: 'marchand', tyrant: 'tyran', warrior: 'guerrier', lord: 'seigneur', diplomat: 'diplomate', explorer: 'explorateur' };
+  if (fx.rep) for (const [a, n] of Object.entries(fx.rep)) { bumpRep(state, a, n); parts.push(`réputation de ${REP[a] || a} ${n > 0 ? '+' : ''}${n}`); }
+  if (fx.relation) { changeRelation(state, p.faction, fx.relation); parts.push(`relation avec ${RIVALS[p.faction]?.name || 'la faction'} ${fx.relation > 0 ? '+' : ''}${fx.relation}`); }
   if (fx.townRel && p.town) { const t = state.world.pois[p.town]; if (t) t.relation = (t.relation || 0) + fx.townRel; }
   if (fx.vassal && p.town) { const t = state.world.pois[p.town]; if (t) { t.vassal = true; parts.push(`${t.name} devient votre vassale`); chronicle(state, `${t.name} passe sous la bannière de ${state.meta.kingdomName}.`, now); } }
   if (fx.war) { const r = diplomacy(state, p.faction, 'war', now); if (r.ok) parts.push(r.msg); }
@@ -135,6 +137,25 @@ function applyDecisionFx(state, p, fx, now) {
     }
   }
   if (fx.crater || fx.lostCity) applySecret(state, fx.crater ? 'meteorite' : 'lostCity', fx, now);
+  // Effets supplémentaires des sagas
+  if (fx.relation2 && p.faction2 !== undefined) { changeRelation(state, p.faction2, fx.relation2); parts.push(`relation avec ${RIVALS[p.faction2]?.name || 'la faction'} ${fx.relation2 > 0 ? '+' : ''}${fx.relation2}`); }
+  if (fx.relicFragments) { shardState(state).relicFragments += fx.relicFragments; parts.push(`+${fx.relicFragments} fragment(s) de relique`); }
+  if (fx.units) { for (const [u, n] of Object.entries(fx.units)) state.army[u] = (state.army[u] || 0) + n; parts.push(Object.entries(fx.units).map(([u, n]) => `+${n} ${u}`).join(', ')); }
+  if (fx.research) { const q = state.queues.research[0]; if (q) { q.end -= fx.research * 1000; q.start -= fx.research * 1000; parts.push('recherche accélérée'); } }
+  if (fx.reveal) {
+    const w = state.world;
+    const ang = rng.float(0, Math.PI * 2);
+    const x = Math.round(w.capital.x + Math.cos(ang) * w.size * 0.35), y = Math.round(w.capital.y + Math.sin(ang) * w.size * 0.35);
+    reveal(w, Math.max(3, Math.min(w.size - 4, x)), Math.max(3, Math.min(w.size - 4, y)), 4);
+    parts.push(`région révélée vers (${x}, ${y})`);
+  }
+  if (fx.chance) {
+    const c = fx.chance;
+    const p0 = Math.min(0.9, c.base + (c.rep ? (state.reputation?.[c.rep] || 0) * c.per : 0));
+    const win = rng.chance(p0);
+    parts.push(`${win ? 'succès' : 'échec'} (${Math.round(p0 * 100)} % de chances)`);
+    parts.push(applyDecisionFx(state, p, (win ? c.win : c.lose) || {}, now));
+  }
   return parts.filter(Boolean).join(', ') + '.';
 }
 

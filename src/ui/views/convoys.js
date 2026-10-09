@@ -3,14 +3,14 @@ import { UNITS } from '../../data/units.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { levelOf } from '../../systems/city.js';
-import { CONVOY_MODES, convoyRisk, sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots, fulfillContract, cancelRoute, tradeBlocked } from '../../systems/market.js';
+import { CONVOY_MODES, convoyRisk, sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots, fulfillContract, cancelRoute, tradeBlocked, contractProgress, CONTRACT_KINDS } from '../../systems/market.js';
 import { isRevealed } from '../../systems/world.js';
-import { esc, resChips, countdown, progress } from '../components.js';
+import { esc, resChips, countdown, progress, bar } from '../components.js';
 
 export default {
   id: 'convoys', title: 'Convois & contrats', icon: '🐪',
   locked: (app) => (levelOf(app.state, 'market') ? null : 'Construisez un Marché pour organiser convois, routes commerciales et contrats.'),
-  badge: (app) => (app.state.contracts || []).filter((c) => (app.state.resources[c.res] || 0) >= c.qty).length,
+  badge: (app) => (app.state.contracts || []).filter((c) => contractProgress(app.state, c).done).length,
   render(app) {
     const s = app.state;
     const mods = computeMods(s);
@@ -42,9 +42,15 @@ export default {
         <button class="btn primary" data-action="cv-send">Envoyer le convoi</button>`}
       </div>
       <div class="card"><h2>📜 Contrats des cités</h2>
-        <p class="muted small">Les cités publient des commandes à échéance, payées bien au-dessus du marché. Farmez ce qu’on vous demande !</p>
-        ${(s.contracts || []).map((c) => `<div class="objective ${(s.resources[c.res] || 0) >= c.qty ? 'done' : ''}"><div class="q-top"><b>🏘️ ${esc(c.town)} demande ${fmt(c.qty)} ${RESOURCES[c.res].icon} ${esc(RESOURCES[c.res].name)}</b>${countdown(c.until)}</div>
-          <div class="quest-foot">${resChips(c.reward)}<span class="muted small">stock ${fmt(s.resources[c.res] || 0)}</span><button class="mini good" data-action="ct-do" data-id="${c.id}" ${(s.resources[c.res] || 0) >= c.qty ? '' : 'disabled'}>Livrer</button></div></div>`).join('') || '<div class="muted small">Aucun contrat pour l’instant (renouvellement toutes les 25 min).</div>'}
+        <p class="muted small">Commandes, missions et commissions publiées par les cités (jusqu’à 4, une nouvelle toutes les 25 min). Les livraisons exigent des marchandises <b>produites par votre royaume</b>. Remplir un contrat dans les premiers 40 % du délai rapporte <b>+25 %</b>. Les objectifs se mesurent depuis la publication.</p>
+        ${(s.contracts || []).map((c) => {
+          const p = contractProgress(s, c);
+          const fastUntil = c.posted ? c.posted + (c.until - c.posted) * 0.4 : 0;
+          const title = c.title || `📦 Commande commerciale — ${fmt(c.qty)} ${RESOURCES[c.res].name}`;
+          return `<div class="objective ${p.done ? 'done' : ''}"><div class="q-top"><b>${esc(title)}</b><span class="small">${'★'.repeat(c.diff || 1)}${'☆'.repeat(3 - (c.diff || 1))}</span>${countdown(c.until)}</div>
+          <div class="small muted">🏘️ ${esc(c.town)}${fastUntil > Date.now() ? ` · bonus de rapidité encore ${countdown(fastUntil)}` : ''}</div>${bar(p.cur, p.max)}
+          <div class="quest-foot">${resChips(c.reward)}${c.insignia ? ` <span class="res-chip">🎖️ ${c.insignia}</span>` : ''}<span class="muted small">${fmt(p.cur)}/${fmt(p.max)}</span><button class="mini good" data-action="ct-do" data-id="${c.id}" ${p.done ? '' : 'disabled'}>${c.res ? 'Livrer' : 'Réclamer'}</button></div></div>`;
+        }).join('') || '<div class="muted small">Aucun contrat pour l’instant (renouvellement toutes les 25 min, marché et cité découverte requis).</div>'}
       </div></div>
       <div class="card"><h2>🛤️ Caravanes en route</h2>
         ${s.caravans.map((c) => `<div class="q-row"><div class="q-top"><span>${CONVOY_MODES[c.mode || 'secure'].icon} ${esc(c.town)} — ${fmt(c.qty)} ${RESOURCES[c.res].icon} → ${fmt(c.gold)} 🪙 · risque ${Math.round((c.risk || 0) * 100)}%${Object.keys(c.guards || {}).length ? ` · 🛡️ ${Object.entries(c.guards).map(([u, n]) => `${n} ${UNITS[u].name}`).join(', ')}` : ''}${c.repeat ? ' 🔁' : ''}</span>${countdown(c.end)}${c.repeat ? `<button class="mini ghost" data-action="cv-stop" data-id="${c.id}">Arrêter la route</button>` : ''}</div>${progress(c.start, c.end)}</div>`).join('') || '<div class="muted small">Aucune caravane.</div>'}
@@ -61,6 +67,6 @@ export default {
       app.act(() => sendCaravan(app.state, x, y, d.res, d.qty, d.repeat, Date.now(), d.mode, d.guards > 0 ? { spearman: d.guards } : {}), (r) => `🐪 Convoi parti (recette prévue ${fmt(r.gold)} or, risque ${Math.round(r.risk * 100)}%)`);
     },
     'cv-stop': (app, el) => { cancelRoute(app.state, el.dataset.id); app.render(); },
-    'ct-do': (app, el) => app.act(() => fulfillContract(app.state, el.dataset.id), 'Contrat honoré !'),
+    'ct-do': (app, el) => app.act(() => fulfillContract(app.state, el.dataset.id), (r) => `Contrat honoré !${r.fast ? ' Bonus de rapidité +25 %' : ''}`),
   },
 };

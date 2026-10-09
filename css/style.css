@@ -591,3 +591,7 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .spec { display: flex; flex-direction: column; gap: 3px; text-align: left; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; color: var(--text); cursor: pointer; font-family: inherit; }
 .spec.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold2); cursor: default; }
 .spec:hover:not(.active) { border-color: var(--gold2); }
+.boss-phase { padding: 4px 8px; border-radius: 6px; margin: 4px 0; border-left: 3px solid var(--good); background: var(--bg2); }
+.boss-phase.phase-2 { border-color: var(--warn); }
+.boss-phase.phase-3 { border-color: var(--bad); }
+.card .spec { width: 100%; margin-bottom: 6px; }
