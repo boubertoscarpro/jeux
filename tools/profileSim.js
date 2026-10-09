@@ -1,6 +1,7 @@
 // Simulation de progression par profils de joueurs, avec le VRAI moteur du jeu.
 // Profils : occasionnel, actif, très optimisé, économie, armée, exploration.
 // Lancer : node tools/profileSim.js [jours] [graines]
+//         node tools/profileSim.js --kingdoms [jours] [graines]   (comparaison des 8 spécialisations)
 import { createNewState } from '../src/core/state.js';
 import { advance } from '../src/core/engine.js';
 import { serialize } from '../src/core/save.js';
@@ -19,7 +20,11 @@ import { sendMarch } from '../src/systems/marches.js';
 import { resolveAny } from '../src/systems/pending.js';
 import { isRevealed } from '../src/systems/world.js';
 import { claimMilestone, milestoneList } from '../src/systems/quests.js';
-import { objectives, claimMission, claimChapter, claimRoyalDaily, campaignTick } from '../src/systems/campaign.js';
+import { objectives, claimMission, claimChapter, claimRoyalDaily, campaignTick, campaignState, trainingBattle, markVisited } from '../src/systems/campaign.js';
+import { diplomacy } from '../src/systems/factions.js';
+import { sendCaravan } from '../src/systems/market.js';
+import { createTeam, setTeam, startExpedition } from '../src/systems/expeditions.js';
+import { KINGDOM_TYPES } from '../src/data/kingdoms.js';
 import { sell } from '../src/systems/market.js';
 import { fulfillContract, contractProgress } from '../src/systems/market.js';
 import { claimTerritory, setSpec, setGarrison, upgradeOutpost } from '../src/systems/territory.js';
@@ -119,12 +124,13 @@ const isActive = (p, t) => {
   return hour >= p.from && hour < p.to && min % p.every < 10;
 };
 
-export function simulate(profileKey, days = 7, seed = 1) {
+export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, checkpoints = []) {
   const p = PROFILES[profileKey];
   rng.setSource(mulberry32(seed * 131 + profileKey.length * 7));
   const T0 = Date.UTC(2026, 5, 1, 0, 0);
-  const s = createNewState({ seed: `prof${seed}`, now: T0 });
+  const s = createNewState({ seed: `prof${seed}`, now: T0, kingdomType });
   let t = T0, famineMin = 0, cappedMin = 0, samples = 0;
+  const snaps = {};
   const STEP = 10 * 60000;
   for (let i = 0; i < (days * 24 * H) / STEP; i++) {
     t += STEP;
@@ -136,6 +142,8 @@ export function simulate(profileKey, days = 7, seed = 1) {
       samples++;
       if (['wood', 'stone', 'food'].some((r) => isCapped(r) && s.resources[r] >= cap * 0.98)) cappedMin += 60;
     }
+    const day = (t - T0) / (24 * H);
+    if (checkpoints.includes(day)) snaps[day] = { th: thLevel(s), levels: totalLevels(s), techs: Object.keys(s.techs).length, chapter: s.campaign.chapter, won: s.stats.battlesWon, explored: s.stats.explored, army: Object.values(s.army).reduce((a, b) => a + b, 0) };
   }
   const mods = computeMods(s, t);
   const net = netRates(s, mods);
@@ -146,12 +154,30 @@ export function simulate(profileKey, days = 7, seed = 1) {
     territories: Object.keys(s.territories).length, contracts: s.stats.contracts || 0, goldPerH: Math.round(net.gold || 0), foodNet: Math.round(net.food || 0),
     wealth: Math.round(wealth), famineH: Math.round(famineMin / 60), cappedH: Math.round(cappedMin / 60), shards: shardState(s).count + shardState(s).tickets * 10,
     raidsLost: s.stats.raidsLost || 0, saveKB: Math.round(serialize(s).length / 1024),
+    chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
   };
   rng.setSource(null);
   return out;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Comparaison des spécialisations : profil « Actif », relevés en début (1 j), milieu (3 j) et fin (7 j) de simulation
+function kingdomTable(days, seeds) {
+  const types = [null, ...Object.keys(KINGDOM_TYPES)];
+  const cps = [1, 3, days];
+  console.log(`Spécialisations — profil Actif, ${seeds} partie(s), relevés à ${cps.join(' / ')} jours\n`);
+  console.log('| Spécialisation | HdV | Niv. bâtiments | Technos | Chapitres finis | Victoires | Cases explorées | Armée | Or/h (fin) | Nourriture nette/h (fin) | Famine (h) | Raids perdus |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const k of types) {
+    const runs = Array.from({ length: seeds }, (_, i) => simulate('active', days, i + 1, k, cps));
+    const avg = (f) => runs.reduce((a, r) => a + f(r), 0) / runs.length;
+    const fmt3 = (f) => cps.map((d) => Math.round(avg((r) => f(r.snaps[d] || {})) * 10) / 10).join(' / ');
+    console.log(`| ${k ? KINGDOM_TYPES[k].name : 'Sans spécialisation'} | ${fmt3((x) => x.th || 0)} | ${fmt3((x) => x.levels || 0)} | ${fmt3((x) => x.techs || 0)} | ${Math.round(avg((r) => r.chapter) * 10) / 10} | ${fmt3((x) => x.won || 0)} | ${fmt3((x) => x.explored || 0)} | ${fmt3((x) => x.army || 0)} | ${Math.round(avg((r) => r.goldPerH))} | ${Math.round(avg((r) => r.foodNet))} | ${Math.round(avg((r) => r.famineH))} | ${Math.round(avg((r) => r.raidsLost))} |`);
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--kingdoms') {
+  kingdomTable(+(process.argv[3] || 7), +(process.argv[4] || 2));
+} else if (import.meta.url === `file://${process.argv[1]}`) {
   const days = +(process.argv[2] || 7), seeds = +(process.argv[3] || 2);
   const keys = Object.keys(PROFILES);
   const rows = keys.map((k) => {
@@ -159,7 +185,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raidsLost', 'shards', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raidsLost', 'shards', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');
@@ -169,6 +195,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // Parcours guidé : réclame tout ce qui est atteint (missions, chapitres, missions du jour)
 function claimCampaign(s, now) {
   campaignTick(s, now);
+  // Le joueur suit le parcours : il consulte les écrans demandés et fait les actions guidées
+  const c = campaignState(s);
+  markVisited(s, 'ecoReport'); markVisited(s, 'army');
+  if (c.chapter >= 4 && !c.flags.training) trainingBattle(s, now);
+  if (c.chapter >= 6 && !(s.stats.envoys > 0)) for (const f of s.factions || []) if (diplomacy(s, f.idx, 'envoy', now).ok) break;
+  if (c.chapter >= 6 && !(s.stats.caravans > 0)) {
+    const town = Object.values(s.world.pois).find((p) => p.type === 'town' && isRevealed(s.world, p.x, p.y));
+    if (town) sendCaravan(s, town.x, town.y, 'wood', 100, false, now);
+  }
+  if (c.chapter >= 7 && !(s.stats.expeditions > 0) && !s.expeditions.some((t) => t.status !== 'idle')) {
+    let t = s.expeditions[0] || createTeam(s, { type: 'lumber' }).team;
+    if (t) { const free = s.workers.filter((w) => !w.job || w.job.type === 'sector').slice(0, 2).map((w) => w.id); if (free.length) setTeam(s, t.id, { workerIds: free }); startExpedition(s, t.id, now); }
+  }
   const o = objectives(s, now);
   for (const m of [...o.main, ...o.secondary, ...o.long]) if (m.done && !m.claimed) claimMission(s, m.id, now);
   for (const m of o.daily) if (m.done && !m.claimed) claimRoyalDaily(s, m.id, now);

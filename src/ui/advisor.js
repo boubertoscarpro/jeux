@@ -2,9 +2,9 @@ import { RESOURCES } from '../data/resources.js';
 import { fmt, fmtTime } from '../core/util.js';
 import { analyze, answer, interpret, QUESTIONS } from '../systems/advisor.js';
 import { esc } from './components.js';
+import { ADVICE_GOTO as GOTO } from '../systems/guide.js';
 
 const SEV = { bad: '🔴', warn: '🟠', info: '🔵', good: '🟢' };
-const GOTO = { production: 'g-prod', city: 'city', market: 'market', trade: 'convoys', army: 'army', world: 'factions', research: 'research' };
 
 export function openAdvisor(app, qa = null) {
   const s = app.state;

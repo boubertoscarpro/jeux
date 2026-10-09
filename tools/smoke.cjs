@@ -36,6 +36,32 @@ const path = require('path');
     s.automation.level = 6; s.meta.tipsOff = true;
     a.render();
   });
+  // Parcours guidé : fiche de chapitre, mise en évidence, conseiller, entraînement, réclamation
+  ctx = 'parcours';
+  const guide = await page.evaluate(async () => {
+    const a = window.cendrelande, s = a.state, out = [];
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    a.closeModal();
+    s.meta.tipsOff = false; s.meta.tipsSeen = {};
+    a.tick(); await wait(50);
+    if (!document.querySelector('[data-action="tip-go"]')) out.push('fiche de chapitre absente');
+    document.querySelector('[data-action="tip-go"]')?.click(); await wait(50);
+    s.campaign.chapter = 4; s.meta.tipsSeen.chapter4 = 1; s.campaign.flags.training = 0;
+    for (const id of ['q_clear', 'q_saw', 'q_quarry', 'q_th2', 'c1_house', 'q_farm', 'c2_farm2', 'c2_report', 'c2_surplus', 'q_mill', 'q_chain', 'q_scouts', 'q_explore', 'c3_explore5', 'q_gather', 'c3_road', 'q_barracks', 'q_army']) s.campaign.claimed[id] = 1;
+    a.closeModal(); a.render();
+    const tr = document.querySelector('#side [data-action="cp-training"]');
+    if (!tr) out.push('bouton entraînement absent'); else { const army = JSON.stringify(s.army); tr.click(); await wait(50); if (JSON.stringify(s.army) !== army) out.push('entraînement : pertes réelles'); if (!s.campaign.flags.training) out.push('entraînement non validé'); }
+    a.closeModal(); a.render();
+    const n0 = document.querySelectorAll('#side .advice').length;
+    document.querySelector('#side [data-action="adv-snooze"]')?.click(); await wait(400);
+    document.querySelector('#side [data-action="adv-dismiss"]')?.click(); await wait(400);
+    if (!n0) out.push('conseiller vide');
+    const cl = document.querySelector('#side [data-action="claim-quest"]');
+    if (cl) { const id = cl.dataset.id; cl.click(); await wait(400); if (!s.campaign.claimed[id]) out.push('réclamation échouée ' + id); }
+    s.meta.tipsOff = true;
+    return out;
+  });
+  errors.push(...guide.map((e) => 'parcours : ' + e));
   const views = await page.evaluate(() => Object.keys(window.cendrelande.views));
   const SKIP = /reset|delete|import|adm-reset|wh-spin|leave|dismiss|prestige/;
   let clicks = 0;
