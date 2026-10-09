@@ -19,7 +19,7 @@ Chaque problème **confirmé** a été reproduit par un script ou un test avant 
 | `tests/mechanics.test.js` | Nouvelles mécaniques |
 
 **Point de départ** : 51 tests verts, aucune erreur de console sur 235 actions d'interface cliquées automatiquement.
-**Arrivée** : voir la fin du document.
+**Arrivée** : 85 tests verts (34 nouveaux), aucune erreur de console sur 228 actions de la version compilée, récupération d'une sauvegarde corrompue vérifiée dans le navigateur (`npm run smoke`).
 
 Légende : 🔴 critique · 🟠 majeur · 🟡 mineur · ⚖️ équilibrage · ✅ corrigé.
 
@@ -119,7 +119,7 @@ Simulation Monte-Carlo, détails dans `docs/ECONOMY.md`. Les profils occasionnel
 
 ### Progression par profil (7 jours, moteur réel)
 
-`node tools/profileSim.js 7 2`. Les résultats et leur lecture se trouvent dans `docs/BALANCE.md`.
+`node tools/profileSim.js 7 2`. Les résultats et leur lecture se trouvent dans [`docs/BALANCE.md`](BALANCE.md) : le joueur occasionnel restait bloqué (corrigé par les chantiers planifiés) et la conséquence des sièges perdus était trop lourde (adoucie).
 
 ## 3. Améliorations et nouvelles mécaniques
 
@@ -132,7 +132,8 @@ Simulation Monte-Carlo, détails dans `docs/ECONOMY.md`. Les profils occasionnel
 | Sagas des Terres Brisées | 6 chaînes narratives à plusieurs étapes et choix politiques : famine, traité douteux, noble revendicateur, ruine oubliée, appel du général, relique disputée |
 | Événements enrichis | Stratégie quotidienne (Razzia, Diplomatie, Prudence), 3 missions du jour, boss en 3 phases (enragé, puis carapace contre laquelle le siège compte), défi héroïque, récompense de participation, nouvel événement « Le Convoi des Sept Marchands » |
 | Reliques | Catégories (économie, armée, exploration, diplomatie, intendance, anciennes). Progression alternative par fragments de relique, pour ne jamais rester bloqué par le hasard |
-| Défense | Un raid perdu incendie 1 à 2 bâtiments (réparables). Le rapport de défense détaille la préparation |
+| Défense | Un raid perdu peut incendier un bâtiment (réparable). Le rapport de défense détaille la préparation |
+| Chantiers planifiés | Jusqu'à 3 chantiers en attente qui démarrent seuls quand la file se libère (payés au démarrage) |
 | Sauvegarde | Migrations versionnées (v6), message de migration, copie de secours, export en fichier `.json`, import de fichier, validation et réparation |
 | Interface | Confirmations stylées pour les actions irréversibles (prestige avec la liste « conservé / réinitialisé », abandon de territoire, dissolution d'équipe, import), anti double-clic, messages d'échec explicites, filtres et tri de l'inventaire, tutoriel contextuel |
 

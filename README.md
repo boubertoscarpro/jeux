@@ -36,10 +36,11 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 84 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques)
+npm test        # 85 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/economySim.js 90 40   # simulation de l'économie des Éclats (occasionnel / actif / hardcore)
 npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
+npm run smoke   # test de fumée de la version compilée dans Chromium (nécessite Playwright)
 ```
 
 - `src/core` : état, moteur temporel, sauvegarde
