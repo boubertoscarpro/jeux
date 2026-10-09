@@ -18,7 +18,8 @@ import { train, unitStatus } from '../src/systems/army.js';
 import { sendMarch } from '../src/systems/marches.js';
 import { resolveAny } from '../src/systems/pending.js';
 import { isRevealed } from '../src/systems/world.js';
-import { claimQuest, activeQuests, claimMilestone, milestoneList } from '../src/systems/quests.js';
+import { claimMilestone, milestoneList } from '../src/systems/quests.js';
+import { objectives, claimMission, claimChapter, claimRoyalDaily, campaignTick } from '../src/systems/campaign.js';
 import { sell } from '../src/systems/market.js';
 import { fulfillContract, contractProgress } from '../src/systems/market.js';
 import { claimTerritory, setSpec, setGarrison, upgradeOutpost } from '../src/systems/territory.js';
@@ -52,7 +53,7 @@ function bestTile(s, type, mods) {
 
 function session(s, p, now) {
   const mods = computeMods(s, now);
-  for (const q of activeQuests(s)) if (q.done) claimQuest(s, q.id, now);
+  claimCampaign(s, now);
   for (const m of milestoneList(s)) if (m.done) claimMilestone(s, m.id, now);
   for (const pd of [...s.pending]) resolveAny(s, pd.id, 0, now);
   // Construction
@@ -163,4 +164,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');
   for (const r of rows) console.log('| ' + cols.map((c) => (typeof r[c] === 'number' ? (Math.round(r[c] * 10) / 10) : r[c])).join(' | ') + ' |');
+}
+
+// Parcours guidé : réclame tout ce qui est atteint (missions, chapitres, missions du jour)
+function claimCampaign(s, now) {
+  campaignTick(s, now);
+  const o = objectives(s, now);
+  for (const m of [...o.main, ...o.secondary, ...o.long]) if (m.done && !m.claimed) claimMission(s, m.id, now);
+  for (const m of o.daily) if (m.done && !m.claimed) claimRoyalDaily(s, m.id, now);
+  for (const c of o.chapters) if (c.unlocked && c.complete && !c.rewardClaimed) claimChapter(s, c.n, now);
 }

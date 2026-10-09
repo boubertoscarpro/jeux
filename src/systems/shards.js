@@ -124,7 +124,7 @@ export function checkFeats(state, now = Date.now()) {
   if (!done('relics5') && Object.keys(state.artifacts || {}).length >= 5) award('relics5');
   if (!done('bossSlayer') && Object.keys(state.bossTrophies || {}).length >= 5) award('bossSlayer');
   if (!done('dynasty') && (state.dynasty?.count || 0) >= 1) award('dynasty');
-  if (!done('chapter') && state.quests?.done && Object.keys(state.quests.done).length >= 30) award('chapter');
+  if (!done('chapter') && state.campaign?.finished) award('chapter');
   if (!done('production') && (state._goldRate || 0) >= 5000) award('production');
   if (!done('edgeOfWorld')) {
     const w = state.world;

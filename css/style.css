@@ -638,3 +638,20 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
   .kt-style { min-height: 0; }
   .modal.creation { padding: 12px; }
 }
+
+/* ---------- Parcours guidé, conseiller, tutoriel ---------- */
+@keyframes tutPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(226, 184, 74, 0.0); } 50% { box-shadow: 0 0 0 4px rgba(226, 184, 74, 0.75); } }
+.tut-hl { animation: tutPulse 1.4s ease-in-out infinite; border-color: var(--gold) !important; }
+.advice { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.advice:last-of-type { border-bottom: 0; }
+.advice-foot { display: flex; gap: 4px; justify-content: flex-end; margin-top: 3px; }
+.advice.sev-bad .small { color: #ffb3b1; }
+.chapter-card h2 { margin-bottom: 4px; }
+.chapter-track { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chapter-pill { font-size: 11px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel2); color: var(--muted); }
+.chapter-pill.current { border-color: var(--gold); color: var(--gold); }
+.chapter-pill.done { border-color: var(--good); color: var(--good); }
+.chapter-pill.open { color: var(--text); }
+.chapter-pill.locked { opacity: 0.55; }
+.goal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.tabs.wrap { flex-wrap: wrap; }

@@ -21,7 +21,8 @@ import { resolveAny } from '../src/systems/pending.js';
 import { isRevealed } from '../src/systems/world.js';
 import { tavernCandidates, recruit, assignGovernor, equipItem } from '../src/systems/tavern.js';
 import { startCraft, startBrew } from '../src/systems/crafting.js';
-import { claimQuest, activeQuests, claimMilestone, milestoneList } from '../src/systems/quests.js';
+import { claimMilestone, milestoneList } from '../src/systems/quests.js';
+import { objectives, claimMission, claimChapter, claimRoyalDaily, campaignTick } from '../src/systems/campaign.js';
 import { joinGuild, donate } from '../src/systems/guild.js';
 import { sell } from '../src/systems/market.js';
 import { claimTerritory } from '../src/systems/territory.js';
@@ -50,7 +51,7 @@ function bestTile(s, type, mods) {
 function botSession(s, now) {
   const mods = computeMods(s, now);
   // Quêtes & jalons
-  for (const q of activeQuests(s)) if (q.done) claimQuest(s, q.id, now);
+  claimCampaign(s, now);
   for (const m of milestoneList(s)) if (m.done) claimMilestone(s, m.id, now);
   // Décisions
   for (const p of [...s.pending]) resolveAny(s, p.id, rng.int(0, 1), now);
@@ -187,3 +188,12 @@ test('le bot joue 3 jours sans erreur et progresse', () => {
   rng.setSource(null);
 });
 void BUILDINGS; void buildingAt;
+
+// Parcours guidé : réclame tout ce qui est atteint (missions, chapitres, missions du jour)
+function claimCampaign(s, now) {
+  campaignTick(s, now);
+  const o = objectives(s, now);
+  for (const m of [...o.main, ...o.secondary, ...o.long]) if (m.done && !m.claimed) claimMission(s, m.id, now);
+  for (const m of o.daily) if (m.done && !m.claimed) claimRoyalDaily(s, m.id, now);
+  for (const c of o.chapters) if (c.unlocked && c.complete && !c.rewardClaimed) claimChapter(s, c.n, now);
+}

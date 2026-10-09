@@ -1,3 +1,5 @@
+import { initLegacyCampaign } from '../systems/campaign.js';
+import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
 import { createNewState, SAVE_VERSION } from './state.js';
 
 export const SAVE_KEY = 'cendrelande_save';
@@ -25,6 +27,16 @@ export const MIGRATIONS = {
     for (const t of Object.values(d.territories || {})) { t.spec ??= null; t.level ??= 1; }
     return d;
   },
+  // v6 → v7 : spécialisations de royaume et parcours guidé.
+  // Les parties existantes reçoivent le « royaume sans spécialisation » (aucun bonus ni malus rétroactif) ;
+  // le parcours est initialisé après complétion des champs (voir migrate → initLegacyCampaign).
+  6: (d) => {
+    d.kingdom = { type: null, origin: 'none', difficulty: 'classic', chosenAt: d.meta?.created || 0, legacy: true };
+    d.campaign = null;
+    d.meta.advice ??= 'full';
+    // Les fiches de chapitre ne sont pas imposées à un joueur déjà avancé
+    return d;
+  },
 };
 
 // Complète une sauvegarde ancienne avec les champs manquants (récursif, sans écraser l'existant)
@@ -36,7 +48,7 @@ function fill(target, src) {
 }
 
 // Remplace tout champ dont le TYPE ne correspond pas à un état neuf (tableau attendu mais objet reçu, etc.)
-const DYNAMIC = new Set(['buildings', 'pois', 'territories', 'techs', 'army', 'owned', 'artifacts', 'ledger', 'losses', 'resources', 'records', 'reputation', 'bossTrophies', 'occ', 'heat', 'daily', 'feats', 'perks', 'ranks', 'claimed', 'done', 'milestones', 'routes', 'consumables', 'prices', 'history', 'admin', 'thresholds', 'sat', 'bought', 'produced', 'spent']);
+const DYNAMIC = new Set(['buildings', 'pois', 'territories', 'techs', 'army', 'owned', 'artifacts', 'ledger', 'losses', 'resources', 'records', 'reputation', 'bossTrophies', 'occ', 'heat', 'daily', 'feats', 'perks', 'ranks', 'claimed', 'done', 'milestones', 'routes', 'consumables', 'prices', 'history', 'admin', 'thresholds', 'sat', 'bought', 'produced', 'spent', 'flags', 'snoozed', 'dismissed', 'chapterClaimed', 'unlockedAt']);
 function conform(target, fresh, path, fixes) {
   for (const [k, v] of Object.entries(fresh)) {
     const cur = target[k];
@@ -74,6 +86,11 @@ function sanitize(d, fresh) {
   }
   if (d.marches.length + d.caravans.length + d.raids.length < before) fixes.push('trajets invalides');
   d.pending = d.pending.filter((p) => p && p.id);
+  // Spécialisation inconnue (sauvegarde modifiée à la main) → royaume sans spécialisation, jamais de bonus inventé
+  if (d.kingdom && d.kingdom.type !== null && !KINGDOM_TYPES[d.kingdom.type]) { fixes.push('spécialisation'); d.kingdom.type = null; }
+  if (d.kingdom && !ORIGINS[d.kingdom.origin]) d.kingdom.origin = 'none';
+  if (d.kingdom && !DIFFICULTIES[d.kingdom.difficulty]) d.kingdom.difficulty = 'classic';
+  if (d.campaign && !(d.campaign.chapter >= 1 && d.campaign.chapter <= 8)) { fixes.push('chapitre'); d.campaign.chapter = Math.min(8, Math.max(1, Math.floor(+d.campaign.chapter) || 1)); }
   if (d.shards) for (const k of ['count', 'tickets', 'mythicFragments', 'legendaryFragments', 'relicFragments']) if (!Number.isFinite(d.shards[k]) || d.shards[k] < 0) d.shards[k] = 0;
   // Références orphelines : héros marquant une marche disparue
   const marchIds = new Set([...(d.marches || []).map((m) => m.id), ...(d.live?.marches || []).map((m) => m.id)]);
@@ -95,8 +112,10 @@ export function validateShape(data) {
 export function migrate(data) {
   const from = typeof data.version === 'number' ? data.version : 1;
   for (let v = from; v < SAVE_VERSION; v++) if (MIGRATIONS[v]) data = MIGRATIONS[v](data) || data;
+  const needCampaign = !data.campaign || typeof data.campaign !== 'object';
   const fresh = createNewState({ seed: data?.meta?.seed || 1, now: data?.meta?.lastTick || Date.now() });
   fill(data, fresh);
+  if (needCampaign) { data.campaign = fresh.campaign; initLegacyCampaign(data, data.meta.lastTick || Date.now()); }
   const fixes = sanitize(data, createNewState({ seed: 1, now: Date.now() }));
   data.version = SAVE_VERSION;
   if (from < SAVE_VERSION) data.meta.migratedFrom = from;

@@ -38,6 +38,8 @@ import { reportHtml } from './views/calendar.js';
 import { notifications } from '../systems/liveEvents.js';
 import { openAdvisor } from './advisor.js';
 import { showTip } from './tips.js';
+import { markVisited, campaignTick } from '../systems/campaign.js';
+import { pruneAdvice } from '../systems/guide.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
@@ -156,6 +158,11 @@ export class App {
     if (!document.hidden) this.state.meta.playTime = (this.state.meta.playTime || 0) + 1000;
     advance(this.state, now);
     this.state.meta.bootOk = true;
+    // Parcours guidé : détection automatique des missions (toutes les 3 s)
+    if (!(this.cpTick > now - 3000)) {
+      this.cpTick = now;
+      try { if (campaignTick(this.state, now).length) this.dirty = true; pruneAdvice(this.state, now); } catch (e) { console.error(e); }
+    }
     this.showEventReport();
     showTip(this);
     if (this.dirty) this.render();
@@ -175,8 +182,18 @@ export class App {
     });
   }
 
+  // Tutoriel : met en évidence le menu qui mène à un écran
+  highlight(viewId) {
+    this.ui.highlight = viewId;
+    this.renderNav();
+    const g = groupOf(viewId);
+    if (g && this.ui.view !== viewId) this.toast(`Ouvrez le menu « ${g.title} » mis en évidence.`, 'info');
+    this.render();
+  }
+
   renderNav() {
-    this.$('#nav').innerHTML = GROUPS.map((g) => `<button class="nav-btn" data-action="nav" data-view="${g.id}" title="${esc(g.title)}"><span class="nav-icon">${g.icon}</span><span class="nav-label">${esc(g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
+    const hl = this.ui.highlight && groupOf(this.ui.highlight)?.id;
+    this.$('#nav').innerHTML = GROUPS.map((g) => `<button class="nav-btn ${g.id === hl ? 'tut-hl' : ''}" data-action="nav" data-view="${g.id}" title="${esc(g.title)}"><span class="nav-icon">${g.icon}</span><span class="nav-label">${esc(g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
       + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">🧙‍♂️</span><span class="nav-label">Conseiller</span></button>`;
   }
 
@@ -210,7 +227,7 @@ export class App {
     const tabs = group.tabs.length > 1 ? `<div class="subnav">${group.tabs.map((t) => {
       const l = t.locked?.(this);
       const n = t.badge?.(this) || 0;
-      return `<button class="subtab ${t.id === view.id ? 'active' : ''} ${l ? 'locked' : ''}" data-action="nav" data-view="${t.id}" title="${esc(l || t.title)}">${t.icon} ${esc(t.title)}${l ? ' 🔒' : ''}${n ? ` <span class="sub-badge">${n}</span>` : ''}</button>`;
+      return `<button class="subtab ${t.id === view.id ? 'active' : ''} ${l ? 'locked' : ''} ${t.id === this.ui.highlight ? 'tut-hl' : ''}" data-action="nav" data-view="${t.id}" title="${esc(l || t.title)}">${t.icon} ${esc(t.title)}${l ? ' 🔒' : ''}${n ? ` <span class="sub-badge">${n}</span>` : ''}</button>`;
     }).join('')}</div>` : '';
     this.preserveInputs(main, () => {
       main.innerHTML = `${tabs}<div class="view view-${view.id}">${locked ? `<div class="card locked-card"><h2>🔒 ${esc(view.title)}</h2><p>${esc(locked)}</p><p class="muted small">Les systèmes avancés se débloquent au fil de votre progression : ils n’encombrent pas l’interface tant que vous n’en avez pas besoin.</p></div>` : view.render(this)}</div>`;
@@ -237,6 +254,8 @@ export class App {
     if (g) viewId = this.ui.lastTab[g.id] || g.tabs[0].id;
     if (!this.views[viewId]) viewId = 'city';
     this.ui.view = viewId;
+    markVisited(this.state, viewId); // missions « consulter … » du parcours guidé
+    if (this.ui.highlight === viewId) { this.ui.highlight = null; this.renderNav(); }
     Object.assign(this.ui, sel);
     this.render();
     this.$('#view').scrollTop = 0;

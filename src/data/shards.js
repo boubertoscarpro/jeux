@@ -116,7 +116,7 @@ export const FEATS = [
   { id: 'deepDungeon', label: 'Vaincre un donjon de niveau 15', shards: 5 },
   { id: 'edgeOfWorld', label: 'Explorer les confins du monde (à 22 cases de la capitale)', shards: 3 },
   { id: 'wonder', label: 'Bâtir une merveille', shards: 5 },
-  { id: 'chapter', label: 'Achever le chapitre des quêtes du royaume', shards: 5 },
+  { id: 'chapter', label: 'Achever les 8 chapitres du parcours du royaume', shards: 5 },
   { id: 'production', label: 'Atteindre 5 000 or par heure', shards: 3 },
   { id: 'relics5', label: 'Posséder 5 artefacts', shards: 4 },
   { id: 'bossSlayer', label: 'Vaincre les 5 boss mondiaux', shards: 5 },

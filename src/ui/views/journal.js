@@ -1,6 +1,7 @@
 import { ALL_UNITS, TERRAIN_COMBAT, WEATHER } from '../../data/units.js';
 import { fmt } from '../../core/util.js';
 import { esc, resChips } from '../components.js';
+import { seenTips, openTip } from '../tips.js';
 
 const TYPE_ICON = { good: '✅', bad: '❌', story: '📖', event: '🌍', combat: '⚔️', explore: '🧭', trade: '🪙', info: 'ℹ️' };
 const time = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -45,11 +46,14 @@ export default {
       <div class="card"><h2>📖 Chronique du royaume</h2>
         <div class="tabs">${[['', 'Tout'], ['good', '✅'], ['bad', '❌'], ['event', '🌍'], ['explore', '🧭'], ['trade', '🪙'], ['story', '📖']].map(([k, l]) => `<button class="tab ${filter === k ? 'active' : ''}" data-action="log-filter" data-k="${k}">${l}</button>`).join('')}</div>
         <div class="log">${logs.slice(0, 150).map((l) => `<div class="log-line log-${l.type}"><span class="muted small">${time(l.t)}</span> ${TYPE_ICON[l.type] || ''} ${esc(l.text)}</div>`).join('')}</div>
-      </div></div>`;
+      </div></div>
+      <div class="card"><h2>🎓 Tutoriel</h2><p class="small muted">Les fiches déjà rencontrées, à relire à tout moment.${s.meta.tipsOff ? ' Les nouvelles fiches sont désactivées (réactivables dans Objectifs).' : ''}</p>
+        <div class="row gap wrap">${seenTips(s).map((t) => `<button class="mini" data-action="tip-open" data-id="${t.id}">${esc(t.title)}</button>`).join('')}</div></div>`;
   },
   actions: {
     report: (app, el) => { const rep = app.state.reports.find((r) => r.id === el.dataset.id); if (rep) reportModal(app, rep); },
     'read-all': (app) => { app.state.reports.forEach((r) => { r.read = true; }); app.render(); },
     'log-filter': (app, el) => { app.ui.logFilter = el.dataset.k; app.render(); },
+    'tip-open': (app, el) => { const t = seenTips(app.state).find((x) => x.id === el.dataset.id); if (t) openTip(app, t); },
   },
 };

@@ -1,4 +1,4 @@
-import { STORY_QUESTS, MILESTONES } from '../data/quests.js';
+import { MILESTONES } from '../data/quests.js';
 import { SEASON, COSMETICS } from '../data/social.js';
 import { countOf, levelOf, totalLevels } from './city.js';
 import { combatUnitCount } from './army.js';
@@ -12,26 +12,6 @@ const H = {
   totalLevels,
   combatUnits: (s) => combatUnitCount(s.army),
 };
-
-export function questProgress(state, q) {
-  const [cur, target] = q.check(state, H);
-  return { cur: Math.min(cur, target), target, done: cur >= target };
-}
-
-// Les 3 prochaines quêtes non réclamées
-export function activeQuests(state, n = 3) {
-  return STORY_QUESTS.filter((q) => !state.quests.done[q.id]).slice(0, n).map((q) => ({ ...q, ...questProgress(state, q) }));
-}
-
-export function claimQuest(state, id, now = Date.now()) {
-  const q = STORY_QUESTS.find((x) => x.id === id);
-  if (!q || state.quests.done[id]) return { ok: false, reason: 'Quête déjà réclamée' };
-  if (!questProgress(state, q).done) return { ok: false, reason: 'Objectif non atteint' };
-  state.quests.done[id] = now;
-  gain(state, q.reward, computeMods(state, now));
-  log(state, 'good', `✅ Quête accomplie : ${q.title}.`, now);
-  return { ok: true, reward: q.reward };
-}
 
 export function milestoneList(state) {
   return MILESTONES.map((m) => {
@@ -52,7 +32,6 @@ export function claimMilestone(state, id, now = Date.now()) {
   return { ok: true };
 }
 
-export const claimableCount = (state) => activeQuests(state).filter((q) => q.done).length + milestoneList(state).filter((m) => m.done).length;
 
 // ---------- Saison ----------
 export function seasonInfo(state, now = Date.now()) {

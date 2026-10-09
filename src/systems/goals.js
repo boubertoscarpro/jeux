@@ -12,7 +12,8 @@ import { computeMods } from './modifiers.js';
 import { canAfford } from './economy.js';
 import { getUpgradeInfo } from './construction.js';
 import { techStatus, researchCost } from './research.js';
-import { activeQuests, milestoneList } from './quests.js';
+import { milestoneList } from './quests.js';
+import { objectives } from './campaign.js';
 import { collectionStatus } from './collection.js';
 import { PRESTIGE_TH } from './talents.js';
 import { territoryLimit } from './world.js';
@@ -29,7 +30,7 @@ export function goals(state, now = Date.now()) {
   const short = [], mid = [], long = [];
 
   // ── Court terme ──
-  for (const q of activeQuests(state)) short.push({ icon: '📌', title: q.title, desc: q.desc, cur: q.cur, max: q.target, done: q.done, reward: costText(q.reward), view: 'city', claim: q.done ? 'Réclamez-la dans le panneau Objectifs' : null });
+  for (const m of objectives(state, now).main.slice(0, 2)) short.push({ icon: '📖', title: m.title, desc: m.desc, cur: m.cur, max: m.target, done: m.done, reward: costText(m.reward), view: m.done ? 'goals' : m.view || 'goals' });
   for (const c of (state.contracts || []).slice(0, 2)) {
     const p = contractProgress(state, c);
     short.push({ icon: '📜', title: c.title || `Contrat : ${c.qty} ${RESOURCES[c.res].name} pour ${c.town}`, cur: p.cur, max: p.max, done: p.done, reward: costText(c.reward), until: c.until, view: 'convoys' });

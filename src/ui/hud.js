@@ -8,6 +8,8 @@ import { CONSUMABLES, SLOTS } from '../data/items.js';
 import { POI_TYPES } from '../data/world.js';
 import { fmt } from '../core/util.js';
 import { kingdomBadge } from './creation.js';
+import { trainingBattle, campaignTick } from '../systems/campaign.js';
+import { reportModal } from './views/journal.js';
 import { computeMods } from '../systems/modifiers.js';
 import { storageCap, netRates } from '../systems/economy.js';
 import { buildSlots, cancelBuild, cancelPlanned } from '../systems/construction.js';
@@ -19,7 +21,8 @@ import { describePending, resolveAny } from '../systems/pending.js';
 import { calendar } from '../systems/chronicle.js';
 import { CATASTROPHES } from '../data/seasons.js';
 import { EXPEDITION_TYPES } from '../data/workers.js';
-import { activeQuests, claimQuest } from '../systems/quests.js';
+import { objectives, claimMission, claimChapter } from '../systems/campaign.js';
+import { adviceList, snoozeAdvice, dismissAdvice } from '../systems/guide.js';
 import { thLevel } from '../systems/city.js';
 import { LIVE_EVENTS } from '../data/liveEvents.js';
 import { SURPRISE_EVENTS } from '../data/liveEvents.js';
@@ -126,12 +129,8 @@ export function renderSide(app) {
       return `<div class="q-row"><div class="q-top"><span>${EXPEDITION_TYPES[t.type].icon} ${esc(t.name)}${t.repeat ? ' 🔁' : ''}</span>${countdown(end)}</div><div class="muted small">${{ out: 'En route', work: 'Au travail', back: 'Retour' }[t.status]}${t.status === 'work' && t.accum ? ` · ≈ ${Math.round(t.accum)}` : ''}</div>${progress(start, end)}</div>`;
     }).join('')}</section>`);
   }
-  const quests = activeQuests(s);
-  parts.push(`<section class="side-box"><h3>📌 Objectifs</h3>${quests.map((q) => `<div class="quest ${q.done ? 'done' : ''}">
-      <div class="quest-title">${esc(q.title)} <span class="muted">${fmt(q.cur)}/${fmt(q.target)}</span></div>
-      <div class="muted small">${esc(q.desc)}</div>
-      <div class="quest-foot">${resChips(q.reward)}${q.done ? `<button class="mini good" data-action="claim-quest" data-id="${q.id}">Réclamer</button>` : ''}</div></div>`).join('') || '<div class="muted small">Chapitre terminé ! Consultez les jalons dans Royaume.</div>'}
-    <button class="btn block ghost small" data-action="nav" data-view="kingdom">Jalons & saison →</button></section>`);
+  parts.push(adviceBox(s, now));
+  parts.push(chapterBox(s, now));
   return parts.join('');
 }
 
@@ -160,6 +159,51 @@ export const sideActions = {
   'cancel-train': (app, el) => app.act(() => cancelTrain(app.state, el.dataset.id)),
   'cancel-craft': (app, el) => app.act(() => cancelCraft(app.state, el.dataset.id)),
   recall: (app, el) => app.act(() => recallMarch(app.state, el.dataset.id), 'Marche rappelée'),
-  'claim-quest': (app, el) => app.act(() => claimQuest(app.state, el.dataset.id), 'Récompense obtenue !'),
+  'claim-quest': (app, el) => app.act(() => claimMission(app.state, el.dataset.id), 'Récompense obtenue !'),
+  'claim-chapter': (app, el) => app.act(() => claimChapter(app.state, +el.dataset.n), 'Chapitre terminé : récompense obtenue !'),
+  'adv-snooze': (app, el) => app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'),
+  'adv-dismiss': (app, el) => app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'),
+  'cp-training': (app) => runTraining(app),
   'open-pending': (app, el) => openPending(app, el.dataset.id),
 };
+
+// Conseiller du tableau de bord (niveau réglable : complet, réduit, désactivé)
+const SEV_ICON = { bad: '🔴', warn: '🟠', next: '📖', info: '🔵', good: '🟢' };
+export function adviceBox(s, now = Date.now()) {
+  const level = s.meta.advice || 'full';
+  if (level === 'off') return '';
+  let list;
+  try { list = adviceList(s, now); } catch (e) { console.error(e); list = []; }
+  const shown = list.slice(0, level === 'reduced' ? 2 : 3);
+  return `<section class="side-box advice-box"><h3>🧙‍♂️ Conseiller${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
+    ${shown.map((r) => `<div class="advice sev-${r.sev}"><div class="small">${SEV_ICON[r.sev] || ''} ${esc(r.text)}</div>
+      <div class="advice-foot">${r.action ? `<button class="mini" data-action="${r.action}">Lancer</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
+      <button class="mini ghost" data-action="adv-snooze" data-id="${esc(r.id)}" title="Masquer 4 h">⏰</button>${r.sev !== 'bad' ? `<button class="mini ghost" data-action="adv-dismiss" data-id="${esc(r.id)}" title="Ne plus afficher ce conseil">✕</button>` : ''}</div></div>`).join('') || '<div class="muted small">Rien d’urgent. Votre royaume tourne bien.</div>'}
+    <button class="btn block ghost small" data-action="advisor">Analyse détaillée →</button></section>`;
+}
+
+// Chapitre en cours du parcours guidé
+export function chapterBox(s, now = Date.now()) {
+  const o = objectives(s, now);
+  const ch = o.chapter;
+  const list = o.main.slice(0, 3);
+  const mission = (m) => `<div class="quest ${m.done ? 'done' : ''}">
+      <div class="quest-title">${esc(m.title)} <span class="muted">${fmt(m.cur)}/${fmt(m.target)}</span></div>
+      <div class="muted small">${esc(m.desc)}</div>
+      <div class="quest-foot">${resChips(m.reward)}${m.done ? `<button class="mini good" data-action="claim-quest" data-id="${m.id}">Réclamer</button>` : m.action ? `<button class="mini" data-action="${m.action}">Lancer</button>` : m.view ? `<button class="mini ghost" data-action="goto" data-view="${m.view}">Y aller</button>` : ''}</div></div>`;
+  return `<section class="side-box chapter-box"><h3>${ch.icon} Chapitre ${ch.n}/8 <span class="muted small">${ch.mainDone}/${ch.mainTotal}</span></h3>
+    <div class="small gold-text">${esc(ch.title)}</div>
+    ${list.map(mission).join('')}
+    ${ch.complete && !ch.rewardClaimed ? `<div class="quest done"><div class="quest-title">🏆 Chapitre terminé</div><div class="quest-foot">${resChips(ch.reward)}<button class="mini good" data-action="claim-chapter" data-n="${ch.n}">Réclamer</button></div></div>` : ''}
+    ${!list.length && !(ch.complete && !ch.rewardClaimed) ? '<div class="muted small">Parcours terminé ! Les objectifs à long terme continuent.</div>' : ''}
+    <button class="btn block ghost small" data-action="nav" data-view="goals">Tous les objectifs →</button></section>`;
+}
+
+export function runTraining(app) {
+  const r = trainingBattle(app.state);
+  if (!r.ok) { app.toast(r.reason, 'bad'); return; }
+  campaignTick(app.state);
+  reportModal(app, { t: Date.now(), title: 'Exercice d’entraînement (pertes simulées)', win: r.res.winner === 'attacker', result: r.res,
+    text: `Vos recrues (${Object.values(r.units).reduce((a, b) => a + b, 0)} soldats) affrontent ${r.dummies.militia} mannequins de paille armés de bâtons. Les « pertes » ci-dessous sont simulées : vos soldats sont tous rentrés indemnes. Observez les phases (volée d’archers, mêlée), le moral et les facteurs qui ont compté.` });
+  app.dirty = true;
+}

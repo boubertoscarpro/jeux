@@ -2,6 +2,7 @@
 // Les quêtes du royaume guident les premiers pas ; ces conseils expliquent les systèmes plus avancés.
 import { levelOf } from '../systems/city.js';
 import { esc } from './components.js';
+import { CHAPTERS, KINGDOM_HINTS } from '../data/campaign.js';
 
 export const TIPS = [
   { id: 'famine', when: (s) => s.famine, title: '🍖 Votre peuple a faim', view: 'ecoReport',
@@ -24,10 +25,41 @@ export const TIPS = [
     text: 'À l’Hôtel de ville 15, vous pourrez fonder une nouvelle dynastie : recommencer avec des points d’héritage. La liste exacte de ce qui est conservé et réinitialisé s’affiche avant toute confirmation.' },
 ];
 
+// Fiches de chapitre : une par chapitre du parcours guidé, adaptée à la spécialisation du royaume
+export function chapterTip(state, n) {
+  const ch = CHAPTERS[n - 1];
+  if (!ch) return null;
+  const first = ch.missions.find((m) => !m.optional);
+  const hint = KINGDOM_HINTS[state.kingdom?.type]?.[n];
+  return { id: 'chapter' + n, title: `${ch.icon} Chapitre ${n} — ${ch.title}`, view: first?.view || 'goals',
+    text: `<span class="story">${esc(ch.intro)}</span><br><br>💡 ${esc(ch.tip)}${hint ? `<br><br>${esc(hint)}` : ''}<br><br>Première mission : <b>${esc(first?.title || '')}</b> — ${esc(first?.desc || '')}` };
+}
+
 export function nextTip(state) {
   if (state.meta.tipsOff) return null;
   const seen = (state.meta.tipsSeen ||= {});
+  const n = state.campaign?.chapter || 1;
+  if (!seen['chapter' + n] && !state.campaign?.legacy) return chapterTip(state, n);
   return TIPS.find((t) => !seen[t.id] && t.when(state)) || null;
+}
+
+// Fiches déjà vues (Journal → Tutoriel), pour les relire à tout moment
+export function seenTips(state) {
+  const seen = state.meta.tipsSeen || {};
+  const out = [];
+  for (let n = 1; n <= (state.campaign?.chapter || 1); n++) out.push(chapterTip(state, n));
+  for (const t of TIPS) if (seen[t.id]) out.push(t);
+  return out;
+}
+
+export function openTip(app, tip, first = false) {
+  app.modal(`<h2>${esc(tip.title)}</h2><p>${tip.text}</p>
+    <div class="row gap wrap">${tip.view ? `<button class="btn primary" data-action="tip-go" data-view="${tip.view}">Me montrer</button>` : ''}<button class="btn" data-action="close-modal">Compris</button>${first ? '<button class="btn ghost small" data-action="tips-off">Ne plus afficher les fiches</button>' : ''}</div>
+    ${first ? '<p class="muted small">Cette fiche reste consultable dans Chronique → Journal → Tutoriel.</p>' : ''}`, {
+    'tips-off': (a) => { a.state.meta.tipsOff = true; a.closeModal(); a.toast('Fiches désactivées (réactivables dans Objectifs ou Saison & boutique)', 'info'); },
+    // Met en évidence le bouton de menu concerné jusqu'à ce que le joueur l'ouvre
+    'tip-go': (a, el) => { a.closeModal(); a.highlight(el.dataset.view); },
+  });
 }
 
 export function showTip(app) {
@@ -36,8 +68,5 @@ export function showTip(app) {
   const tip = nextTip(s);
   if (!tip) return;
   s.meta.tipsSeen[tip.id] = Date.now();
-  app.modal(`<h2>${esc(tip.title)}</h2><p>${tip.text}</p>
-    <div class="row gap wrap">${tip.view ? `<button class="btn primary" data-action="goto" data-view="${tip.view}">Voir</button>` : ''}<button class="btn" data-action="close-modal">Compris</button><button class="btn ghost small" data-action="tips-off">Ne plus afficher les conseils</button></div>`, {
-    'tips-off': (a) => { a.state.meta.tipsOff = true; a.closeModal(); a.toast('Conseils désactivés (réactivables dans Saison & boutique)', 'info'); },
-  });
+  openTip(app, tip, true);
 }

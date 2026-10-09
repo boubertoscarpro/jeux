@@ -164,6 +164,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       const cost = ENVOY_COST(state);
       if (!pay(state, cost)) return { ok: false, reason: 'Pas assez d’or', missing: missing(state, cost) };
       f.envoyAt = now;
+      state.stats.envoys = (state.stats.envoys || 0) + 1;
       const gainRel = Math.round(rng.int(6, 14) * (1 + repD / 400) * (f.stance === 'war' ? 0.5 : 1));
       f.relation = Math.min(100, f.relation + gainRel);
       bumpRep(state, 'diplomat', 4);

@@ -180,6 +180,7 @@ export function sendCaravan(state, x, y, r, qty, repeat = false, now = Date.now(
   town.sat = town.sat || {};
   town.sat[r] = Math.min(0.5, (town.sat[r] || 0) + qty / (liquidity(r) * 4));
   const risk = convoyRisk(state, town, mode, guards, mods);
+  state.stats.caravans = (state.stats.caravans || 0) + 1;
   state.caravans.push({ id: uid('cv'), x, y, town: town.name, res: r, qty, gold, start: now, end: now + dur * 2, repeat, mode, guards, risk });
   return { ok: true, gold, dur: dur * 2, risk };
 }
