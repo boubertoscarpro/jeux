@@ -4,7 +4,7 @@ import { RESOURCES, RES_ORDER } from '../../data/resources.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { levelOf } from '../../systems/city.js';
-import { startCraft, craftCost, craftQuality, startBrew, usePotion, upgradeItem, salvageItem, toggleLock } from '../../systems/crafting.js';
+import { startCraft, craftCost, craftQuality, startBrew, usePotion, upgradeItem, salvageItem, toggleLock, INVENTORY_CAP } from '../../systems/crafting.js';
 import { upgradeCost, salvageYield, MAX_PLUS, rarityOdds, itemScore } from '../../systems/items.js';
 import { esc, costList, resChips, itemCard, empty, rarityTag } from '../components.js';
 
@@ -31,15 +31,23 @@ export default {
     const cat = app.ui.catalyst || 'none';
     const odds = rarityOdds(craftQuality(s, cat, mods), CATALYSTS[cat].minRarity || 'common');
     const filt = app.ui.invFilter || '';
-    const items = s.inventory.items.filter((i) => !filt || i.slot === filt).sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || itemScore(b) - itemScore(a));
+    const rar = app.ui.invRarity || '';
+    const sortBy = app.ui.invSort || 'rarity';
+    const SORTS = { rarity: (a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity) || itemScore(b) - itemScore(a), score: (a, b) => itemScore(b) - itemScore(a), level: (a, b) => (b.ilvl || 0) - (a.ilvl || 0), plus: (a, b) => (b.plus || 0) - (a.plus || 0) };
+    const all = s.inventory.items.filter((i) => (!filt || i.slot === filt) && (!rar || i.rarity === rar)).sort(SORTS[sortBy] || SORTS.rarity);
+    const limit = app.ui.invLimit || 60;
+    const items = all.slice(0, limit);
     const sel = s.inventory.items.find((i) => i.id === app.ui.itemSel);
     const forgeJob = s.queues.craft.find((q) => q.kind === 'item');
     const labJob = s.queues.craft.find((q) => q.kind === 'potion');
     return `<div class="craft-layout">
       <div class="card"><h2>🎒 Inventaire <span class="muted small">${s.inventory.items.length} objets</span></h2>
         <div class="tabs">${['', ...SLOT_ORDER].map((k) => `<button class="tab ${filt === k ? 'active' : ''}" data-action="inv-filter" data-slot="${k}">${k ? SLOTS[k].icon + ' ' + SLOTS[k].name : 'Tous'}</button>`).join('')}</div>
+        <div class="row gap wrap small"><label>Rareté <select id="inv-rar" data-change="inv-rarity"><option value="">Toutes</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${rar === r ? 'selected' : ''}>${esc(RARITIES[r].name)}</option>`).join('')}</select></label>
+          <label>Trier par <select id="inv-sort" data-change="inv-sort">${[['rarity', 'Rareté'], ['score', 'Puissance'], ['level', 'Niveau'], ['plus', 'Amélioration']].map(([k, l]) => `<option value="${k}" ${sortBy === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <span class="muted">${all.length} affiché(s) sur ${s.inventory.items.length} · capacité ${INVENTORY_CAP} (au-delà, les plus faibles non verrouillés sont recyclés)</span></div>
         <div class="inv-layout">
-          <div class="item-grid">${items.map((it) => itemCard(it, { action: 'item-sel', selected: it.id === app.ui.itemSel })).join('') || empty('Aucun objet. Explorez, nettoyez des sites dangereux, ou forgez !')}</div>
+          <div class="item-grid">${items.map((it) => itemCard(it, { action: 'item-sel', selected: it.id === app.ui.itemSel })).join('') || empty('Aucun objet. Explorez, nettoyez des sites dangereux, ou forgez !')}${all.length > limit ? `<button class="btn small" data-action="inv-more">Afficher ${Math.min(60, all.length - limit)} de plus</button>` : ''}</div>
           <div>${sel ? itemDetail(app, sel, mods) : '<div class="muted small">Sélectionnez un objet.</div>'}</div>
         </div></div>
 
@@ -76,6 +84,9 @@ export default {
     brew: (app, el) => app.act(() => startBrew(app.state, el.dataset.key, +document.getElementById('brew-' + el.dataset.key).value), 'Distillation lancée'),
     'use-potion': (app, el) => app.act(() => usePotion(app.state, el.dataset.key), 'Effet actif !'),
     'upgrade-item': (app, el) => app.act(() => upgradeItem(app.state, el.dataset.id), 'Objet amélioré'),
+    'inv-rarity': (app, el) => { app.ui.invRarity = el.value; app.ui.invLimit = 60; app.render(); },
+    'inv-sort': (app, el) => { app.ui.invSort = el.value; app.render(); },
+    'inv-more': (app) => { app.ui.invLimit = (app.ui.invLimit || 60) + 60; app.render(); },
     salvage: (app, el) => { if (confirm('Recycler cet objet ?')) app.act(() => salvageItem(app.state, el.dataset.id), 'Objet recyclé'); },
     lock: (app, el) => { toggleLock(app.state, el.dataset.id); app.render(); },
   },

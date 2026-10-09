@@ -135,10 +135,10 @@ export function resolveRaid(state, raid, t) {
     log(state, 'bad', `🔥 ${text}`, t);
     const k = Object.values(state.world.pois).find((p) => p.type === 'kingdom' && p.rival === raid.rival);
     if (k) k.anger = (k.anger || 0) + 1;
-    // Les assaillants incendient 1 à 2 bâtiments (production −50 % jusqu'à réparation)
-    const targets = allBuildings(state).filter((b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco'].includes(b.type));
+    // Une fois sur deux, les assaillants incendient un bâtiment (production −50 % jusqu'à réparation)
+    const targets = allBuildings(state).filter((b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco', 'warehouse'].includes(b.type));
     const burnt = [];
-    for (let i = 0; i < Math.min(targets.length, rng.int(1, 2)); i++) { const b = targets.splice(rng.int(0, targets.length - 1), 1)[0]; b.damaged = true; burnt.push(BUILDINGS[b.type]?.name || b.type); }
+    if (targets.length && rng.chance(0.5)) { const b = rng.pick(targets); b.damaged = true; burnt.push(BUILDINGS[b.type]?.name || b.type); }
     if (burnt.length) text += ` Bâtiments incendiés (production −50 % jusqu’à réparation) : ${burnt.join(', ')}.`;
   }
   const nDef = Object.values(def).reduce((a, b) => a + b, 0);

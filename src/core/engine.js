@@ -23,6 +23,7 @@ import { checkFeats, serverFeedTick } from '../systems/shards.js';
 import { netRates } from '../systems/economy.js';
 import { liveTick, liveNextTime, processLiveMarches } from '../systems/liveEvents.js';
 import { territoryTick } from '../systems/territory.js';
+import { processPlanned } from '../systems/construction.js';
 import { seasonTick } from '../systems/quests.js';
 import { sagaTick } from '../systems/sagas.js';
 import { inventoryCapTick } from '../systems/crafting.js';
@@ -53,6 +54,7 @@ function processDue(state, t) {
     if (!due.length) continue;
     state.queues[k] = state.queues[k].filter((q) => q.end > t);
     for (const q of due) fn(state, q, q.end);
+    if (k === 'build') processPlanned(state, t);
     changed = true;
   }
   for (const m of [...state.marches]) {
@@ -83,6 +85,7 @@ function processDue(state, t) {
     serverFeedTick(state, t);
     liveTick(state, t);
     territoryTick(state, dt, t);
+    processPlanned(state, t);
     seasonTick(state, t);
     sagaTick(state, t);
     inventoryCapTick(state, t);

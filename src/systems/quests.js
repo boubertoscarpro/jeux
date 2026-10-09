@@ -25,7 +25,7 @@ export function activeQuests(state, n = 3) {
 
 export function claimQuest(state, id, now = Date.now()) {
   const q = STORY_QUESTS.find((x) => x.id === id);
-  if (!q || state.quests.done[id]) return { ok: false };
+  if (!q || state.quests.done[id]) return { ok: false, reason: 'Quête déjà réclamée' };
   if (!questProgress(state, q).done) return { ok: false, reason: 'Objectif non atteint' };
   state.quests.done[id] = now;
   gain(state, q.reward, computeMods(state, now));
@@ -44,7 +44,7 @@ export function milestoneList(state) {
 
 export function claimMilestone(state, id, now = Date.now()) {
   const m = milestoneList(state).find((x) => x.id === id);
-  if (!m || !m.done) return { ok: false };
+  if (!m || !m.done) return { ok: false, reason: 'Palier de jalon non atteint' };
   state.quests.milestones[id] = m.tier + 1;
   gain(state, m.reward, computeMods(state, now));
   state.meta.insignia = (state.meta.insignia || 0) + 1;
@@ -76,7 +76,9 @@ export function seasonTick(state, now = Date.now()) {
 export function claimSeasonTier(state, idx, now = Date.now()) {
   seasonTick(state, now);
   const tier = SEASON.tiers[idx];
-  if (!tier || state.season.claimed[idx] || state.season.points < tier.pts) return { ok: false };
+  if (!tier) return { ok: false };
+  if (state.season.claimed[idx]) return { ok: false, reason: 'Récompense déjà réclamée cette saison' };
+  if (state.season.points < tier.pts) return { ok: false, reason: `Il faut ${tier.pts} points de saison (vous en avez ${Math.floor(state.season.points)})` };
   state.season.claimed[idx] = true;
   const r = { ...tier.reward };
   if (r.insignia) { state.meta.insignia += r.insignia; delete r.insignia; }

@@ -85,6 +85,35 @@ export function startUpgrade(state, bid, now = Date.now()) {
   return { ok: true };
 }
 
+// ───────── Chantiers planifiés ─────────
+// Quand la file est pleine, jusqu'à 3 chantiers peuvent être planifiés : ils démarrent d'eux-mêmes dès qu'une
+// place se libère ET que les ressources sont disponibles (payées au démarrage, pas avant).
+export const PLAN_MAX = 3;
+export function planConstruction(state, item) {
+  const planned = (state.queues.planned ||= []);
+  if (planned.length >= PLAN_MAX) return { ok: false, reason: `Au plus ${PLAN_MAX} chantiers planifiés` };
+  if (item.kind === 'upgrade' && planned.some((p) => p.kind === 'upgrade' && p.bid === item.bid)) return { ok: false, reason: 'Déjà planifié' };
+  if (item.kind === 'build' && planned.some((p) => p.kind === 'build' && p.x === item.x && p.y === item.y)) return { ok: false, reason: 'Emplacement déjà réservé' };
+  planned.push({ id: uid('pl'), ...item });
+  return { ok: true, planned: true };
+}
+export function cancelPlanned(state, id) {
+  const before = (state.queues.planned || []).length;
+  state.queues.planned = (state.queues.planned || []).filter((p) => p.id !== id);
+  return { ok: state.queues.planned.length < before };
+}
+export function processPlanned(state, now = Date.now()) {
+  const planned = state.queues.planned || [];
+  while (planned.length) {
+    const p = planned[0];
+    const r = p.kind === 'build' ? startBuild(state, p.type, p.x, p.y, now) : startUpgrade(state, p.bid, now);
+    if (r.ok) { planned.shift(); log(state, 'info', `🏗️ Chantier planifié démarré : ${BUILDINGS[p.type || state.city.buildings[p.bid]?.type || p.bid.slice(5)]?.name || ''}.`, now); continue; }
+    if (/File de construction pleine|Ressources insuffisantes/.test(r.reason || '')) { p.waiting = r.reason; break; }
+    planned.shift(); // devenu impossible (niveau max, emplacement occupé…) : retiré
+    log(state, 'info', `🏗️ Chantier planifié abandonné : ${r.reason || 'impossible'}.`, now);
+  }
+}
+
 export const CLEAR_COST = { food: 25, gold: 10 };
 export function startClear(state, x, y, now = Date.now()) {
   const mods = computeMods(state, now);

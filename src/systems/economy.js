@@ -58,23 +58,24 @@ export function roadConnected(state) {
 }
 
 // Multiplicateur global d'un bâtiment (adjacence, ouvriers, route, dégâts)
-function buildingBonus(state, b, mods, adj) {
+function buildingBonus(state, b, mods, adj, roads) {
   const sector = SECTOR_OF[b.type];
   let bonus = adj.total + (sector ? mods['work.' + sector] || 0 : 0);
-  if (roadConnected(state).has(b.id)) bonus += 0.05 + (mods['road.bonus'] || 0);
+  if (roads.has(b.id)) bonus += 0.05 + (mods['road.bonus'] || 0);
   return bonus;
 }
 
 // Production horaire d'un bâtiment → { out: {res: /h}, in: {res: /h}, adj }
-export function buildingRates(state, b, mods) {
+// roads : réseau routier précalculé (les boucles le calculent une seule fois par passe)
+export function buildingRates(state, b, mods, roads = roadConnected(state)) {
   const def = BUILDINGS[b.type];
   const res = { out: {}, in: {}, adj: { total: 0, details: [] }, bonus: 0 };
   if (!def || b.level <= 0) return res;
   const adj = adjacencyBonus(state, b.type, b.x, b.y, mods);
   res.adj = adj;
-  const bonus = buildingBonus(state, b, mods, adj);
+  const bonus = buildingBonus(state, b, mods, adj, roads);
   res.bonus = bonus;
-  res.road = roadConnected(state).has(b.id);
+  res.road = roads.has(b.id);
   const dmg = b.damaged ? 0.5 : 1;
   const lf = levelProdFactor(b.level) * dmg;
   for (const [r, v] of Object.entries(def.prod || {})) res.out[r] = v * lf * Math.max(0.1, prodMult(mods, r) + bonus);
@@ -113,9 +114,10 @@ export function upkeepPerHour(state, mods) {
 // Bilan théorique par heure (production - consommation à pleine capacité)
 export function netRates(state, mods) {
   const net = {};
+  const roads = roadConnected(state);
   for (const b of allBuildings(state)) {
     if (b.paused) continue;
-    const r = buildingRates(state, b, mods);
+    const r = buildingRates(state, b, mods, roads);
     for (const [k, v] of Object.entries(r.out)) net[k] = (net[k] || 0) + v;
     for (const [k, v] of Object.entries(r.in)) net[k] = (net[k] || 0) - v;
   }
@@ -144,11 +146,12 @@ export function advanceEconomy(state, dt, mods) {
   const produced = state.stats.produced;
   const spent = (state.stats.spent ||= {});
   const buildings = allBuildings(state).filter((b) => b.level > 0);
+  const roads = roadConnected(state);
 
   // 1) Production simple
   for (const b of buildings) {
     if (b.paused || recipeOf(b)) continue;
-    const r = buildingRates(state, b, mods);
+    const r = buildingRates(state, b, mods, roads);
     for (const [k, v] of Object.entries(r.out)) {
       const got = addResource(state, k, v * h, mods, cap);
       produced[k] = (produced[k] || 0) + got;
@@ -158,7 +161,7 @@ export function advanceEconomy(state, dt, mods) {
   for (const type of CONVERT_ORDER) {
     for (const b of buildings.filter((x) => x.type === type)) {
       if (b.paused) { b.starved = false; continue; }
-      const r = buildingRates(state, b, mods);
+      const r = buildingRates(state, b, mods, roads);
       let frac = 1;
       for (const [k, v] of Object.entries(r.in)) {
         const need = v * h;

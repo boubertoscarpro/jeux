@@ -51,7 +51,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     meta: { seed, kingdomName, lordName, created: now, lastTick: now, banner: '#c9a227', title: null, theme: null, insignia: 3, owned: {} },
     resources,
     city: { w: CITY_W, h: CITY_H, terrain, buildings: {} , fort: { wall: 0, moat: 0 } },
-    queues: { build: [], train: [], research: [], craft: [] },
+    queues: { build: [], train: [], research: [], craft: [], planned: [] },
     army: {},
     heroes: [],
     inventory: { items: [], consumables: {} },

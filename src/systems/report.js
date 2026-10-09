@@ -5,7 +5,7 @@ import { BUILDINGS } from '../data/buildings.js';
 import { UNITS } from '../data/units.js';
 import { allBuildings } from './city.js';
 import { computeMods } from './modifiers.js';
-import { buildingRates, recipeOf, storageCap, armyUpkeep, workerUpkeep, armyTotals } from './economy.js';
+import { buildingRates, recipeOf, storageCap, armyUpkeep, workerUpkeep, armyTotals, roadConnected } from './economy.js';
 export { recordLoss } from './losses.js';
 
 const DAY = 86400000;
@@ -35,10 +35,11 @@ export function economicReport(state, now = Date.now()) {
   const row = (r) => (rows[r] ||= { res: r, prod: 0, chainUse: 0, upkeep: 0, sources: {}, users: {} });
   const chains = [];
   const idle = [];
+  const roads = roadConnected(state);
   for (const b of allBuildings(state)) {
     if (b.level <= 0) continue;
     const def = BUILDINGS[b.type];
-    const rates = buildingRates(state, b, mods);
+    const rates = buildingRates(state, b, mods, roads);
     const rec = recipeOf(b);
     if (b.paused) { if (rec) chains.push({ b, name: def.name, icon: def.icon, status: 'paused', reason: 'En pause' }); continue; }
     // Une chaîne bloquée ne produit pas : on reflète l'état réel mesuré au dernier pas de simulation

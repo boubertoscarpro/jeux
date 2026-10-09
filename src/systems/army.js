@@ -62,7 +62,7 @@ export function completeTrain(state, q, now) {
 
 export function dismiss(state, type, n) {
   n = Math.min(state.army[type] || 0, Math.floor(n));
-  if (n <= 0) return { ok: false };
+  if (n <= 0) return { ok: false, reason: 'Aucune unité de ce type à renvoyer' };
   state.army[type] -= n;
   return { ok: true };
 }

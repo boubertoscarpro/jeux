@@ -18,12 +18,15 @@ export const terrainAt = (s, x, y) => (x < 0 || y < 0 || x >= s.city.w || y >= s
 export const buildingAt = (s, x, y) => allBuildings(s).find((b) => b.x === x && b.y === y) || null;
 
 export function neighbors(s, x, y, range = 1) {
+  // Un seul parcours des bâtiments (au lieu d'un par case voisine) : évite un coût quadratique
+  const near = new Map();
+  for (const b of Object.values(s.city.buildings)) if (Math.abs(b.x - x) <= range && Math.abs(b.y - y) <= range && !near.has(b.x + ',' + b.y)) near.set(b.x + ',' + b.y, b);
   const out = [];
   for (let dy = -range; dy <= range; dy++) for (let dx = -range; dx <= range; dx++) {
     if (!dx && !dy) continue;
     const t = terrainAt(s, x + dx, y + dy);
     if (t === null) continue;
-    out.push({ x: x + dx, y: y + dy, terrain: t, building: buildingAt(s, x + dx, y + dy) });
+    out.push({ x: x + dx, y: y + dy, terrain: t, building: near.get(x + dx + ',' + (y + dy)) || null });
   }
   return out;
 }

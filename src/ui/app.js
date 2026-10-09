@@ -246,7 +246,7 @@ export class App {
     let r;
     try { r = fn(); } catch (e) { console.error(e); this.toast('Erreur : ' + e.message, 'bad'); return null; }
     if (r && r.ok === false) {
-      if (r.reason) this.toast(r.reason, 'bad');
+      this.toast(r.reason || 'Action impossible : l’élément visé n’existe plus ou la situation a changé (actualisation de l’écran).', 'bad');
     } else if (okMsg) this.toast(typeof okMsg === 'function' ? okMsg(r) : okMsg, 'good');
     this.render();
     if (!r || r.ok !== false) this.save();

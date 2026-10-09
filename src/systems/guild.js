@@ -70,7 +70,9 @@ export function guildProgress(state, stat, amount) {
 export function claimObjective(state, oid, now = Date.now()) {
   const g = state.guild;
   const o = g?.objectives.find((x) => x.id === oid);
-  if (!o || !o.done || o.claimed) return { ok: false };
+  if (!o) return { ok: false };
+  if (o.claimed) return { ok: false, reason: 'Déjà réclamé' };
+  if (!o.done) return { ok: false, reason: 'Objectif de guilde non atteint' };
   o.claimed = true;
   const def = GUILD_OBJECTIVES.find((d) => d.id === oid);
   const k = Math.pow(1.5, g.round);

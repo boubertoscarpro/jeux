@@ -1,4 +1,4 @@
-# 💎 Éclats Anciens et 🎡 Roue des Anciens
+# 💠 Éclats Anciens et 🎡 Roue des Anciens
 
 > Une monnaie rare, prestigieuse, farmable… mais jamais banale. Elle n'est **jamais vendue contre de l'argent réel**.
 
@@ -12,7 +12,7 @@
 | Boss mondial (≥ 3 % des dégâts) | 25 % (+25 % pour ≥ 15 %) | 1 | 2 |
 | Exploration : « fragment d'un ancien artefact » | 0,6 % | 1 | 2 |
 | Expédition interdite (12 h, tous les 4 jours) | 55 % échec avec pertes, 35 % 2–5, 10 % 10–30 | — | — |
-| Événements (boutique à stock serveur, Citadelle, volcan, météorite) | — | 1–2 | 6 |
+| Événements (boutique à stock limité, Citadelle, volcan, météorite) | — | 1–2 | 6 |
 | Exploits uniques (donjon 15, confins du monde, merveille…) | une seule fois | 3–5 | — |
 
 ### Anti-abus
@@ -59,7 +59,7 @@
   - 25 Cavaliers célestes ;
   - le titre « Élu des Anciens » ;
   - le Colosse de l'Ancien ;
-  - une annonce sur tout le serveur.
+  - un événement réel dans votre royaume : Fête ancestrale (+15 % de production pendant 24 h) et Grande Foire immédiate.
 - Les sons (WebAudio) peuvent être coupés, et une animation courte est proposée.
 
 ## Profils testés (simulation Monte-Carlo)

@@ -170,3 +170,21 @@ test('Longue durée : 4 jours avec événements, territoires, contrats et sagas 
   assert.ok(s.meta.lastTick === t);
   assert.ok(Object.keys(sagaState(s).done).length >= 1, 'au moins une saga terminée');
 });
+
+test('Chantiers planifiés : démarrent seuls quand la file se libère, payés au démarrage seulement', async () => {
+  const { planConstruction, processPlanned, startUpgrade, PLAN_MAX } = await import('../src/systems/construction.js');
+  const s = rich('plan');
+  const th = Object.values(s.city.buildings).find((b) => b.type === 'townhall');
+  const house = Object.values(s.city.buildings).find((b) => b.type === 'house');
+  assert.ok(startUpgrade(s, th.id, T0).ok);
+  const r = startUpgrade(s, house.id, T0);
+  assert.equal(r.ok, false);
+  const wood = s.resources.wood;
+  assert.ok(planConstruction(s, { kind: 'upgrade', bid: house.id }).ok);
+  assert.equal(s.resources.wood, wood, 'rien n’est payé à la planification');
+  for (let i = 0; i < PLAN_MAX - 1; i++) planConstruction(s, { kind: 'upgrade', bid: 'fort:wall' + i });
+  assert.equal(planConstruction(s, { kind: 'upgrade', bid: 'x' }).ok, false, 'plafond du plan');
+  advance(s, T0 + 6 * H);
+  assert.ok(house.level >= 2 || s.queues.build.some((q) => q.bid === house.id), 'la maison a démarré seule');
+  assert.ok(s.queues.planned.every((p) => p.bid !== house.id));
+});

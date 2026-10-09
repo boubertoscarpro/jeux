@@ -8,7 +8,11 @@ import { repairBuilding, repairCost } from '../../systems/automation.js';
 import { nextDomainStep, expandDomain } from '../../systems/domain.js';
 import { WORK_SECTORS } from '../../data/workers.js';
 import { allBuildings, buildingAt, terrainAt, adjacencyBonus, placementCheck, thLevel, proximityEffects } from '../../systems/city.js';
-import { startBuild, startUpgrade, startClear, buildRequirement, getUpgradeInfo, moveBuilding, demolish, moveCost, CLEAR_COST, placeDeco } from '../../systems/construction.js';
+import { startBuild, startUpgrade, startClear, buildRequirement, getUpgradeInfo, moveBuilding, demolish, moveCost, CLEAR_COST, placeDeco, planConstruction } from '../../systems/construction.js';
+
+// File pleine : le chantier est planifié et démarrera seul (ressources payées au démarrage)
+const orPlan = (s, r, item) => (r.ok === false && /File de construction pleine/.test(r.reason || '') ? planConstruction(s, item) : r);
+const planMsg = (label) => (r) => (r.planned ? '🗓️ File pleine : chantier planifié, il démarrera automatiquement' : label);
 import { esc, costList, resChips, countdown, progress, pct } from '../components.js';
 
 const TERRAIN_ICON = { forest: '🌲', mountain: '⛰️', river: '', rubble: '🧱', plain: '' };
@@ -209,15 +213,15 @@ export default {
       }
       if (app.ui.placeType) {
         const type = app.ui.placeType;
-        const r = app.act(() => startBuild(s, type, x, y), 'Construction lancée');
+        const r = app.act(() => orPlan(s, startBuild(s, type, x, y), { kind: 'build', type, x, y }), planMsg('Construction lancée'));
         if (r?.ok) { app.ui.placeType = null; app.ui.citySel = { x, y }; app.render(); }
         return;
       }
       app.ui.citySel = { x, y };
       app.render();
     },
-    build: (app, el) => app.act(() => startBuild(app.state, el.dataset.type, +el.dataset.x, +el.dataset.y), 'Construction lancée'),
-    upgrade: (app, el) => app.act(() => startUpgrade(app.state, el.dataset.id), 'Amélioration lancée'),
+    build: (app, el) => app.act(() => orPlan(app.state, startBuild(app.state, el.dataset.type, +el.dataset.x, +el.dataset.y), { kind: 'build', type: el.dataset.type, x: +el.dataset.x, y: +el.dataset.y }), planMsg('Construction lancée')),
+    upgrade: (app, el) => app.act(() => orPlan(app.state, startUpgrade(app.state, el.dataset.id), { kind: 'upgrade', bid: el.dataset.id }), planMsg('Amélioration lancée')),
     clear: (app, el) => app.act(() => startClear(app.state, +el.dataset.x, +el.dataset.y), 'Déblaiement lancé'),
     move: (app, el) => { app.ui.moveId = el.dataset.id; app.ui.placeType = null; app.render(); },
     'place-mode': (app, el) => { app.ui.placeType = el.dataset.type; app.ui.moveId = null; app.render(); },

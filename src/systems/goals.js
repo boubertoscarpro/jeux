@@ -60,12 +60,12 @@ export function goals(state, now = Date.now()) {
 
   // ── Long terme ──
   const trophies = Object.keys(state.bossTrophies || {}).length, nb = Object.keys(BOSSES).length;
-  long.push({ icon: '🐉', title: 'Vaincre tous les boss mondiaux', cur: trophies, max: nb, prereq: th < 3 ? 'Hôtel de ville 3 (les boss apparaissent ensuite)' : null, reward: 'Exploit des Anciens : 5 💎', view: 'world' });
+  long.push({ icon: '🐉', title: 'Vaincre tous les boss mondiaux', cur: trophies, max: nb, prereq: th < 3 ? 'Hôtel de ville 3 (les boss apparaissent ensuite)' : null, reward: 'Exploit des Anciens : 5 💠', view: 'world' });
   for (const c of collectionStatus(state).filter((x) => !x.done).sort((a, b) => b.cur / b.max - a.cur / a.max).slice(0, 2)) long.push({ icon: '🏺', title: `Collection : ${c.name}`, cur: c.cur, max: c.max, desc: c.desc, reward: `Bonus permanent : ${Object.entries(c.mods).map(([k, v]) => `${k} +${Math.round(v * 100)} %`).join(', ')}`, view: 'treasury' });
-  long.push({ icon: '🏚️', title: 'Purger un donjon de niveau 15', cur: state.stats.maxDungeonLevel || 0, max: 15, reward: 'Exploit : 5 💎', done: (state.stats.maxDungeonLevel || 0) >= 15, view: 'world' });
+  long.push({ icon: '🏚️', title: 'Purger un donjon de niveau 15', cur: state.stats.maxDungeonLevel || 0, max: 15, reward: 'Exploit : 5 💠', done: (state.stats.maxDungeonLevel || 0) >= 15, view: 'world' });
   const sh = shardState(state);
   const left = FEATS.filter((f) => !sh.feats[f.id]).length;
-  if (left) long.push({ icon: '💎', title: 'Exploits des Anciens', cur: FEATS.length - left, max: FEATS.length, reward: 'Éclats Anciens (une seule fois chacun)', view: 'shards' });
+  if (left) long.push({ icon: '💠', title: 'Exploits des Anciens', cur: FEATS.length - left, max: FEATS.length, reward: 'Éclats Anciens (une seule fois chacun)', view: 'shards' });
   const pity = wheelCfg(state).pity;
   long.push({ icon: '🎡', title: 'Garantie légendaire de la Roue', cur: sh.pity.legendary, max: pity.legendary, reward: 'Récompense légendaire garantie', view: 'wheel' });
   long.push({ icon: '👑', title: 'Fonder une nouvelle dynastie', cur: th, max: PRESTIGE_TH, desc: 'Recommencer avec des avantages permanents limités.', view: 'talents', done: th >= PRESTIGE_TH });

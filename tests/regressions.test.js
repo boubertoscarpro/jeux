@@ -196,7 +196,8 @@ test('Royaumes rivaux : une cité mise à sac ne peut pas être repillée imméd
 });
 
 test('Combat : aucune composition ne domine sur tous les terrains (archers, cavalerie, infanterie)', () => {
-  const N = 20;
+  const N = 80;
+  rng.setSource(mulberry32(77));
   const win = (a, d, terrain) => { let w = 0; for (let i = 0; i < N; i++) if (simulateBattle({ units: a }, { units: d }, { terrain, weather: 'clear' }).winner === 'attacker') w++; return w / N; };
   const price = (r) => (r === 'gold' ? 1 : RESOURCES[r].price);
   const army = (u) => ({ [u]: Math.round(6000 / Object.entries(UNITS[u].cost).reduce((t, [r, v]) => t + v * price(r), 0)) });
@@ -206,6 +207,7 @@ test('Combat : aucune composition ne domine sur tous les terrains (archers, cava
   // Les colosses n'ont plus de bonus de moral caché
   const r = simulateBattle({ units: { swordsman: 100 } }, { units: { dragon: 1 } }, { terrain: 'plain', weather: 'clear', bossHp: 50000, deterministic: true });
   assert.equal(r.moraleD, 100);
+  rng.setSource(null);
 });
 
 test('Dynastie : pas d’exploit d’Éclats ni de doublons fantômes après prestige', () => {

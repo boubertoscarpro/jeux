@@ -38,7 +38,7 @@ Les cibles déjà disponibles sont : camp, port, chambre forte, crypte, meute, r
   L'ordre n'est donc jamais deux fois le même (vérifié par les tests).
 - L'administration peut retirer un événement, changer son poids, régénérer le calendrier, ou lancer/terminer un événement immédiatement.
 
-## Les 10 événements
+## Les 11 événements
 
 | Événement | Monnaie | Mécanique propre |
 |---|---|---|
@@ -46,20 +46,36 @@ Les cibles déjà disponibles sont : camp, port, chambre forte, crypte, meute, r
 | 🏴‍☠️ Corsaires du Sud | ⚓ Pièces des Corsaires | Ports pillables ou commerce maritime, navires mobiles (+30 % à l'abordage avec un Port), trésors |
 | ❄️ Hiver des Géants | 🧊 Éclats de givre | Survie (entretien +20 %, nourriture −15 %). Les Brasiers donnent de la chaleur, qui multiplie les gains |
 | 🏛️ Ruines Anciennes | 🏺 Fragments Anciens | Carte dans le brouillard à explorer, énigmes (une mauvaise réponse scelle la salle 1 h), chambres fortes |
-| 🐉 Chasse au Dragon | 🐉 Écailles de Dragon | Traque en 3 pistes, puis boss **coopératif du serveur** (60 M PV) avec paliers de récompense globaux |
+| 🐉 Chasse au Dragon | 🐉 Écailles de Dragon | Traque en 3 pistes, puis boss **commun** (60 M PV) frappé aussi par les seigneurs rivaux IA, avec paliers de récompense |
 | ⚔️ Guerre des Royaumes | 🚩 Bannières | Régions conquises tenues en garnison : revenu horaire, contre-attaques toutes les 2 h |
 | ⛏️ Ruée vers l'Or | 🪙 Pépites | Filons qui s'épuisent ; des prospecteurs rivaux en revendiquent un chaque heure |
 | 🌋 Colère du Volcan | 🔥 Braises | La lave se déplace chaque heure ; un évent cerné fait des pertes. Rare chance d'Éclat |
 | 👻 Nuit des Morts | 👻 Âmes errantes | Vague contre **votre ville** toutes les 6 h ; chaque crypte purgée l'affaiblit de 4 % ; Feux sacrés (+20 % de défense) |
-| 🏰 Siège des Anciens | 🏯 Sceaux | Garnison dans la Citadelle, assaut toutes les 4 h aux côtés du serveur, grande récompense si elle tient |
+| 🏰 Siège des Anciens | 🏯 Sceaux | Garnison dans la Citadelle, assaut toutes les 4 h aux côtés de seigneurs alliés (IA), grande récompense si elle tient |
+| 🐫 Convoi des Sept Marchands | 📜 Sceaux des Sept | Marché bouleversé (taxe +4 %, caravanes +25 %), convois d'élite à escorter, commercer ou piller, repaires de brigands, Roi des Brigands |
 
 Chaque événement a aussi :
 
-- des **objectifs** ;
+- des **objectifs** finaux ;
+- **3 missions du jour**, renouvelées à minuit et tirées parmi les activités propres à l'événement ;
+- une **stratégie** au choix, modifiable une fois par jour :
+
+  | Stratégie | Effet |
+  |---|---|
+  | Équilibre | Aucun bonus ni malus |
+  | Razzia | Combat +25 %, activités pacifiques −20 % |
+  | Diplomatie marchande | Activités pacifiques +30 %, combat −20 % |
+  | Prudence | Pertes −25 %, monnaie −10 % |
+
 - une **passe gratuite** à 20 niveaux, sans option payante ;
-- un **boss à paliers** (sauf la Chasse au Dragon, coopérative) ;
+- un **boss à paliers**, chaque rang se jouant en **3 phases** :
+  - Assaut ;
+  - Enragé : attaque du boss +30 % ;
+  - Dernier rempart : dégâts −40 %, sauf avec des engins de siège (+15 %) ;
+- un **défi héroïque**, réservé aux joueurs préparés : boss au rang III, 150 000 dégâts au colosse, ou 25 000 de monnaie ;
 - un **objectif de guilde collectif** ;
-- un **classement** de 200 seigneurs simulés.
+- une **récompense de participation** (coffre rare et 2 insignes) dès 500 de monnaie gagnée ;
+- un **tableau d'honneur** : vous et 199 **rivaux IA simulés localement**. Cendrelande est un jeu solo et hors ligne : aucun de ces seigneurs n'est un vrai joueur.
 
 ## Monnaies
 
@@ -69,7 +85,7 @@ Chaque événement a aussi :
 
 ## Boutiques
 
-- **Fixe** : ressources, soldats, coffres, équipement épique, fragments. On y trouve aussi **1 Éclat Ancien** (12 000 de monnaie, stock 3 par joueur et **5 pour tout le serveur**). Les autres seigneurs « achètent » aussi : premier arrivé, premier servi.
+- **Fixe** : ressources, soldats, coffres, équipement épique, fragments. On y trouve aussi **1 Éclat Ancien** (12 000 de monnaie, stock 3 par joueur et **5 chez le marchand**, que les seigneurs rivaux IA achètent aussi au fil des heures).
 - **Exclusifs** (stock 1) : objet unique, héros spécial et décoration propres à l'événement.
 - **Rotation** : 4 objets tirés à chaque occurrence parmi un catalogue propre à l'événement.
 - **Marchand mystère** : 3 à 5 objets renouvelés chaque jour. Parfois un objet rare (un Éclat à 14 000).

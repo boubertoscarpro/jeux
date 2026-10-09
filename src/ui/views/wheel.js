@@ -62,12 +62,12 @@ export default {
     const fast = app.ui.wheelFast;
     return `<div class="wh-layout">
       <div class="card wh-main">
-        <div class="wh-top"><div class="wh-count"><span title="Éclats Anciens">💎 <b>${fmt(sh.count)}</b> Éclats</span><span title="Tickets">🎟️ <b>${sh.tickets}</b> ticket(s)</span></div>
+        <div class="wh-top"><div class="wh-count"><span title="Éclats Anciens">💠 <b>${fmt(sh.count)}</b> Éclats</span><span title="Tickets">🎟️ <b>${sh.tickets}</b> ticket(s)</span></div>
           <div class="row gap"><button class="mini" data-action="wh-mute">${muted() ? '🔇 Son coupé' : '🔊 Son'}</button><button class="mini" data-action="wh-fast">${fast ? '⏩ Animation courte' : '🎞️ Animation complète'}</button></div></div>
         <div class="wh-stage"><div class="wh-pointer">▼</div>
           <div class="wh-disc" style="background:${gradient(s)}; transform: rotate(${angle}deg)"><div class="wh-hub">🎡</div></div></div>
         <div class="row gap center"><button class="btn primary big" data-action="wh-spin" ${sh.tickets < 1 || app.ui.spinning ? 'disabled' : ''}>🎟️ Tourner la Roue (1 ticket)</button>
-          <button class="btn" data-action="wh-ticket" ${sh.count < sc.ticketCost ? 'disabled' : ''}>💎 ${sc.ticketCost} → 🎟️ 1 ticket</button></div>
+          <button class="btn" data-action="wh-ticket" ${sh.count < sc.ticketCost ? 'disabled' : ''}>💠 ${sc.ticketCost} → 🎟️ 1 ticket</button></div>
         <div class="small center">${Date.now() >= free ? '<button class="btn good small" data-action="wh-free">🎁 Ticket hebdomadaire gratuit disponible !</button>' : `Prochain ticket gratuit dans ${countdown(free)}`}</div>
         <p class="small muted center">La taille des secteurs correspond exactement aux probabilités. Aucun « presque gagné » truqué : le résultat est tiré avant l’animation, qui ne fait que le montrer.</p>
       </div>

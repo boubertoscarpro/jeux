@@ -18,7 +18,7 @@ export const TIPS = [
     text: 'Un territoire doit être <b>spécialisé</b>, protégé par une <b>garnison</b> (8 soldats par niveau) et <b>entretenu</b> (or et nourriture). Sans garnison suffisante, il produit 70 % de moins et attire les pillards.' },
   { id: 'saga', when: (s) => s.pending.some((p) => p.kind === 'saga'), title: '📖 Une saga commence', view: 'goals',
     text: 'Les sagas sont des histoires en plusieurs étapes. Vos choix modifient la suite, vos relations avec les factions et votre réputation. Sans réponse, un choix par défaut s’applique à l’échéance.' },
-  { id: 'shards', when: (s) => (s.shards?.count || 0) > 0 || (s.shards?.tickets || 0) > 0, title: '💎 Un Éclat Ancien !', view: 'wheel',
+  { id: 'shards', when: (s) => (s.shards?.count || 0) > 0 || (s.shards?.tickets || 0) > 0, title: '💠 Un Éclat Ancien !', view: 'wheel',
     text: 'Monnaie rare, jamais vendue contre de l’argent réel. 10 Éclats = 1 ticket pour la Roue des Anciens, dont les probabilités et les garanties sont affichées. Vous pouvez aussi viser une récompense garantie (100 Éclats).' },
   { id: 'dynasty', when: (s) => levelOf(s, 'townhall') >= 13, title: '👑 La dynastie approche', view: 'talents',
     text: 'À l’Hôtel de ville 15, vous pourrez fonder une nouvelle dynastie : recommencer avec des points d’héritage. La liste exacte de ce qui est conservé et réinitialisé s’affiche avant toute confirmation.' },

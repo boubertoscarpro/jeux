@@ -9,7 +9,7 @@ import { POI_TYPES } from '../data/world.js';
 import { fmt } from '../core/util.js';
 import { computeMods } from '../systems/modifiers.js';
 import { storageCap, netRates } from '../systems/economy.js';
-import { buildSlots, cancelBuild } from '../systems/construction.js';
+import { buildSlots, cancelBuild, cancelPlanned } from '../systems/construction.js';
 import { cancelResearch } from '../systems/research.js';
 import { cancelTrain } from '../systems/army.js';
 import { cancelCraft } from '../systems/crafting.js';
@@ -52,7 +52,7 @@ export function renderTopbar(app) {
     <div class="resbar">${res}<button class="res-more" data-action="toggle-res" title="Toutes les ressources">${app.ui.showAllRes ? '−' : '+'}</button>
       <div class="res cap" title="Capacité de l'entrepôt">📦 <span class="res-val">${fmt(cap)}</span></div></div>
     <div class="top-prestige">
-      <button class="chip chip-shard" data-action="nav" data-view="g-wheel" title="Éclats Anciens (monnaie rare, jamais vendue) — ouvrir la Roue des Anciens">💎 ${fmt(shardState(s).count)}</button>
+      <button class="chip chip-shard" data-action="nav" data-view="g-wheel" title="Éclats Anciens (monnaie rare, jamais vendue) — ouvrir la Roue des Anciens">💠 ${fmt(shardState(s).count)}</button>
       <button class="chip chip-ticket" data-action="nav" data-view="g-wheel" title="Tickets de la Roue des Anciens">🎟️ ${shardState(s).tickets}</button>
       ${s.live?.current ? `<button class="chip chip-event" data-action="nav" data-view="event" style="--evc:${LIVE_EVENTS[s.live.current.key].color}" title="${esc(LIVE_EVENTS[s.live.current.key].name)} — ${esc(LIVE_EVENTS[s.live.current.key].currency.name)}">${LIVE_EVENTS[s.live.current.key].icon} ${LIVE_EVENTS[s.live.current.key].currency.icon} ${fmt(s.live.current.wallet)} · ${countdown(s.live.current.end)}</button>` : ''}
       ${(s.live?.surprises || []).filter((x) => x.end > now).map((x) => `<span class="chip chip-event" title="${esc(SURPRISE_EVENTS[x.key].desc)}">${SURPRISE_EVENTS[x.key].icon} ${countdown(x.end)}</span>`).join('')}
@@ -89,7 +89,8 @@ export function renderSide(app) {
 
   const bq = s.queues.build;
   parts.push(`<section class="side-box"><h3>🏗️ Chantiers <span class="muted">${bq.length}/${buildSlots(mods)}</span></h3>
-    ${bq.map((q) => queueRow(q.kind === 'clear' ? '🧹' : BUILDINGS[q.type].icon, q.kind === 'clear' ? 'Déblaiement' : `${esc(BUILDINGS[q.type].name)} → ${q.level}`, q, 'cancel-build')).join('') || '<div class="muted small">Aucun chantier — vos ouvriers attendent !</div>'}</section>`);
+    ${bq.map((q) => queueRow(q.kind === 'clear' ? '🧹' : BUILDINGS[q.type].icon, q.kind === 'clear' ? 'Déblaiement' : `${esc(BUILDINGS[q.type].name)} → ${q.level}`, q, 'cancel-build')).join('') || '<div class="muted small">Aucun chantier — vos ouvriers attendent !</div>'}
+    ${(s.queues.planned || []).map((p) => { const type = p.type || s.city.buildings[p.bid]?.type || (p.bid || '').slice(5); return `<div class="q-row planned"><div class="q-top"><span>🗓️ ${esc(BUILDINGS[type]?.name || type)} ${p.kind === 'build' ? '(nouveau)' : '(amélioration)'}</span><button class="mini ghost" data-action="cancel-plan" data-id="${p.id}" title="Retirer du plan">✕</button></div>${p.waiting ? `<div class="muted small">En attente : ${esc(p.waiting)}</div>` : ''}</div>`; }).join('')}</section>`);
 
   const rq = s.queues.research;
   const tq = s.queues.train;
@@ -152,6 +153,7 @@ export function openPending(app, id) {
 
 export const sideActions = {
   'cancel-build': (app, el) => app.act(() => cancelBuild(app.state, el.dataset.id)),
+  'cancel-plan': (app, el) => app.act(() => cancelPlanned(app.state, el.dataset.id), 'Chantier retiré du plan'),
   'cancel-research': (app, el) => app.act(() => cancelResearch(app.state, el.dataset.id)),
   'cancel-train': (app, el) => app.act(() => cancelTrain(app.state, el.dataset.id)),
   'cancel-craft': (app, el) => app.act(() => cancelCraft(app.state, el.dataset.id)),

@@ -19,16 +19,16 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 | Catégorie | Contenu |
 |---|---|
-| 🏰 Royaume | Grille de construction avec bonus d'adjacence (rivière, forêt, montagne), routes, agrandissement du domaine, fortifications |
-| 🗺️ Monde | Carte procédurale 48×48, brouillard, sites de farm à risque, donjons procéduraux, boss mondiaux, 5 factions IA, diplomatie, espionnage |
+| 🏰 Royaume | Grille de construction avec bonus d'adjacence (rivière, forêt, montagne), routes, agrandissement du domaine, fortifications ; **tableau des objectifs** (court / moyen / long terme) et **sagas** narratives |
+| 🗺️ Monde | Carte procédurale 48×48, brouillard, sites de farm à risque, donjons procéduraux, boss mondiaux, 5 factions IA, diplomatie, espionnage ; **territoires spécialisés** (avant-postes, garnison, entretien, menaces) |
 | ⚔️ Armée | 15 unités, contres, formations, terrain, météo, moral, ravitaillement, siège |
-| ⛏️ Production | Ouvriers & contremaîtres, expéditions automatiques, chaînes configurables, Intendance, priorités, **Ordres du royaume** (SI → ALORS) |
-| 🚚 Commerce | Marché dynamique (saisons, guerres, pénuries, rumeurs), convois sécurisés/rapides/clandestins, routes, contrats |
+| ⛏️ Production | Ouvriers & contremaîtres, expéditions automatiques, chaînes configurables, Intendance, priorités, **Ordres du royaume** (SI → ALORS), **bilan économique** (production/consommation par heure, pénuries, chaînes bloquées, pertes) |
+| 🚚 Commerce | Marché dynamique (saisons, guerres, pénuries, rumeurs), convois sécurisés/rapides/clandestins, routes, contrats en 7 catégories (commerce, urgence, artisanat, exploration, militaire, diplomatie, guilde) |
 | 🧙 Héros | 6 classes, raretés, compétences, intendants/commandants, équipement, forge, potions |
 | 🔬 Technologies | Arbre technologique à maîtrises, recherche automatique, talents permanents, doctrines, prestige dynastique |
-| 🎪 Événements | Un grand événement de 72 h tous les ~3 jours (10 événements en rotation : Cavaliers des Steppes, Corsaires, Hiver des Géants, Ruines, Chasse au Dragon, Guerre des Royaumes, Ruée vers l'Or, Volcan, Nuit des Morts, Siège des Anciens), cartes dédiées, monnaies, boutiques à stock limité, marchand mystère, passe gratuite, classement, boss à paliers, surprises (météores, dragon errant, Grande Foire, éclipse) |
+| 🎪 Événements | Un grand événement de 72 h tous les ~3 jours (11 événements en rotation : Cavaliers des Steppes, Corsaires, Hiver des Géants, Ruines, Chasse au Dragon, Guerre des Royaumes, Ruée vers l'Or, Volcan, Nuit des Morts, Siège des Anciens, Convoi des Sept Marchands), cartes dédiées, monnaies, stratégie et missions du jour, boutiques à stock limité, marchand mystère, passe gratuite, tableau d'honneur (rivaux IA locaux), boss en 3 phases, défi héroïque, surprises (météores, dragon errant, Grande Foire, éclipse) |
 | 🎡 Roue | **Éclats Anciens** (monnaie rare, jamais vendue) et **Roue des Anciens** : probabilités affichées, pitié visible, fragments, saisons, exclusivités, jackpot ancestral, expédition interdite |
-| 🏛️ Guilde | Dons, niveaux, objectifs collectifs, escortes et renforts |
+| 🏛️ Guilde | Dons, niveaux, objectifs collectifs, escortes et renforts (membres simulés localement) |
 | 📜 Chronique | Journal, histoire datée du royaume, statistiques et records, salle du trésor (artefacts, collections, réputations), saison |
 
 Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos questions.
@@ -36,7 +36,8 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 51 tests (moteur, phase 2, bot, événements, Roue, profils économiques)
+npm test        # 84 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques)
+node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/economySim.js 90 40   # simulation de l'économie des Éclats (occasionnel / actif / hardcore)
 npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
 ```
@@ -46,4 +47,4 @@ npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
 - `src/systems` : un module par système de jeu (pur, sans DOM, testable)
 - `src/ui` : application, HUD, vues
 
-Documentation : [`docs/DESIGN.md`](docs/DESIGN.md) (phase 1), [`docs/PHASE2.md`](docs/PHASE2.md) (phase 2 et mécaniques originales), [`docs/EVENTS.md`](docs/EVENTS.md) (événements temporaires), [`docs/ECONOMY.md`](docs/ECONOMY.md) (Éclats Anciens, Roue, équilibrage). Outils de réglage : ajoutez `?dev` à l'adresse pour l'onglet Admin.
+Documentation : [`docs/DESIGN.md`](docs/DESIGN.md) (phase 1), [`docs/PHASE2.md`](docs/PHASE2.md) (phase 2 et mécaniques originales), [`docs/EVENTS.md`](docs/EVENTS.md) (événements temporaires), [`docs/ECONOMY.md`](docs/ECONOMY.md) (Éclats Anciens, Roue, équilibrage), [`docs/AUDIT.md`](docs/AUDIT.md) (audit, bugs corrigés), [`docs/BALANCE.md`](docs/BALANCE.md) (simulations par profil). Outils de réglage : ajoutez `?dev` à l'adresse pour l'onglet Admin.

@@ -33,11 +33,11 @@ export default {
         <button class="btn small primary" data-action="adm-start">▶ Lancer maintenant</button><button class="btn small" data-action="adm-end" ${cur ? '' : 'disabled'}>⏹ Terminer l’événement</button>
         <button class="btn small" data-action="adm-reroll">🔀 Nouveau calendrier</button><button class="btn small" data-action="adm-cur" ${cur ? '' : 'disabled'}>+1 000 monnaie</button></div>
       <div class="row gap wrap">${Object.entries(SURPRISE_EVENTS).map(([k, x]) => `<button class="mini" data-action="adm-surprise" data-k="${k}">${x.icon} ${esc(x.name)}</button>`).join('')}</div>
-      <div class="row gap wrap"><button class="mini" data-action="adm-shards" data-n="10">+10 💎</button><button class="mini" data-action="adm-shards" data-n="100">+100 💎</button><button class="mini" data-action="adm-ticket">+1 🎟️</button><button class="btn small ghost" data-action="adm-reset">↺ Réinitialiser les réglages</button></div></div>
+      <div class="row gap wrap"><button class="mini" data-action="adm-shards" data-n="10">+10 💠</button><button class="mini" data-action="adm-shards" data-n="100">+100 💠</button><button class="mini" data-action="adm-ticket">+1 🎟️</button><button class="btn small ghost" data-action="adm-reset">↺ Réinitialiser les réglages</button></div></div>
     <div class="cols-2"><div class="card"><h3>🎪 Événements</h3><div class="adm-grid">
       ${Object.keys(LIVE_CONFIG).filter((k) => typeof LIVE_CONFIG[k] === 'number').map((k) => num('events.' + k, lc[k])).join('')}</div>
       <h4>Poids de rotation / activation</h4><div class="adm-grid">${Object.entries(LIVE_EVENTS).map(([k, d]) => `<label class="adm-field"><span>${d.icon} ${esc(k)}</span><input type="number" min="0" value="${lc.weights[k] ?? d.weight}" data-change="adm-set" data-path="events.weights.${k}"><input type="checkbox" ${lc.disabled.includes(k) ? '' : 'checked'} data-change="adm-toggle-ev" data-k="${k}" title="Dans la rotation"></label>`).join('')}</div></div>
-      <div class="card"><h3>💎 Éclats</h3><div class="adm-grid">
+      <div class="card"><h3>💠 Éclats</h3><div class="adm-grid">
         ${['ticketCost', 'freeTicketDays', 'detectionCap', 'heatPerDrop', 'heatDecayPerHour', 'heatFactor', 'overCapFactor', 'rotationBonus'].map((k) => num('shards.' + k, sc[k])).join('')}
         ${num('shardMultX.shardMult', s.admin?.shardMult ?? 1)}
         ${Object.keys(sc.dailyCap).map((k) => num('shards.dailyCap.' + k, sc.dailyCap[k], 1)).join('')}
@@ -49,8 +49,8 @@ export default {
     <div class="card"><h3>📈 Suivi de l’économie (14 jours)</h3><table class="table"><thead><tr><th>Jour</th><th>Générés</th><th>Dépensés</th><th>Tickets</th><th>Tours</th><th>Légendaires</th><th>Mythiques</th><th>Jackpots</th><th>Par source</th></tr></thead><tbody>
       ${rows.map((r) => `<tr><td>${new Date(r.day * 86400000).toLocaleDateString('fr-FR')}</td><td class="num">${r.gen}</td><td class="num">${r.spent}</td><td class="num">${r.tickets}</td><td class="num">${r.spins}</td><td class="num">${r.legendary}</td><td class="num">${r.mythic}</td><td class="num">${r.jackpot}</td><td class="small">${Object.entries(r.bySource || {}).map(([k, v]) => `${esc(k)} ${v}`).join(', ')}</td></tr>`).join('')}
       <tr><td><b>Total</b></td><td class="num">${tot.gen}</td><td class="num">${tot.spent}</td><td class="num">${tot.tickets}</td><td class="num">${tot.spins}</td><td class="num">${tot.legendary}</td><td class="num">${tot.mythic}</td><td class="num">${tot.jackpot}</td><td></td></tr></tbody></table>
-      <p class="small">Possédés : 💎 ${shardState(s).count} · 🎟️ ${shardState(s).tickets} · tours ${shardState(s).spins} · jackpots ${shardState(s).jackpots}</p>
-      <h4>Projection par profil</h4><table class="table"><thead><tr><th>Profil</th><th>💎/jour</th><th>Jours/ticket</th><th>Délai moyen 1er légendaire+</th><th>Légendaire garanti</th><th>Mythique garanti</th></tr></thead><tbody>
+      <p class="small">Possédés : 💠 ${shardState(s).count} · 🎟️ ${shardState(s).tickets} · tours ${shardState(s).spins} · jackpots ${shardState(s).jackpots}</p>
+      <h4>Projection par profil</h4><table class="table"><thead><tr><th>Profil</th><th>💠/jour</th><th>Jours/ticket</th><th>Délai moyen 1er légendaire+</th><th>Légendaire garanti</th><th>Mythique garanti</th></tr></thead><tbody>
       ${['casual', 'active', 'hardcore'].map((k) => { const p = profileProjection(s, k); return `<tr><td>${esc(p.name)}</td><td class="num">${p.perDay.toFixed(2)}</td><td class="num">${p.ticketDays.toFixed(1)}</td><td class="num">${Math.round(p.expectedLegendaryDays)} j</td><td class="num">${Math.round(p.legendaryDays)} j</td><td class="num">${Math.round(p.mythicDays)} j</td></tr>`; }).join('')}</tbody></table></div>`;
   },
   actions: {

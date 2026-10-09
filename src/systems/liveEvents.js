@@ -957,7 +957,7 @@ function resolveWave(state, cur, def, now) {
 
 export function lightFires(state) {
   const cur = liveState(state).current;
-  if (!cur || !LIVE_EVENTS[cur.key].special?.waves) return { ok: false };
+  if (!cur || !LIVE_EVENTS[cur.key].special?.waves) return { ok: false, reason: 'Pas de vague à repousser dans cet événement' };
   if (cur.fires) return { ok: false, reason: 'Les feux brûlent déjà' };
   if (!pay(state, { herbs: 200 })) return { ok: false, reason: 'Il faut 200 herbes' };
   cur.fires = true;
@@ -1246,7 +1246,7 @@ export function bossPhase(state, cur, def) {
 export function setStance(state, key, now = Date.now()) {
   const cur = liveState(state).current;
   if (!cur) return { ok: false, reason: 'Aucun événement en cours' };
-  if (!EVENT_STANCES[key]) return { ok: false };
+  if (!EVENT_STANCES[key]) return { ok: false, reason: 'Stratégie inconnue' };
   if ((cur.stance || 'balanced') === key) return { ok: false, reason: 'Déjà adoptée' };
   if (cur.stanceDay === dayKey(now)) return { ok: false, reason: 'Une seule décision de stratégie par jour' };
   cur.stance = key; cur.stanceDay = dayKey(now);

@@ -9,7 +9,7 @@ import { TECHS } from '../src/data/techs.js';
 import { UNITS } from '../src/data/units.js';
 import { POI_TYPES } from '../src/data/world.js';
 import { RESOURCES, isCapped } from '../src/data/resources.js';
-import { startBuild, startUpgrade, startClear, buildRequirement } from '../src/systems/construction.js';
+import { startBuild, startUpgrade, startClear, buildRequirement, planConstruction, PLAN_MAX } from '../src/systems/construction.js';
 import { allBuildings, terrainAt, thLevel, adjacencyBonus, placementCheck, totalLevels } from '../src/systems/city.js';
 import { computeMods } from '../src/systems/modifiers.js';
 import { netRates, storageCap } from '../src/systems/economy.js';
@@ -67,6 +67,12 @@ function session(s, p, now) {
       const cands = allBuildings(s).filter((b) => b.level > 0 && b.type !== 'deco' && b.type !== 'townhall').sort((a, b) => a.level - b.level);
       for (const b of cands) { if (done) break; done = startUpgrade(s, b.id, now).ok; }
     }
+  }
+  // File pleine : le joueur planifie ses prochains chantiers (ils démarreront seuls)
+  if (s.queues.build.length && (s.queues.planned || []).length < PLAN_MAX) {
+    const th = allBuildings(s).find((b) => b.type === 'townhall');
+    const cands = [th, ...allBuildings(s).filter((b) => b.level > 0 && b.type !== 'deco' && b.type !== 'townhall' && b.type !== 'road').sort((a, b) => a.level - b.level)];
+    for (const b of cands) { if ((s.queues.planned || []).length >= PLAN_MAX) break; if (!s.queues.build.some((q) => q.bid === b.id)) planConstruction(s, { kind: 'upgrade', bid: b.id }); }
   }
   if (!s.queues.research.length) { for (const id of Object.keys(TECHS).filter((t) => techStatus(s, t).status === 'available').sort(() => rng.random() - 0.5)) if (startResearch(s, id, now).ok) break; }
   // Armée (proportion selon le profil, en gardant de la nourriture)
