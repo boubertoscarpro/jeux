@@ -66,7 +66,7 @@ function buildMenu(app, x, y, mods) {
         return `<div class="b-option ${disabled ? 'disabled' : ''}">
           <div class="b-opt-head"><span class="b-icon">${def.icon}</span><b>${esc(def.name)}</b>${adj.total > 0 ? `<span class="bonus-tag">+${Math.round(adj.total * 100)}% ici</span>` : ''}</div>
           <div class="muted small">${esc(def.desc)}</div>
-          ${disabled ? `<div class="req">${esc(req || p.reason)}</div>` : `<div class="b-opt-foot">${costList(cost, s)} <span class="muted small">⏱ ${fmtTime(time)}</span>
+          ${disabled ? `<div class="req">${esc(req || p.reason)}</div>` : `<div class="b-opt-foot">${Object.keys(cost).length ? costList(cost, s) : '<span class="ok small" title="Le premier exemplaire de ce producteur de base est offert quand vous n’en avez aucun : impossible de rester bloqué sans bois, pierre ou nourriture.">🎁 Offert (premier exemplaire)</span>'} <span class="muted small">⏱ ${fmtTime(time)}</span>
             <button class="mini primary" data-action="build" data-type="${type}" data-x="${x}" data-y="${y}">Construire</button></div>`}
         </div>`;
       }).join('')}</div>`).join('')}

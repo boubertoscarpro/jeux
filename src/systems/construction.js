@@ -21,8 +21,14 @@ export function costWithMods(cost, mods, type = null) {
 }
 export const timeWithMods = (ms, mods) => ms / (1 + (mods['build.speed'] || 0));
 
+// Producteurs de base : le premier exemplaire est offert quand le royaume n'en possède aucun.
+// Sans cela, un royaume sans carrière et sans pierre ne pourrait plus jamais en construire (blocage définitif).
+export const STARTER_FREE = ['sawmill', 'quarry', 'farm'];
+export const isStarterFree = (state, type, nextLevel) => nextLevel === 1 && STARTER_FREE.includes(type) && countOf(state, type) === 0;
+
 export function getUpgradeInfo(state, type, nextLevel, mods = computeMods(state)) {
-  return { cost: costWithMods(buildingCost(type, nextLevel), mods, type), time: timeWithMods(buildingTime(type, nextLevel), mods) };
+  const cost = isStarterFree(state, type, nextLevel) ? {} : costWithMods(buildingCost(type, nextLevel), mods, type);
+  return { cost, time: timeWithMods(buildingTime(type, nextLevel), mods) };
 }
 
 // Vérifie les prérequis d'un type de bâtiment (construction neuve)

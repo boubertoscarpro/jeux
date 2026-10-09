@@ -158,6 +158,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     blocked: objectives(s, t).main.filter((m) => !m.done).map((m) => m.id).join(' '),
   };
   rng.setSource(null);
+  if (globalThis.__simKeep) out.state = s;
   return out;
 }
 

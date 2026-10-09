@@ -239,3 +239,17 @@ test('Bilan économique et objectifs : calculés sans erreur, pénuries détect�
   const g = goals(s, T0);
   assert.ok(g.short.length && g.mid.length && g.long.length);
 });
+
+test('Blocage définitif impossible : sans carrière ni pierre, la première carrière est offerte', async () => {
+  const { createNewState } = await import('../src/core/state.js');
+  const { startBuild, getUpgradeInfo } = await import('../src/systems/construction.js');
+  const { placementCheck } = await import('../src/systems/city.js');
+  const s = createNewState({ seed: 'lock', now: Date.UTC(2026, 0, 1) });
+  s.resources.stone = 0; s.resources.wood = 0;
+  assert.deepEqual(getUpgradeInfo(s, 'quarry', 1).cost, {});
+  let r = { ok: false };
+  for (let y = 0; y < s.city.h && !r.ok; y++) for (let x = 0; x < s.city.w && !r.ok; x++) if (placementCheck(s, 'quarry', x, y).ok) r = startBuild(s, 'quarry', x, y, Date.UTC(2026, 0, 1));
+  assert.ok(r.ok, r.reason);
+  // Le deuxième exemplaire se paie normalement
+  assert.ok(Object.keys(getUpgradeInfo(s, 'quarry', 1).cost).length > 0);
+});
