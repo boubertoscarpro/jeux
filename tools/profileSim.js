@@ -155,6 +155,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     wealth: Math.round(wealth), famineH: Math.round(famineMin / 60), cappedH: Math.round(cappedMin / 60), shards: shardState(s).count + shardState(s).tickets * 10,
     raidsLost: s.stats.raidsLost || 0, saveKB: Math.round(serialize(s).length / 1024),
     chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
+    blocked: objectives(s, t).main.filter((m) => !m.done).map((m) => m.id).join(' '),
   };
   rng.setSource(null);
   return out;
@@ -198,6 +199,11 @@ function claimCampaign(s, now) {
   // Le joueur suit le parcours : il consulte les écrans demandés et fait les actions guidées
   const c = campaignState(s);
   markVisited(s, 'ecoReport'); markVisited(s, 'army');
+  // Missions de construction du chapitre en cours : le joueur guidé construit ce qui est demandé
+  const pend = new Set(objectives(s, now).main.filter((m) => !m.done).map((m) => m.id));
+  if (pend.has('q_clear')) { for (let y = 0; y < s.city.h; y++) for (let x = 0; x < s.city.w; x++) if (terrainAt(s, x, y) === 'rubble' && startClear(s, x, y, now).ok) { y = 1e9; break; } }
+  const want = { q_saw: 'sawmill', q_quarry: 'quarry', q_farm: 'farm', q_barracks: 'barracks', q_library: 'library', q_market: 'market' };
+  for (const [id, type] of Object.entries(want)) if (pend.has(id) && !allBuildings(s).some((b) => b.type === type) && !buildRequirement(s, type)) { const tl = bestTile(s, type, computeMods(s, now)); if (tl && startBuild(s, type, tl.x, tl.y, now).ok) break; }
   if (c.chapter >= 4 && !c.flags.training) trainingBattle(s, now);
   if (c.chapter >= 6 && !(s.stats.envoys > 0)) for (const f of s.factions || []) if (diplomacy(s, f.idx, 'envoy', now).ok) break;
   if (c.chapter >= 6 && !(s.stats.caravans > 0)) {

@@ -80,6 +80,25 @@ Aucun profil n'a connu de famine, ni de valeur invalide (NaN, ressource négativ
 
 **Gains d'Éclats Anciens par profil** (0,3 / 2,3 / 5,6 par jour) : conformes aux cibles et vérifiés par `tests/shards.test.js`.
 
+## Spécialisations de royaume (début, milieu et fin de partie)
+
+`node tools/profileSim.js --kingdoms 7 2` : profil « Actif », 2 parties par spécialisation. Le bot suit le parcours guidé (il réclame les récompenses, fait l'exercice d'entraînement, envoie un ambassadeur, une caravane et une expédition quand le chapitre le demande). Les valeurs « a / b / c » sont relevées à 1, 3 et 7 jours.
+
+
+
+Lecture :
+
+- **Aucune spécialisation ne domine ni n'est obligatoire.** Toutes atteignent l'hôtel de ville 11 et environ 227 niveaux de bâtiments en 7 jours, et terminent 6 à 7 chapitres sur 8 (le chapitre 8 demande un héros intendant et une défense que le bot ne gère pas).
+- **Les écarts vont dans le sens annoncé** :
+  - Moissons : armée la plus nombreuse au début (20 unités au jour 1 grâce aux réserves de nourriture) et or/h le plus élevé.
+  - La nourriture nette de fin dépend surtout de la taille de l'armée entretenue à cet instant. Les Anciens (8 567/h) avaient une petite armée.
+  - Fer : le plus de victoires (15,5 contre 9).
+  - Anciens : début le plus lent (HdV 4 au jour 1), rattrapé ensuite.
+  - Ombres : nourriture nette la plus basse (−5 % de production).
+  - Érudits : HdV 5,5 au jour 1 grâce à leur pierre de départ.
+- **Les maluses restent gérables** : aucune famine, et entre 32 et 37 raids perdus sur 7 jours pour toutes (ce chiffre vient surtout du bot, qui envoie toute son armée en campagne).
+- **Limite** : le bot joue de la même façon quelle que soit la spécialisation (il n'explore pas davantage en Pionniers, ne fait pas plus de diplomatie en Ombres). Le tableau mesure donc surtout l'absence de déséquilibre, pas le plein potentiel de chaque style. Les bonus eux-mêmes sont vérifiés formule par formule dans `tests/kingdoms.test.js`.
+
 ## Limites de la simulation
 
 - Les bots jouent mal la guerre (ils envoient toute l'armée), ne font pas de diplomatie et ne participent pas aux événements. Leurs défaites et raids perdus sont donc **pessimistes**.
