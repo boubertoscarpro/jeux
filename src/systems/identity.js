@@ -76,6 +76,20 @@ export function ensureIdentity(state) {
   return id;
 }
 
+export const KINGDOM_NAME_MAX = 28;
+export function renameKingdom(state, raw, now = Date.now()) {
+  const v = sanitizeName(raw, { max: KINGDOM_NAME_MAX });
+  if (!v.ok) return v;
+  if (state.meta.kingdomName === v.value) return { ok: false, reason: 'C’est déjà son nom' };
+  const old = state.meta.kingdomName;
+  state.meta.kingdomName = v.value;
+  // Le château qui portait le nom par défaut suit le nouveau nom du royaume ; un nom choisi n'est jamais écrasé
+  ensureIdentity(state);
+  if (state.identity.castleName === defaultCastleName(old)) state.identity.castleName = defaultCastleName(v.value);
+  log(state, 'info', `👑 Le royaume prend le nom de « ${v.value} ».`, now);
+  return { ok: true, name: v.value };
+}
+
 export const castleName = (state) => state.identity?.castleName || defaultCastleName(state.meta?.kingdomName);
 
 export function renameCastle(state, raw, now = Date.now()) {
@@ -85,6 +99,7 @@ export function renameCastle(state, raw, now = Date.now()) {
   const old = state.identity.castleName;
   if (old === v.value) return { ok: false, reason: 'C’est déjà son nom' };
   state.identity.castleName = v.value;
+  state.identity.castleRenamed = now;
   log(state, 'info', `🏰 Le château principal s’appelle désormais « ${v.value} ».`, now);
   return { ok: true, name: v.value };
 }
@@ -106,6 +121,7 @@ export function renameOutpost(state, ref, raw, now = Date.now()) {
   if (Object.values(state.territories).some((o) => o !== f.t && o.name === v.value)) return { ok: false, reason: 'Un autre avant-poste porte déjà ce nom' };
   const old = outpostLabel(f.t);
   f.t.name = v.value;
+  f.t.renamed = now;
   log(state, 'info', `🚩 L’avant-poste « ${old} » est rebaptisé « ${v.value} ».`, now);
   return { ok: true, name: v.value };
 }

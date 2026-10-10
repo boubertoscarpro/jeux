@@ -41,6 +41,8 @@ import { openUpgradeList } from './upgrades.js';
 import { showTip } from './tips.js';
 import { markVisited, campaignTick } from '../systems/campaign.js';
 import { pruneAdvice } from '../systems/guide.js';
+import { questTick } from '../systems/questlines.js';
+import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
@@ -163,6 +165,9 @@ export class App {
     if (!(this.cpTick > now - 3000)) {
       this.cpTick = now;
       try { if (campaignTick(this.state, now).length) this.dirty = true; pruneAdvice(this.state, now); } catch (e) { console.error(e); }
+      // Quêtes du royaume et missions dynamiques (détection, nouvelles propositions)
+      try { if (questTick(this.state, now).length) this.dirty = true; } catch (e) { console.error(e); }
+      try { if (missionsTick(this.state, now).length) this.dirty = true; } catch (e) { console.error(e); }
     }
     this.showEventReport();
     showTip(this);

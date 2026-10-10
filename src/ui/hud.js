@@ -29,6 +29,8 @@ import { SURPRISE_EVENTS } from '../data/liveEvents.js';
 import { shardState } from '../systems/shards.js';
 import { esc, countdown, progress, resChips } from './components.js';
 import { upgradeCount } from './upgrades.js';
+import { missionList, missionState, claimDynMission, missionsUnlocked } from '../systems/missions.js';
+import { rewardText as rwText } from '../systems/rewards.js';
 import { upIcon } from './art.js';
 import { castleName } from '../systems/identity.js';
 
@@ -135,6 +137,7 @@ export function renderSide(app) {
   }
   parts.push(adviceBox(s, now));
   parts.push(chapterBox(s, now));
+  parts.push(missionBox(s, now));
   return parts.join('');
 }
 
@@ -168,6 +171,16 @@ export const sideActions = {
   'adv-snooze': (app, el) => app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'),
   'adv-dismiss': (app, el) => app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'),
   'cp-training': (app) => runTraining(app),
+  'dm-claim': (app, el) => app.act(() => claimDynMission(app.state, el.dataset.id), (r) => `Mission accomplie : ${r.text}`),
+  // Ouvre l'écran d'une mission dynamique, avec la case ou le lieu concerné déjà sélectionné
+  'dm-go': (app, el) => {
+    const m = missionState(app.state).active.find((x) => x.id === el.dataset.id);
+    if (!m) return;
+    if (m.sel) { app.ui.citySel = m.sel; (app.ui.cityCam ||= { x: 0, y: 0, z: 1, init: false }).centerOn = m.sel; app.ui.focusUpgrade = m.kind === 'level'; }
+    if (m.worldSel) { app.ui.worldSel = m.worldSel; const c = (app.ui.cam ||= { x: 0, y: 0, zoom: 1 }); c.x = m.worldSel.x + 0.5; c.y = m.worldSel.y + 0.5; c.zoom = Math.max(c.zoom, 1); }
+    if (app.modalActions) app.closeModal();
+    app.go(m.view || 'goals');
+  },
   'open-pending': (app, el) => openPending(app, el.dataset.id),
 };
 
@@ -201,6 +214,19 @@ export function chapterBox(s, now = Date.now()) {
     ${ch.complete && !ch.rewardClaimed ? `<div class="quest done"><div class="quest-title">🏆 Chapitre terminé</div><div class="quest-foot">${resChips(ch.reward)}<button class="mini good" data-action="claim-chapter" data-n="${ch.n}">Réclamer</button></div></div>` : ''}
     ${!list.length && !(ch.complete && !ch.rewardClaimed) ? '<div class="muted small">Parcours terminé ! Les objectifs à long terme continuent.</div>' : ''}
     <button class="btn block ghost small" data-action="nav" data-view="goals">Tous les objectifs →</button></section>`;
+}
+
+// Missions dynamiques du royaume (encart compact)
+export function missionBox(s, now = Date.now()) {
+  if (!missionsUnlocked(s)) return '';
+  let list;
+  try { list = missionList(s, now); } catch (e) { console.error(e); list = []; }
+  if (!list.length) return '';
+  return `<section class="side-box mission-box"><h3>🧭 Missions du royaume <span class="muted small">${list.length}/3</span></h3>
+    ${list.map((m) => `<div class="quest ${m.done ? 'done' : ''}"><div class="quest-title">${m.icon} ${esc(m.title)} <span class="muted">${fmt(m.cur)}/${fmt(m.target)}</span></div>
+      ${m.void ? `<div class="req small">⚠️ ${esc(m.void)}</div>` : ''}
+      <div class="quest-foot"><span class="small muted">${esc(rwText(m.reward))}</span>${m.done ? `<button class="mini good" data-action="dm-claim" data-id="${m.id}">Réclamer</button>` : `<button class="mini ghost" data-action="dm-go" data-id="${m.id}">Y aller</button>`}</div></div>`).join('')}
+    <button class="btn block ghost small" data-action="goto" data-view="goals" data-sel='{"goalCat":"missions"}'>Toutes les missions →</button></section>`;
 }
 
 export function runTraining(app) {

@@ -785,3 +785,28 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .lg-dot { display: inline-block; width: 12px; height: 12px; vertical-align: middle; border-radius: 50%; background: #1d1812; border: 3px solid var(--c); }
 .spec-preview { margin: 4px 0; padding-left: 18px; }
 .world-canvas-wrap .map-tip { z-index: 4; }
+.identity-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.id-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; }
+.id-row > span { color: var(--muted); font-size: 12px; min-width: 150px; }
+.id-row b { color: var(--gold); font-family: var(--title); }
+.id-row .mini { margin-left: auto; }
+/* ---------- Tableau de bord des objectifs, quêtes du royaume, missions dynamiques ---------- */
+.dash h3 { margin-bottom: 8px; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.dash-col { background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; min-width: 0; }
+.dash-col h4 { margin-top: 0; }
+.dash-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.06); }
+.dash-item:last-child { border-bottom: 0; }
+.dash-item > div { flex: 1; min-width: 0; }
+.dash-item .mini { flex: none; }
+.dash-ic { font-family: var(--emoji); font-size: 18px; flex: none; }
+.dash-foot { margin-top: 8px; }
+.goal.locked { opacity: 0.6; }
+.goal.void { border-color: var(--warn); }
+.ql-steps { margin: 6px 0; padding-left: 20px; }
+.ql-steps li { margin: 6px 0; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.15); }
+.ql-steps li.current { border: 1px solid var(--gold2); }
+.ql-steps li.done { opacity: 0.85; }
+.ql-steps li.locked { opacity: 0.55; }
+.quest-line .story { margin: 4px 0; }
+.mission-box .quest-title { font-size: 12.5px; }
