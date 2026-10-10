@@ -10,7 +10,7 @@ import { techStatus } from './research.js';
 import { campaignState, objectives } from './campaign.js';
 
 // Écrans cibles des recommandations de l'analyse (clé courte → écran réel)
-export const ADVICE_GOTO = { production: 'g-prod', city: 'city', market: 'market', trade: 'convoys', army: 'army', world: 'factions', research: 'research' };
+export const ADVICE_GOTO = { production: 'g-prod', city: 'city', market: 'market', trade: 'convoys', army: 'army', world: 'factions', research: 'research', territories: 'territories' };
 const SEV = { bad: 0, warn: 1, next: 2, info: 3, good: 4 };
 export const SNOOZE_MS = 4 * 3600000;
 export const ADVICE_LEVELS = { full: 'Complet', reduced: 'Réduit (urgences et prochaine étape)', off: 'Désactivé' };
@@ -65,7 +65,7 @@ export function adviceList(state, now = Date.now()) {
   if (level === 'reduced') list = list.filter((r) => r.sev === 'bad' || r.sev === 'warn' || r.sev === 'next');
   // Regroupement : au plus 2 conseils par écran cible
   const per = {};
-  list = list.filter((r) => { const g = r.goto || '-'; per[g] = (per[g] || 0) + 1; return per[g] <= 2; });
+  list = list.filter((r) => { if (r.sev === 'next') return true; const g = r.goto || '-'; per[g] = (per[g] || 0) + 1; return per[g] <= 2; });
   return list;
 }
 

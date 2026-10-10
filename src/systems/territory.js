@@ -103,6 +103,8 @@ export function outpostStatus(state, t, now = Date.now()) {
   if (g < garrisonNeed(t)) { eff *= 0.3; reasons.push(`Garnison insuffisante (${g}/${garrisonNeed(t)}) : production −70 %`); }
   if (t.pillagedUntil > now) { eff = 0; reasons.push('Pillé : production arrêtée'); }
   if (t.unpaid) { eff = 0; reasons.push('Entretien impayé : production arrêtée'); }
+  if (t.evacUntil > now) { eff = 0; reasons.push('Réserves évacuées : production suspendue'); }
+  if (t.threatAt > now) reasons.push('⚠️ Une attaque est annoncée : renforcez la garnison');
   if (!t.spec) reasons.push('Aucune spécialisation choisie');
   return { eff, reasons, garrison: g, need: garrisonNeed(t) };
 }
@@ -197,6 +199,8 @@ export function territoryTick(state, dtSec, now) {
       shardState(state).relicFragments++;
       log(state, 'good', `🏺 Les fouilles de ${outpostLabel(t)} mettent au jour un fragment de relique !`, now);
     }
+    // Menace annoncée par un événement : elle frappe à l'échéance (le joueur a eu le temps de réagir)
+    if (t.threatAt && t.threatAt <= now) { delete t.threatAt; outpostThreat(state, k, t, now); continue; }
     // Menace régionale (≈ 3 % + 1,5 %/niveau par heure ; doublée sans garnison suffisante)
     const p = (0.03 + 0.015 * (t.level || 1)) * (st.garrison < st.need ? 2 : 1) * h;
     if (!(t.pillagedUntil > now) && rng.chance(p)) outpostThreat(state, k, t, now);
@@ -219,7 +223,7 @@ export function outpostThreat(state, k, t, now = Date.now()) {
     t.defended = (t.defended || 0) + 1;
   } else {
     t.pillagedUntil = now + 3 * 3600000;
-    const stolen = { gold: Math.min(state.resources.gold || 0, Math.round(150 * (t.level || 1))) };
+    const stolen = { gold: t.evacUntil > now ? 0 : Math.min(state.resources.gold || 0, Math.round(150 * (t.level || 1))) };
     state.resources.gold -= stolen.gold;
     recordLoss(state, 'outpost', stolen, now);
     log(state, 'bad', `🔥 ${th.name} pillent l’avant-poste ${outpostLabel(t)} : production arrêtée 3 h, ${stolen.gold} or perdus, garnison −${lostUnits}.`, now);

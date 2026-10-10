@@ -16,6 +16,11 @@ import { canAfford } from './economy.js';
 import { factionPower, raidWillingness } from './factions.js';
 import { quote } from './market.js';
 
+import { countOf } from './city.js';
+import { upgradeSummary } from './construction.js';
+import { outpostLabel } from './identity.js';
+import { garrisonNeed } from './territory.js';
+
 const R = (r) => `${RESOURCES[r].icon} ${RESOURCES[r].name}`;
 
 // Production / consommation détaillées d'une ressource
@@ -39,7 +44,7 @@ export function analyze(state, now = Date.now()) {
   const net = netRates(state, mods);
   const cap = storageCap(state, mods);
   const recs = [];
-  const push = (sev, text, goto) => recs.push({ sev, text, goto });
+  const push = (sev, text, goto, extra = {}) => recs.push({ sev, text, goto, ...extra });
   // Prévisions de pénurie
   const forecasts = [];
   for (const [r, v] of Object.entries(net)) {
@@ -89,8 +94,29 @@ export function analyze(state, now = Date.now()) {
       if (perH < 60 || r.attacks / r.trips > 0.4) push('warn', `La route vers ${r.town} n’est pas rentable (${fmt(perH)} or/h, ${r.attacks}/${r.trips} attaques).`, 'trade');
     }
   }
-  // Files inactives
-  if (!state.queues.build.length) push('info', 'Aucun chantier en cours : vos ouvriers du bâtiment attendent.', 'city');
+  // Danger imminent : raids en approche, avant-postes menacés
+  for (const r of state.raids || []) push('bad', `Raid de ${r.name} attendu dans ${fmtTime(r.arrive - now)} : gardez vos troupes au château et renforcez la muraille.`, 'army', { id: 'raid:' + r.id });
+  for (const t of Object.values(state.territories || {})) {
+    if (t.threatAt > now) {
+      const g = Object.values(t.garrison || {}).reduce((a, b) => a + b, 0);
+      push('warn', `Attaque annoncée sur « ${outpostLabel(t)} » dans ${fmtTime(t.threatAt - now)} (garnison ${g}/${garrisonNeed(t)}).`, 'territories', { id: 'threat:' + t.id });
+    }
+  }
+  // Production de base absente : bois, pierre, nourriture
+  const noProd = [['sawmill', 'wood'], ['quarry', 'stone'], ['farm', 'food']].filter(([type]) => !countOf(state, type));
+  if (noProd.length && thLevel(state) >= 2) push('warn', `Aucune production de ${noProd.map(([, r]) => RESOURCES[r].name.toLowerCase()).join(', ')} : construisez ${noProd.map(([t]) => BUILDINGS[t].name.toLowerCase()).join(', ')} (le premier exemplaire est offert si vous ne pouvez pas le payer).`, 'city', { id: 'noprod' });
+  // Stockage bientôt saturé
+  for (const r of ['wood', 'stone', 'food', 'iron']) {
+    const c = storageCap(state, mods, r), have = state.resources[r] || 0, n = net[r] || 0;
+    if (n > 0 && have < c * 0.95 && (c - have) / n < 1.5) push('warn', `${R(r)} : l’entrepôt sera plein dans ${fmtTime(((c - have) / n) * 3600000)}. Améliorez l’entrepôt ou dépensez ce surplus.`, 'city', { id: 'cap:' + r });
+  }
+  // Files inactives : proposer seulement ce qui est faisable
+  const ups = upgradeSummary(state, mods);
+  if (!state.queues.build.length) {
+    if (ups.count) push('info', `Aucun chantier en cours, alors que ${ups.count} amélioration(s) sont possibles maintenant (ex. ${ups.ready[0].name} niv. ${ups.ready[0].next}).`, 'city', { action: 'up-list', id: 'idle-build' });
+    else push('info', 'Aucun chantier en cours et aucune amélioration abordable : laissez la production remplir les réserves, ou vendez un surplus au marché.', 'city', { id: 'idle-build' });
+  }
+  for (const pl of state.queues.planned || []) if (pl.waiting) push('info', `Chantier planifié en attente : ${pl.waiting}.`, 'city', { id: 'plan:' + pl.id });
   if (!state.queues.research.length && allBuildings(state).some((b) => b.type === 'library' && b.level > 0)) push('info', 'Vos chercheurs sont inactifs.', 'research');
   const na = nextAutomation(state);
   if (na && thLevel(state) >= na.th && canAfford(state, na.cost)) push('good', `Vous pouvez débloquer l’Intendance « ${na.name} ».`, 'production');

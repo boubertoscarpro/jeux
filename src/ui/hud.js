@@ -194,7 +194,7 @@ export function adviceBox(s, now = Date.now()) {
   const shown = list.slice(0, level === 'reduced' ? 2 : 3);
   return `<section class="side-box advice-box"><h3>🧙‍♂️ Conseiller${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
     ${shown.map((r) => `<div class="advice sev-${r.sev}"><div class="small">${SEV_ICON[r.sev] || ''} ${esc(r.text)}</div>
-      <div class="advice-foot">${r.action ? `<button class="mini" data-action="${r.action}">Lancer</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
+      <div class="advice-foot">${r.action ? `<button class="mini" data-action="${r.action}">${r.action === 'up-list' ? 'Voir' : 'Lancer'}</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
       <button class="mini ghost" data-action="adv-snooze" data-id="${esc(r.id)}" title="Masquer 4 h">⏰</button>${r.sev !== 'bad' ? `<button class="mini ghost" data-action="adv-dismiss" data-id="${esc(r.id)}" title="Ne plus afficher ce conseil">✕</button>` : ''}</div></div>`).join('') || '<div class="muted small">Rien d’urgent. Votre royaume tourne bien.</div>'}
     <button class="btn block ghost small" data-action="advisor">Analyse détaillée →</button></section>`;
 }

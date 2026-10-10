@@ -810,3 +810,4 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .ql-steps li.locked { opacity: 0.55; }
 .quest-line .story { margin: 4px 0; }
 .mission-box .quest-title { font-size: 12.5px; }
+.subnav .help-btn { margin-left: auto; }
