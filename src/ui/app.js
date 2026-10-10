@@ -37,6 +37,7 @@ import adminView from './views/admin.js';
 import { reportHtml } from './views/calendar.js';
 import { notifications } from '../systems/liveEvents.js';
 import { openAdvisor } from './advisor.js';
+import { openUpgradeList } from './upgrades.js';
 import { showTip } from './tips.js';
 import { markVisited, campaignTick } from '../systems/campaign.js';
 import { pruneAdvice } from '../systems/guide.js';
@@ -304,6 +305,7 @@ export class App {
     'toggle-res': (app) => { app.ui.showAllRes = !app.ui.showAllRes; app.render(); },
     'toggle-side': (app) => { app.root.classList.toggle('show-side'); },
     advisor: (app) => openAdvisor(app),
+    'up-list': (app) => openUpgradeList(app),
     'kingdom-info': (app) => app.modal(`<h2>Votre royaume</h2>${kingdomInfoHtml(app.state)}`, {}, 'wide'),
     notifs: (app) => { app.openNotifications(); app.$('#topbar').innerHTML = renderTopbar(app); },
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),

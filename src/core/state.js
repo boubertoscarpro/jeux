@@ -5,8 +5,9 @@ import { createHero } from '../systems/heroes.js';
 import { initMarket } from '../systems/market.js';
 import { initFactions } from '../systems/factions.js';
 import { applyKingdomChoice } from '../systems/kingdom.js';
+import { ensureIdentity } from '../systems/identity.js';
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 // Royaume de départ 24×16 (384 cases, contre 14×10 auparavant) ; chaque agrandissement ajoute 4 colonnes et 2 rangées.
 export const CITY_W = 24;
 export const CITY_H = 16;
@@ -83,6 +84,8 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
   const terrain = generateCity(seed);
   const state = {
     version: SAVE_VERSION,
+    // Identité stable (joueur, royaume, château principal) : voir systems/identity.js et docs/MULTIPLAYER.md
+    identity: null,
     meta: { seed, kingdomName, lordName, created: now, lastTick: now, banner: '#c9a227', title: null, theme: null, insignia: 3, owned: {} },
     resources,
     city: { w: CITY_W, h: CITY_H, terrain, buildings: {} , fort: { wall: 0, moat: 0 } },
@@ -145,7 +148,11 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     // --- Spécialisation & parcours guidé ---
     kingdom: { type: null, origin: 'none', difficulty: 'classic', chosenAt: now },
     campaign: { chapter: 1, done: {}, claimed: {}, chapterClaimed: {}, unlockedAt: { 1: now }, flags: {}, snoozed: {}, dismissed: {}, daily: null },
+    // --- Quêtes du royaume (chaînes en plusieurs étapes) et missions dynamiques ---
+    questlines: { active: {}, done: {}, claimed: {} },
+    missions: { active: [], recent: [], nextAt: now + 10 * 60000, rerollAt: 0, done: 0 },
   };
+  ensureIdentity(state);
 
   // Bâtiments de départ (hameau presque abandonné)
   const place = (type, x, y, level = 1) => {

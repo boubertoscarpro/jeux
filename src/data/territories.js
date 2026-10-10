@@ -60,3 +60,40 @@ export const OUTPOST_THREATS = {
   snow: { name: 'Loups des neiges', units: { wolf: 9 } },
   ash: { name: 'Golems de cendre', units: { golem: 1, skeleton: 4 } },
 };
+
+// Catégories de spécialités : un avant-poste n'est pas une copie du château, il sert une stratégie précise
+export const SPEC_CATS = {
+  forestier: { name: 'Avant-poste forestier', icon: '🪓', desc: 'Bois et ressources de la forêt.' },
+  minier: { name: 'Avant-poste minier', icon: '⛏️', desc: 'Pierre, minerais et combustibles.' },
+  agricole: { name: 'Avant-poste agricole', icon: '🌾', desc: 'Nourriture, grain, gibier et plantes.' },
+  commercial: { name: 'Avant-poste commercial', icon: '⚖️', desc: 'Or, caravanes et échanges.' },
+  militaire: { name: 'Avant-poste militaire', icon: '🛡️', desc: 'Défense, garnison et soutien des armées.' },
+  savoir: { name: 'Avant-poste du savoir', icon: '📜', desc: 'Recherche, cristaux et reliques.' },
+};
+
+// Affinité d'une spécialité avec son environnement : chaque case voisine (rayon 2) d'un terrain favorable donne
+// +4 %, chaque gisement de la bonne ressource à 3 cases ou moins +8 %, plafonné à +30 % (production ET bonus).
+// Un emplacement bien choisi vaut donc mieux qu'un emplacement quelconque, sans rendre une spécialité dominante.
+export const AFFINITY = { perTile: 0.04, perNode: 0.08, max: 0.3, tileRadius: 2, nodeRadius: 3 };
+export const SPEC_INFO = {
+  farms: { cat: 'agricole', near: ['plain', 'river'], res: ['food'] },
+  stud: { cat: 'militaire', near: ['plain', 'hills'], res: ['food'] },
+  logging: { cat: 'forestier', near: ['forest'], res: ['wood'] },
+  heartwood: { cat: 'forestier', near: ['forest'], res: ['ancientWood', 'wood'] },
+  hunt: { cat: 'agricole', near: ['forest', 'plain'], res: ['food', 'hides'] },
+  quarry: { cat: 'minier', near: ['hills', 'mountain'], res: ['stone'] },
+  vineyard: { cat: 'commercial', near: ['hills', 'plain'], res: [] },
+  watch: { cat: 'militaire', near: ['hills', 'mountain'], res: [] },
+  mines: { cat: 'minier', near: ['mountain', 'hills'], res: ['iron', 'rareOre'] },
+  fortress: { cat: 'militaire', near: ['mountain'], res: [] },
+  port: { cat: 'commercial', near: ['river'], res: [] },
+  fishery: { cat: 'agricole', near: ['river'], res: ['food'] },
+  herbalists: { cat: 'agricole', near: ['swamp', 'forest'], res: ['herbs'] },
+  peat: { cat: 'minier', near: ['swamp'], res: ['coal'] },
+  digs: { cat: 'savoir', near: ['ruins', 'ash'], res: ['crystals'] },
+  sanctuary: { cat: 'savoir', near: ['ruins'], res: [] },
+  coal: { cat: 'minier', near: ['snow', 'hills'], res: ['coal'] },
+  furs: { cat: 'commercial', near: ['snow', 'forest'], res: ['hides'] },
+  crystals: { cat: 'minier', near: ['ash', 'mountain'], res: ['crystals', 'gems'] },
+  obsidian: { cat: 'militaire', near: ['ash'], res: [] },
+};

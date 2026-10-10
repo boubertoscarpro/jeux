@@ -9,15 +9,20 @@ import { wTerrain, isRevealed, poiAt, distCap, travelTime, key, territoryLimit, 
 import { planMarch, sendMarch, carryCapacity, gatherRate, breadNeeded, MARCH_TYPES } from '../../systems/marches.js';
 import { previewBattle } from '../../systems/combat.js';
 import { armyPower } from '../../systems/army.js';
-import { canClaim, claimTerritory, abandonTerritory } from '../../systems/territory.js';
+import { canClaim, claimTerritory, abandonTerritory, specOf, specCategory, specAffinity } from '../../systems/territory.js';
+import { TERRITORY_SPECS } from '../../data/territories.js';
+import { openRenameCastle, openRenameOutpost } from '../upgrades.js';
 import { sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots } from '../../systems/market.js';
 import { levelOf } from '../../systems/city.js';
 import { ensureDungeon } from '../../systems/dungeons.js';
 import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons.js';
 import { esc, costList, resChips, bar, countdown } from '../components.js';
+import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
+import { castleName, outpostLabel } from '../../systems/identity.js';
 
-const BASE_TILE = 26;
-const Z_MAX = 3;
+// Taille réelle d'une case au zoom 1 (px) : 40 (au lieu de 26) pour des lieux immédiatement reconnaissables
+export const BASE_TILE = 40;
+const Z_MAX = 2.6;
 
 function cam(app) {
   const w = app.state.world;
@@ -81,7 +86,10 @@ export function drawMap(app) {
   const x1 = Math.min(w.size - 1, Math.ceil((W - ox) / T)), y1 = Math.min(w.size - 1, Math.ceil((H - oy) / T));
   const now = Date.now();
   const factionTiles = new Map();
-  for (const f of s.factions || []) for (const k of f.territory) factionTiles.set(k, f.idx);
+  for (const f of s.factions || []) for (const k of f.territory) factionTiles.set(k, f);
+  const banner = s.meta.banner || '#e2b84a';
+  const detail = T >= 14;
+  // Terrain (textures mises en cache) et brouillard
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     const px = ox + x * T, py = oy + y * T;
     if (!isRevealed(w, x, y)) {
@@ -90,49 +98,91 @@ export function drawMap(app) {
       continue;
     }
     const ter = wTerrain(w, x, y);
-    ctx.fillStyle = TERRAINS[ter].color;
-    ctx.fillRect(px, py, T + 0.5, T + 0.5);
-    // Petite texture
-    if (T > 14) {
-      ctx.fillStyle = 'rgba(0,0,0,0.08)';
-      if (ter === 'forest') { ctx.beginPath(); ctx.arc(px + T * 0.3, py + T * 0.35, T * 0.16, 0, 7); ctx.arc(px + T * 0.7, py + T * 0.65, T * 0.16, 0, 7); ctx.fill(); }
-      if (ter === 'mountain') { ctx.beginPath(); ctx.moveTo(px + T * 0.2, py + T * 0.8); ctx.lineTo(px + T * 0.5, py + T * 0.25); ctx.lineTo(px + T * 0.8, py + T * 0.8); ctx.fill(); }
-      if (ter === 'hills') { ctx.beginPath(); ctx.arc(px + T * 0.5, py + T * 0.85, T * 0.3, Math.PI, 0); ctx.fill(); }
-      if (ter === 'river') { ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(px + T * 0.2, py + T * 0.45, T * 0.6, T * 0.08); }
-    }
-    const fo = factionTiles.get(key(x, y));
-    if (fo !== undefined) { ctx.fillStyle = RIVALS[fo].color + '40'; ctx.fillRect(px, py, T + 0.5, T + 0.5); }
-    if (s.territories[key(x, y)]) {
-      ctx.strokeStyle = s.meta.banner || '#e2b84a'; ctx.lineWidth = 2; ctx.strokeRect(px + 2, py + 2, T - 4, T - 4);
-      ctx.fillStyle = 'rgba(226,184,74,0.15)'; ctx.fillRect(px, py, T, T);
-    }
+    if (detail) ctx.drawImage(terrainSprite(ter, tileVariant(x, y), T, dpr), px, py, T + 0.5, T + 0.5);
+    else { ctx.fillStyle = TERRAINS[ter].color; ctx.fillRect(px, py, T + 0.5, T + 0.5); }
   }
-  // Grille légère
-  if (T > 18) {
-    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
-    for (let x = x0; x <= x1 + 1; x++) { ctx.beginPath(); ctx.moveTo(ox + x * T, oy + y0 * T); ctx.lineTo(ox + x * T, oy + (y1 + 1) * T); ctx.stroke(); }
-    for (let y = y0; y <= y1 + 1; y++) { ctx.beginPath(); ctx.moveTo(ox + x0 * T, oy + y * T); ctx.lineTo(ox + (x1 + 1) * T, oy + y * T); ctx.stroke(); }
+  // Territoires : teinte et frontières selon la relation (ennemi, allié, neutre) ; les vôtres en couleur de bannière
+  const owner = (x, y) => { const k = key(x, y); if (s.territories[k]) return 'me'; const f = factionTiles.get(k); return f ? f : null; };
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!isRevealed(w, x, y)) continue;
+    const o = owner(x, y);
+    if (!o) continue;
+    const px = ox + x * T, py = oy + y * T;
+    const col = o === 'me' ? banner : RIVALS[o.idx].color;
+    ctx.fillStyle = col + (o === 'me' ? '38' : '33'); ctx.fillRect(px, py, T + 0.5, T + 0.5);
+    const st = o === 'me' ? { color: banner, width: 2.5, dash: [] } : relationOf(o);
+    ctx.strokeStyle = st.color || col; ctx.lineWidth = Math.max(1, Math.min(st.width, T / 8)); ctx.setLineDash(T > 10 ? st.dash : []);
+    ctx.beginPath();
+    for (const [dx, dy, ax, ay, bx, by] of [[0, -1, 0, 0, 1, 0], [1, 0, 1, 0, 1, 1], [0, 1, 0, 1, 1, 1], [-1, 0, 0, 0, 0, 1]]) {
+      if (owner(x + dx, y + dy) === o) continue;
+      ctx.moveTo(px + ax * T, py + ay * T); ctx.lineTo(px + bx * T, py + by * T);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  // Grille légère (zoom rapproché)
+  if (T > 22) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = x0; x <= x1 + 1; x++) { ctx.moveTo(ox + x * T, oy + y0 * T); ctx.lineTo(ox + x * T, oy + (y1 + 1) * T); }
+    for (let y = y0; y <= y1 + 1; y++) { ctx.moveTo(ox + x0 * T, oy + y * T); ctx.lineTo(ox + (x1 + 1) * T, oy + y * T); }
+    ctx.stroke();
   }
   // Portée des territoires
   const mods = computeMods(s, now);
-  ctx.strokeStyle = 'rgba(226,184,74,0.35)'; ctx.setLineDash([4, 6]); ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.arc(ox + (w.capital.x + 0.5) * T, oy + (w.capital.y + 0.5) * T, territoryRange(s, mods) * T, 0, Math.PI * 2); ctx.stroke();
+  const cpx = ox + (w.capital.x + 0.5) * T, cpy = oy + (w.capital.y + 0.5) * T;
+  ctx.strokeStyle = 'rgba(226,184,74,0.4)'; ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cpx, cpy, territoryRange(s, mods) * T, 0, Math.PI * 2); ctx.stroke();
   ctx.setLineDash([]);
-  // Sites
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // Trajets (sous les lieux) : marches, expéditions, raids
+  const tokens = [];
+  const mark = (x, y) => ({ x: ox + (x + 0.5) * T, y: oy + (y + 0.5) * T });
+  for (const m of s.marches) {
+    const a = mark(w.capital.x, w.capital.y), b = mark(m.x, m.y);
+    const col = m.type === 'attack' || m.type === 'boss' || m.type === 'dungeon' ? '#ff6b5a' : m.type === 'explore' || m.type === 'scout' ? '#6cc3ff' : '#ffd166';
+    let f = 1, end = null, toward = b, from = a;
+    if (m.phase === 'out') { f = (now - m.start) / (m.arrive - m.start); end = m.arrive; }
+    else if (m.phase === 'back') { f = 1 - (now - (m.returnAt - m.travel)) / m.travel; end = m.returnAt; toward = a; from = b; }
+    else if (m.phase === 'work') end = m.workEnd;
+    f = Math.max(0, Math.min(1, f));
+    ctx.strokeStyle = col; ctx.globalAlpha = 0.85; ctx.lineWidth = Math.max(2, Math.min(4, T / 10)); ctx.setLineDash([7, 5]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col, icon: MARCH_TYPES[m.type]?.icon || '⚑', angle: m.phase === 'work' ? null : Math.atan2(toward.y - from.y, toward.x - from.x), end, label: `${MARCH_TYPES[m.type]?.name || 'Marche'}${m.phase === 'back' ? ' (retour)' : m.phase === 'work' ? ' (sur place)' : ''}` });
+  }
+  for (const t of s.expeditions || []) {
+    if (t.status === 'idle' || !t.at) continue;
+    const a = mark(w.capital.x, w.capital.y), b = mark(t.at.x, t.at.y);
+    ctx.strokeStyle = 'rgba(140,230,140,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([2, 4]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    const due = { out: t.arrive, work: t.workEnd, back: t.returnAt }[t.status];
+    const st = { out: t.start, work: t.workStart, back: t.returnAt - t.travel }[t.status];
+    let f = t.status === 'work' ? 1 : Math.max(0, Math.min(1, (now - st) / Math.max(1, due - st)));
+    if (t.status === 'back') f = 1 - f;
+    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#4fae5e', icon: '⛺', angle: null, end: due, label: `Expédition ${t.name || ''}` });
+  }
+  for (const r of s.raids) {
+    const a = mark(r.from.x, r.from.y), b = mark(w.capital.x, w.capital.y);
+    ctx.strokeStyle = 'rgba(255,40,40,0.95)'; ctx.lineWidth = Math.max(3, Math.min(5, T / 8)); ctx.setLineDash([10, 6]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    const start = r.start || r.arrive - 10 * 60000;
+    const f = Math.max(0, Math.min(1, (now - start) / Math.max(1, r.arrive - start)));
+    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#d62828', icon: '⚔️', angle: Math.atan2(b.y - a.y, b.x - a.x), end: r.arrive, label: `Raid : ${r.name}`, raid: true });
+  }
+  // Lieux
   const F = filters(app);
   const labels = [];
+  const blocked = [];
+  const lsize = Math.round(Math.max(10, Math.min(14, T * 0.34)));
   for (const p of Object.values(w.pois)) {
     if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
     if (!isRevealed(w, p.x, p.y)) continue;
     const def = POI_TYPES[p.type];
     if (!def) continue;
     const cat = POI_CAT(p);
-    if (F[cat] === false) continue;
+    if (F[cat] === false && def.kind !== 'capital') continue;
     const px = ox + (p.x + 0.5) * T, py = oy + (p.y + 0.5) * T;
     const cleared = p.clearedUntil > now || (def.kind === 'gather' && p.amount < 1);
     const major = def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'town' || def.kind === 'boss';
-    // Vue d'ensemble : les sites mineurs deviennent des points colorés, les lieux majeurs gardent leur icône
+    // Vue d'ensemble : les sites mineurs deviennent des points colorés, les lieux majeurs gardent leur médaillon
     if (T < 13 && !major) {
       ctx.globalAlpha = cleared ? 0.35 : 0.95;
       ctx.fillStyle = CAT_COLOR[cat];
@@ -140,58 +190,52 @@ export function drawMap(app) {
       ctx.globalAlpha = 1;
       continue;
     }
-    if ((def.kind === 'town' || def.kind === 'kingdom') && T >= 20) labels.push({ px, py: py + T * 0.62, text: p.name || def.name });
-    if (def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'boss') {
-      ctx.fillStyle = def.kind === 'capital' ? (s.meta.banner || '#e2b84a') : def.kind === 'boss' ? '#c0392b' : '#7b2d8b';
-      ctx.beginPath(); ctx.arc(px, py, T * 0.55, 0, 7); ctx.fill();
-    }
-    ctx.globalAlpha = cleared ? 0.35 : 1;
     const icon = p.type === 'kingdom' ? RIVALS[p.rival]?.icon || def.icon : p.type === 'boss' && s.boss ? ALL_UNITS[BOSSES[s.boss.key].unit].icon : def.icon;
-    ctx.font = `${Math.max(major ? 13 : 0, Math.round(T * (def.kind === 'boss' ? 0.95 : 0.7)))}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
-    ctx.fillText(icon, px, py + 1);
-    ctx.globalAlpha = 1;
+    const r = major ? Math.max(9, Math.min(def.kind === 'capital' ? 30 : 26, T * (def.kind === 'capital' ? 0.62 : 0.52))) : Math.max(7, Math.min(20, T * 0.4));
+    const ring = def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color || CAT_COLOR.social : def.kind === 'boss' ? '#ff3b3b' : CAT_COLOR[cat];
+    const glow = def.kind === 'boss' ? `rgba(255,60,60,${0.5 + 0.4 * Math.sin(now / 300)})` : def.kind === 'capital' ? 'rgba(255,220,120,0.7)' : null;
+    drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
+    if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
     if (p.danger > 0 && def.kind !== 'boss' && T > 16) {
+      const n = Math.min(5, p.danger), pw = Math.max(3, r * 0.28);
       ctx.fillStyle = p.danger >= 4 ? '#ff4f4f' : p.danger >= 2 ? '#ffb03a' : '#ffe58a';
-      for (let i = 0; i < Math.min(5, p.danger); i++) ctx.fillRect(px - T * 0.4 + i * T * 0.17, py + T * 0.36, T * 0.12, T * 0.1);
+      for (let i = 0; i < n; i++) ctx.fillRect(px - (n * pw * 1.3) / 2 + i * pw * 1.3, py + r + 1, pw, pw * 0.8);
     }
-    if (p.infested) { ctx.font = `${Math.round(T * 0.4)}px sans-serif`; ctx.fillText('🕷️', px + T * 0.33, py - T * 0.3); }
+    if (p.infested && T > 16) { ctx.font = `${Math.round(r * 0.8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🕷️', px + r * 0.85, py - r * 0.85); }
+    // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
+    const name = def.kind === 'capital' ? castleName(s) : p.name || def.name;
+    const prio = { capital: 100, kingdom: 80, boss: 75, town: 60 }[def.kind] ?? (def.dungeon ? 40 : 10);
+    const minT = { capital: 6, kingdom: 14, boss: 14, town: 16 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
+    if (T >= minT) labels.push({ x: px, y: py, offset: r + (p.danger > 0 && T > 16 ? 6 : 2), text: name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
   }
-  // Marches
-  for (const m of s.marches) {
-    const sx = ox + (w.capital.x + 0.5) * T, sy = oy + (w.capital.y + 0.5) * T;
-    const tx = ox + (m.x + 0.5) * T, ty = oy + (m.y + 0.5) * T;
-    ctx.strokeStyle = m.type === 'attack' || m.type === 'boss' ? 'rgba(255,90,90,0.8)' : m.type === 'explore' || m.type === 'scout' ? 'rgba(120,200,255,0.8)' : 'rgba(255,220,120,0.85)';
-    ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke(); ctx.setLineDash([]);
-    let f = 1;
-    if (m.phase === 'out') f = (now - m.start) / (m.arrive - m.start);
-    else if (m.phase === 'back') f = 1 - (now - (m.returnAt - m.travel)) / m.travel;
-    f = Math.max(0, Math.min(1, f));
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx + (tx - sx) * f, sy + (ty - sy) * f, 4, 0, 7); ctx.fill();
+  // Avant-postes du joueur : étendard + nom
+  for (const t of Object.values(s.territories || {})) {
+    if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
+    const px = ox + (t.x + 0.5) * T, py = oy + (t.y + 0.5) * T;
+    const sz = Math.max(8, Math.min(26, T * 0.55));
+    const hasPoi = !!w.pois[key(t.x, t.y)];
+    drawBanner(ctx, hasPoi ? px + T * 0.3 : px, hasPoi ? py - T * 0.3 : py, sz, banner);
+    if (T >= 12) labels.push({ x: px, y: py, offset: sz * 0.6 + 2, text: `🚩 ${outpostLabel(t)}`, prio: 70, size: lsize, color: '#ffe9a8', border: banner });
   }
-  for (const t of s.expeditions || []) {
-    if (t.status === 'idle' || !t.at) continue;
-    const sx = ox + (w.capital.x + 0.5) * T, sy = oy + (w.capital.y + 0.5) * T;
-    const tx = ox + (t.at.x + 0.5) * T, ty = oy + (t.at.y + 0.5) * T;
-    ctx.strokeStyle = 'rgba(140,230,140,0.8)'; ctx.lineWidth = 2; ctx.setLineDash([2, 4]);
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke(); ctx.setLineDash([]);
-    if (t.status === 'work') { ctx.font = `${Math.round(T * 0.45)}px "Segoe UI Emoji",sans-serif`; ctx.fillText('⛺', tx + T * 0.3, ty - T * 0.3); }
+  // Pions d'armée (au-dessus des lieux) et leur chrono
+  const tr = Math.max(7, Math.min(15, T * 0.34));
+  for (const k of tokens) {
+    drawToken(ctx, k.x, k.y, tr, k.col, k.icon, k.angle);
+    if (T >= 18 && k.end) labels.push({ x: k.x, y: k.y, offset: tr + 4, text: `${k.label} · ${fmtTime(k.end - now)}`, prio: k.raid ? 90 : 50, size: Math.max(10, lsize - 1), color: k.raid ? '#ffd0d0' : '#e8f4ff', bg: k.raid ? 'rgba(90,10,10,0.85)' : 'rgba(10,20,35,0.8)' });
   }
-  for (const r of s.raids) {
-    const sx = ox + (r.from.x + 0.5) * T, sy = oy + (r.from.y + 0.5) * T;
-    const tx = ox + (w.capital.x + 0.5) * T, ty = oy + (w.capital.y + 0.5) * T;
-    ctx.strokeStyle = 'rgba(255,40,40,0.9)'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(tx, ty); ctx.stroke(); ctx.setLineDash([]);
+  // Les commandes posées sur la carte (filtres, zoom, mini-carte) ne doivent pas masquer d'étiquette
+  const cr = canvas.getBoundingClientRect();
+  for (const el of canvas.parentElement.querySelectorAll('.map-filters > *, .map-tools, #world-mini:not([hidden]), .map-hint')) {
+    const r = el.getBoundingClientRect();
+    if (r.width) blocked.push({ x: r.left - cr.left - 4, y: r.top - cr.top - 4, w: r.width + 8, h: r.height + 8 });
   }
-  // Noms des cités et royaumes (zoom rapproché)
-  ctx.font = '600 11px Inter, system-ui, sans-serif';
-  for (const l of labels) {
-    const tw = ctx.measureText(l.text).width;
-    ctx.fillStyle = 'rgba(13,15,20,0.72)'; ctx.fillRect(l.px - tw / 2 - 4, l.py - 1, tw + 8, 15);
-    ctx.fillStyle = '#f3e6c4'; ctx.fillText(l.text, l.px, l.py + 6.5);
-  }
+  placeLabels(ctx, labels, W, H, blocked);
   const sel = app.ui.worldSel;
-  if (sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.strokeRect(ox + sel.x * T + 1, oy + sel.y * T + 1, Math.max(3, T - 2), Math.max(3, T - 2)); }
+  if (sel) {
+    const pulse = 0.6 + 0.4 * Math.sin(now / 250);
+    ctx.strokeStyle = `rgba(255,255,255,${pulse})`; ctx.lineWidth = 3;
+    ctx.strokeRect(ox + sel.x * T + 1.5, oy + sel.y * T + 1.5, Math.max(3, T - 3), Math.max(3, T - 3));
+  }
   drawMini(app, W, H);
 }
 
@@ -248,7 +292,7 @@ export function notablePlaces(state) {
       out.push({ x: p.x, y: p.y, label, d: distCap(w, p.x, p.y) });
     }
   }
-  for (const t of Object.values(state.territories || {})) out.push({ x: t.x, y: t.y, label: `🚩 Avant-poste (${t.x}, ${t.y})`, d: distCap(w, t.x, t.y) });
+  for (const t of Object.values(state.territories || {})) out.push({ x: t.x, y: t.y, label: `🚩 ${outpostLabel(t)}`, d: distCap(w, t.x, t.y) });
   return out.sort((a, b) => a.d - b.d);
 }
 
@@ -260,6 +304,28 @@ function focusTile(app, x, y, zoom = null) {
   const panel = document.getElementById('world-panel');
   if (panel) panel.innerHTML = tilePanel(app);
   drawMap(app);
+}
+
+// Contenu de l'infobulle du monde
+function ownerText(s, x, y) {
+  const t = s.territories[key(x, y)];
+  if (t) return `<span class="ok">🚩 Votre avant-poste « ${esc(outpostLabel(t))} »</span>`;
+  const f = (s.factions || []).find((ff) => ff.territory.includes(key(x, y)));
+  if (f) { const st = relationOf(f); return `<span style="color:${st.color || RIVALS[f.idx].color}">${RIVALS[f.idx].icon} ${esc(RIVALS[f.idx].name)} — ${esc(stanceName(f))}</span>`; }
+  return '';
+}
+function worldTipHtml(app, x, y) {
+  const s = app.state, w = s.world;
+  if (!isRevealed(w, x, y)) return `<b>Région inexplorée</b> <span class="muted">(${x}, ${y})</span><div class="small muted">Clic : envoyer des éclaireurs</div>`;
+  const poi = poiAt(w, x, y);
+  const def = poi && POI_TYPES[poi.type];
+  const own = ownerText(s, x, y);
+  const name = def ? (def.kind === 'capital' ? castleName(s) : poi.name || def.name) : null;
+  const res = def?.kind === 'gather' ? `${RESOURCES[def.res].icon} ${fmt(poi.amount)} / ${fmt(poi.max)}` : '';
+  return `${name ? `<b>${def.kind === 'kingdom' ? RIVALS[poi.rival]?.icon || def.icon : def.icon} ${esc(name)}</b>` : `<b>${esc(TERRAINS[wTerrain(w, x, y)].name)}</b>`} <span class="muted">(${x}, ${y})</span>
+    ${name ? `<div class="small muted">${esc(def.name !== name ? def.name + ' · ' : '')}${esc(TERRAINS[wTerrain(w, x, y)].name)}</div>` : ''}
+    ${poi?.danger > 0 ? `<div class="small">Danger : ${'☠'.repeat(Math.min(6, poi.danger))}${poi.clearedUntil > Date.now() ? ' · nettoyé' : ''}</div>` : ''}${res ? `<div class="small">${res}</div>` : ''}
+    ${own ? `<div class="small">${own}</div>` : ''}<div class="small muted">Clic : détails et actions</div>`;
 }
 
 function bindCanvas(app) {
@@ -275,6 +341,26 @@ function bindCanvas(app) {
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: cam(app).zoom }; if (drag) drag.moved = true; }
     canvas.setPointerCapture(e.pointerId);
   });
+  // Infobulle de survol (souris) : lieu, terrain, propriétaire
+  const tipEl = () => document.getElementById('world-tip');
+  let tipKey = '';
+  canvas.addEventListener('pointermove', (e) => {
+    if (pts.size || e.pointerType === 'touch') { tipEl()?.classList.remove('on'); return; }
+    const { r, W, H, S } = size();
+    const c = cam(app), T = BASE_TILE * c.zoom;
+    const x = Math.floor((e.clientX - r.left - W / 2) / T + c.x), y = Math.floor((e.clientY - r.top - H / 2) / T + c.y);
+    const el = tipEl();
+    if (!el) return;
+    if (x < 0 || y < 0 || x >= S || y >= S) { el.classList.remove('on'); tipKey = ''; return; }
+    const k = x + ',' + y;
+    if (k !== tipKey) { tipKey = k; el.innerHTML = worldTipHtml(app, x, y); }
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const w = el.offsetWidth || 200, h = el.offsetHeight || 60;
+    el.style.left = Math.max(6, Math.min(W - w - 6, px + 16)) + 'px';
+    el.style.top = Math.max(6, py + 18 + h > H ? py - h - 12 : py + 18) + 'px';
+    el.classList.add('on');
+  });
+  canvas.addEventListener('pointerleave', () => { tipEl()?.classList.remove('on'); tipKey = ''; });
   canvas.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId)) return;
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -348,7 +434,12 @@ function tilePanel(app) {
   const now = Date.now();
   if (!sel) {
     return `<h3>🗺️ Les Terres Brisées</h3><p class="muted">Cliquez sur une case pour l’inspecter. Glissez pour vous déplacer, molette (ou pincement) pour zoomer, ⤢ pour la vue d’ensemble. La mini-carte et « Aller à… » mènent directement aux lieux découverts.</p>
-      <ul class="small legend"><li>🌫️ Cases sombres : inexplorées — envoyez des <b>éclaireurs</b>.</li><li>☠ Barres de couleur : niveau de danger.</li><li>Cercle doré : portée de vos avant-postes.</li><li>Plus un site est dangereux, plus il rapporte.</li></ul>`;
+      <ul class="small legend"><li>🌫️ Cases sombres : inexplorées — envoyez des <b>éclaireurs</b>.</li><li>☠ Barres de couleur : niveau de danger.</li><li>Cercle doré pointillé : portée de vos avant-postes.</li><li>Plus un site est dangereux, plus il rapporte.</li></ul>
+      <h4>Territoires</h4><div class="map-legend small">
+        <div><span class="lg-sw" style="--c:${esc(s.meta.banner || '#e2b84a')}"></span> Vos avant-postes</div>
+        ${['war', 'alliance', 'trade', 'truce', 'neutral'].map((k) => `<div><span class="lg-sw ${k === 'neutral' ? 'dashed' : ''}" style="--c:${RELATION_STYLE[k].color || '#9aa0ad'}"></span> ${esc(RELATION_STYLE[k].label)}</div>`).join('')}</div>
+      <h4>Lieux</h4><div class="map-legend small">${Object.entries(MAP_FILTERS).map(([k, l]) => `<div><span class="lg-dot" style="--c:${CAT_COLOR[k]}"></span> ${esc(l)}</div>`).join('')}<div><span class="lg-dot" style="--c:#ff3b3b"></span> 🐉 Boss mondial</div></div>
+      <h4>Mouvements</h4><div class="map-legend small"><div>🧭 Bleu : exploration, espionnage</div><div>🧺 Jaune : récolte</div><div>⚔️ Rouge : attaque — trait rouge épais : <b>raid</b> vers votre château</div><div>⛺ Vert : expédition</div></div>`;
   }
   const { x, y } = sel;
   const w = s.world;
@@ -367,10 +458,12 @@ function tilePanel(app) {
   if (tc) html += `<div class="small muted">⚔️ ${esc(tc.note)}</div>`;
   const terr = s.territories[key(x, y)];
   const poi = poiAt(w, x, y);
+  const own = ownerText(s, x, y);
+  if (own && !terr) html += `<div class="small">${own}</div>`;
   if (poi) {
     const def = POI_TYPES[poi.type];
     html += `<div class="poi-head"><span class="poi-icon">${poi.type === 'kingdom' ? RIVALS[poi.rival].icon : def.icon}</span><div><b>${esc(poi.name || def.name)}</b><div class="small">Danger : ${dangerStars(poi.danger)}${poi.infested ? ' · 🕷️ infesté' : ''}${poi.temp ? ' · ⏳ temporaire' : ''}</div></div></div>`;
-    if (def.kind === 'capital') html += '<p>Votre capitale. Toutes les marches partent d’ici.</p>';
+    if (def.kind === 'capital') html += `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle">✎ Renommer</button></div><p class="small">Capitale de ${esc(s.meta.kingdomName)}. Toutes les marches partent d’ici.</p>`;
     if (def.kind === 'gather') {
       const r = RESOURCES[def.res];
       html += `<div class="panel-sub"><div>${r.icon} <b>${esc(r.name)}</b> : ${fmt(poi.amount)} / ${fmt(poi.max)}</div>${bar(poi.amount, poi.max)}
@@ -421,11 +514,18 @@ function tilePanel(app) {
   }
   // Territoire
   if (terr) {
-    html += `<div class="panel-sub"><h4>🚩 Votre avant-poste ${terr.spec ? '' : '<span class="req small">à spécialiser</span>'}</h4><div class="small">Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats</div><button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
+    const sp = specOf(terr), cat = sp && specCategory(sp.id);
+    html += `<div class="panel-sub outpost-sub"><h4>🚩 Votre avant-poste ${terr.spec ? '' : '<span class="req small">à spécialiser</span>'}</h4>
+      <div class="castle-name">${esc(outpostLabel(terr))} <button class="mini ghost" data-action="rename-outpost" data-k="${key(x, y)}">✎ Renommer</button></div>
+      <div class="small">${cat ? `${cat.icon} ${esc(cat.name)} · ` : ''}${sp ? `${sp.icon} ${esc(sp.name)} · ` : ''}Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats</div>
+      <button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
   } else if (!poi || !['capital', 'town', 'kingdom', 'boss'].includes(POI_TYPES[poi.type].kind)) {
     const c = canClaim(s, x, y, now);
     const bonus = TERRAINS[ter].territory;
+    const specs = TERRITORY_SPECS[ter] || [];
+    const probe = { x, y, terrain: ter };
     html += `<div class="panel-sub"><h4>🚩 Avant-poste</h4><div class="small">Bonus de terrain : ${Object.entries(bonus).map(([k, v]) => `${k} +${Math.round(v * 100)}%`).join(', ')} · ${Object.keys(s.territories).length}/${territoryLimit(s, mods)}</div><div class="small muted">Demande ensuite une spécialisation, une garnison et un entretien (or + nourriture).</div>
+      ${specs.length ? `<div class="small"><b>Spécialités possibles ici</b> (affinité avec les environs) :</div><ul class="small spec-preview">${specs.map((o) => { const a = specAffinity(s, probe, o.id); const c2 = specCategory(o.id); return `<li>${o.icon} ${esc(o.name)}${c2 ? ` <span class="muted">(${esc(c2.name.replace('Avant-poste ', ''))})</span>` : ''} — <span class="${a.bonus > 0 ? 'ok' : 'muted'}">affinité +${Math.round(a.bonus * 100)} %</span></li>`; }).join('')}</ul>` : ''}
       ${c.ok ? `${costList(c.cost, s)} <button class="mini primary" data-action="claim">Établir</button>` : `<div class="req">${esc(c.reason)}</div>`}</div>`;
   }
   return html;
@@ -556,7 +656,8 @@ export default {
     cam(app);
     return `<div class="world-layout">
       <div class="world-canvas-wrap card">
-        <canvas id="world-canvas"></canvas>
+        <canvas id="world-canvas" aria-label="Carte du monde : cliquez sur une case pour l’inspecter"></canvas>
+        <div class="map-tip" id="world-tip" role="tooltip"></div>
         <div class="map-tools"><button class="mini" data-action="zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="fit" title="Vue d’ensemble du monde">⤢</button><button class="mini" data-action="center" title="Recentrer sur la capitale (zoom par défaut)">🏰</button>${app.state.boss ? '<button class="mini warn" data-action="goto-boss" title="Boss mondial">🐉</button>' : ''}<button class="mini" data-action="mini-toggle" title="Afficher / masquer la mini-carte">🗺️</button></div>
         <div class="map-filters">${Object.entries(MAP_FILTERS).map(([k, l]) => `<button class="chip ${filters(app)[k] ? 'on' : 'off'}" data-action="map-filter" data-k="${k}" aria-pressed="${filters(app)[k]}">${l}</button>`).join('')}
           <select class="map-places" data-change="map-place" aria-label="Aller à un lieu découvert"><option value="">📍 Aller à…</option>${notablePlaces(app.state).map((p) => `<option value="${p.x},${p.y}">${esc(p.label)} · ${Math.round(p.d)} cases</option>`).join('')}</select></div>
@@ -577,7 +678,9 @@ export default {
     'map-place': (app, el) => { if (!el.value) return; const [x, y] = el.value.split(',').map(Number); el.value = ''; focusTile(app, x, y, 1.2); },
     'goto-boss': (app) => { const b = app.state.boss; if (b) focusTile(app, b.x, b.y, 1); },
     march: (app, el) => marchDialog(app, el.dataset.type),
-    claim: (app) => app.act(() => claimTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), 'Avant-poste établi'),
+    claim: (app) => app.act(() => claimTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), (r) => `Avant-poste « ${r.name} » établi — vous pouvez le renommer`),
+    'rename-castle': (app) => openRenameCastle(app),
+    'rename-outpost': (app, el) => openRenameOutpost(app, el.dataset.k),
     abandon: (app) => app.confirm('<h2>Abandonner ce territoire ?</h2><p>Son bonus disparaît et le coût d’établissement n’est <b>pas remboursé</b>.</p>', 'Abandonner', () => app.act(() => abandonTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), 'Territoire abandonné')),
     'cv-res': (app, el) => { app.ui.cvRes = el.value; },
     'goto-convoys': (app) => { const t = app.ui.worldSel; app.ui.cv = { ...(app.ui.cv || { res: 'wood', qty: 500, mode: 'secure', guards: 0 }), town: `${t.x},${t.y}` }; app.go('convoys'); },

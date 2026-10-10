@@ -1,4 +1,5 @@
 import { recordLoss } from './losses.js';
+import { castleName } from './identity.js';
 import { RIVALS, POI_TYPES } from '../data/world.js';
 import { BASE_RES, RESOURCES } from '../data/resources.js';
 import { rng } from '../core/rng.js';
@@ -84,9 +85,9 @@ export function rivalTick(state, now) {
   const army = raidArmy(state, p, now);
   const warn = raidWarning(state, mods);
   state.raidCooldown = now + warn + 3 * 3600 * 1000; // trêve après chaque raid
-  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0 });
+  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0 });
   if (p.anger) p.anger--;
-  log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre votre ville ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);
+  log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre ${castleName(state)} ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);
   toast(`🚨 Raid en approche : ${p.name}`, 'bad');
 }
 
@@ -120,7 +121,7 @@ export function resolveRaid(state, raid, t) {
     if (allies) chronicle(state, `Avec l’aide de leurs alliés, les défenseurs de ${state.meta.kingdomName} repoussent ${raid.name}.`, t);
     const bounty = { gold: 150 + thLevel(state) * 60, iron: 50 + thLevel(state) * 30 };
     gain(state, bounty, mods);
-    text = `Raid de ${raid.name} repoussé ! Butin des vaincus : ${bounty.gold} or, ${bounty.iron} fer.`;
+    text = `Raid de ${raid.name} repoussé devant ${castleName(state)} ! Butin des vaincus : ${bounty.gold} or, ${bounty.iron} fer.`;
     log(state, 'good', `🛡️ ${text}`, t);
   } else {
     const prot = protectedAmount(state, mods);
@@ -130,7 +131,7 @@ export function resolveRaid(state, raid, t) {
       if (v > 0) { stolen[r] = v; state.resources[r] -= v; }
     }
     recordLoss(state, 'raid', stolen, t);
-    text = `La ville est pillée par ${raid.name} : ${Object.entries(stolen).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien (tout était à l’abri)'}.`;
+    text = `${castleName(state)} est pillé par ${raid.name} : ${Object.entries(stolen).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien (tout était à l’abri)'}.`;
     state.stats.raidsLost = (state.stats.raidsLost || 0) + 1;
     log(state, 'bad', `🔥 ${text}`, t);
     const k = Object.values(state.world.pois).find((p) => p.type === 'kingdom' && p.rival === raid.rival);

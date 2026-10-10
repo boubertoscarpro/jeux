@@ -5,7 +5,9 @@ import { pay, missing } from './economy.js';
 import { wTerrain, isRevealed, poiAt, distCap, key, territoryLimit, territoryRange, TERRITORY_COST } from './world.js';
 import { guildProgress } from './guild.js';
 import { log } from './log.js';
-import { TERRITORY_SPECS, OUTPOST_MAX_LEVEL, GARRISON_PER_LEVEL, UPKEEP_PER_LEVEL, outpostUpgradeCost, RESPEC_COST, OUTPOST_THREATS } from '../data/territories.js';
+import { TERRITORY_SPECS, OUTPOST_MAX_LEVEL, GARRISON_PER_LEVEL, UPKEEP_PER_LEVEL, outpostUpgradeCost, RESPEC_COST, OUTPOST_THREATS, SPEC_INFO, SPEC_CATS, AFFINITY } from '../data/territories.js';
+import { uid } from '../core/util.js';
+import { defaultOutpostName, outpostLabel } from './identity.js';
 import { TERRAINS } from '../data/world.js';
 import { UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
@@ -45,10 +47,12 @@ export function claimTerritory(state, x, y, now = Date.now()) {
   if (!c.ok) return c;
   if (!pay(state, c.cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, c.cost) };
   const terrain = wTerrain(state.world, x, y);
-  state.territories[key(x, y)] = { x, y, terrain, since: now, spec: null, level: 1, garrison: {} };
+  const t = { id: uid('op'), name: null, x, y, terrain, since: now, spec: null, level: 1, garrison: {} };
+  t.name = defaultOutpostName(state, t);
+  state.territories[key(x, y)] = t;
   guildProgress(state, 'outposts', 1);
-  log(state, 'good', `🚩 Avant-poste établi en (${x}, ${y}).`, now);
-  return { ok: true };
+  log(state, 'good', `🚩 Avant-poste « ${t.name} » établi en (${x}, ${y}).`, now);
+  return { ok: true, id: t.id, name: t.name };
 }
 
 export function abandonTerritory(state, x, y) {
@@ -64,6 +68,30 @@ export function abandonTerritory(state, x, y) {
 // et payer son entretien. Une garnison insuffisante réduit sa production et attire les menaces régionales.
 
 const unitSum = (u) => Object.values(u || {}).reduce((a, b) => a + b, 0);
+// Affinité avec l'environnement (voir data/territories.js) ; mise en cache par spécialité (le terrain change rarement)
+const affCache = new WeakMap();
+export function specAffinity(state, t, specId = t.spec) {
+  const info = SPEC_INFO[specId];
+  if (!info || !state.world) return { mult: 1, bonus: 0, tiles: 0, nodes: 0 };
+  const c = affCache.get(t);
+  if (c && c.spec === specId && c.size === state.world.size) return c.val;
+  const w = state.world;
+  let tiles = 0, nodes = 0;
+  for (let dy = -AFFINITY.nodeRadius; dy <= AFFINITY.nodeRadius; dy++) for (let dx = -AFFINITY.nodeRadius; dx <= AFFINITY.nodeRadius; dx++) {
+    if (!dx && !dy) continue;
+    const x = t.x + dx, y = t.y + dy;
+    if (x < 0 || y < 0 || x >= w.size || y >= w.size) continue;
+    if (Math.abs(dx) <= AFFINITY.tileRadius && Math.abs(dy) <= AFFINITY.tileRadius && info.near.includes(wTerrain(w, x, y))) tiles++;
+    const p = poiAt(w, x, y);
+    if (p && POI_TYPES[p.type]?.kind === 'gather' && info.res.includes(POI_TYPES[p.type].res)) nodes++;
+  }
+  const bonus = Math.min(AFFINITY.max, tiles * AFFINITY.perTile + nodes * AFFINITY.perNode);
+  const val = { mult: 1 + bonus, bonus, tiles, nodes };
+  affCache.set(t, { spec: specId, size: w.size, val });
+  return val;
+}
+export const specCategory = (specId) => SPEC_CATS[SPEC_INFO[specId]?.cat] || null;
+
 export const specOf = (t) => (t.spec ? (TERRITORY_SPECS[t.terrain] || []).find((s) => s.id === t.spec) : null);
 export const garrisonNeed = (t) => GARRISON_PER_LEVEL * (t.level || 1);
 
@@ -87,7 +115,7 @@ export function territoryMods(state, now = Date.now()) {
     const st = outpostStatus(state, t, now);
     if (st.eff >= 1) for (const [k, v] of Object.entries(TERRAINS[t.terrain]?.territory || {})) add(k, v);
     const sp = specOf(t);
-    if (sp?.mods && st.eff > 0) for (const [k, v] of Object.entries(sp.mods)) add(k, v * (t.level || 1) * st.eff);
+    if (sp?.mods && st.eff > 0) { const aff = specAffinity(state, t).mult; for (const [k, v] of Object.entries(sp.mods)) add(k, v * (t.level || 1) * st.eff * aff); }
   }
   return m;
 }
@@ -107,13 +135,24 @@ export function setSpec(state, k, specId) {
   return { ok: true };
 }
 
-export function upgradeOutpost(state, k) {
+// Règle unique d'amélioration d'un avant-poste (fiche, icône, compteur, missions)
+export function outpostUpgradeCheck(state, k) {
   const t = state.territories[k];
-  if (!t || !t.spec) return { ok: false, reason: 'Choisissez d’abord une spécialisation' };
-  if ((t.level || 1) >= OUTPOST_MAX_LEVEL) return { ok: false, reason: 'Niveau maximal' };
-  const cost = outpostUpgradeCost((t.level || 1) + 1);
-  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
-  t.level = (t.level || 1) + 1;
+  if (!t) return { status: 'none', reasons: ['Territoire introuvable'] };
+  const lvl = t.level || 1;
+  if (lvl >= OUTPOST_MAX_LEVEL) return { status: 'max', reasons: ['Niveau maximal'], level: lvl };
+  if (!t.spec) return { status: 'locked', reasons: ['Choisissez d’abord une spécialisation'], level: lvl };
+  const cost = outpostUpgradeCost(lvl + 1);
+  const miss = missing(state, cost);
+  if (Object.keys(miss).length) return { status: 'lack', reasons: ['Ressources insuffisantes'], missing: miss, cost, level: lvl, next: lvl + 1 };
+  return { status: 'ready', reasons: [], cost, level: lvl, next: lvl + 1 };
+}
+
+export function upgradeOutpost(state, k) {
+  const u = outpostUpgradeCheck(state, k);
+  if (u.status === 'none' || u.status === 'max' || u.status === 'locked') return { ok: false, reason: u.reasons[0] === 'Niveau maximal' ? 'Niveau maximal' : u.reasons[0] };
+  if (!pay(state, u.cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, u.cost) };
+  state.territories[k].level = u.next;
   return { ok: true };
 }
 
@@ -152,10 +191,11 @@ export function territoryTick(state, dtSec, now) {
     // Production
     const st = outpostStatus(state, t, now);
     const sp = specOf(t);
-    if (sp?.prod && st.eff > 0) gain(state, Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * h])), mods);
+    const aff = sp ? specAffinity(state, t).mult : 1;
+    if (sp?.prod && st.eff > 0) gain(state, Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), mods);
     if (sp?.relicChance && st.eff > 0 && rng.chance(sp.relicChance * (1 + (mods['relic.find'] || 0)) * (t.level || 1) * h * st.eff)) {
       shardState(state).relicFragments++;
-      log(state, 'good', `🏺 Les fouilles de (${t.x}, ${t.y}) mettent au jour un fragment de relique !`, now);
+      log(state, 'good', `🏺 Les fouilles de ${outpostLabel(t)} mettent au jour un fragment de relique !`, now);
     }
     // Menace régionale (≈ 3 % + 1,5 %/niveau par heure ; doublée sans garnison suffisante)
     const p = (0.03 + 0.015 * (t.level || 1)) * (st.garrison < st.need ? 2 : 1) * h;
@@ -175,15 +215,15 @@ export function outpostThreat(state, k, t, now = Date.now()) {
   if (res.winner === 'defender') {
     const bounty = { gold: Math.round(80 * sc), iron: Math.round(40 * sc) };
     gain(state, bounty, computeMods(state, now));
-    log(state, 'good', `🛡️ ${th.name} repoussés à l’avant-poste (${t.x}, ${t.y}) (${lostUnits} pertes). Butin : ${bounty.gold} or.`, now);
+    log(state, 'good', `🛡️ ${th.name} repoussés à l’avant-poste ${outpostLabel(t)} (${lostUnits} pertes). Butin : ${bounty.gold} or.`, now);
     t.defended = (t.defended || 0) + 1;
   } else {
     t.pillagedUntil = now + 3 * 3600000;
     const stolen = { gold: Math.min(state.resources.gold || 0, Math.round(150 * (t.level || 1))) };
     state.resources.gold -= stolen.gold;
     recordLoss(state, 'outpost', stolen, now);
-    log(state, 'bad', `🔥 ${th.name} pillent l’avant-poste (${t.x}, ${t.y}) : production arrêtée 3 h, ${stolen.gold} or perdus, garnison −${lostUnits}.`, now);
-    toast(`🔥 Avant-poste (${t.x}, ${t.y}) pillé`, 'bad');
+    log(state, 'bad', `🔥 ${th.name} pillent l’avant-poste ${outpostLabel(t)} : production arrêtée 3 h, ${stolen.gold} or perdus, garnison −${lostUnits}.`, now);
+    toast(`🔥 Avant-poste ${outpostLabel(t)} pillé`, 'bad');
   }
   return res;
 }

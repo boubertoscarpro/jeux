@@ -28,6 +28,9 @@ import { LIVE_EVENTS } from '../data/liveEvents.js';
 import { SURPRISE_EVENTS } from '../data/liveEvents.js';
 import { shardState } from '../systems/shards.js';
 import { esc, countdown, progress, resChips } from './components.js';
+import { upgradeCount } from './upgrades.js';
+import { upIcon } from './art.js';
+import { castleName } from '../systems/identity.js';
 
 const MAIN = ['wood', 'stone', 'iron', 'food', 'gold'];
 
@@ -52,7 +55,7 @@ export function renderTopbar(app) {
   return `
     <div class="brand" data-action="nav" data-view="kingdom" title="Royaume">
       <span class="banner" style="--banner:${s.meta.banner}"></span>
-      <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))} ${kingdomBadge(s)}</div></div>
+      <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-castle" title="Château principal">🏰 ${esc(castleName(s))}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))} ${kingdomBadge(s)}</div></div>
     </div>
     <div class="resbar">${res}<button class="res-more" data-action="toggle-res" title="Toutes les ressources">${app.ui.showAllRes ? '−' : '+'}</button>
       <div class="res cap" title="Capacité de l'entrepôt">📦 <span class="res-val">${fmt(cap)}</span></div></div>
@@ -61,6 +64,7 @@ export function renderTopbar(app) {
       <button class="chip chip-ticket" data-action="nav" data-view="g-wheel" title="Tickets de la Roue des Anciens">🎟️ ${shardState(s).tickets}</button>
       ${s.live?.current ? `<button class="chip chip-event" data-action="nav" data-view="event" style="--evc:${LIVE_EVENTS[s.live.current.key].color}" title="${esc(LIVE_EVENTS[s.live.current.key].name)} — ${esc(LIVE_EVENTS[s.live.current.key].currency.name)}">${LIVE_EVENTS[s.live.current.key].icon} ${LIVE_EVENTS[s.live.current.key].currency.icon} ${fmt(s.live.current.wallet)} · ${countdown(s.live.current.end)}</button>` : ''}
       ${(s.live?.surprises || []).filter((x) => x.end > now).map((x) => `<span class="chip chip-event" title="${esc(SURPRISE_EVENTS[x.key].desc)}">${SURPRISE_EVENTS[x.key].icon} ${countdown(x.end)}</span>`).join('')}
+      ${(() => { const n = upgradeCount(s, mods); return `<button class="chip chip-up ${n ? 'on' : ''}" data-action="up-list" title="Améliorations réalisables maintenant (bâtiments, fortifications, avant-postes) — ouvrir la liste">${upIcon('ready')} ${n} amélioration${n > 1 ? 's' : ''}</button>`; })()}
       <button class="chip chip-bell ${(s.notifications || []).some((n) => !n.read) ? 'on' : ''}" data-action="notifs" title="Notifications">🔔${(s.notifications || []).filter((n) => !n.read).length || ''}</button>
     </div>
     <button class="res-more side-toggle" data-action="toggle-side" title="Files & objectifs">📋</button>

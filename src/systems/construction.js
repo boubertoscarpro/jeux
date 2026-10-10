@@ -70,25 +70,66 @@ export function startBuild(state, type, x, y, now = Date.now()) {
   return { ok: true };
 }
 
-export function startUpgrade(state, bid, now = Date.now()) {
-  const mods = computeMods(state, now);
+// ───────── Règles d'amélioration (source unique) ─────────
+// Utilisées par startUpgrade, par les icônes d'amélioration de la carte, par le compteur et par le conseiller :
+// une icône « améliorable » n'apparaît que si startUpgrade réussirait à cet instant.
+// status : ready (possible maintenant) | lack (ressources manquantes) | queue (file pleine, planifiable)
+//          | locked (prérequis : hôtel de ville, technologie) | max (niveau maximal) | busy (chantier en cours) | none
+export function upgradeCheck(state, bid, mods = computeMods(state)) {
   let type, level;
-  if (bid.startsWith('fort:')) {
-    type = bid.slice(5); level = state.city.fort[type] || 0;
-    if (level === 0) return startBuild(state, type, 0, 0, now);
-  } else {
+  const fort = bid.startsWith('fort:');
+  if (fort) { type = bid.slice(5); level = state.city.fort[type] || 0; }
+  else {
     const b = state.city.buildings[bid];
-    if (!b) return { ok: false, reason: 'Introuvable' };
+    if (!b || !BUILDINGS[b.type]) return { status: 'none', reasons: ['Introuvable'] };
     type = b.type; level = b.level;
   }
   const def = BUILDINGS[type];
-  if (state.queues.build.some((q) => q.bid === bid)) return { ok: false, reason: 'Déjà en chantier' };
-  if (level >= def.maxLevel) return { ok: false, reason: 'Niveau maximum' };
-  if (type !== 'townhall' && level + 1 > thLevel(state)) return { ok: false, reason: `Hôtel de ville niv. ${level + 1} requis` };
-  if (queueFull(state, mods)) return { ok: false, reason: 'File de construction pleine' };
+  if (!def) return { status: 'none', reasons: ['Inconnu'] };
+  const base = { bid, type, level, next: level + 1 };
+  if (state.queues.build.some((q) => q.bid === bid)) return { ...base, status: 'busy', reasons: [level <= 0 ? 'Construction en cours' : 'Amélioration en cours'] };
+  if (level >= def.maxLevel) return { ...base, status: 'max', reasons: ['Niveau maximum atteint'] };
+  if (!fort && level <= 0) return { ...base, status: 'busy', reasons: ['Construction en cours'] };
+  const reasons = [];
+  if (fort && level === 0) { const req = buildRequirement(state, type); if (req) reasons.push(req); }
+  if (type !== 'townhall' && level + 1 > thLevel(state)) reasons.push(`Hôtel de ville niv. ${level + 1} requis`);
   const { cost, time } = getUpgradeInfo(state, type, level + 1, mods);
-  if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
-  state.queues.build.push({ id: uid('q'), kind: 'upgrade', bid, type, level: level + 1, start: now, end: now + time, cost });
+  const miss = missing(state, cost);
+  const queueFull = queueFull_(state, mods);
+  const status = reasons.length ? 'locked' : Object.keys(miss).length ? 'lack' : queueFull ? 'queue' : 'ready';
+  if (status === 'lack') reasons.push('Ressources insuffisantes : ' + Object.entries(miss).map(([r, v]) => `${v} ${RESOURCES[r]?.name.toLowerCase() || r}`).join(', '));
+  if (status === 'queue') reasons.push('File de construction pleine : l’amélioration peut être planifiée');
+  return { ...base, status, reasons, cost, time, missing: miss, queueFull };
+}
+const queueFull_ = (state, mods) => state.queues.build.length >= buildSlots(mods);
+
+// Toutes les améliorations du royaume (bâtiments de la grille et fortifications), pour le compteur et la liste
+export function upgradeSummary(state, mods = computeMods(state)) {
+  const list = [];
+  for (const b of Object.values(state.city.buildings)) {
+    if (b.type === 'deco' || b.type === 'road' || !BUILDINGS[b.type]) continue;
+    const u = upgradeCheck(state, b.id, mods);
+    if (u.status === 'none') continue;
+    list.push({ ...u, x: b.x, y: b.y, name: BUILDINGS[b.type].name, icon: BUILDINGS[b.type].icon });
+  }
+  for (const type of ['wall', 'moat']) {
+    const u = upgradeCheck(state, 'fort:' + type, mods);
+    if ((state.city.fort[type] || 0) > 0 || u.status === 'ready') list.push({ ...u, name: BUILDINGS[type].name, icon: BUILDINGS[type].icon, fort: true });
+  }
+  return { list, ready: list.filter((u) => u.status === 'ready'), count: list.filter((u) => u.status === 'ready').length };
+}
+
+export function startUpgrade(state, bid, now = Date.now()) {
+  const mods = computeMods(state, now);
+  if (bid.startsWith('fort:') && !(state.city.fort[bid.slice(5)] > 0)) return startBuild(state, bid.slice(5), 0, 0, now);
+  const u = upgradeCheck(state, bid, mods);
+  if (u.status === 'none') return { ok: false, reason: 'Introuvable' };
+  if (u.status === 'busy') return { ok: false, reason: 'Déjà en chantier' };
+  if (u.status === 'max') return { ok: false, reason: 'Niveau maximum' };
+  if (u.status === 'locked') return { ok: false, reason: u.reasons[0] };
+  if (u.queueFull) return { ok: false, reason: 'File de construction pleine' };
+  if (!pay(state, u.cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, u.cost) };
+  state.queues.build.push({ id: uid('q'), kind: 'upgrade', bid, type: u.type, level: u.next, start: now, end: now + u.time, cost: u.cost });
   return { ok: true };
 }
 

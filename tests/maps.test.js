@@ -17,7 +17,7 @@ import { spawnBoss } from '../src/systems/events.js';
 import { distCap, isRevealed, wTerrain, aroundCapital, worldScale, travelTime, key } from '../src/systems/world.js';
 import { computeMods } from '../src/systems/modifiers.js';
 import { clampCam, zoomAt, fitZoom } from '../src/ui/panzoom.js';
-import { clampWorldCam, zoomWorldAt, notablePlaces } from '../src/ui/views/world.js';
+import { clampWorldCam, zoomWorldAt, notablePlaces, BASE_TILE } from '../src/ui/views/world.js';
 import { supportHtml, SUPPORT_URL } from '../src/ui/creation.js';
 
 const T0 = Date.UTC(2026, 6, 1);
@@ -184,7 +184,12 @@ test('Migration v7 → v8 : ville et monde agrandis sans rien déplacer ni perdr
     assert.equal(!!w.revealed[y * 96 + x], !!old.world.revealed[y * 48 + x]);
   }
   for (const [k, p] of Object.entries(old.world.pois)) assert.deepEqual(w.pois[k], p, k);
-  assert.deepEqual(st.territories, old.territories);
+  // Territoires : tous les champs d'origine conservés ; la v9 ajoute seulement un identifiant et un nom par défaut
+  assert.deepEqual(Object.keys(st.territories), Object.keys(old.territories));
+  for (const [k, t] of Object.entries(old.territories)) {
+    for (const [f, v] of Object.entries(t)) assert.deepEqual(st.territories[k][f], v, `${k}.${f}`);
+    assert.ok(st.territories[k].id && st.territories[k].name, 'identifiant et nom ajoutés (v9)');
+  }
   // Nouvelles régions : inexplorées, peuplées, plus dangereuses (loin de la capitale)
   const added = Object.values(w.pois).filter((p) => p.x >= 48 || p.y >= 48);
   assert.ok(added.length >= 300, `sites ajoutés : ${added.length}`);
@@ -217,13 +222,13 @@ test('Caméra : zoom centré sur le curseur, bornes de la carte, vue d’ensembl
   // Canvas (monde)
   const c = { x: 48, y: 48, zoom: 1 };
   const W = 800, Hh = 600, S = 96;
-  const under = (px, py) => [(px - W / 2) / (26 * c.zoom) + c.x, (py - Hh / 2) / (26 * c.zoom) + c.y];
+  const under = (px, py) => [(px - W / 2) / (BASE_TILE * c.zoom) + c.x, (py - Hh / 2) / (BASE_TILE * c.zoom) + c.y];
   const before = under(200, 150);
   zoomWorldAt(c, 1.5, 200, 150, W, Hh, S);
   const after = under(200, 150);
   assert.ok(Math.abs(before[0] - after[0]) < 1e-9 && Math.abs(before[1] - after[1]) < 1e-9);
   c.x = -50; c.y = 500; clampWorldCam(c, W, Hh, S);
-  const T = 26 * c.zoom;
+  const T = BASE_TILE * c.zoom;
   assert.equal(c.x, W / 2 / T); assert.equal(c.y, S - Hh / 2 / T);
   c.zoom = 0.01; clampWorldCam(c, W, Hh, S);
   assert.ok(c.zoom >= 0.15 && c.x === S / 2, 'vue d’ensemble centrée, zoom minimal borné');
