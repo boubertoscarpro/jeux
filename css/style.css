@@ -865,3 +865,34 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .war-track li.done { border-left: 3px solid var(--good); }
 .war-track li.current { border-left: 3px solid var(--gold); }
 .war-track li.locked { opacity: 0.6; }
+/* ---------- Mystères archéologiques ---------- */
+.arch-sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; margin: 8px 0; }
+.arch-site { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.arch-site.found { border-color: var(--good); }
+.arch-riddle { border: 1px solid var(--gold2); border-radius: 10px; padding: 10px 12px; background: rgba(226, 184, 74, 0.06); margin: 8px 0; }
+.arch-answers { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+/* ---------- Plans de forge ---------- */
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin: 8px 0; }
+.plan { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; }
+.plan.known { border-color: var(--gold2); }
+.plan.unknown { opacity: 0.85; }
+/* ---------- Conseil royal ---------- */
+.council-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.council-group { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; }
+.council-group.loyal { border-color: var(--good); }
+.council-group.hostile { border-color: var(--bad); }
+.council-press { margin: 2px 0 0; padding-left: 18px; }
+.council-motion { border-color: var(--gold); }
+.council-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.council-opt { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.council-opt .btn { align-self: flex-start; }
+/* ---------- Logistique ---------- */
+.logi-block { border-left: 3px solid var(--line); }
+/* ---------- Héritage dynastique ---------- */
+.legacy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin: 8px 0; }
+.legacy-trad { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.legacy-trad.owned { border-color: var(--gold2); }
+.legacy-offer { border-color: var(--gold); }
+.legacy-remnant { border-bottom: 1px solid var(--line); padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.legacy-remnant.done { opacity: 0.7; }
+.legacy-archive { border-left: 3px solid var(--gold2); padding: 4px 10px; margin: 6px 0; }

@@ -7,6 +7,9 @@ import { distCap } from './world.js';
 import { activePolicy } from './policy.js';
 import { pay, missing } from './economy.js';
 import { log } from './log.js';
+import { councilStab } from './council.js';
+import { supplyStab } from './logistics.js';
+import { key } from './world.js';
 
 export const STAB_DEFAULT = 70;
 export const STAB_DRIFT = 5;              // points par heure vers la cible
@@ -28,7 +31,7 @@ export const taxOf = (t) => (TAXES[t?.tax] ? t.tax : 'normal');
 export const stabLevel = (v) => STAB_LEVELS.find((l) => v >= l.min) || STAB_LEVELS[STAB_LEVELS.length - 1];
 
 // Facteurs détaillés (affichés au joueur) → cible
-export function stabilityFactors(state, t, now = Date.now()) {
+export function stabilityFactors(state, t, now = Date.now(), route = null) {
   const f = [['Base', 60]];
   const g = Object.values(t.garrison || {}).reduce((a, b) => a + b, 0);
   f.push(g >= GARRISON_PER_LEVEL * (t.level || 1) ? ['Garnison complète : sécurité', 10] : ['Garnison insuffisante : insécurité', -15]);
@@ -47,9 +50,13 @@ export function stabilityFactors(state, t, now = Date.now()) {
   if (pol === 'defense') f.push(['Priorité royale : Défense', 3]);
   if (t.festUntil > now) f.push(['Festivités royales', FESTIVAL.stab]);
   if (t.concededUntil > now) f.push(['Concessions accordées', 10]);
+  const sup = state.world ? supplyStab(state, key(t.x, t.y), t, now, route) : null;
+  if (sup) f.push(sup);
+  const cs = councilStab(state);
+  if (cs) f.push([cs > 0 ? 'Assemblée des villages loyale' : 'Assemblée des villages hostile', cs]);
   return f;
 }
-export const stabilityTarget = (state, t, now = Date.now()) => Math.max(0, Math.min(100, stabilityFactors(state, t, now).reduce((a, [, v]) => a + v, 0)));
+export const stabilityTarget = (state, t, now = Date.now(), route = null) => Math.max(0, Math.min(100, stabilityFactors(state, t, now, route).reduce((a, [, v]) => a + v, 0)));
 
 // Multiplicateur de production (utilisé par outpostStatus)
 export function stabilityEffect(t) {
@@ -60,8 +67,8 @@ export function stabilityEffect(t) {
 }
 
 // Tick : dérive vers la cible, impôts, fin de révolte. Appelé par territoryTick.
-export function stabilityTick(state, t, h, now = Date.now()) {
-  const cur = stabOf(t), target = stabilityTarget(state, t, now);
+export function stabilityTick(state, t, h, now = Date.now(), route = null) {
+  const cur = stabOf(t), target = stabilityTarget(state, t, now, route);
   const step = STAB_DRIFT * h;
   t.stability = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
   if (t.revolt && t.stability >= 45) { t.revolt = false; log(state, 'good', `🕊️ Le calme revient dans la province « ${t.name} ».`, now); }

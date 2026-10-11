@@ -29,6 +29,11 @@ par son nom : renommer ne casse rien, perdre l'avant-poste rend la mission « im
   missions, réputation, relations avec les factions.
 - **Château principal** : `identity.castleId/castleName`, `city` (grille, bâtiments, fortifications).
 - **Avant-postes** : `territories` (chacun : `id`, `name`, position, terrain, spécialité, niveau, garnison).
+- **Royaume (v9, étape 6)** : `council` (faveur des groupes d'influence, motions), `recipes` (plans de forge connus,
+  spécialité de l'atelier), `archaeo` (mystère en cours, lieux retrouvés). Les routes (`road`) et rations
+  (`rationsUntil`) sont stockées sur chaque avant-poste.
+- **Compte / lignée** : `dynasty` (points et bonus d'héritage) et `legacy` (traditions, archives, vestiges, défis) :
+  ce qui survit à une nouvelle dynastie. Dans un multijoueur, ces données suivraient le joueur, pas le monde.
 - **Monde** : `world` (terrain, brouillard, lieux). Aujourd'hui propre à chaque partie (générée depuis la graine) ;
   un monde partagé devrait en sortir pour vivre côté serveur.
 

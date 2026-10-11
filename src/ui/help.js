@@ -29,6 +29,7 @@ const H = {
     ['Spécialités', 'Chaque terrain propose plusieurs voies : forestière, minière, agricole, commerciale, militaire ou du savoir. L’<b>affinité</b> (cases favorables dans un rayon de 2, gisements à 3 cases) augmente production et bonus jusqu’à +30 %. Une reconversion coûte de l’or et ramène au niveau 1.'],
     ['Entretien et garnison', '8 soldats par niveau sont nécessaires ; sans eux, la production chute de 70 % et les attaques sont deux fois plus probables. L’entretien (or, nourriture) impayé arrête la production.'],
     ['Menaces', 'Un événement peut annoncer une attaque 2 h à l’avance : engagez des mercenaires, envoyez des troupes ou évacuez les réserves.'],
+    ['Acheminement', 'La production d’un avant-poste doit rejoindre le château : au-delà de 3 cases, 1,5 % se perd par case, plus 5 % par lieu dangereux non nettoyé près du trajet (et davantage à travers le territoire d’une faction en guerre). Les routes (chemin empierré, route royale, route pavée et gardée) réduisent ces pertes et augmentent la capacité, contre un entretien en or. Un avant-poste relié par une route sert de relais : les plus lointains y font transiter leurs marchandises. Sous 70 % d’acheminement, la garnison est mal ravitaillée (stabilité −8) ; un convoi de rations la nourrit 24 h.'],
     ['Stabilité', 'Chaque province a une stabilité (0 à 100) qui tend vers une cible : garnison complète +10 (sinon −15), royaume nourri +5 (famine −20), impôts légers +12 ou lourds −15, proximité du château +5 (éloignement −5), pillage −15, défenses réussies, festivités +15. Prospère : +10 % de production ; mécontente : −20 % ; en révolte : −50 %. Une province très agitée demande audience : concessions, répression ou révolte ouverte.'],
   ] },
   factions: { title: '🕊️ Factions', sections: [
@@ -57,6 +58,8 @@ const H = {
   heroes: { title: '🧙 Héros', sections: [
     ['Recruter', 'La taverne (hôtel de ville 2) recrute des héros ; son niveau augmente la rareté et le nombre de places.'],
     ['Utiliser', 'Un héros commande une marche, ou administre un secteur comme intendant. La forge et le laboratoire équipent vos héros.'],
+    ['Plans de forge', 'Un plan fixe le modèle d’un objet et vous laisse choisir son effet spécial (pour la cavalerie, la défense, le siège…). Plans : donjons vidés (une chance sur trois), mystères archéologiques, factions en accord commercial ou alliées, héros de niveau 8 (forgeron, général, explorateur), expérimentation de matériaux rares à l’atelier.'],
+    ['Atelier spécialisé', 'Armes, armures ou orfèvrerie : qualité +25 % et coût −15 % pour cette famille, +10 % de coût pour les autres. Premier choix gratuit, puis 1 000 or et 24 h entre deux réorganisations.'],
   ] },
 };
 H.policy = { title: '👑 Priorité royale', sections: [
@@ -81,6 +84,23 @@ H.shop = { title: '💎 Comptoir du Joaillier', sections: [
   ['Monnaie', 'Uniquement des ressources rares gagnées en jeu : gemmes, cristaux, argent, minerai rare, bois ancien. Rien ne s’achète avec de l’argent réel.'],
   ['Limites', 'Chaque article a une quantité quotidienne, renouvelée à minuit, pour ne pas remplacer la forge, le laboratoire ou la production.'],
   ['Où trouver ces ressources', 'Donjons, grottes et gisements rares de la carte, avant-postes spécialisés (cristaux, mines profondes, bois de cœur), contrats, quêtes et événements.'],
+] };
+
+H.archaeo = { title: '🏺 Mystères archéologiques', sections: [
+  ['Indices', 'À partir de l’hôtel de ville 4, explorer 6 lieux ou vider 2 donjons livre un indice. Un seul mystère à la fois ; cinq mystères au total.'],
+  ['Retrouver les sites', 'Chaque mystère cache trois fragments dans trois régions. L’indice ne donne qu’une zone (cercle pointillé sur la carte) : explorez-la (éclaireurs, exploration, expéditions) pour localiser le site exact, puis envoyez une équipe de fouille. Les lieux dangereux non nettoyés autour d’un site peuvent la chasser.'],
+  ['Étudier et résoudre', 'Chaque fragment s’étudie : lecture rapide (localise le site suivant), étude approfondie (écarte une mauvaise réponse) ou cession à un collectionneur (6 gemmes). Les trois fragments réunis, une énigme se pose ; la réponse se déduit de leurs textes. Une erreur impose 4 h de réflexion.'],
+  ['Récompense', 'Un lieu oublié apparaît sur la carte, avec un bonus permanent, des ressources et un plan de forge unique.'],
+] };
+H.council = { title: '🏛️ Conseil royal', sections: [
+  ['Groupes d’influence', 'Marchands, armée, villages, érudits et nobles ont chacun une faveur de 0 à 100. Loyal (≥ 70) : bonus ; hostile (≤ 30) : malus. Une Assemblée des villages loyale ou hostile modifie aussi la stabilité des provinces.'],
+  ['Pressions', 'La faveur tend vers 50, déplacée par la priorité royale, la famine, les impôts des provinces, les campagnes militaires, la recherche en cours, les caravanes et les grands projets. Chaque pression est affichée.'],
+  ['Motions', 'Toutes les 5 h environ, un groupe présente une motion. Chaque option contente un groupe et en froisse souvent un autre ; la moitié de l’effet reste en mémoire 48 h. Une motion ignorée 3 h vexe le groupe qui l’a présentée.'],
+] };
+H.legacy = { title: '👑 Héritage dynastique', sections: [
+  ['Traditions', 'Hôtel de ville 8, premier haut fait (grand projet, campagne victorieuse ou mystère résolu), hôtel de ville 12 : à chaque étape, choisissez une tradition parmi trois. Elles s’appliquent tout de suite et se conservent dans toutes les dynasties suivantes (5 au maximum).'],
+  ['Vestiges', 'Quand vous fondez une nouvelle dynastie, vos principaux avant-postes deviennent des forteresses abandonnées à la même place autour de la capitale, et vos grands projets des monuments. Explorez pour les retrouver : relevez une forteresse (avant-poste à son ancien niveau), démontez-la, ou restaurez un monument (+2 % de production).'],
+  ['Mémoire du monde', 'Une faction du nouveau monde se souvient de vos alliances (relation +20), une autre de vos guerres (−20) : la vaincre en campagne est un défi ancestral. Atteindre l’hôtel de ville de la dynastie précédente rapporte aussi des points d’héritage. Les archives retracent les exploits de chaque dynastie.'],
 ] };
 
 // Les sous-écrans partagent l'aide de leur catégorie
