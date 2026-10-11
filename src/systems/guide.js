@@ -1,5 +1,7 @@
 // Conseiller du tableau de bord : recommandations déterministes, calculées depuis l'état réel, priorisées,
 // regroupées, sans doublon. Le joueur peut les reporter (4 h), les ignorer, ou réduire / couper le conseiller.
+import { rivalryStatus, mainGrievance } from './rivalry.js';
+import { RIVALS } from '../data/world.js';
 import { TECHS } from '../data/techs.js';
 import { RESOURCES } from '../data/resources.js';
 import { KINGDOM_FOCUS } from '../data/campaign.js';
@@ -55,6 +57,14 @@ export function adviceList(state, now = Date.now()) {
     const r = (state.resources.rareOre || 0) >= 9 ? 'rareOre' : 'crystals';
     out.push({ id: 'rare:' + r, sev: 'info', text: `Vous stockez ${Math.floor(state.resources[r])} ${RESOURCES[r].icon} ${RESOURCES[r].name} : utilisez-les comme catalyseur à la Forge pour un meilleur équipement.`, goto: 'craft' });
   }
+
+  // Introduction des systèmes de fin de partie au moment où ils s'ouvrent (jusqu'à la première visite)
+  const visited = (v) => !!c.flags['view:' + v];
+  if (th >= 4 && !visited('challenges')) out.push({ id: 'intro:challenges', sev: 'info', text: 'Nouveau : les défis de maîtrise. Exemple : « Autarcie », 24 h sans marché ni caravane, pour des insignes et un titre.', goto: 'challenges' });
+  if (th >= 7 && !Object.values(state.city.buildings).some((b) => b.type === 'monument')) out.push({ id: 'intro:monument', sev: 'info', text: 'Nouveau : vous pouvez bâtir le monument de votre dynastie (barre Construire, 5 étapes, orientation au choix).', goto: 'city' });
+  if (Object.keys(state.legendary?.unlocked || {}).length && !visited('legend')) out.push({ id: 'intro:legend', sev: 'info', text: 'Un indice mène à une expédition légendaire : préparez provisions, escorte et chef.', goto: 'legend' });
+  const rival = (state.factions || []).find((f) => rivalryStatus(f, now)?.key === 'rival');
+  if (rival) out.push({ id: 'rival:' + rival.idx, sev: 'warn', text: `${RIVALS[rival.idx]?.name} vous tient rancune (${mainGrievance(rival, now) || 'vos affronts'}). Des gestes d’apaisement sont possibles.`, goto: 'factions' });
 
   // Tri, dédoublonnage, filtres (ignoré / reporté) et niveau
   const seen = new Set();

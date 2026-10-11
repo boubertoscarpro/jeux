@@ -7,6 +7,7 @@ import { thLevel } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing, gain } from './economy.js';
 import { simulateBattle } from './combat.js';
+import { armyPower } from './army.js';
 import { heroStats, giveXp } from './heroes.js';
 import { grantArtifact } from './collection.js';
 import { shardState } from './shards.js';
@@ -119,10 +120,15 @@ export function decide(state, idx, now = Date.now()) {
 }
 
 // Prévision de l'épreuve finale (pour l'interface)
+// Le gardien est à la mesure de l'escorte (GUARD_RATIO de sa puissance, davantage sur les itinéraires risqués) :
+// c'est la préparation et les décisions prises en route (moral, force, provisions) qui font la différence.
+export const GUARD_RATIO = 1.0;
 export function finalEnemies(state, a) {
   const def = LEGENDS[a.id], route = def.routes.find((r) => r.id === a.route);
-  const k = (0.6 + thLevel(state) * 0.08) * (route.guard || 1);
-  return Object.fromEntries(Object.entries(def.final.enemies).map(([u, n]) => [u, Math.max(1, Math.round(n * k))]));
+  const base = def.final.enemies;
+  const team = a.team && Object.keys(a.team).length ? a.team : null;
+  const k = team ? (GUARD_RATIO * (def.final.cal || 1) * (route.guard || 1) * armyPower(team)) / Math.max(1, armyPower(base)) : (0.6 + thLevel(state) * 0.08) * (route.guard || 1);
+  return Object.fromEntries(Object.entries(base).map(([u, n]) => [u, Math.max(1, Math.round(n * k))]));
 }
 
 function finalBattle(state, a, now) {

@@ -419,8 +419,8 @@ export default {
       app.ui.citySel = { x, y };
       app.render();
     },
-    build: (app, el) => app.act(() => orPlan(app.state, startBuild(app.state, el.dataset.type, +el.dataset.x, +el.dataset.y), { kind: 'build', type: el.dataset.type, x: +el.dataset.x, y: +el.dataset.y }), planMsg('Construction lancée')),
-    upgrade: (app, el) => app.act(() => orPlan(app.state, startUpgrade(app.state, el.dataset.id), { kind: 'upgrade', bid: el.dataset.id }), planMsg('Amélioration lancée')),
+    build: (app, el) => { if (!app.confirmSpend(getUpgradeInfo(app.state, el.dataset.type, 1).cost, 'cette construction')) return; app.act(() => orPlan(app.state, startBuild(app.state, el.dataset.type, +el.dataset.x, +el.dataset.y), { kind: 'build', type: el.dataset.type, x: +el.dataset.x, y: +el.dataset.y }), planMsg('Construction lancée')); },
+    upgrade: (app, el) => { const b = app.state.city.buildings[el.dataset.id]; if (b && !app.confirmSpend(getUpgradeInfo(app.state, b.type, b.level + 1).cost, 'cette amélioration')) return; app.act(() => orPlan(app.state, startUpgrade(app.state, el.dataset.id), { kind: 'upgrade', bid: el.dataset.id }), planMsg('Amélioration lancée')); },
     clear: (app, el) => app.act(() => startClear(app.state, +el.dataset.x, +el.dataset.y), 'Déblaiement lancé'),
     move: (app, el) => { app.ui.moveId = el.dataset.id; app.ui.placeType = null; app.render(); },
     'place-mode': (app, el) => { app.ui.placeType = el.dataset.type; app.ui.moveId = null; app.render(); },

@@ -1,4 +1,5 @@
 import { bus } from '../core/bus.js';
+import { RESOURCES } from '../data/resources.js';
 import { ensureIconDefs, navIcon } from './icons.js';
 import { ensureArtDefs } from './art.js';
 import { advance } from '../core/engine.js';
@@ -295,6 +296,13 @@ export class App {
     this.$('#view').scrollTop = 0;
   }
 
+  // Dépense importante (≥ 60 % du stock d'une ressource) : demande confirmation avant de lancer l'action
+  confirmSpend(cost, what = 'cette action') {
+    const big = Object.entries(cost || {}).filter(([r, v]) => v > 0 && v >= 0.6 * (this.state.resources[r] || 0) && (this.state.resources[r] || 0) >= v);
+    if (!big.length) return true;
+    return confirm(`${what[0].toUpperCase() + what.slice(1)} utilise une grande partie de vos réserves (${big.map(([r, v]) => `${Math.round((v / this.state.resources[r]) * 100)} % de ${RESOURCES[r]?.name?.toLowerCase() || r}`).join(', ')}). Continuer ?`);
+  }
+
   // Exécute une action de jeu ; affiche l'erreur éventuelle
   act(fn, okMsg) {
     let r;
@@ -391,12 +399,14 @@ export class App {
   toast(text, type = 'info') {
     const box = document.getElementById('toasts');
     if (!box) return;
+    // Pas de doublon visible : un message identique déjà affiché n'est pas répété
+    if ([...box.children].some((c) => c.textContent === text)) return;
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     el.textContent = text;
     box.appendChild(el);
     setTimeout(() => el.classList.add('show'), 10);
     setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3800);
-    while (box.children.length > 5) box.firstChild.remove();
+    while (box.children.length > 3) box.firstChild.remove();
   }
 }

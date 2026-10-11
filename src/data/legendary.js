@@ -3,7 +3,8 @@
 // tranche deux événements en chemin, affronte l'épreuve finale, puis décide du sort de la découverte.
 // Effets d'un choix (fx) : supplies (provisions consommées), morale (moral de l'escorte), power (force, en %),
 // losses (part de l'escorte perdue), delay (minutes), res (ressources), xp (expérience du chef).
-// need : condition du choix (stat du chef ≥ valeur, ressources, provisions restantes).
+// final.cal : force du gardien relative à l'escorte (calibrée par simulation : une préparation médiocre échoue,
+// une préparation correcte l'emporte le plus souvent). need : condition du choix (stat du chef ≥ valeur, ressources, provisions restantes).
 export const LEGEND_MIN_TH = 6;
 export const PROVISIONS = {
   light: { name: 'Légères', supplies: 1, cost: { food: 400 }, desc: 'Rapide à réunir, mais peu de marge.' },
@@ -57,7 +58,7 @@ export const LEGENDS = {
       { id: 'hills', name: 'Par les collines', desc: 'Route sûre mais longue.', legMin: 35, events: ['ford', 'shrine'] },
       { id: 'ash', name: 'À travers les terres de cendre', desc: 'Plus court, plus dangereux.', legMin: 20, events: ['ambush', 'sickness'], guard: 1.15 },
     ],
-    final: { name: 'Le gardien de pierre', enemies: { ancientSoldier: 14, ruinKeeper: 1 }, terrain: 'ruins' },
+    final: { name: 'Le gardien de pierre', cal: 0.8, enemies: { ancientSoldier: 14, ruinKeeper: 1 }, terrain: 'ruins' },
     reward: { res: { gold: 3000 }, relic: 2 },
   },
   dragonPeak: {
@@ -67,7 +68,7 @@ export const LEGENDS = {
       { id: 'pass', name: 'Par le col', desc: 'Neige et tempêtes.', legMin: 30, events: ['storm', 'deserters'] },
       { id: 'forest', name: 'Par la forêt noire', desc: 'Ombres et embuscades.', legMin: 30, events: ['ambush', 'shrine'] },
     ],
-    final: { name: 'Le dragon réveillé', enemies: { dragonling: 6, dragon: 1 }, terrain: 'mountain' },
+    final: { name: 'Le dragon réveillé', cal: 0.47, enemies: { dragonling: 6, dragon: 1 }, terrain: 'mountain' },
     reward: { res: { gold: 5000, gems: 15 }, relic: 1 },
   },
   lostEmbassy: {
@@ -77,7 +78,7 @@ export const LEGENDS = {
       { id: 'river', name: 'Le long du fleuve', desc: 'Gués et marais.', legMin: 30, events: ['ford', 'sickness'] },
       { id: 'road', name: 'Par l’ancienne voie impériale', desc: 'Pavée, mais fréquentée.', legMin: 25, events: ['ambush', 'deserters'] },
     ],
-    final: { name: 'Les gardiens de l’ambassade', enemies: { warden: 10, royalArcher: 8 }, terrain: 'forest' },
+    final: { name: 'Les gardiens de l’ambassade', cal: 1.13, enemies: { warden: 10, royalArcher: 8 }, terrain: 'forest' },
     reward: { res: { gold: 2500, silver: 25 }, relic: 1 },
   },
   ancestorVault: {
@@ -87,7 +88,7 @@ export const LEGENDS = {
       { id: 'crypt', name: 'Par les catacombes', desc: 'Sombre et humide.', legMin: 25, events: ['sickness', 'shrine'] },
       { id: 'ruins', name: 'Par les ruines en surface', desc: 'Exposé aux pillards.', legMin: 25, events: ['ambush', 'storm'] },
     ],
-    final: { name: 'Les spectres de la crypte', enemies: { wraith: 10, skeleton: 14, boneKing: 1 }, terrain: 'ruins' },
+    final: { name: 'Les spectres de la crypte', cal: 0.57, enemies: { wraith: 10, skeleton: 14, boneKing: 1 }, terrain: 'ruins' },
     reward: { res: { gold: 2000, crystals: 20 }, relic: 2 },
   },
 };

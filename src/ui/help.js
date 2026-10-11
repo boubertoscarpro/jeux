@@ -33,6 +33,8 @@ const H = {
     ['Stabilité', 'Chaque province a une stabilité (0 à 100) qui tend vers une cible : garnison complète +10 (sinon −15), royaume nourri +5 (famine −20), impôts légers +12 ou lourds −15, proximité du château +5 (éloignement −5), pillage −15, défenses réussies, festivités +15. Prospère : +10 % de production ; mécontente : −20 % ; en révolte : −50 %. Une province très agitée demande audience : concessions, répression ou révolte ouverte.'],
   ] },
   factions: { title: '🕊️ Factions', sections: [
+    ['Mémoire', 'Chaque faction se souvient de vos actes : guerres, trahisons, pactes, commerce durable, pillages, interventions dans les chroniques. Un souvenir s’estompe de moitié en 3 jours et pèse sur la relation pendant ce temps. Une faction très rancunière devient rivale déclarée et peut lancer un ultimatum ; une faction alliée de longue date devient un allié de confiance (petits bonus).'],
+    ['Désamorcer', 'Chaque faction affiche ce qu’elle cherche (territoire, commerce, savoir, tranquillité). Réparations, excuses publiques ou un geste qui répond à son ambition apaisent sa rancune (un geste toutes les 12 h).'],
     ['Relations', 'Ambassadeurs, cadeaux, contrats et choix des événements font évoluer la relation. Un pacte commercial supprime les raids de cette faction ; la guerre les multiplie.'],
     ['Lisibilité', 'Sur la carte, la couleur du contour d’un territoire indique sa relation avec vous (rouge : ennemi, vert : allié, pointillé : neutre).'],
   ] },
@@ -101,6 +103,22 @@ H.legacy = { title: '👑 Héritage dynastique', sections: [
   ['Traditions', 'Hôtel de ville 8, premier haut fait (grand projet, campagne victorieuse ou mystère résolu), hôtel de ville 12 : à chaque étape, choisissez une tradition parmi trois. Elles s’appliquent tout de suite et se conservent dans toutes les dynasties suivantes (5 au maximum).'],
   ['Vestiges', 'Quand vous fondez une nouvelle dynastie, vos principaux avant-postes deviennent des forteresses abandonnées à la même place autour de la capitale, et vos grands projets des monuments. Explorez pour les retrouver : relevez une forteresse (avant-poste à son ancien niveau), démontez-la, ou restaurez un monument (+2 % de production).'],
   ['Mémoire du monde', 'Une faction du nouveau monde se souvient de vos alliances (relation +20), une autre de vos guerres (−20) : la vaincre en campagne est un défi ancestral. Atteindre l’hôtel de ville de la dynastie précédente rapporte aussi des points d’héritage. Les archives retracent les exploits de chaque dynastie.'],
+] };
+
+H.challenges = { title: '🏅 Défis de maîtrise', sections: [
+  ['Principe', 'Des épreuves facultatives, à durée limitée, qui imposent une contrainte (pas de commerce, pas de recrutement, impôts légers…). Une seule à la fois. Exemple : « Autarcie » — 24 h sans marché ni caravane ; produisez au moins autant que d’habitude pour le bronze, 15 % de plus pour l’argent, 30 % pour l’or.'],
+  ['Récompenses', 'Insignes (boutique cosmétique), titres et bannières de maîtrise, une seule fois par palier. Jamais de bonus permanent : un royaume qui réussit tous les défis n’est pas plus fort, il est reconnu.'],
+  ['Échec et record', 'Enfreindre la règle met fin à l’épreuve sans palier. On peut retenter un défi 6 h plus tard pour améliorer son record ; l’historique garde chaque tentative.'],
+] };
+H.legend = { title: '🗺️ Expéditions légendaires', sections: [
+  ['Indices', 'Chaque expédition se découvre par un autre système : un mystère archéologique résolu, un boss mondial vaincu, une faction alliée ou partenaire, l’histoire de votre lignée (archives ou monument à l’étape 3).'],
+  ['Préparation', 'Provisions (elles servent aux imprévus ; sans vivres, moral et force chutent), escorte (part de l’armée qui quitte le château) et chef (sa ruse ou son savoir ouvrent certains choix). Choisissez l’itinéraire : plus court peut vouloir dire plus dangereux.'],
+  ['En route', 'Deux événements demandent une décision (gué en crue, embuscade, sanctuaire…). Puis vient l’épreuve finale, résolue par le moteur de combat avec le moral et la force accumulés.'],
+  ['La découverte', 'Après la victoire : la garder (artefact), l’offrir à une faction (souvenir durable), l’exposer aux archives (+2 points d’héritage) ou la vendre.'],
+] };
+H.accomplish = { title: '🏆 Accomplissements', sections: [
+  ['Trois axes', 'Maîtrise (défis, campagnes, quêtes), Découverte (mystères, expéditions, artefacts, plans, chroniques, exploration) et Héritage (traditions, monument, dynasties, vestiges). Les critères sont visibles dès le début de la partie.'],
+  ['Progression du royaume', 'La carte des écrans indique ce qui est ouvert et la condition exacte de ce qui ne l’est pas encore.'],
 ] };
 
 // Les sous-écrans partagent l'aide de leur catégorie

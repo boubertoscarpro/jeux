@@ -21,15 +21,22 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v10** : refonte visuelle « pierre, ivoire et bronze », icônes SVG, tableau de bord stratégique, chroniques du
+> monde, mémoire des factions, défis de maîtrise, monument dynastique, expéditions légendaires, saisons plus
+> marquantes, fin de partie sur trois axes — voir [`docs/V10.md`](docs/V10.md) et l’audit [`docs/AUDIT_V10.md`](docs/AUDIT_V10.md).
+
 | Catégorie | Contenu |
 |---|---|
 | 👑 Spécialisations | Moissons, Fer, Marchands, Érudits, Pionniers, Bastions, Ombres, Anciens : bonus et malus permanents branchés sur les formules du jeu ; origines (province impériale, colonie frontalière, communauté reconstruite) ; difficultés (Guidé, Classique, Expert) — voir [`docs/KINGDOMS.md`](docs/KINGDOMS.md) |
 | 🏗️ Grands projets | Pont, aqueduc, forteresse, bibliothèque, route commerciale, sanctuaire : 3 étapes financées en plusieurs apports, conditions liées aux bâtiments et avant-postes, bonus permanents et repère sur la carte |
+| 🏅 Défis de maîtrise | Six épreuves facultatives à paliers (bronze, argent, or) qui imposent une contrainte ; titres, insignes et bannières, jamais de bonus permanent |
+| 🗿 Monument dynastique | Édifice en 5 étapes sur la carte du royaume, orientation au choix, dessin qui évolue, points d’héritage |
 | 🏛️ Conseil royal | Cinq groupes d’influence (marchands, armée, villages, érudits, nobles) : faveur, pressions visibles, motions qui contentent un groupe et en froissent un autre, bonus des groupes loyaux et malus des groupes hostiles |
 | 👑 Priorité royale | Orientation stratégique du royaume (Prospérité, Défense, Expansion, Commerce) avec bonus et malus, réorganisation, lien avec les missions et l’Intendance |
 | 📖 Parcours | **Quêtes du royaume** (11 chaînes en 7 catégories), **missions dynamiques** adaptées au royaume, tableau de bord, aide ❓ sur chaque écran ; 8 chapitres (du *Dernier hameau* au *Royaume prend son envol*), missions détectées automatiquement, récompenses uniques, exercice d'entraînement sans perte, missions royales du jour, objectifs à long terme, conseiller du tableau de bord (complet / réduit / désactivé), tutoriel relisible |
 | 🏰 Royaume | Grille de construction **24×16 dès le départ** (jusqu'à 40×24), **cases de 64 px et bâtiments illustrés**, icônes ⬆ des améliorations possibles et compteur, infobulles, **château principal nommé par le joueur**, zoom et déplacement, bonus d'adjacence (rivière, forêt, montagne), routes, agrandissement du domaine, fortifications ; **tableau des objectifs** (court / moyen / long terme) et **sagas** narratives |
 | 🗺️ Monde | Carte procédurale **96×96** (cases de 40 px, terrains texturés, frontières ennemies/alliées/neutres, étiquettes sans chevauchement, armées animées, **avant-postes nommés** avec spécialités et affinité) (plus de 600 lieux, 12 cités libres), zoom à la molette ou au pincement centré sur le curseur, mini-carte, filtres de lieux, accès rapide aux lieux découverts, brouillard, sites de farm à risque, donjons procéduraux, boss mondiaux, 5 factions IA, diplomatie, espionnage ; **territoires spécialisés** (avant-postes, garnison, entretien, menaces) et **réseau logistique** (pertes d’acheminement, routes, relais, rations des garnisons) |
+| 🗺️ Légendes | **Expéditions légendaires** : indice venu d’un autre système, préparation, itinéraire, décisions en route, épreuve finale, sort de la découverte |
 | 🏺 Fouilles | **Mystères archéologiques** : indices, trois sites à localiser en explorant, équipes de fouille, étude des fragments, énigme, lieux oubliés avec bonus permanent et plan de forge |
 | ⚔️ Armée | 15 unités, contres, formations, terrain, météo, moral, ravitaillement, siège ; **campagnes militaires** contre une faction (col, forteresse frontalière, puis siège de la capitale ou protection d’une cité libre) avec effets durables |
 | ⛏️ Production | Ouvriers & contremaîtres, expéditions automatiques, chaînes configurables, Intendance, priorités, **Ordres du royaume** (SI → ALORS), **bilan économique** (production/consommation par heure, pénuries, chaînes bloquées, pertes) |
@@ -47,7 +54,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 158 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
+npm test        # 165 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/profileSim.js --policies 7 3   # comparaison des priorités royales
