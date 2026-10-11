@@ -19,6 +19,7 @@ import { log, toast } from './log.js';
 import { shardState } from './shards.js';
 import { castleName, outpostLabel } from './identity.js';
 import { garrisonNeed, fillGarrison } from './territory.js';
+import { unrestCandidate, stabilityFactors, stabOf } from './stability.js';
 import { OUTPOST_THREATS } from '../data/territories.js';
 import { levelOf } from './city.js';
 
@@ -32,7 +33,7 @@ function exposedOutpost(state, now = Date.now()) {
     && Object.values(t.garrison || {}).reduce((a, b) => a + b, 0) < garrisonNeed(t));
   return list.sort((a, b) => (b[1].level || 1) - (a[1].level || 1))[0] || null;
 }
-const needCtx = (state, now) => ({ market: levelOf(state, 'market'), exposedOutpost: exposedOutpost(state, now) });
+const needCtx = (state, now) => ({ market: levelOf(state, 'market'), exposedOutpost: exposedOutpost(state, now), unrest: unrestCandidate(state, now) });
 
 // Préparations propres à certains événements (quantités, avant-poste visé…) ; null = événement annulé
 const PREPARE = {
@@ -50,6 +51,14 @@ const PREPARE = {
     if (!ok.length) return null;
     p.faction = rng.pick(ok).idx;
     return {};
+  },
+  outpostUnrest: (state, now) => {
+    const e = unrestCandidate(state, now);
+    if (!e) return null;
+    const [k, t] = e;
+    t.unrestAt = now + 3 * 3600000; // une seule audience à la fois pour cette province
+    const worst = stabilityFactors(state, t, now).filter(([, v]) => v < 0).sort((a, b) => a[1] - b[1]).map(([l]) => l.toLowerCase());
+    return { key: k, opId: t.id, outpost: outpostLabel(t), stab: Math.round(stabOf(t)), cause: worst.slice(0, 2).join(' et ') || 'une lassitude générale', gold: 200 * (t.level || 1) };
   },
   outpostThreat: (state, now) => {
     const e = exposedOutpost(state, now);
@@ -140,7 +149,7 @@ export function resolveDecision(state, pid, idx, now = Date.now(), auto = false)
   for (const [r, v] of Object.entries(fx.res || {})) if (v < 0) cost[r] = r === 'food' && v === -1 ? p.food : -v;
   if (!auto && Object.entries(cost).some(([r, v]) => (state.resources[r] || 0) < v)) return { ok: false, reason: 'Ressources insuffisantes' };
   if (!auto && fx.sell && (state.resources[p.ctx?.res] || 0) < (p.ctx?.qty || 0)) return { ok: false, reason: `Il vous faut ${fmt(p.ctx.qty)} ${RESOURCES[p.ctx.res]?.name.toLowerCase()}` };
-  if (!auto && fx.outpostHire && (state.resources.gold || 0) < (p.ctx?.gold || 0)) return { ok: false, reason: `Il vous faut ${fmt(p.ctx.gold)} or` };
+  if (!auto && (fx.outpostHire || fx.unrestConcede) && (state.resources.gold || 0) < (p.ctx?.gold || 0)) return { ok: false, reason: `Il vous faut ${fmt(p.ctx.gold)} or` };
   if (fx.needArmy && Object.entries(armyTotals(state)).reduce((a, [u, n]) => a + (u === 'scout' || u === 'spy' ? 0 : n), 0) < fx.needArmy) return { ok: false, reason: `${fx.needArmy} soldats requis` };
   state.pending = state.pending.filter((x) => x.id !== pid);
   const text = applyDecisionFx(state, p, fx, now);
@@ -231,6 +240,24 @@ export function applyDecisionFx(state, p, fx, now) {
       }
       void poi;
     } else parts.push('aucun emplacement trouvé');
+  }
+  if (fx.unrestConcede || fx.unrestRepress || fx.unrestIgnore) {
+    const t = state.territories[c.key];
+    if (!t || t.id !== c.opId) parts.push('la province n’existe plus');
+    else if (fx.unrestConcede) {
+      const g = Math.min(state.resources.gold || 0, c.gold);
+      state.resources.gold -= g;
+      t.stability = Math.min(100, stabOf(t) + 25); t.tax = 'low'; t.concededUntil = now + 24 * 3600000;
+      parts.push(`concessions accordées à « ${outpostLabel(t)} » (−${fmt(g)} 🪙, impôts allégés)`);
+    } else if (fx.unrestRepress) {
+      const full = Object.values(t.garrison || {}).reduce((a, b) => a + b, 0) >= garrisonNeed(t);
+      t.stability = Math.min(100, stabOf(t) + (full ? 20 : 5));
+      bumpRep(state, 'tyrant', 8);
+      parts.push(full ? `la garnison rétablit l’ordre à « ${outpostLabel(t)} »` : `garnison trop faible : l’ordre n’est qu’à moitié rétabli à « ${outpostLabel(t)} »`, 'réputation de tyran +8');
+    } else {
+      t.revolt = true;
+      parts.push(`« ${outpostLabel(t)} » se soulève : production arrêtée jusqu’au retour au calme`);
+    }
   }
   if (fx.outpostHire || fx.outpostReinforce || fx.outpostEvac) {
     const t = state.territories[c.key];

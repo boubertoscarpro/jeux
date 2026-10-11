@@ -17,6 +17,7 @@ import { levelProdFactor } from '../data/buildings.js';
 import { isRevealed, distCap } from './world.js';
 import { outpostLabel } from './identity.js';
 import { grantReward } from './rewards.js';
+import { stabOf } from './stability.js';
 import { projectState, projectInfo } from './projects.js';
 import { activePolicy } from './policy.js';
 import { POLICIES } from '../data/policies.js';
@@ -205,6 +206,15 @@ const TEMPLATES = [
     },
   },
   {
+    id: 'calm', tag: 'outpost', weight: 4,
+    offer(s) {
+      const t = Object.values(s.territories || {}).filter((x) => !x.revolt && stabOf(x) < 55).sort((a, b) => stabOf(a) - stabOf(b))[0];
+      if (!t) return null;
+      return { title: `Apaiser « ${outpostLabel(t)} »`, icon: '🕊️', tag: 'outpost', kind: 'stability', params: { opId: t.id, name: outpostLabel(t) }, target: 65,
+        desc: `Ramenez la stabilité de « ${outpostLabel(t)} » à 65 (actuellement ${Math.round(stabOf(t))}) : garnison complète, impôts plus légers ou festivités.`, view: 'territories', reward: rewardFor(s, { food: resAmount(s, 0.6) }, { benefactor: 4 }) };
+    },
+  },
+  {
     id: 'rubble', tag: 'build', weight: 2,
     offer(s) {
       const n = s.city.terrain.filter((t) => t === 'rubble').length;
@@ -244,6 +254,7 @@ export function missionProgress(state, m) {
     case 'stat': cur = Math.max(0, (state.stats?.[p.stat] || 0) - (m.base || 0)); break;
     case 'techs': cur = Object.keys(state.techs || {}).length; break;
     case 'outpostSpec': cur = Object.values(state.territories || {}).some((t) => t.id === p.opId && t.spec) ? 1 : 0; break;
+    case 'stability': { const t = Object.values(state.territories || {}).find((x) => x.id === p.opId); cur = t ? Math.floor(stabOf(t)) : 0; break; }
     case 'outpostLevel': cur = Object.values(state.territories || {}).find((t) => t.id === p.opId)?.level || 0; break;
     default: cur = 0;
   }
@@ -254,7 +265,7 @@ export function missionProgress(state, m) {
 export function missionVoidReason(state, m, mods = computeMods(state)) {
   const p = m.params || {};
   if (m.kind === 'level' && !state.city.buildings[p.bid]) return `${p.name || 'Le bâtiment'} (${p.x}, ${p.y}) n’existe plus (démoli ou déplacé).`;
-  if ((m.kind === 'outpostSpec' || m.kind === 'outpostLevel') && !Object.values(state.territories || {}).some((t) => t.id === p.opId)) return `L’avant-poste « ${p.name} » a été perdu ou abandonné.`;
+  if ((m.kind === 'outpostSpec' || m.kind === 'outpostLevel' || m.kind === 'stability') && !Object.values(state.territories || {}).some((t) => t.id === p.opId)) return `L’avant-poste « ${p.name} » a été perdu ou abandonné.`;
   if (m.kind === 'stock' && m.target > storageCap(state, mods, p.res)) return 'L’entrepôt ne peut plus contenir une telle réserve (capacité réduite).';
   if (m.kind === 'level' && state.city.buildings[p.bid] && upgradeCheck(state, p.bid, mods).status === 'max' && missionProgress(state, m).cur < m.target) return 'Ce bâtiment a atteint son niveau maximal.';
   return null;

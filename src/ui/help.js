@@ -29,6 +29,7 @@ const H = {
     ['Spécialités', 'Chaque terrain propose plusieurs voies : forestière, minière, agricole, commerciale, militaire ou du savoir. L’<b>affinité</b> (cases favorables dans un rayon de 2, gisements à 3 cases) augmente production et bonus jusqu’à +30 %. Une reconversion coûte de l’or et ramène au niveau 1.'],
     ['Entretien et garnison', '8 soldats par niveau sont nécessaires ; sans eux, la production chute de 70 % et les attaques sont deux fois plus probables. L’entretien (or, nourriture) impayé arrête la production.'],
     ['Menaces', 'Un événement peut annoncer une attaque 2 h à l’avance : engagez des mercenaires, envoyez des troupes ou évacuez les réserves.'],
+    ['Stabilité', 'Chaque province a une stabilité (0 à 100) qui tend vers une cible : garnison complète +10 (sinon −15), royaume nourri +5 (famine −20), impôts légers +12 ou lourds −15, proximité du château +5 (éloignement −5), pillage −15, défenses réussies, festivités +15. Prospère : +10 % de production ; mécontente : −20 % ; en révolte : −50 %. Une province très agitée demande audience : concessions, répression ou révolte ouverte.'],
   ] },
   factions: { title: '🕊️ Factions', sections: [
     ['Relations', 'Ambassadeurs, cadeaux, contrats et choix des événements font évoluer la relation. Un pacte commercial supprime les raids de cette faction ; la guerre les multiplie.'],

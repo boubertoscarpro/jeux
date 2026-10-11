@@ -21,6 +21,7 @@ import { upgradeSummary } from './construction.js';
 import { outpostLabel } from './identity.js';
 import { garrisonNeed } from './territory.js';
 import { projectState, projectInfo } from './projects.js';
+import { stabOf, stabilityFactors } from './stability.js';
 
 const R = (r) => `${RESOURCES[r].icon} ${RESOURCES[r].name}`;
 
@@ -102,6 +103,12 @@ export function analyze(state, now = Date.now()) {
       const g = Object.values(t.garrison || {}).reduce((a, b) => a + b, 0);
       push('warn', `Attaque annoncée sur « ${outpostLabel(t)} » dans ${fmtTime(t.threatAt - now)} (garnison ${g}/${garrisonNeed(t)}).`, 'territories', { id: 'threat:' + t.id });
     }
+  }
+  // Provinces agitées : avertissement avant la révolte, avec la cause principale
+  for (const t of Object.values(state.territories || {})) {
+    const v = stabOf(t);
+    if (t.revolt) push('bad', `« ${outpostLabel(t)} » est en révolte : plus aucune production. Organisez des festivités, allégez les impôts ou complétez la garnison.`, 'territories', { id: 'revolt:' + t.id });
+    else if (v < 45) { const worst = stabilityFactors(state, t, now).filter(([, x]) => x < 0).sort((a, b) => a[1] - b[1])[0]; push(v < 30 ? 'bad' : 'warn', `La province « ${outpostLabel(t)} » est mécontente (stabilité ${Math.round(v)})${worst ? ` : ${worst[0].toLowerCase()}` : ''}.`, 'territories', { id: 'stab:' + t.id }); }
   }
   // Production de base absente : bois, pierre, nourriture
   const noProd = [['sawmill', 'wood'], ['quarry', 'stone'], ['farm', 'food']].filter(([type]) => !countOf(state, type));

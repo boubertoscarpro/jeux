@@ -160,7 +160,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     army: Object.values(s.army).reduce((a, b) => a + b, 0), battlesWon: s.stats.battlesWon, battlesLost: s.stats.battlesLost, explored: s.stats.explored,
     territories: Object.keys(s.territories).length, contracts: s.stats.contracts || 0, goldPerH: Math.round(net.gold || 0), foodNet: Math.round(net.food || 0),
     wealth: Math.round(wealth), famineH: Math.round(famineMin / 60), cappedH: Math.round(cappedMin / 60), shards: shardState(s).count + shardState(s).tickets * 10,
-    raidsLost: s.stats.raidsLost || 0, raids: (s.stats.raidsLost || 0) + (s.stats.raidsRepelled || 0), overflowGold: Math.round(s.stats.overflowGold || 0), saveKB: Math.round(serialize(s).length / 1024),
+    raidsLost: s.stats.raidsLost || 0, raids: (s.stats.raidsLost || 0) + (s.stats.raidsRepelled || 0), overflowGold: Math.round(s.stats.overflowGold || 0), stability: Object.values(s.territories).length ? Math.round(Object.values(s.territories).reduce((a, t) => a + (Number.isFinite(t.stability) ? t.stability : 70), 0) / Object.values(s.territories).length) : 0, revolts: Object.values(s.territories).filter((t) => t.revolt).length, taxes: Math.round(s.stats.taxes || 0), saveKB: Math.round(serialize(s).length / 1024),
     chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
     blocked: objectives(s, t).main.filter((m) => !m.done).map((m) => m.id).join(' '),
   };
@@ -233,7 +233,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'shards', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'shards', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');

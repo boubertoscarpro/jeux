@@ -110,6 +110,16 @@ Object.assign(DILEMMAS, {
       { label: 'Décliner poliment', fx: {}, hint: 'Aucun effet.' },
     ], default: 2,
   },
+  outpostUnrest: {
+    title: 'Agitation à {outpost}', icon: '✊', minTH: 2, weight: 9,
+    need: (s, h) => h.unrest !== null,
+    text: 'La province « {outpost} » gronde (stabilité {stab}/100) : {cause}. Ses notables demandent audience à {castle}. Sans réponse, la révolte éclatera et la province cessera de produire.',
+    choices: [
+      { label: 'Accorder des concessions ({gold} or, impôts allégés)', fx: { unrestConcede: true }, hint: 'Stabilité +25 tout de suite, +10 pendant 24 h ; les impôts passent au niveau léger.' },
+      { label: 'Rétablir l’ordre par la garnison', fx: { unrestRepress: true }, hint: 'Stabilité +20 si la garnison est complète (sinon +5), mais réputation de tyran +8.' },
+      { label: 'Laisser faire', fx: { unrestIgnore: true }, hint: 'La province entre en révolte ouverte : plus aucune production jusqu’à ce que sa stabilité remonte à 45.' },
+    ], default: 2,
+  },
   outpostThreat: {
     title: 'Menace sur {outpost}', icon: '⚠️', minTH: 2, weight: 6,
     need: (s, h) => h.exposedOutpost !== null,

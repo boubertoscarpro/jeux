@@ -12,6 +12,7 @@ import { armyPower } from '../../systems/army.js';
 import { canClaim, claimTerritory, abandonTerritory, specOf, specCategory, specAffinity } from '../../systems/territory.js';
 import { TERRITORY_SPECS } from '../../data/territories.js';
 import { PROJECTS } from '../../data/projects.js';
+import { stabOf, stabLevel } from '../../systems/stability.js';
 import { openRenameCastle, openRenameOutpost } from '../upgrades.js';
 import { sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots } from '../../systems/market.js';
 import { levelOf } from '../../systems/city.js';
@@ -528,7 +529,7 @@ function tilePanel(app) {
     const sp = specOf(terr), cat = sp && specCategory(sp.id);
     html += `<div class="panel-sub outpost-sub"><h4>🚩 Votre avant-poste ${terr.spec ? '' : '<span class="req small">à spécialiser</span>'}</h4>
       <div class="castle-name">${esc(outpostLabel(terr))} <button class="mini ghost" data-action="rename-outpost" data-k="${key(x, y)}">✎ Renommer</button></div>
-      <div class="small">${cat ? `${cat.icon} ${esc(cat.name)} · ` : ''}${sp ? `${sp.icon} ${esc(sp.name)} · ` : ''}Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats</div>
+      <div class="small">${cat ? `${cat.icon} ${esc(cat.name)} · ` : ''}${sp ? `${sp.icon} ${esc(sp.name)} · ` : ''}Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats · ${stabLevel(stabOf(terr)).icon} stabilité ${Math.round(stabOf(terr))}${terr.revolt ? ' · <span class="bad">révolte</span>' : ''}</div>
       <button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
   } else if (!poi || !['capital', 'town', 'kingdom', 'boss'].includes(POI_TYPES[poi.type].kind)) {
     const c = canClaim(s, x, y, now);
