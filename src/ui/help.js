@@ -64,6 +64,13 @@ H.policy = { title: '👑 Priorité royale', sections: [
   ['Liens', 'La priorité oriente les missions du royaume proposées et peut aligner l’ordre des secteurs d’ouvriers (Intendance, palier 4).'],
 ] };
 
+H.projects = { title: '🏗️ Grands projets royaux', sections: [
+  ['Principe', 'Un chantier de longue haleine en 3 étapes (pont, aqueduc, forteresse, bibliothèque, route commerciale, sanctuaire). Un seul à la fois.'],
+  ['Financer', 'Apportez les ressources en plusieurs fois (« Apporter », « Tout apporter » ou « la moitié de mes stocks » pour garder de quoi construire). Rien n’est perdu tant que le projet continue.'],
+  ['Travaux', 'Une étape financée se lance si ses conditions sont remplies (bâtiment, avant-poste d’une spécialité, technologies, armée…). Les travaux durent quelques heures.'],
+  ['Récompense', 'Des bonus permanents modestes et un repère sur la carte du monde. Abandonner rend la moitié des apports de l’étape en cours ; les étapes achevées sont perdues.'],
+] };
+
 // Les sous-écrans partagent l'aide de leur catégorie
 const ALIAS = { steward: 'ecoReport', workers: 'ecoReport', expeditions: 'ecoReport', chains: 'ecoReport', convoys: 'market', talents: 'research', craft: 'heroes' };
 export const helpFor = (viewId) => H[viewId] || H[ALIAS[viewId]] || null;

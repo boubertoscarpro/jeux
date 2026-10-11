@@ -10,7 +10,7 @@ import { techStatus } from './research.js';
 import { campaignState, objectives } from './campaign.js';
 
 // Écrans cibles des recommandations de l'analyse (clé courte → écran réel)
-export const ADVICE_GOTO = { production: 'g-prod', city: 'city', market: 'market', trade: 'convoys', army: 'army', world: 'factions', research: 'research', territories: 'territories' };
+export const ADVICE_GOTO = { production: 'g-prod', city: 'city', market: 'market', trade: 'convoys', army: 'army', world: 'factions', research: 'research', territories: 'territories', projects: 'projects' };
 const SEV = { bad: 0, warn: 1, next: 2, info: 3, good: 4 };
 export const SNOOZE_MS = 4 * 3600000;
 export const ADVICE_LEVELS = { full: 'Complet', reduced: 'Réduit (urgences et prochaine étape)', off: 'Désactivé' };

@@ -826,3 +826,16 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .op-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
 .op-table .warn-row { background: rgba(242, 165, 65, 0.06); }
 .op-table tfoot td { border-top: 2px solid var(--line); }
+/* ---------- Grands projets royaux ---------- */
+.proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.proj-card.current { border-color: var(--gold); }
+.proj-card.done { border-color: var(--good); opacity: 0.9; }
+.proj-stages { margin: 6px 0; padding-left: 20px; }
+.proj-stages li { margin: 4px 0; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.15); }
+.proj-stages li.done { border-left: 3px solid var(--good); }
+.proj-stages li.current { border-left: 3px solid var(--gold); }
+.proj-stages li.locked { opacity: 0.6; }
+.proj-res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin: 6px 0 10px; }
+.proj-res { display: flex; flex-direction: column; gap: 3px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.proj-res.ok { border-color: var(--good); }
+.proj-res .mini { align-self: flex-start; }

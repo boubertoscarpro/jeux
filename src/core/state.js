@@ -153,6 +153,8 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     missions: { active: [], recent: [], nextAt: now + 10 * 60000, rerollAt: 0, done: 0 },
     // --- Priorité royale (orientation stratégique) ---
     policy: { id: 'balanced', pending: null, activeAt: 0, lockUntil: 0, history: [] },
+    // --- Grands projets royaux ---
+    projects: { active: null, done: {} },
   };
   ensureIdentity(state);
 

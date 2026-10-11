@@ -15,6 +15,7 @@ import { liveMods } from './liveMods.js';
 import { territoryMods } from './territory.js';
 import { kingdomMods } from './kingdom.js';
 import { policyMods } from './policy.js';
+import { projectMods } from './projects.js';
 
 const add = (o, k, v) => { if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 const merge = (o, src, mult = 1) => { for (const [k, v] of Object.entries(src || {})) add(o, k, v * mult); };
@@ -27,6 +28,8 @@ export function computeMods(state, now = Date.now()) {
   merge(m, kingdomMods(state));
   // Priorité royale (orientation stratégique choisie par le joueur)
   merge(m, policyMods(state, now));
+  // Grands projets royaux achevés (bonus permanents)
+  merge(m, projectMods(state));
   // Bâtiments
   for (const b of allBuildings(state)) {
     if (b.level <= 0) continue;

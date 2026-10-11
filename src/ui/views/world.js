@@ -11,6 +11,7 @@ import { previewBattle } from '../../systems/combat.js';
 import { armyPower } from '../../systems/army.js';
 import { canClaim, claimTerritory, abandonTerritory, specOf, specCategory, specAffinity } from '../../systems/territory.js';
 import { TERRITORY_SPECS } from '../../data/territories.js';
+import { PROJECTS } from '../../data/projects.js';
 import { openRenameCastle, openRenameOutpost } from '../upgrades.js';
 import { sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots } from '../../systems/market.js';
 import { levelOf } from '../../systems/city.js';
@@ -216,6 +217,16 @@ export function drawMap(app) {
     const hasPoi = !!w.pois[key(t.x, t.y)];
     drawBanner(ctx, hasPoi ? px + T * 0.3 : px, hasPoi ? py - T * 0.3 : py, sz, banner);
     if (T >= 12) labels.push({ x: px, y: py, offset: sz * 0.6 + 2, text: `🚩 ${outpostLabel(t)}`, prio: 70, size: lsize, color: '#ffe9a8', border: banner });
+  }
+  // Grands projets achevés : repères près de la capitale
+  for (const id of Object.keys(s.projects?.done || {})) {
+    const mk = PROJECTS[id]?.mark;
+    if (!mk) continue;
+    const mx = w.capital.x + mk.dx, my = w.capital.y + mk.dy;
+    if (mx < x0 || mx > x1 || my < y0 || my > y1) continue;
+    const px = ox + (mx + 0.5) * T, py = oy + (my + 0.5) * T, r = Math.max(8, Math.min(22, T * 0.45));
+    drawMedallion(ctx, px, py, r, '#e2b84a', mk.icon, { fill: 'rgba(60,45,15,0.9)' });
+    if (T >= 18) labels.push({ x: px, y: py, offset: r + 2, text: PROJECTS[id].name, prio: 65, size: lsize, color: '#ffe9a8', border: '#e2b84a' });
   }
   // Pions d'armée (au-dessus des lieux) et leur chrono
   const tr = Math.max(7, Math.min(15, T * 0.34));

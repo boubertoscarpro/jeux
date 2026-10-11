@@ -20,6 +20,7 @@ import { countOf } from './city.js';
 import { upgradeSummary } from './construction.js';
 import { outpostLabel } from './identity.js';
 import { garrisonNeed } from './territory.js';
+import { projectState, projectInfo } from './projects.js';
 
 const R = (r) => `${RESOURCES[r].icon} ${RESOURCES[r].name}`;
 
@@ -115,6 +116,13 @@ export function analyze(state, now = Date.now()) {
   if (!state.queues.build.length) {
     if (ups.count) push('info', `Aucun chantier en cours, alors que ${ups.count} amélioration(s) sont possibles maintenant (ex. ${ups.ready[0].name} niv. ${ups.ready[0].next}).`, 'city', { action: 'up-list', id: 'idle-build' });
     else push('info', 'Aucun chantier en cours et aucune amélioration abordable : laissez la production remplir les réserves, ou vendez un surplus au marché.', 'city', { id: 'idle-build' });
+  }
+  // Grand projet : étape financée prête à lancer, ou travaux bloqués par une condition
+  const pa = projectState(state).active;
+  if (pa && !pa.buildEnd) {
+    const pi = projectInfo(state, pa.id, now);
+    if (pi.funded && pi.reqsOk) push('info', `${pi.def.icon} ${pi.def.name} : l’étape « ${pi.st.name} » est financée, lancez les travaux.`, 'projects', { id: 'proj-ready' });
+    else if (pi.funded) push('warn', `${pi.def.icon} ${pi.def.name} : étape financée mais condition manquante — ${pi.reqs.find((r) => !r.ok)?.text}.`, 'projects', { id: 'proj-req' });
   }
   for (const pl of state.queues.planned || []) if (pl.waiting) push('info', `Chantier planifié en attente : ${pl.waiting}.`, 'city', { id: 'plan:' + pl.id });
   if (!state.queues.research.length && allBuildings(state).some((b) => b.type === 'library' && b.level > 0)) push('info', 'Vos chercheurs sont inactifs.', 'research');

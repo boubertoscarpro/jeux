@@ -17,6 +17,7 @@ import { levelProdFactor } from '../data/buildings.js';
 import { isRevealed, distCap } from './world.js';
 import { outpostLabel } from './identity.js';
 import { grantReward } from './rewards.js';
+import { projectState, projectInfo } from './projects.js';
 import { activePolicy } from './policy.js';
 import { POLICIES } from '../data/policies.js';
 import { log, toast } from './log.js';
@@ -190,6 +191,17 @@ const TEMPLATES = [
     offer(s) {
       if (!levelOf(s, 'forge')) return null;
       return { title: 'Commande de la forge', icon: '⚒️', tag: 'indus', kind: 'stat', params: { stat: 'crafted' }, target: 1, desc: 'Forgez un objet pour vos héros (Héros → Forge).', view: 'craft', reward: rewardFor(s, { iron: resAmount(s, 0.6) }) };
+    },
+  },
+  {
+    id: 'project', tag: 'build', weight: 3,
+    offer(s) {
+      const a = projectState(s).active;
+      if (!a) return null;
+      const pi = projectInfo(s, a.id);
+      if (!pi.st) return null;
+      return { title: `Faire avancer : ${pi.def.name}`, icon: pi.def.icon, tag: 'build', kind: 'stat', params: { stat: 'projectStages' }, target: 1,
+        desc: `Financez et achevez l’étape « ${pi.st.name} » du grand projet (apports possibles en plusieurs fois).`, view: 'projects', reward: rewardFor(s, { gold: resAmount(s, 0.8) }, { lord: 4 }) };
     },
   },
   {
