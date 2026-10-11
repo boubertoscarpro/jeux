@@ -1,6 +1,7 @@
 // Héritage dynastique (voir data/legacy.js) : traditions, archives, vestiges et défis ancestraux.
 import { TRADITIONS, MAX_TRADITIONS, MILESTONES, REMNANTS, ANCESTRAL } from '../data/legacy.js';
 import { PROJECTS } from '../data/projects.js';
+import { ORIENTS } from '../data/monument.js';
 import { RIVALS } from '../data/world.js';
 import { rng } from '../core/rng.js';
 import { uid } from '../core/util.js';
@@ -98,6 +99,7 @@ export function archiveOf(state, now = Date.now()) {
     from: state.meta.created, to: now, th: thLevel(state), outposts,
     projects: Object.keys(state.projects?.done || {}), mysteries: Object.keys(state.archaeo?.solved || {}),
     victories: (state.war?.history || []).filter((h) => h.won).length, allies, foes,
+    monument: (() => { const m = Object.values(state.city?.buildings || {}).find((b) => b.type === 'monument' && b.level > 0); return m ? { orient: m.orient || null, level: m.level } : null; })(),
     battles: state.stats?.battlesWon || 0, bosses: state.stats?.bossKills || 0, traditions: [...(state.legacy?.traditions || [])],
   };
 }
@@ -121,6 +123,11 @@ export function applyLegacy(old, ns, now = Date.now()) {
     const p = findFreeTile(w, c.x - mk.dx * 2 + i, c.y - mk.dy * 2, null, 3) || { x: c.x + 4 + i, y: c.y + 4 };
     nl.remnants.push({ id: uid('rm'), kind: 'monument', name: `Monument : ${PROJECTS[id]?.name || id}`, x: p.x, y: p.y, dynasty: arch.n, restored: false });
   });
+  // Le monument dynastique de la lignée subsiste aussi, près de la nouvelle capitale
+  if (arch.monument) {
+    const p = findFreeTile(w, c.x + 3, c.y - 3, null, 3) || { x: c.x + 3, y: c.y - 3 };
+    nl.remnants.push({ id: uid('rm'), kind: 'monument', name: `Monument : ${ORIENTS[arch.monument.orient]?.name || 'œuvre de la dynastie'} (${arch.monument.level}/5)`, x: p.x, y: p.y, dynasty: arch.n, restored: false });
+  }
   // Anciennes alliances et rancunes : une faction du nouveau monde s'en souvient
   const pool = [...(ns.factions || [])];
   const pickF = () => (pool.length ? pool.splice(Math.floor(rng.random() * pool.length), 1)[0] : null);

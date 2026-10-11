@@ -1,3 +1,4 @@
+import { remember } from './rivalry.js';
 import { UNITS } from '../data/units.js';
 import { POI_TYPES } from '../data/world.js';
 import { RESOURCES } from '../data/resources.js';
@@ -354,7 +355,7 @@ function arriveAttack(state, m, t, mods, poi) {
     }
     const { got, limited } = lootWithCarry(state, m, baseLoot, mods);
     bumpRep(state, 'warrior', def.kind === 'kingdom' ? 6 : 1 + Math.floor(poi.danger / 2));
-    if (def.kind === 'kingdom') { bumpRep(state, 'tyrant', 3); changeRelation(state, poi.rival, -10); }
+    if (def.kind === 'kingdom') { bumpRep(state, 'tyrant', 3); changeRelation(state, poi.rival, -10); remember(state, poi.rival, 'sack', -18, 'Capitale pillée par vos armées', t); }
     recordMax(state, 'biggestLoot', Object.values(got).reduce((a, b) => a + b, 0), `${def.kind === 'kingdom' ? poi.name : def.name} (${Object.values(got).reduce((a, b) => a + b, 0)} ressources)`, t);
     recordMax(state, 'biggestVictory', Object.values(res.defLosses).reduce((a, b) => a + b, 0), `${Object.values(res.defLosses).reduce((a, b) => a + b, 0)} ennemis — ${def.kind === 'kingdom' ? poi.name : def.name}`, t);
     state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + Object.values(res.defLosses).reduce((a, b) => a + b, 0);

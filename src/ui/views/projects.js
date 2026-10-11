@@ -1,3 +1,4 @@
+import { resIcon } from '../icons.js';
 // Grands projets royaux : chantiers en plusieurs étapes, contributions, travaux, bonus permanents.
 import { PROJECTS, PROJECT_MIN_TH } from '../../data/projects.js';
 import { RESOURCES } from '../../data/resources.js';
@@ -10,7 +11,7 @@ function stageList(info) {
   return `<ol class="proj-stages">${info.def.stages.map((st, i) => {
     const cls = i < info.stage ? 'done' : i === info.stage && info.active ? 'current' : 'locked';
     const label = cls === 'done' ? 'Terminée' : cls === 'current' ? (info.building ? 'Travaux en cours' : 'En cours') : 'Verrouillée';
-    return `<li class="${cls}"><b>Étape ${i + 1} — ${esc(st.name)}</b> <span class="chip small">${label}</span><div class="small muted">${Object.entries(st.cost).map(([r, v]) => `${RESOURCES[r].icon} ${fmt(v)}`).join(' ')} · travaux ${st.hours} h${st.req.length ? ` · ${st.req.map(([t]) => esc(t)).join(', ')}` : ''}</div></li>`;
+    return `<li class="${cls}"><b>Étape ${i + 1} — ${esc(st.name)}</b> <span class="chip small">${label}</span><div class="small muted">${Object.entries(st.cost).map(([r, v]) => `${resIcon(r, 16, RESOURCES[r]?.icon)} ${fmt(v)}`).join(' ')} · travaux ${st.hours} h${st.req.length ? ` · ${st.req.map(([t]) => esc(t)).join(', ')}` : ''}</div></li>`;
   }).join('')}</ol>`;
 }
 
@@ -18,7 +19,7 @@ function activeCard(app, info) {
   const s = app.state, st = info.st;
   const rows = Object.entries(st.cost).map(([r, need]) => {
     const paid = info.paid[r] || 0, done = paid >= need;
-    return `<div class="proj-res ${done ? 'ok' : ''}"><span>${RESOURCES[r].icon} ${esc(RESOURCES[r].name)}</span><span class="small">${fmt(paid)} / ${fmt(need)} <span class="muted">(stock ${fmt(s.resources[r] || 0)})</span></span>${bar(paid, need)}
+    return `<div class="proj-res ${done ? 'ok' : ''}"><span>${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)}</span><span class="small">${fmt(paid)} / ${fmt(need)} <span class="muted">(stock ${fmt(s.resources[r] || 0)})</span></span>${bar(paid, need)}
       ${done || info.building ? '' : `<button class="mini" data-action="pj-give" data-r="${r}" ${(s.resources[r] || 0) < 1 ? 'disabled' : ''}>Apporter</button>`}</div>`;
   }).join('');
   return `<div class="card proj-card current"><div class="row between wrap"><h2>${info.def.icon} ${esc(info.def.name)}</h2><span class="muted small">Étape ${info.stage + 1}/${info.def.stages.length}</span></div>

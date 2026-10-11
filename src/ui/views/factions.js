@@ -1,4 +1,5 @@
 import { RIVALS, PERSONALITIES, STANCES } from '../../data/world.js';
+import { rivalryStatus, ambitionOf, topMemories, memoryScore, deescalationOptions, deescalate } from '../../systems/rivalry.js';
 import { RESOURCES } from '../../data/resources.js';
 import { ALL_UNITS } from '../../data/units.js';
 import { fmt, fmtTime } from '../../core/util.js';
@@ -8,6 +9,17 @@ import { levelOf } from '../../systems/city.js';
 import { esc, costList, bar } from '../components.js';
 
 const ago = (t) => fmtTime(Date.now() - t);
+
+// Mémoire de la faction : statut durable, ambition, souvenirs marquants, gestes d'apaisement
+function memoryBlock(s, f) {
+  const now = Date.now();
+  const st = rivalryStatus(f, now), amb = ambitionOf(f), mem = topMemories(f, now), score = Math.round(memoryScore(f, now));
+  const opts = score < 0 || f.stance === 'war' || st?.key === 'rival' ? deescalationOptions(s, f, now) : [];
+  return `<h4>Mémoire ${st ? `<span class="rival-tag ${st.key}">${st.icon} ${esc(st.name)}</span>` : ''} <span class="muted small">bilan ${score > 0 ? '+' : ''}${score}</span></h4>
+    <div class="small">🎯 Ce qu’elle cherche : ${esc(amb.text)}</div>
+    ${mem.length ? `<div class="memory-list">${mem.map((m) => `<div class="m"><span>${m.now < 0 ? '😠' : '🙂'} ${esc(m.text)}</span><b class="${m.now < 0 ? 'bad' : 'ok'}">${m.now > 0 ? '+' : ''}${Math.round(m.now)}</b></div>`).join('')}</div><div class="small muted">Chaque souvenir pèse sur la relation et s’estompe de moitié en 3 jours.</div>` : '<div class="small muted">Aucun souvenir marquant de votre royaume.</div>'}
+    ${opts.length ? `<div class="row gap wrap">${opts.map((o) => `<button class="mini" data-action="deesc" data-i="${f.idx}" data-k="${o.id}" title="${esc(o.desc)}" ${o.ready ? '' : 'disabled'}>🕊️ ${esc(o.label)} (+${o.gain})${Object.keys(o.cost).length ? ' · ' + Object.entries(o.cost).map(([r, v]) => `${fmt(v)} ${r === 'gold' ? 'or' : r === 'crystals' ? 'cristaux' : r}`).join(', ') : ''}</button>`).join('')}</div>${opts[0].ready ? '' : '<div class="small muted">Un geste a déjà été fait : attendez 12 h.</div>'}` : ''}`;
+}
 
 function relationBar(v) {
   const pct = (v + 100) / 2;
@@ -51,6 +63,7 @@ export default {
           <div class="small">Relation</div>${relationBar(f.relation)}
           <div class="small">Territoire : ${f.territory.length} régions · Puissance : ${known ? fmt(known.power) : `≈ ${fmt(factionPower(s, f) * 0.7)}–${fmt(factionPower(s, f) * 1.3)}`}${f.wars.length ? ` · ⚔️ en guerre contre ${f.wars.map((w) => esc(RIVALS[w].name)).join(', ')}` : ''}</div>
           ${willing > 0.08 ? '<div class="req small">⚠ Hostile : risque de raid</div>' : ''}
+          ${memoryBlock(s, f)}
           <h4>Renseignements</h4>${intelBlock(f)}
           <h4>Diplomatie</h4><div class="row gap wrap">
             <button class="mini" data-action="dip" data-i="${f.idx}" data-a="envoy" title="Coût : ${ENVOY_COST(s).gold} or">🎩 Ambassadeur</button>
@@ -67,6 +80,7 @@ export default {
       }).join('')}</div>`;
   },
   actions: {
+    deesc: (app, el) => app.act(() => deescalate(app.state, +el.dataset.i, el.dataset.k), (r) => `🕊️ ${r.text}`),
     dip: (app, el) => {
       if (el.dataset.a === 'war' && !confirm('Déclarer la guerre ? Rompre un traité fera de vous un tyran aux yeux de tous.')) return;
       const r = diplomacy(app.state, +el.dataset.i, el.dataset.a);

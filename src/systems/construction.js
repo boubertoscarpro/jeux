@@ -7,7 +7,7 @@ import { allBuildings, countOf, levelOf, thLevel, placementCheck, terrainAt, bui
 import { computeMods } from './modifiers.js';
 import { canAfford, pay, gain, missing } from './economy.js';
 import { generateItem } from './items.js';
-import { log } from './log.js';
+import { feat, log } from './log.js';
 
 export const buildSlots = (mods) => 1 + (mods.buildQueue || 0);
 
@@ -234,16 +234,21 @@ export function completeBuild(state, q, now) {
     log(state, 'good', `🧹 Décombres déblayés : ${Object.entries(loot).map(([r, v]) => `${v} ${RESOURCES[r].icon}`).join(' ')}.${extra}`, now);
     return;
   }
+  let at = null;
   if (q.bid.startsWith('fort:')) {
     state.city.fort[q.type] = q.level;
   } else {
     const b = state.city.buildings[q.bid];
     if (!b) return;
     b.level = q.level;
+    at = { x: b.x, y: b.y };
   }
   state.stats.built++;
   state.season.points += SEASON.points.build;
   log(state, 'good', `${BUILDINGS[q.type].icon} ${BUILDINGS[q.type].name} ${q.level === 1 ? 'construit' : `amélioré au niveau ${q.level}`}.`, now);
+  // Hôtel de ville : bandeau ; autres bâtiments : la case s'illumine (sans bandeau, pour ne pas lasser)
+  if (q.type === 'townhall') feat('🏛️', `Hôtel de ville niveau ${q.level}`, 'De nouveaux bâtiments et systèmes peuvent se débloquer.', 'good', at);
+  else feat(null, null, null, 'tile', at);
 }
 
 export { canAfford, levelOf };

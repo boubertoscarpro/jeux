@@ -118,6 +118,7 @@ function sanitize(d, fresh) {
   // Références orphelines : héros marquant une marche disparue
   const marchIds = new Set([...(d.marches || []).map((m) => m.id), ...(d.live?.marches || []).map((m) => m.id)]);
   if (d.war?.active?.op?.heroId) marchIds.add('war'); // héros engagé dans une opération de campagne
+  if (d.legendary?.active?.heroId) marchIds.add('legend'); // héros à la tête d'une expédition légendaire
   for (const h of d.heroes || []) if (h.marchId && !marchIds.has(h.marchId)) h.marchId = null;
   return fixes;
 }

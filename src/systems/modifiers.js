@@ -19,6 +19,8 @@ import { projectMods } from './projects.js';
 import { archaeoMods } from './archaeology.js';
 import { councilMods } from './council.js';
 import { legacyMods } from './legacy.js';
+import { rivalryMods } from './rivalry.js';
+import { monumentMods } from './monument.js';
 
 const add = (o, k, v) => { if (typeof v === 'number') o[k] = (o[k] || 0) + v; };
 const merge = (o, src, mult = 1) => { for (const [k, v] of Object.entries(src || {})) add(o, k, v * mult); };
@@ -39,6 +41,10 @@ export function computeMods(state, now = Date.now()) {
   merge(m, councilMods(state));
   // Héritage dynastique : traditions et monuments ancestraux restaurés
   merge(m, legacyMods(state));
+  // Relations privilégiées durables (partenaire, allié de confiance)
+  merge(m, rivalryMods(state, now));
+  // Monument dynastique (selon son orientation et ses étapes achevées)
+  merge(m, monumentMods(state));
   // Bâtiments
   for (const b of allBuildings(state)) {
     if (b.level <= 0) continue;

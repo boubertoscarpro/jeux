@@ -9,6 +9,7 @@ import { generateItem } from './items.js';
 import { grantArtifact } from './collection.js';
 import { recordMax, bumpRep } from './reputation.js';
 import { chronicle } from './chronicle.js';
+import { feat } from './log.js';
 import { wTerrain } from './world.js';
 import { rollShards, addShards, shardState } from './shards.js';
 
@@ -132,6 +133,7 @@ export function runDungeon(state, m, poi, mods, now) {
     d.done = true;
     d.runs++;
     state.stats.dungeons = (state.stats.dungeons || 0) + 1;
+    feat('🕳️', `Donjon niveau ${d.level} purgé`, 'Il se reformera, plus profond et plus dangereux.');
     bumpRep(state, 'warrior', 8); bumpRep(state, 'explorer', 5);
     lines.push(`✅ Donjon niveau ${d.level} purgé ! Il se reformera, plus profond et plus dangereux.`);
     if (d.level >= 10) chronicle(state, `Les armées du royaume purgent un donjon de niveau ${d.level}.`, now);

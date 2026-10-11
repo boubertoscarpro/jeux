@@ -1,4 +1,5 @@
 import { TERRAINS, POI_TYPES, RIVALS, BOSSES } from '../../data/world.js';
+import { resIcon } from '../icons.js';
 import { UNITS, ALL_UNITS, FORMATIONS, TERRAIN_COMBAT } from '../../data/units.js';
 import { RESOURCES } from '../../data/resources.js';
 import { CONSUMABLES } from '../../data/items.js';
@@ -89,6 +90,7 @@ export function drawMap(app) {
   const x0 = Math.max(0, Math.floor(-ox / T)), y0 = Math.max(0, Math.floor(-oy / T));
   const x1 = Math.min(w.size - 1, Math.ceil((W - ox) / T)), y1 = Math.min(w.size - 1, Math.ceil((H - oy) / T));
   const now = Date.now();
+  const reduceMotion = document.documentElement.classList.contains('reduce-motion');
   const factionTiles = new Map();
   for (const f of s.factions || []) for (const k of f.territory) factionTiles.set(k, f);
   const banner = s.meta.banner || '#e2b84a';
@@ -104,6 +106,18 @@ export function drawMap(app) {
     const ter = wTerrain(w, x, y);
     if (detail) ctx.drawImage(terrainSprite(ter, tileVariant(x, y), T, dpr), px, py, T + 0.5, T + 0.5);
     else { ctx.fillStyle = TERRAINS[ter].color; ctx.fillRect(px, py, T + 0.5, T + 0.5); }
+  }
+  // Bord du brouillard adouci : les cases inexplorées voisines d'une case connue débordent en dégradé
+  if (T >= 8) {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (isRevealed(w, x, y)) continue;
+      const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const nx = x + dx, ny = y + dy; return nx >= 0 && ny >= 0 && nx < w.size && ny < w.size && isRevealed(w, nx, ny); });
+      if (!edge) continue;
+      const cx = ox + (x + 0.5) * T, cy = oy + (y + 0.5) * T;
+      const g = ctx.createRadialGradient(cx, cy, T * 0.2, cx, cy, T * 0.95);
+      g.addColorStop(0, 'rgba(22,24,32,0.9)'); g.addColorStop(1, 'rgba(22,24,32,0)');
+      ctx.fillStyle = g; ctx.fillRect(cx - T, cy - T, T * 2, T * 2);
+    }
   }
   // Territoires : teinte et frontières selon la relation (ennemi, allié, neutre) ; les vôtres en couleur de bannière
   const owner = (x, y) => { const k = key(x, y); if (s.territories[k]) return 'me'; const f = factionTiles.get(k); return f ? f : null; };
@@ -163,6 +177,15 @@ export function drawMap(app) {
     if (t.status === 'back') f = 1 - f;
     tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#4fae5e', icon: '⛺', angle: null, end: due, label: `Expédition ${t.name || ''}` });
   }
+  // Caravanes : aller vers la cité, puis retour (trajet pointillé doré)
+  for (const cv of s.caravans || []) {
+    const a = mark(w.capital.x, w.capital.y), b = mark(cv.x, cv.y);
+    const half = (cv.end - cv.start) / 2, el = now - cv.start;
+    const f = Math.max(0, Math.min(1, el < half ? el / half : 2 - el / half));
+    ctx.strokeStyle = 'rgba(226,184,74,0.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([2, 5]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#c99a3a', icon: '🐪', angle: null, end: cv.end, label: `Caravane vers ${cv.town}${el >= half ? ' (retour)' : ''}` });
+  }
   for (const r of s.raids) {
     const a = mark(r.from.x, r.from.y), b = mark(w.capital.x, w.capital.y);
     ctx.strokeStyle = 'rgba(255,40,40,0.95)'; ctx.lineWidth = Math.max(3, Math.min(5, T / 8)); ctx.setLineDash([10, 6]);
@@ -208,7 +231,10 @@ export function drawMap(app) {
     const icon = p.type === 'kingdom' ? RIVALS[p.rival]?.icon || def.icon : p.type === 'boss' && s.boss ? ALL_UNITS[BOSSES[s.boss.key].unit].icon : def.icon;
     const r = major ? Math.max(9, Math.min(def.kind === 'capital' ? 30 : 26, T * (def.kind === 'capital' ? 0.62 : 0.52))) : Math.max(7, Math.min(20, T * 0.4));
     const ring = def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color || CAT_COLOR.social : def.kind === 'boss' ? '#ff3b3b' : CAT_COLOR[cat];
-    const glow = def.kind === 'boss' ? `rgba(255,60,60,${0.5 + 0.4 * Math.sin(now / 300)})` : def.kind === 'capital' ? 'rgba(255,220,120,0.7)' : null;
+    // Lieux rares (donjons, cité perdue) et très dangereux : halo pulsé (fixe si animations réduites)
+    const pulse = reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(now / 420);
+    const glow = def.kind === 'boss' ? `rgba(255,60,60,${0.5 + 0.4 * Math.sin(now / 300)})` : def.kind === 'capital' ? 'rgba(255,220,120,0.7)'
+      : !cleared && (def.dungeon || p.type === 'lostCity') ? `rgba(190,150,255,${0.35 + 0.35 * pulse})` : !cleared && p.danger >= 4 ? `rgba(255,90,70,${0.25 + 0.3 * pulse})` : null;
     drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
     if (p.danger > 0 && def.kind !== 'boss' && T > 16) {
@@ -523,7 +549,7 @@ function tilePanel(app) {
     if (def.kind === 'gather') {
       const r = RESOURCES[def.res];
       html += `<div class="panel-sub"><div>${r.icon} <b>${esc(r.name)}</b> : ${fmt(poi.amount)} / ${fmt(poi.max)}</div>${bar(poi.amount, poi.max)}
-        <div class="muted small">Régénération : ${fmt(def.regen)}/h${def.bonus ? ` · Bonus : ${Object.keys(def.bonus).map((b) => RESOURCES[b].icon).join(' ')}` : ''}${poi.danger ? ' · Risque d’embuscade : ' + Math.round(poi.danger * 14) + '%' : ''}${poi.danger >= 2 ? ' · Chance de ressources rares' : ''}</div></div>`;
+        <div class="muted small">Régénération : ${fmt(def.regen)}/h${def.bonus ? ` · Bonus : ${Object.keys(def.bonus).map((b) => resIcon(b, 16, RESOURCES[b]?.icon)).join(' ')}` : ''}${poi.danger ? ' · Risque d’embuscade : ' + Math.round(poi.danger * 14) + '%' : ''}${poi.danger >= 2 ? ' · Chance de ressources rares' : ''}</div></div>`;
       if (poi.danger > 0) html += `<div class="panel-sub"><h4>Menace</h4>${enemyBlock(app, poi, poi.enemies)}</div>`;
       html += `<div class="row gap"><button class="btn primary" data-action="march" data-type="gather">🧺 Récolter</button>${poi.danger ? '<button class="btn" data-action="march" data-type="scout">👁️ Espionner</button>' : ''}</div>`;
     }
@@ -540,7 +566,7 @@ function tilePanel(app) {
         const k = 1 + poi.danger * 0.45;
         html += `<div class="panel-sub"><h4>Défenseurs</h4>${enemyBlock(app, poi, poi.enemies)}</div>
           <div class="panel-sub"><h4>Butin estimé</h4>${resChips(Object.fromEntries(Object.entries(def.loot).map(([r, v]) => [r, v * k])))}
-          ${def.rare ? `<div class="small">Rares : ${Object.keys(def.rare).map((r) => RESOURCES[r].icon + ' ' + RESOURCES[r].name).join(', ')}</div>` : ''}
+          ${def.rare ? `<div class="small">Rares : ${Object.keys(def.rare).map((r) => resIcon(r, 16, RESOURCES[r]?.icon) + ' ' + RESOURCES[r].name).join(', ')}</div>` : ''}
           ${def.item ? `<div class="small">Objet : ${Math.round(def.item * 100)}%${def.itemMin ? ' (≥ ' + def.itemMin + ')' : ''}</div>` : ''}
           ${def.becomes ? '<div class="small ok">Une fois nettoyée, la mine devient un riche site de fer exploitable.</div>' : ''}
           <div class="muted small">Le butin est limité par la capacité de transport de vos troupes.</div></div>
@@ -593,7 +619,7 @@ function townPanel(app, town, mods) {
   const dur = caravanTime(s, town, mods) * 2;
   const opts = Object.keys(RESOURCES).filter((r) => RESOURCES[r].price > 0).map((r) => `<option value="${r}" ${app.ui.cvRes === r ? 'selected' : ''}>${RESOURCES[r].icon} ${esc(RESOURCES[r].name)} — ${townPrice(s, town, r, mods).toFixed(2)} or/u${town.wants.includes(r) ? ' ★' : ''}</option>`).join('');
   return `<p>Cité libre de <b>${esc(town.name)}</b> · relation ${town.relation || 0} (+${Math.min(20, town.relation || 0)}% prix)</p>
-    <div class="small">Demande forte (★ +60%) : ${town.wants.map((r) => RESOURCES[r].icon + ' ' + RESOURCES[r].name).join(', ')}</div>
+    <div class="small">Demande forte (★ +60%) : ${town.wants.map((r) => resIcon(r, 16, RESOURCES[r]?.icon) + ' ' + RESOURCES[r].name).join(', ')}</div>
     <div class="panel-sub"><h4>🐪 Envoyer une caravane</h4>
       <div class="form-row"><select id="cv-res" data-change="cv-res">${opts}</select></div>
       <div class="form-row"><input id="cv-qty" type="number" min="1" max="${caravanCargo(s)}" value="${Math.min(caravanCargo(s), 500)}"> <span class="muted small">max ${fmt(caravanCargo(s))}</span></div>

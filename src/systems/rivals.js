@@ -13,7 +13,7 @@ import { armyPower } from './army.js';
 import { armyTotals } from './economy.js';
 import { ENEMY_UNITS } from '../data/units.js';
 import { protectedAmount, gain } from './economy.js';
-import { log, toast } from './log.js';
+import { log, toast, feat } from './log.js';
 import { raidWillingness, allyReinforcements, changeRelation } from './factions.js';
 import { UNITS } from '../data/units.js';
 import { bumpRep, recordMax } from './reputation.js';
@@ -90,6 +90,7 @@ export function rivalTick(state, now) {
   const army = raidArmy(state, p, now);
   const warn = raidWarning(state, mods);
   state.raidCooldown = now + warn + RAID_TRUCE_H * 3600 * 1000; // trêve après chaque raid
+  feat('⚔️', `Raid en approche : ${p.name}`, 'Renforcez la garnison, montez les murailles ou évacuez les réserves.', 'bad');
   state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0 });
   if (p.anger) p.anger--;
   log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre ${castleName(state)} ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);

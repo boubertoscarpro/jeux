@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../../data/buildings.js';
+import { resIcon } from '../icons.js';
 import { RESOURCES } from '../../data/resources.js';
 import { fmt } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
@@ -43,7 +44,7 @@ export default {
       ${CHAINS.map((c) => {
         const own = shops.filter((b) => c.shops.includes(b.type));
         return `<div class="card chain"><h3>${esc(c.name)}</h3>
-          <div class="chain-steps">${[...(c.extra || []), ...c.steps].map((r, i, arr) => `<div class="chain-step"><div class="cs-icon">${RESOURCES[r].icon}</div><div class="small"><b>${esc(RESOURCES[r].name)}</b></div><div class="small">${fmt(s.resources[r] || 0)}</div><div class="small ${(net[r] || 0) < 0 ? 'bad' : 'ok'}">${(net[r] || 0) >= 0 ? '+' : ''}${fmt(net[r] || 0)}/h</div></div>${i < arr.length - 1 && !(c.extra && i < c.extra.length) ? '<div class="cs-arrow">➜</div>' : i < arr.length - 1 ? '<div class="cs-arrow">+</div>' : ''}`).join('')}</div>
+          <div class="chain-steps">${[...(c.extra || []), ...c.steps].map((r, i, arr) => `<div class="chain-step"><div class="cs-icon">${resIcon(r, 16, RESOURCES[r]?.icon)}</div><div class="small"><b>${esc(RESOURCES[r].name)}</b></div><div class="small">${fmt(s.resources[r] || 0)}</div><div class="small ${(net[r] || 0) < 0 ? 'bad' : 'ok'}">${(net[r] || 0) >= 0 ? '+' : ''}${fmt(net[r] || 0)}/h</div></div>${i < arr.length - 1 && !(c.extra && i < c.extra.length) ? '<div class="cs-arrow">➜</div>' : i < arr.length - 1 ? '<div class="cs-arrow">+</div>' : ''}`).join('')}</div>
           <div class="muted small">${esc(c.use)}</div>
           ${own.map((b) => shopRow(app, b, mods)).join('') || `<div class="req small">Aucun atelier : construisez ${c.shops.map((t) => BUILDINGS[t].icon + ' ' + BUILDINGS[t].name).join(', ')}.</div>`}
         </div>`;

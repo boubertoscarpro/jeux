@@ -1,4 +1,6 @@
 import { bus } from '../core/bus.js';
+import { ensureIconDefs, navIcon } from './icons.js';
+import { ensureArtDefs } from './art.js';
 import { advance } from '../core/engine.js';
 import { saveGame } from '../core/save.js';
 import { fmtTime } from '../core/util.js';
@@ -33,6 +35,9 @@ import shopView from './views/shop.js';
 import archaeoView from './views/archaeology.js';
 import councilView from './views/council.js';
 import legacyView from './views/legacy.js';
+import challengesView from './views/challenges.js';
+import legendView from './views/legendary.js';
+import accomplishView from './views/accomplish.js';
 import warView from './views/warcampaign.js';
 import territoriesView from './views/territories.js';
 import eventView from './views/events.js';
@@ -54,8 +59,8 @@ import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, policyView, councilView, projectsView] },
-  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView, archaeoView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView] },
+  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView, archaeoView, legendView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView] },
@@ -64,7 +69,7 @@ export const GROUPS = [
   { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },
   { id: 'g-wheel', title: 'Roue', icon: '🎡', tabs: [wheelView, shardsView] },
   { id: 'g-guild', title: 'Guilde', icon: '🏛️', tabs: [guildView] },
-  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, historyView, statsView, treasuryView, kingdomView] },
+  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, statsView, treasuryView, kingdomView] },
 ];
 export const VIEWS = GROUPS.flatMap((g) => g.tabs);
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
@@ -79,20 +84,34 @@ export class App {
     this.$ = (sel) => root.querySelector(sel);
   }
 
+  // Préférences d'affichage : animations (auto = préférence du système), densité
+  applyPrefs() {
+    const m = this.state?.meta || {};
+    const sysReduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduce = m.motion === 'reduced' || (m.motion !== 'full' && sysReduce);
+    document.documentElement.classList.toggle('reduce-motion', reduce);
+    document.documentElement.classList.toggle('compact', m.density === 'compact');
+  }
+
   start() {
     this.root.innerHTML = `
       <header id="topbar"></header>
       <nav id="nav"></nav>
       <main id="view"></main>
       <aside id="side"></aside>`;
+    ensureIconDefs(); ensureArtDefs();
+    this.applyPrefs();
     this.renderNav();
     this.bindEvents();
     bus.on('changed', () => { this.dirty = true; });
     bus.on('toast', ({ text, type }) => this.toast(text, type));
+    bus.on('feat', (f) => this.feat(f));
+    this.booting = true;
     const away = Date.now() - (this.state.meta.lastTick || Date.now());
     const before = { ...this.state.resources };
     const logBefore = this.state.log.length;
     advance(this.state, Date.now());
+    this.booting = false;
     this.render();
     if (away > 2 * 60 * 1000) this.absenceReport(away, before, logBefore);
     const m = this.state.meta;
@@ -105,7 +124,7 @@ export class App {
     }
     this.timer = setInterval(() => this.tick(), 1000);
     this.saveTimer = setInterval(() => this.save(), 15000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) this.save(); else this.tick(); });
+    document.addEventListener('visibilitychange', () => { document.documentElement.classList.toggle('paused-anim', document.hidden); if (document.hidden) this.save(); else this.tick(); });
     window.addEventListener('beforeunload', () => this.save());
   }
 
@@ -207,8 +226,8 @@ export class App {
 
   renderNav() {
     const hl = this.ui.highlight && groupOf(this.ui.highlight)?.id;
-    this.$('#nav').innerHTML = GROUPS.map((g) => `<button class="nav-btn ${g.id === hl ? 'tut-hl' : ''}" data-action="nav" data-view="${g.id}" title="${esc(g.title)}"><span class="nav-icon">${g.icon}</span><span class="nav-label">${esc(g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
-      + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">🧙‍♂️</span><span class="nav-label">Conseiller</span></button>`;
+    this.$('#nav').innerHTML = GROUPS.map((g) => `<button class="nav-btn ${g.id === hl ? 'tut-hl' : ''}" data-action="nav" data-view="${g.id}" title="${esc(g.title)}"><span class="nav-icon">${navIcon(g.id, 26) || g.icon}</span><span class="nav-label">${esc(g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
+      + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">${navIcon('advisor', 26)}</span><span class="nav-label">Conseiller</span></button>`;
   }
 
   // Préserve la valeur/le focus des champs lors d'un re-rendu
@@ -344,6 +363,29 @@ export class App {
     root.classList.remove('open');
     root.innerHTML = '';
     this.modalActions = null;
+  }
+
+  // Grandes réussites : bandeau (un à la fois, 3 en attente au plus) ; fin de chantier : la case s'illumine.
+  // Rien pendant le rattrapage hors-ligne (le rapport d'absence le résume déjà).
+  feat(f) {
+    if (this.booting || typeof document === 'undefined') return;
+    if (f.at) { this.ui.flashTile = { x: f.at.x, y: f.at.y, until: Date.now() + 1500 }; this.dirty = true; }
+    if (!f.title) return;
+    (this.featQueue ||= []).push(f);
+    if (this.featQueue.length > 3) this.featQueue.splice(0, this.featQueue.length - 3);
+    if (!this.featBusy) this.nextFeat();
+  }
+  nextFeat() {
+    const f = this.featQueue?.shift();
+    if (!f) { this.featBusy = false; return; }
+    this.featBusy = true;
+    const el = document.createElement('div');
+    el.className = `fx-banner ${f.tone === 'bad' ? 'bad' : ''}`;
+    el.setAttribute('role', 'status');
+    el.innerHTML = `<span class="fx-icon">${esc(f.icon || '✨')}</span><div>${esc(f.title)}${f.sub ? `<small>${esc(f.sub)}</small>` : ''}</div>`;
+    document.body.appendChild(el);
+    const reduce = document.documentElement.classList.contains('reduce-motion');
+    setTimeout(() => { el.remove(); this.nextFeat(); }, reduce ? 2600 : 3300);
   }
 
   toast(text, type = 'info') {

@@ -1,3 +1,4 @@
+import { applyChronicleFx } from './chronicles.js';
 import { DILEMMAS, SECRET_EVENTS } from '../data/dilemmas.js';
 import { RIVALS } from '../data/world.js';
 import { RESOURCES } from '../data/resources.js';
@@ -211,6 +212,8 @@ export function applyDecisionFx(state, p, fx, now) {
     }
   }
   if (fx.crater || fx.lostCity) applySecret(state, fx.crater ? 'meteorite' : 'lostCity', fx, now);
+  // Chroniques du monde : effets sur les factions, les territoires, les pactes et la mémoire
+  if (fx.world || fx.memory) { const t = applyChronicleFx(state, p, fx, now); if (t) parts.push(t); }
   // ── Effets des événements de situation (v9) ──
   const c = p.ctx || {};
   if (fx.sell && c.res) {

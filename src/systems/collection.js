@@ -3,7 +3,7 @@ import { RARE_RES } from '../data/resources.js';
 import { COSMETICS } from '../data/social.js';
 import { rng } from '../core/rng.js';
 import { chronicle } from './chronicle.js';
-import { toast } from './log.js';
+import { toast, feat } from './log.js';
 
 // Donne un artefact (aléatoire parmi ceux non possédés si key = null). Renvoie son nom ou null.
 // pool : liste d'artefacts possibles ; sans pool, tous sauf les exclusivités (Œil de l'Ancien, Roue uniquement)
@@ -19,6 +19,7 @@ export function grantArtifact(state, key, now = Date.now(), source = '', pool = 
   owned[key] = { t: now, source };
   chronicle(state, `Le royaume entre en possession d’un artefact légendaire : ${ARTIFACTS[key].name}.`, now);
   toast(`${ARTIFACTS[key].icon} Artefact : ${ARTIFACTS[key].name} !`, 'good');
+  feat(ARTIFACTS[key].icon, 'Artefact légendaire', ARTIFACTS[key].name);
   return ARTIFACTS[key].name;
 }
 

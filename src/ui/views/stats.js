@@ -1,4 +1,5 @@
 import { RESOURCES, RES_ORDER } from '../../data/resources.js';
+import { resIcon } from '../icons.js';
 import { HERO_CLASSES, RARITIES } from '../../data/heroes.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
@@ -45,7 +46,7 @@ export default {
       <div class="record">🏆 Meilleur équipement : <b>${bestItem ? `<span style="color:${RARITIES[bestItem.rarity].color}">${esc(bestItem.name)}${bestItem.plus ? ' +' + bestItem.plus : ''}</span> (score ${itemScore(bestItem)})` : '—'}</b></div>
       </div>
       <div class="card"><h2>📦 Ressources</h2><div class="table-wrap"><table><thead><tr><th>Ressource</th><th>Stock</th><th>/ heure</th><th>Produit</th><th>Dépensé</th></tr></thead><tbody>
-      ${RES_ORDER.map((r) => `<tr><td>${RESOURCES[r].icon} ${esc(RESOURCES[r].name)}</td><td class="num">${fmt(s.resources[r] || 0)}</td><td class="num ${(net[r] || 0) < 0 ? 'bad' : ''}">${net[r] ? fmt(net[r]) : '—'}</td><td class="num">${fmt(st.produced?.[r] || 0)}</td><td class="num">${fmt(st.spent?.[r] || 0)}</td></tr>`).join('')}
+      ${RES_ORDER.map((r) => `<tr><td>${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)}</td><td class="num">${fmt(s.resources[r] || 0)}</td><td class="num ${(net[r] || 0) < 0 ? 'bad' : ''}">${net[r] ? fmt(net[r]) : '—'}</td><td class="num">${fmt(st.produced?.[r] || 0)}</td><td class="num">${fmt(st.spent?.[r] || 0)}</td></tr>`).join('')}
       </tbody></table></div></div></div>`;
   },
 };

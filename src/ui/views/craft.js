@@ -1,4 +1,5 @@
 import { SLOTS, SLOT_ORDER, CATALYSTS, CONSUMABLES, CRAFT_RECIPES } from '../../data/items.js';
+import { resIcon } from '../icons.js';
 import { RARITIES, RARITY_ORDER, HERO_CLASSES } from '../../data/heroes.js';
 import { RESOURCES, RES_ORDER } from '../../data/resources.js';
 import { fmt, fmtTime } from '../../core/util.js';
@@ -113,7 +114,7 @@ export default {
       </div>
 
       ${forge ? plansPanel(app) : ''}
-      <div class="card"><h2>📦 Ressources</h2><div class="res-table">${RES_ORDER.map((r) => `<div class="res-row"><span class="res-icon">${RESOURCES[r].icon}</span><b>${esc(RESOURCES[r].name)}</b><span class="num">${fmt(s.resources[r] || 0)}</span><span class="muted small">${esc(RESOURCES[r].uses)}</span></div>`).join('')}</div></div>
+      <div class="card"><h2>📦 Ressources</h2><div class="res-table">${RES_ORDER.map((r) => `<div class="res-row"><span class="res-icon">${resIcon(r, 16, RESOURCES[r]?.icon)}</span><b>${esc(RESOURCES[r].name)}</b><span class="num">${fmt(s.resources[r] || 0)}</span><span class="muted small">${esc(RESOURCES[r].uses)}</span></div>`).join('')}</div></div>
     </div>`;
   },
   actions: {

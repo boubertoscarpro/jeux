@@ -1,5 +1,11 @@
 // Sagas des Terres Brisées : chaînes de quêtes narratives, une étape à la fois, avec conséquences durables.
-import { SAGAS } from '../data/sagas.js';
+import { SAGAS as CLASSIC } from '../data/sagas.js';
+import { CHRONICLES } from '../data/chronicles.js';
+import { PICKERS, defaultContext } from './chronicles.js';
+
+// Sagas classiques et chroniques du monde partagent le même moteur
+export const SAGAS = { ...CLASSIC, ...CHRONICLES };
+const DEFAULT_COOLDOWN_H = 96;
 import { RIVALS } from '../data/world.js';
 import { rng } from '../core/rng.js';
 import { uid, fmt } from '../core/util.js';
@@ -13,8 +19,8 @@ import { key } from './world.js';
 const STEP_TTL = 4 * 3600000;
 export const sagaState = (state) => (state.sagas ||= { active: null, done: {}, nextAt: 0, log: [] });
 
-function fillText(s, ctx) {
-  return String(s).replace(/\{town\}/g, ctx.townName || 'une cité libre').replace(/\{faction\}/g, RIVALS[ctx.faction]?.name || 'une faction').replace(/\{faction2\}/g, RIVALS[ctx.faction2]?.name || 'une faction rivale').replace(/\{food\}/g, fmt(ctx.food));
+export function fillText(s, ctx) {
+  return String(s).replace(/\{town\}/g, ctx.townName || 'une cité libre').replace(/\{faction\}/g, RIVALS[ctx.faction]?.name || 'une faction').replace(/\{faction2\}/g, RIVALS[ctx.faction2]?.name || 'une faction rivale').replace(/\{food\}/g, fmt(ctx.food)).replace(/\{grievance\}/g, ctx.grievance || 'vos affronts');
 }
 
 export function sagaTick(state, now) {
@@ -22,14 +28,19 @@ export function sagaTick(state, now) {
   const th = thLevel(state);
   // Une nouvelle saga environ toutes les 3 à 5 h de jeu, jamais deux en même temps
   if (!S.active && th >= 2 && now >= (S.nextAt || 0)) {
-    const pool = Object.entries(SAGAS).filter(([k, s]) => !S.done[k] && s.minTH <= th);
+    // Histoires possibles : niveau suffisant, délai de reprise écoulé, et situation réellement présente dans le monde
+    const pool = [];
+    for (const [k, sg] of Object.entries(SAGAS)) {
+      if (sg.minTH > th) continue;
+      if (S.done[k] && now - S.done[k] < (sg.cooldownH ?? DEFAULT_COOLDOWN_H) * 3600000) continue;
+      const ctx = PICKERS[k] ? PICKERS[k](state, now) : defaultContext(state, k);
+      if (!ctx) continue;
+      // Les chroniques nées de la situation du moment et les histoires jamais jouées passent en priorité
+      pool.push({ k, ctx, weight: (sg.chronicle ? 2 : 1) * (S.done[k] ? 1 : 2) });
+    }
     if (pool.length) {
-      const [k] = rng.pick(pool);
-      const towns = Object.values(state.world.pois).filter((p) => p.type === 'town');
-      const town = towns.length ? rng.pick(towns) : null;
-      const f1 = rng.int(0, RIVALS.length - 1);
-      let f2 = rng.int(0, RIVALS.length - 1); if (f2 === f1) f2 = (f1 + 1) % RIVALS.length;
-      S.active = { id: k, step: 'start', at: now, town: town ? key(town.x, town.y) : null, townName: town?.name, faction: f1, faction2: f2, food: Math.round(1200 + th * 500), choices: [] };
+      const pick = rng.weighted(pool);
+      S.active = { id: pick.k, step: 'start', at: now, town: pick.ctx.town || null, townName: pick.ctx.townName, faction: pick.ctx.faction ?? 0, faction2: pick.ctx.faction2 ?? 1, grievance: pick.ctx.grievance || null, food: Math.round(1200 + th * 500), choices: [] };
     }
     S.nextAt = now + rng.int(180, 300) * 60000;
   }
@@ -38,7 +49,7 @@ export function sagaTick(state, now) {
   if (a && a.at <= now && !state.pending.some((p) => p.kind === 'saga')) {
     const saga = SAGAS[a.id];
     const st = saga.steps[a.step];
-    state.pending.push({ id: uid('sg'), kind: 'saga', saga: a.id, step: a.step, t: now, deadline: now + STEP_TTL, title: fillText(st.title, a), text: fillText(st.text, a), town: a.town, townName: a.townName, faction: a.faction, faction2: a.faction2, food: a.food });
+    state.pending.push({ id: uid('sg'), kind: 'saga', saga: a.id, step: a.step, t: now, deadline: now + STEP_TTL, title: fillText(st.title, a), text: fillText(st.text, a), town: a.town, townName: a.townName, faction: a.faction, faction2: a.faction2, grievance: a.grievance, food: a.food });
     toast(`${saga.icon} Saga : ${fillText(st.title, a)}`, 'event');
   }
   for (const p of [...state.pending]) if (p.kind === 'saga' && p.deadline <= now) resolveSaga(state, p.id, SAGAS[p.saga].steps[p.step].default, now, true);
@@ -47,8 +58,8 @@ export function sagaTick(state, now) {
 export function describeSaga(p) {
   const saga = SAGAS[p.saga];
   const st = saga.steps[p.step];
-  const ctx = { townName: p.townName, faction: p.faction, faction2: p.faction2, food: p.food };
-  return { icon: saga.icon, title: `${saga.title} — ${p.title}`, text: p.text, choices: st.choices.map((c) => ({ label: fillText(c.label, ctx), hint: fillText(c.hint || '', ctx) })), deadline: p.deadline, def: st.default };
+  const ctx = { townName: p.townName, faction: p.faction, faction2: p.faction2, food: p.food, grievance: p.grievance };
+  return { icon: saga.icon, title: `${fillText(saga.title, ctx)} — ${p.title}`, text: p.text, choices: st.choices.map((c) => ({ label: fillText(c.label, ctx), hint: fillText(c.hint || '', ctx) })), deadline: p.deadline, def: st.default };
 }
 
 export function resolveSaga(state, pid, idx, now = Date.now(), auto = false) {
@@ -72,7 +83,13 @@ export function resolveSaga(state, pid, idx, now = Date.now(), auto = false) {
   if (S.active) {
     S.active.choices.push(idx);
     if (ch.next) { S.active.step = ch.next[0]; S.active.at = now + ch.next[1] * 60000; }
-    else { S.done[p.saga] = now; chronicle(state, `${saga.icon} Saga « ${saga.title} » : ${p.title} — le souverain choisit « ${label} ».`, now); S.active = null; }
+    else {
+      S.done[p.saga] = now;
+      S.count = (S.count || 0) + 1;
+      (S.endings ||= {})[p.saga] = [...new Set([...(S.endings[p.saga] || []), `${p.step}:${idx}`])];
+      chronicle(state, `${saga.icon} ${saga.chronicle ? 'Chronique' : 'Saga'} « ${fillText(saga.title, p)} » : ${p.title} — le souverain choisit « ${label} ».`, now);
+      S.active = null;
+    }
   }
   return { ok: true, text };
 }

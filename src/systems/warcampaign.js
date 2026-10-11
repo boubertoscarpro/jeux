@@ -3,6 +3,9 @@
 // (la faction perd des territoires et des troupes, défenses suivantes −20 %), puis une opération finale au choix :
 // assiéger sa capitale (tribut imposé) ou protéger une cité libre (trêve imposée, cité reconnaissante).
 // Les troupes engagées quittent le château pendant l'opération ; le combat utilise le moteur de combat existant.
+import { remember } from './rivalry.js';
+import { SEASON_WAR } from '../data/seasons.js';
+import { calendar } from './chronicle.js';
 import { RIVALS } from '../data/world.js';
 import { ENEMY_UNITS, UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
@@ -15,7 +18,7 @@ import { gain } from './economy.js';
 import { bumpRep } from './reputation.js';
 import { giveXp } from './heroes.js';
 import { chronicle } from './chronicle.js';
-import { log, toast } from './log.js';
+import { log, toast, feat } from './log.js';
 import { isRevealed, distCap } from './world.js';
 
 export const WAR_MIN_TH = 5;
@@ -27,6 +30,8 @@ export const OPS = {
   protect: { name: 'Protéger une cité libre', icon: '🛡️', terrain: 'plain', share: 0.55, minutes: 75, final: true, desc: 'Briser le siège qu’elle impose à une cité libre.', effect: 'Trêve imposée, la cité devient votre alliée (+15 relation, prix favorables) ; réputation de bienfaiteur.' },
 };
 export const SEQUENCE = ['pass', 'fort'];
+// Saison en cours : durée des opérations et attaque (data/seasons.js)
+export const seasonWar = (state, now = Date.now()) => SEASON_WAR[calendar(state, now).season.key] || SEASON_WAR.spring;
 
 export function warState(state) {
   const w = (state.war && typeof state.war === 'object' && !Array.isArray(state.war)) ? state.war : (state.war = {});
@@ -91,7 +96,7 @@ export function opEnemies(state, opKey) {
 const opSides = (state, units, opKey, enemies, now) => {
   const a = warState(state).active, op = OPS[opKey];
   const mods = { ...computeMods(state, now) };
-  mods['combat.atk'] = (mods['combat.atk'] || 0) + a.bonus;
+  mods['combat.atk'] = (mods['combat.atk'] || 0) + a.bonus + seasonWar(state, now).atk;
   return [{ units, mods, formation: 'assault', label: state.meta.kingdomName }, { units: enemies, mods: {}, fort: op.fort || 0, formation: 'shieldwall', label: RIVALS[a.faction].name }, { terrain: op.terrain, weather: state.weather?.type || 'clear' }];
 };
 
@@ -129,7 +134,7 @@ export function launchOp(state, units, heroId = null, now = Date.now()) {
   for (const [u, n] of Object.entries(sel)) state.army[u] -= n;
   const hero = heroId ? state.heroes.find((h) => h.id === heroId && !h.marchId && !h.assignment) : null;
   if (hero) hero.marchId = 'war';
-  a.op = { key, units: sel, heroId: hero?.id || null, enemies: opEnemies(state, key), start: now, end: now + OPS[key].minutes * 60000 };
+  a.op = { key, units: sel, heroId: hero?.id || null, enemies: opEnemies(state, key), start: now, end: now + OPS[key].minutes * 60000 * seasonWar(state, now).time };
   return { ok: true };
 }
 
@@ -137,6 +142,8 @@ function finishCampaign(state, won, now) {
   const W = warState(state), a = W.active;
   const f = (state.factions || []).find((x) => x.idx === a.faction);
   W.history.unshift({ t: now, faction: a.faction, won, final: a.final, results: a.results });
+  if (won) remember(state, a.faction, 'conquest', a.final === 'protect' ? -10 : -20, a.final === 'protect' ? 'Chassée d’une cité libre par vos troupes' : 'Capitale assiégée et soumise au tribut', now);
+  feat(won ? '🎖️' : '🏳️', won ? 'Campagne victorieuse' : 'Campagne terminée', RIVALS[a.faction]?.name || '', won ? 'good' : 'bad');
   W.history.length = Math.min(W.history.length, 10);
   W.active = null;
   W.cooldownUntil = now + WAR_COOLDOWN;
@@ -186,6 +193,7 @@ export function warTick(state, now = Date.now()) {
       parts.push('trêve imposée');
     }
     a.results.push({ key: op.key, won: true, lost, t: now });
+    remember(state, a.faction, 'campaign', -8, `Défaite militaire : ${OPS[op.key]?.name || 'opération'}`, now);
     log(state, 'good', `${def.icon} ${def.name} : victoire (${lost} pertes). ${parts.join(' ; ')}.`, now);
     toast(`${def.icon} ${def.name} : victoire !`, 'good');
     if (def.final) finishCampaign(state, true, now); else a.stage++;

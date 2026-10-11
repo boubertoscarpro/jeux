@@ -1,4 +1,5 @@
 import { RESOURCES } from '../data/resources.js';
+import { resIcon } from './icons.js';
 import { RARITIES } from '../data/heroes.js';
 import { fmt, fmtTime } from '../core/util.js';
 import { fmtAffix, itemMods, itemScore } from '../systems/items.js';
@@ -11,13 +12,13 @@ export function costList(cost, state, mult = 1) {
   return `<span class="cost">${Object.entries(cost || {}).map(([r, v]) => {
     const need = Math.ceil(v * mult);
     const ok = !state || (state.resources[r] || 0) >= need;
-    return `<span class="res-chip ${ok ? '' : 'lack'}" title="${esc(RESOURCES[r]?.name || r)}">${RESOURCES[r]?.icon || r} ${fmt(need)}</span>`;
+    return `<span class="res-chip ${ok ? '' : 'lack'}" title="${esc(RESOURCES[r]?.name || r)}">${resIcon(r, 16, RESOURCES[r]?.icon || r)} ${fmt(need)}</span>`;
   }).join('')}</span>`;
 }
 
 export function resChips(res, signed = false) {
   return Object.entries(res || {}).filter(([, v]) => Math.abs(v) >= 0.5).map(([r, v]) =>
-    `<span class="res-chip ${signed && v < 0 ? 'neg' : ''}" title="${esc(RESOURCES[r]?.name || r)}">${RESOURCES[r]?.icon || r} ${signed && v > 0 ? '+' : ''}${fmt(v)}</span>`).join('');
+    `<span class="res-chip ${signed && v < 0 ? 'neg' : ''}" title="${esc(RESOURCES[r]?.name || r)}">${resIcon(r, 16, RESOURCES[r]?.icon || r)} ${signed && v > 0 ? '+' : ''}${fmt(v)}</span>`).join('');
 }
 
 export const countdown = (end, start) => `<span class="countdown" data-end="${end}"${start ? ` data-start="${start}"` : ''}>${fmtTime(end - Date.now())}</span>`;

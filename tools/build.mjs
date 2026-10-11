@@ -14,10 +14,11 @@ const result = await build({
   legalComments: 'none',
 });
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-const css = await readFile(root + 'css/style.css', 'utf8');
+const css = (await readFile(root + 'css/style.css', 'utf8')) + '\n' + (await readFile(root + 'css/theme.css', 'utf8'));
 let html = await readFile(root + 'index.html', 'utf8');
 html = html
   .replace('<link rel="stylesheet" href="css/style.css">', () => `<style>${css}</style>`)
+  .replace('<link rel="stylesheet" href="css/theme.css">', '')
   .replace('<script type="module" src="src/main.js"></script>', () => `<script>${js}</script>`);
 await mkdir(root + 'dist', { recursive: true });
 await writeFile(root + 'dist/cendrelande.html', html);

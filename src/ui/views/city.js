@@ -1,4 +1,7 @@
 import { BUILDINGS, BUILDING_CATEGORIES, levelProdFactor } from '../../data/buildings.js';
+import { ORIENTS, MONUMENT_STAGES } from '../../data/monument.js';
+import { setOrientation } from '../../systems/monument.js';
+import { resIcon } from '../icons.js';
 import { RESOURCES } from '../../data/resources.js';
 import { COSMETICS } from '../../data/social.js';
 import { fmt, fmtTime } from '../../core/util.js';
@@ -62,8 +65,8 @@ function tileHtml(app, x, y, ctx) {
     if (b.type === 'road') inner += roadSvg(roadMask(ctx, x, y));
     else if (b.type === 'deco') inner += `<span class="t-deco">${COSMETICS[b.deco]?.icon || ''}</span>`;
     else {
-      inner += buildingSvg(b.type, b.level);
-      const major = b.type === 'townhall' || b.type === 'castle';
+      inner += buildingSvg(b.type, b.level, 'b-art', b.type === 'monument' ? ORIENTS[b.orient]?.color : null);
+      const major = b.type === 'townhall' || b.type === 'castle' || b.type === 'monument';
       if (major) cls.push('major');
       inner += `<span class="t-name ${major ? 'major' : ''}">${esc(b.type === 'townhall' ? castleName(s) : bName(b))}</span>`;
       if (b.level > 0) inner += `<span class="t-lvl" aria-hidden="true">${b.level}</span>`;
@@ -92,6 +95,8 @@ function tileHtml(app, x, y, ctx) {
     }
   }
   if (selected) cls.push('sel');
+  const fl = app.ui.flashTile;
+  if (fl && fl.x === x && fl.y === y && fl.until > Date.now()) cls.push('flash-good');
   return `<button class="${cls.join(' ')}" data-action="tile" data-x="${x}" data-y="${y}" aria-label="${esc(label)} (${x}, ${y})">${inner}${hint}</button>`;
 }
 
@@ -144,7 +149,7 @@ function buildMenu(app, x, y, mods) {
           <div class="b-opt-head"><span class="b-icon">${buildingIcon(type, 34)}</span><b>${esc(def.name)}</b>${adj.total > 0 ? `<span class="bonus-tag">+${Math.round(adj.total * 100)}% ici</span>` : ''}</div>
           <div class="muted small">${esc(def.desc)}</div>
           ${disabled ? `<div class="req">${esc(req || p.reason)}</div>` : `<div class="b-opt-foot">${Object.keys(cost).length ? costList(cost, s) : '<span class="ok small" title="Vous n’en possédez aucun et ne pouvez pas le payer : le premier exemplaire est offert, pour ne jamais rester bloqué sans bois, pierre ou nourriture.">🎁 Offert (secours)</span>'} <span class="muted small">⏱ ${fmtTime(time)}</span>
-            <button class="mini primary" data-action="build" data-type="${type}" data-x="${x}" data-y="${y}">Construire</button></div>${(() => { const m = missing(s, cost); return Object.keys(m).length ? `<div class="req small">Manque : ${Object.entries(m).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon} ${esc(RESOURCES[r].name.toLowerCase())}`).join(', ')}</div>` : ''; })()}`}
+            <button class="mini primary" data-action="build" data-type="${type}" data-x="${x}" data-y="${y}">Construire</button></div>${(() => { const m = missing(s, cost); return Object.keys(m).length ? `<div class="req small">Manque : ${Object.entries(m).map(([r, v]) => `${fmt(v)} ${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name.toLowerCase())}`).join(', ')}</div>` : ''; })()}`}
         </div>`;
       }).join('')}</div>`).join('')}
     ${decoMenu(app, x, y)}`;
@@ -187,9 +192,10 @@ function buildingPanel(app, b, mods) {
   const prox = proximityEffects(s, b);
   const links = { tavern: ['heroes', 'Recruter des héros'], forge: ['craft', 'Ouvrir la forge'], laboratory: ['craft', 'Ouvrir le laboratoire'], market: ['market', 'Ouvrir le marché'],
     library: ['research', 'Recherches'], barracks: ['army', 'Former des troupes'], stable: ['army', 'Former des troupes'], workshop: ['army', 'Former des troupes'], guildhall: ['guild', 'Guilde'], castle: ['army', 'Armée'] };
-  return `<div class="b-panel-head">${buildingSvg(b.type, b.level, 'b-art b-art-panel')}<div><h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}/${def.maxLevel}</span></h3>
+  return `<div class="b-panel-head">${buildingSvg(b.type, b.level, 'b-art b-art-panel', b.type === 'monument' ? ORIENTS[b.orient]?.color : null)}<div><h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}/${def.maxLevel}</span></h3>
     ${b.type === 'townhall' ? `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle" title="Renommer le château principal">✎ Renommer</button></div><div class="small muted">Château principal de ${esc(s.meta.kingdomName)}</div>` : ''}</div></div>
     <p class="muted">${esc(def.desc)}</p>
+    ${b.type === 'monument' ? monumentBlock(s, b) : ''}
     ${b.damaged ? `<div class="panel-sub damaged"><b>🔥 Endommagé</b> : production réduite de moitié. ${costList(repairCost(b, mods), s)} <button class="mini primary" data-action="repair" data-id="${b.id}">Réparer</button></div>` : ''}
     ${def.recipes && b.level > 0 ? `<div class="panel-sub"><h4>Recette</h4><select data-change="recipe" data-id="${b.id}">${def.recipes.map((r, i) => `<option value="${i}" ${(b.recipe || 0) === i ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : ''}
     ${b.level > 0 && sectorOfBuilding(b.type) && s.workers?.length ? `<div class="small muted">👷 Secteur ${esc(WORK_SECTORS[sectorOfBuilding(b.type)].name)} : ${s.workers.filter((w) => w.job?.sector === sectorOfBuilding(b.type)).length} ouvrier(s) (+${Math.round((mods['work.' + sectorOfBuilding(b.type)] || 0) * 100)}%)</div>` : ''}
@@ -208,6 +214,16 @@ function buildingPanel(app, b, mods) {
     </div>`;
 }
 
+// Monument dynastique : étapes, orientation (choisie une fois), bienfaits
+function monumentBlock(s, b) {
+  const o = ORIENTS[b.orient];
+  return `<div class="panel-sub"><h4>Étapes du monument</h4><div class="monument-stage">${MONUMENT_STAGES.map((n, i) => `<span class="${i < b.level ? 'done' : ''}" title="${esc(n)}"></span>`).join('')}</div>
+    <div class="small">${b.level ? `Étape ${b.level}/5 : ${esc(MONUMENT_STAGES[b.level - 1])}` : 'Chantier ouvert'}${b.level < 5 ? ` · prochaine : ${esc(MONUMENT_STAGES[b.level])}` : ' · monument achevé'}</div>
+    ${o ? `<div class="small ok">${o.icon} <b>${esc(o.name)}</b> — ${esc(o.text)} (actuellement ×${b.level}).</div>`
+      : `<div class="small">Choisissez l’orientation du monument (définitive) :</div><div class="ch-grid">${Object.entries(ORIENTS).map(([k, x]) => `<div class="lx-opt"><b>${x.icon} ${esc(x.name)}</b><span class="small muted">${esc(x.desc)}</span><span class="small">${esc(x.text)}</span><button class="mini primary" data-action="monument-orient" data-k="${k}">Consacrer</button></div>`).join('')}</div>`}
+    <div class="small muted">Chaque étape achevée rapportera 1 point d’héritage à la fondation d’une dynastie ; la dynastie suivante retrouvera le monument parmi ses vestiges.</div></div>`;
+}
+
 // Bloc d'amélioration : coût, durée, prérequis, bénéfices attendus et raison exacte d'une impossibilité
 function upgradeBlock(app, b, def, next, info, mods) {
   const s = app.state;
@@ -216,7 +232,7 @@ function upgradeBlock(app, b, def, next, info, mods) {
   if (b.level > 0) {
     const r = buildingRates(s, b, mods);
     const k = levelProdFactor(next) / levelProdFactor(b.level);
-    const outs = Object.entries(r.out).map(([res, v]) => `${RESOURCES[res].icon} ${fmt(v)} → <b>${fmt(v * k)}</b>/h`);
+    const outs = Object.entries(r.out).map(([res, v]) => `${resIcon(res, 16, RESOURCES[res]?.icon)} ${fmt(v)} → <b>${fmt(v * k)}</b>/h`);
     if (outs.length) gains.push(`Production : ${outs.join(' · ')}`);
   }
   if (def.effects) {
@@ -371,13 +387,14 @@ export default {
         </div>
         ${(() => { const st = nextDomainStep(s); return st ? `<div class="card domain-card"><h3>🗺️ Agrandir le domaine <span class="muted small">${s.city.w}×${s.city.h} cases</span></h3><div class="small muted">Étape « ${esc(st.name)} » : +${DOMAIN_GROW.w} colonnes à l’est et +${DOMAIN_GROW.h} rangées au sud de terrain vierge à aménager (forêts, montagnes, quelques décombres, rivière).</div><div class="b-opt-foot">${costList(st.cost, s)} <span class="small ${thLevel(s) >= st.th ? 'ok' : 'req'}">HdV ${st.th}</span><button class="mini primary" data-action="expand">Agrandir</button></div></div>` : ''; })()}
         <div class="card"><h3>🧱 Fortifications</h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
-        <div class="card"><h3>📊 Bilan horaire</h3><div class="net-grid">${Object.entries(net).filter(([, v]) => Math.abs(v) > 0.05).sort((a, b) => b[1] - a[1]).map(([r, v]) => `<div class="net ${v < 0 ? 'neg' : ''}">${RESOURCES[r].icon} ${esc(RESOURCES[r].name)} <b>${v > 0 ? '+' : ''}${fmt(v)}</b></div>`).join('')}</div>
+        <div class="card"><h3>📊 Bilan horaire</h3><div class="net-grid">${Object.entries(net).filter(([, v]) => Math.abs(v) > 0.05).sort((a, b) => b[1] - a[1]).map(([r, v]) => `<div class="net ${v < 0 ? 'neg' : ''}">${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)} <b>${v > 0 ? '+' : ''}${fmt(v)}</b></div>`).join('')}</div>
           <p class="muted small">Capacité : ${fmt(cap)} · Protégé des pillages : ${fmt(protectedAmount(s, mods))} par ressource. Les ressources rares et l’or ne sont pas plafonnés.</p></div>
       </div>
       <div class="city-panel card">${panel}</div>
     </div>`;
   },
   actions: {
+    'monument-orient': (app, el) => { if (confirm('Cette orientation est définitive. Confirmer ?')) app.act(() => setOrientation(app.state, el.dataset.k), (r) => `🗿 Monument consacré : ${r.name}`); },
     'tile-up': (app, el) => { app.ui.citySel = { x: +el.dataset.x, y: +el.dataset.y }; app.ui.placeType = null; app.ui.moveId = null; app.ui.focusUpgrade = true; app.render(); },
     'up-toggle': (app) => { app.state.meta.showUpgrades = !showUpgrades(app.state); app.render(); app.save(); },
     'up-list': (app) => openUpgradeList(app),

@@ -79,6 +79,12 @@ export default {
               <div><b>${esc(c.name)}</b><div class="muted small">${{ banner: 'Bannière', theme: 'Thème de la ville', deco: 'Décoration (à placer sur une case libre)' }[c.type]}</div></div>
               ${owned ? (c.type === 'deco' ? '<span class="ok small">Possédée</span>' : `<button class="mini ${active ? 'good' : ''}" data-action="apply-cos" data-k="${k}">${active ? 'Actif' : 'Appliquer'}</button>`) : c.seasonal ? '<span class="muted small">Saison</span>' : c.exclusive ? '<span class="tag-ex" title="Roue des Anciens ou événements uniquement">Exclusif</span>' : `<button class="mini" data-action="buy-cos" data-k="${k}">🎖️ ${c.cost}</button>`}</div>`;
           }).join('')}</div></div>
+        <div class="card"><h2>🖥️ Affichage et confort</h2>
+          <p class="muted small">Ces réglages sont enregistrés avec la partie. « Auto » suit la préférence de votre système (réduction des animations).</p>
+          <div class="form-row"><label>Animations</label><div class="seg">${[['auto', 'Auto'], ['reduced', 'Réduites'], ['full', 'Complètes']].map(([k, l]) => `<button class="mini ${(s.meta.motion || 'auto') === k ? 'selected' : ''}" data-action="pref-motion" data-k="${k}">${l}</button>`).join('')}</div></div>
+          <div class="form-row"><label>Densité</label><div class="seg">${[['normal', 'Confortable'], ['compact', 'Compacte']].map(([k, l]) => `<button class="mini ${(s.meta.density || 'normal') === k ? 'selected' : ''}" data-action="pref-density" data-k="${k}">${l}</button>`).join('')}</div></div>
+          <div class="form-row"><label>Aides</label><div class="seg"><button class="mini ${s.meta.tipsOff ? '' : 'selected'}" data-action="tips-toggle">${s.meta.tipsOff ? 'Fiches désactivées' : 'Fiches de tutoriel actives'}</button></div></div>
+        </div>
         <div class="card"><h2>💾 Sauvegarde</h2>
           <p class="muted small">Sauvegarde automatique toutes les 15 s dans votre navigateur (avec une copie de secours toutes les 10 min). Format de sauvegarde v${s.version}. Progression hors-ligne : jusqu’à 12 h.</p>
           <div class="row gap wrap"><button class="btn" data-action="tips-toggle">${s.meta.tipsOff ? '📘 Réactiver les conseils' : '📘 Désactiver les conseils'}</button><button class="btn" data-action="save-now">💾 Sauvegarder</button><button class="btn" data-action="save-file">⬇️ Télécharger (.json)</button><button class="btn" data-action="export">📤 Code texte</button><label class="btn">📂 Charger un fichier<input type="file" accept=".json,application/json,text/plain" data-change="import-file" hidden></label><button class="btn" data-action="import">📥 Importer le code</button><button class="btn ghost danger" data-action="reset">🗑️ Nouvelle partie</button></div>
@@ -102,6 +108,8 @@ export default {
     'buy-cos': (app, el) => app.act(() => buyCosmetic(app.state, el.dataset.k), 'Cosmétique acquis !'),
     'apply-cos': (app, el) => app.act(() => applyCosmetic(app.state, el.dataset.k)),
     'save-now': (app) => app.save(true),
+    'pref-motion': (app, el) => { app.state.meta.motion = el.dataset.k; app.applyPrefs(); app.render(); app.save(); },
+    'pref-density': (app, el) => { app.state.meta.density = el.dataset.k; app.applyPrefs(); app.render(); app.save(); },
     'tips-toggle': (app) => { app.state.meta.tipsOff = !app.state.meta.tipsOff; if (!app.state.meta.tipsOff) app.state.meta.tipsSeen = {}; app.render(); },
     'import-file': (app, el) => {
       const f = el.files?.[0];

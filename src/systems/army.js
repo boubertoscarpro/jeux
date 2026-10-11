@@ -39,6 +39,7 @@ export function train(state, type, n, now = Date.now()) {
   // File séquentielle par bâtiment
   const last = state.queues.train.filter((q) => q.building === u.building).reduce((m, q) => Math.max(m, q.end), now);
   const start = Math.max(now, last);
+  state.stats.trained = (state.stats.trained || 0) + n;
   state.queues.train.push({ id: uid('t'), unit: type, count: n, building: u.building, start, end: start + trainTime(type, n, mods), cost });
   return { ok: true };
 }
