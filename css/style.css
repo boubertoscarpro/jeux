@@ -839,3 +839,11 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .proj-res { display: flex; flex-direction: column; gap: 3px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 .proj-res.ok { border-color: var(--good); }
 .proj-res .mini { align-self: flex-start; }
+/* ---------- Stabilité des provinces ---------- */
+.stab-bar { position: relative; height: 10px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); margin: 4px 0 6px; overflow: visible; }
+.stab-bar > div { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #d0573f, #e2b84a 45%, #5cc98a 80%); }
+.stab-bar > span { position: absolute; top: -3px; width: 2px; height: 14px; background: #fff; }
+.stab-factors { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0; }
+.stab-unrest { border-color: var(--bad); }
+.stab-unhappy { border-color: var(--warn); }
+.stab-prosperous { border-color: var(--good); }

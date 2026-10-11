@@ -7,6 +7,7 @@ import { guildProgress } from './guild.js';
 import { log } from './log.js';
 import { TERRITORY_SPECS, OUTPOST_MAX_LEVEL, GARRISON_PER_LEVEL, UPKEEP_PER_LEVEL, outpostUpgradeCost, RESPEC_COST, OUTPOST_THREATS, SPEC_INFO, SPEC_CATS, AFFINITY } from '../data/territories.js';
 import { uid } from '../core/util.js';
+import { stabilityEffect, stabilityTick, stabOf, stabLevel, taxOf } from './stability.js';
 import { defaultOutpostName, outpostLabel } from './identity.js';
 import { TERRAINS } from '../data/world.js';
 import { UNITS } from '../data/units.js';
@@ -106,7 +107,11 @@ export function outpostStatus(state, t, now = Date.now()) {
   if (t.evacUntil > now) { eff = 0; reasons.push('Réserves évacuées : production suspendue'); }
   if (t.threatAt > now) reasons.push('⚠️ Une attaque est annoncée : renforcez la garnison');
   if (!t.spec) reasons.push('Aucune spécialisation choisie');
-  return { eff, reasons, garrison: g, need: garrisonNeed(t) };
+  // Stabilité de la province : prospère +10 %, mécontente −20 %, révolte −50 %, révolte ouverte : arrêt
+  const se = stabilityEffect(t);
+  if (eff > 0) eff *= se.mult;
+  if (se.reason) reasons.push(se.reason);
+  return { eff, reasons, garrison: g, need: garrisonNeed(t), stability: stabOf(t) };
 }
 
 // Modificateurs apportés par les territoires (bonus de terrain + spécialisation), selon leur état
@@ -207,7 +212,7 @@ export function outpostReport(state, k, now = Date.now()) {
   if (sp?.prod) for (const [r, v] of Object.entries(sp.prod)) prod[r] = v * lvl * st.eff * aff;
   const mods = {};
   if (sp?.mods) for (const [m, v] of Object.entries(sp.mods)) mods[m] = v * lvl * st.eff * aff;
-  return { k, t, st, sp, aff, prod, mods, upkeep: outpostUpkeep(t), up: outpostUpgradeCheck(state, k), cat: sp ? specCategory(sp.id) : null };
+  return { k, t, st, sp, aff, prod, mods, upkeep: outpostUpkeep(t), up: outpostUpgradeCheck(state, k), cat: sp ? specCategory(sp.id) : null, stab: stabOf(t), stabLevel: stabLevel(stabOf(t)), tax: taxOf(t) };
 }
 
 export function outpostUpkeep(t) {
@@ -224,6 +229,8 @@ export function territoryTick(state, dtSec, now) {
     const due = Object.fromEntries(Object.entries(up).map(([r, v]) => [r, v * h]));
     t.unpaid = !Object.entries(due).every(([r, v]) => (state.resources[r] || 0) >= v);
     if (!t.unpaid) for (const [r, v] of Object.entries(due)) state.resources[r] -= v;
+    // Stabilité de la province (dérive vers sa cible) et impôts
+    stabilityTick(state, t, h, now);
     // Production
     const st = outpostStatus(state, t, now);
     const sp = specOf(t);
