@@ -25,7 +25,7 @@ test('Mystère archéologique : indice, localisation par l’exploration, fouill
   archaeoTick(s, T0);
   assert.equal(archaeoState(s).active, null, 'pas avant l’hôtel de ville 4');
   th(s).level = 4;
-  s.stats.explored += 6;
+  s.stats.explored += 10;
   archaeoTick(s, T0);
   const m = s.archaeo.active;
   assert.equal(m.id, 'observatory');

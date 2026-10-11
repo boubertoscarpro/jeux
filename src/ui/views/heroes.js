@@ -1,4 +1,5 @@
 import { HERO_CLASSES, STATS, SECTORS, RARITIES, xpForLevel } from '../../data/heroes.js';
+import { gameIcon } from '../icons.js';
 import { SLOTS, SLOT_ORDER, AFFIXES } from '../../data/items.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
@@ -19,10 +20,10 @@ function heroCard(app, h) {
   const c = HERO_CLASSES[h.cls];
   const status = h.marchId ? '🐎 En marche' : h.assignment ? `${SECTORS[h.assignment.sector].icon} Intendant : ${SECTORS[h.assignment.sector].name}` : '🏰 Disponible';
   return `<button class="hero-card ${app.ui.heroSel === h.id ? 'selected' : ''}" data-action="hero-sel" data-id="${h.id}" style="--rc:${RARITIES[h.rarity].color}">
-    <div class="hero-portrait">${c.icon}</div>
+    <div class="hero-portrait">${gameIcon('h_' + h.cls, 34, c.icon)}</div>
     <div class="hero-info"><b>${esc(h.name)}</b><div class="small">${esc(c.name)} · niv. ${h.level} · ${rarityTag(h.rarity)}</div>
     <div class="small muted">${status}</div>
-    <div class="stat-row">${Object.entries(STATS).map(([k, s]) => `<span title="${s.name}">${s.icon}${st[k]}</span>`).join('')}</div></div></button>`;
+    <div class="stat-row">${Object.entries(STATS).map(([k, s]) => `<span title="${s.name}">${gameIcon('t_' + k, 14, s.icon)}${st[k]}</span>`).join('')}</div></div></button>`;
 }
 
 function heroDetail(app, h) {
@@ -34,11 +35,11 @@ function heroDetail(app, h) {
   const slotFilter = app.ui.heroSlot;
   const items = s.inventory.items.filter((i) => !slotFilter || i.slot === slotFilter).sort((a, b) => (a.equippedBy ? 1 : 0) - (b.equippedBy ? 1 : 0));
   return `<div class="hero-detail">
-    <div class="hero-head"><div class="hero-portrait big" style="--rc:${RARITIES[h.rarity].color}">${c.icon}</div>
+    <div class="hero-head"><div class="hero-portrait big" style="--rc:${RARITIES[h.rarity].color}">${gameIcon('h_' + h.cls, 52, c.icon)}</div>
       <div><h2>${esc(h.name)}</h2><div>${esc(c.name)} · ${rarityTag(h.rarity)} · puissance ${heroPower(s, h)}</div><div class="muted small">${esc(c.desc)}</div>
       <div class="small">Niveau ${h.level}/${maxL} — XP ${fmt(h.xp)} / ${fmt(xpForLevel(h.level))}</div>${bar(h.xp, xpForLevel(h.level))}</div></div>
     <div class="cols-3">
-      <div class="card-sub"><h4>Caractéristiques</h4>${Object.entries(STATS).map(([k, sd]) => `<div class="stat-line"><span>${sd.icon} ${sd.name}</span><b>${st[k]}</b></div>`).join('')}
+      <div class="card-sub"><h4>Caractéristiques</h4>${Object.entries(STATS).map(([k, sd]) => `<div class="stat-line"><span>${gameIcon('t_' + k, 16, sd.icon)} ${sd.name}</span><b>${st[k]}</b></div>`).join('')}
         <div class="muted small">Force → attaque · Commandement → défense & moral · Ruse → exploration & butin · Savoir → production (intendant)</div></div>
       <div class="card-sub"><h4>Compétences</h4>${heroSkills(h).map((sk) => `<div class="skill ${sk.unlocked ? '' : 'locked'}"><b>${esc(sk.name)}</b> <span class="muted small">niv. ${sk.lvl} · ${{ commander: 'en marche', governor: 'intendant', global: 'permanent' }[sk.ctx]}</span><div class="small">${esc(sk.desc)}</div></div>`).join('')}</div>
       <div class="card-sub"><h4>Affectation</h4>
@@ -73,8 +74,8 @@ function tavernBlock(app) {
     <div class="cand-grid">${cands.map((h) => {
       const st = heroStats(s, h);
       const c = HERO_CLASSES[h.cls];
-      return `<div class="cand" style="--rc:${RARITIES[h.rarity].color}"><div class="hero-portrait">${c.icon}</div><b>${esc(h.name)}</b><div class="small">${esc(c.name)} · ${rarityTag(h.rarity)}</div>
-        <div class="stat-row">${Object.entries(STATS).map(([k, sd]) => `<span title="${sd.name}">${sd.icon}${st[k]}</span>`).join('')}</div>
+      return `<div class="cand" style="--rc:${RARITIES[h.rarity].color}"><div class="hero-portrait">${gameIcon('h_' + h.cls, 34, c.icon)}</div><b>${esc(h.name)}</b><div class="small">${esc(c.name)} · ${rarityTag(h.rarity)}</div>
+        <div class="stat-row">${Object.entries(STATS).map(([k, sd]) => `<span title="${sd.name}">${gameIcon('t_' + k, 14, sd.icon)}${st[k]}</span>`).join('')}</div>
         <div class="muted small">${esc(c.desc)}</div>${costList(recruitCost(s, h), s)}<button class="btn primary small" data-action="recruit" data-id="${h.id}">Recruter</button></div>`;
     }).join('') || empty('Plus de candidats pour le moment.')}</div>
     <button class="btn ghost small" data-action="refresh-tavern">🔄 Nouveaux candidats ${costList(REFRESH_COST, s)}</button></div>`;

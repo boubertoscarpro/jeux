@@ -1,7 +1,7 @@
 // Mystères archéologiques persistants (voir data/archaeology.js).
 // Cycle : indice → 3 sites à localiser (zone indiquée, il faut explorer) → fouilles → étude de chaque fragment →
 // énigme → lieu unique, bonus permanent, plan de forge. Un seul mystère actif à la fois.
-import { MYSTERIES, MYSTERY_ORDER, ARCHAEO_MIN_TH, CLUE_EVERY, DIG, STUDY, RETRY_H } from '../data/archaeology.js';
+import { MYSTERIES, MYSTERY_ORDER, ARCHAEO_MIN_TH, CLUE_EVERY, CLUE_REST_H, DIG, STUDY, RETRY_H } from '../data/archaeology.js';
 import { POI_TYPES } from '../data/world.js';
 import { rng } from '../core/rng.js';
 import { thLevel } from './city.js';
@@ -203,7 +203,11 @@ export function archaeoTick(state, now = Date.now()) {
   const id = nextMystery(state);
   if (!id || thLevel(state) < MYSTERIES[id].th) return;
   const ex = (state.stats.explored || 0) - a.exploredMark, dg = (state.stats.dungeons || 0) - a.dungeonMark;
-  if (ex >= CLUE_EVERY.explored || dg >= CLUE_EVERY.dungeons) {
+  // Les mystères s'espacent : chaque mystère résolu double l'effort du suivant, et 24 h passent entre deux
+  const n = 1 + Object.keys(a.solved).length;
+  const lastSolved = Math.max(0, ...Object.values(a.solved));
+  if (now - lastSolved < CLUE_REST_H * 3600000) return;
+  if (ex >= CLUE_EVERY.explored * n || dg >= CLUE_EVERY.dungeons * n) {
     a.exploredMark = state.stats.explored || 0;
     a.dungeonMark = state.stats.dungeons || 0;
     startMystery(state, id, now);
@@ -213,5 +217,7 @@ export function archaeoTick(state, now = Date.now()) {
 // Progrès vers le prochain indice (affiché dans la vue)
 export function clueProgress(state) {
   const a = archaeoState(state);
-  return { explored: Math.max(0, (state.stats.explored || 0) - a.exploredMark), dungeons: Math.max(0, (state.stats.dungeons || 0) - a.dungeonMark), need: CLUE_EVERY };
+  const n = 1 + Object.keys(a.solved).length;
+  const rest = Math.max(0, ...Object.values(a.solved)) + CLUE_REST_H * 3600000;
+  return { explored: Math.max(0, (state.stats.explored || 0) - a.exploredMark), dungeons: Math.max(0, (state.stats.dungeons || 0) - a.dungeonMark), need: { explored: CLUE_EVERY.explored * n, dungeons: CLUE_EVERY.dungeons * n }, restUntil: rest };
 }

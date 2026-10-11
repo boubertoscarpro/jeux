@@ -4,6 +4,7 @@
 //         node tools/profileSim.js --kingdoms [jours] [graines]   (comparaison des 8 spécialisations)
 //         node tools/profileSim.js --policies [jours] [graines]   (comparaison des priorités royales)
 //         node tools/profileSim.js --projects [jours] [graines]   (effet des grands projets)
+if (process.argv.includes('--no-v10')) globalThis.__noV10 = true;
 import { createNewState } from '../src/core/state.js';
 import { advance } from '../src/core/engine.js';
 import { serialize } from '../src/core/save.js';
@@ -39,6 +40,11 @@ import { POLICIES } from '../src/data/policies.js';
 import { logisticsNetwork } from '../src/systems/logistics.js';
 import { PROJECTS } from '../src/data/projects.js';
 import { projectState, startProject, contribute, startStageWorks } from '../src/systems/projects.js';
+import { v10Bot } from './v10bot.js';
+import { challengeState } from '../src/systems/challenges.js';
+import { legendState } from '../src/systems/legendary.js';
+import { monumentOf } from '../src/systems/monument.js';
+import { rivalryStatus, memoryScore } from '../src/systems/rivalry.js';
 
 const H = 3600000;
 const ECO = ['farm', 'sawmill', 'quarry', 'mine', 'house', 'warehouse', 'mill', 'bakery', 'market', 'charcoal', 'foundry', 'library', 'herbalist', 'hunter', 'tannery', 'weaver', 'carpentry', 'fishery'];
@@ -143,7 +149,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     t += STEP;
     advance(s, t);
     if (policy && thLevel(s) >= 3 && policyState(s).id !== policy && policyState(s).pending !== policy) setPolicy(s, policy, t);
-    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); }
+    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); }
     if (s.famine) famineMin += 10;
     if (i % 6 === 0) {
       const cap = storageCap(s, computeMods(s, t));
@@ -158,7 +164,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
   const wealth = Object.entries(s.resources).reduce((a, [r, v]) => a + v * (RESOURCES[r].price || 1), 0);
   const out = {
     profile: p.name, th: thLevel(s), levels: totalLevels(s), techs: Object.keys(s.techs).length,
-    army: Object.values(s.army).reduce((a, b) => a + b, 0), battlesWon: s.stats.battlesWon, battlesLost: s.stats.battlesLost, explored: s.stats.explored,
+    army: Object.values(s.army).reduce((a, b) => a + b, 0) + Object.values(s.legendary?.active?.team || {}).reduce((a, b) => a + b, 0), battlesWon: s.stats.battlesWon, battlesLost: s.stats.battlesLost, explored: s.stats.explored,
     territories: Object.keys(s.territories).length, contracts: s.stats.contracts || 0, goldPerH: Math.round(net.gold || 0), foodNet: Math.round(net.food || 0),
     wealth: Math.round(wealth), famineH: Math.round(famineMin / 60), cappedH: Math.round(cappedMin / 60), shards: shardState(s).count + shardState(s).tickets * 10,
     raidsLost: s.stats.raidsLost || 0, raids: (s.stats.raidsLost || 0) + (s.stats.raidsRepelled || 0), overflowGold: Math.round(s.stats.overflowGold || 0), stability: Object.values(s.territories).length ? Math.round(Object.values(s.territories).reduce((a, t) => a + (Number.isFinite(t.stability) ? t.stability : 70), 0) / Object.values(s.territories).length) : 0, revolts: Object.values(s.territories).filter((t) => t.revolt).length, taxes: Math.round(s.stats.taxes || 0), saveKB: Math.round(serialize(s).length / 1024),
@@ -166,6 +172,10 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     hostile: Object.values(s.council?.favor || {}).filter((v) => v <= 30).length, loyal: Object.values(s.council?.favor || {}).filter((v) => v >= 70).length,
     logiEff: (() => { const n = logisticsNetwork(s, t), v = Object.values(n); return v.length ? Math.round((v.reduce((a, r) => a + r.eff, 0) / v.length) * 100) : 100; })(),
     plans: Object.keys(s.recipes?.known || {}).length,
+    chTiers: Object.values(challengeState(s).claimed).reduce((a, x) => a + Object.keys(x).length, 0), chTries: challengeState(s).history.length,
+    legends: Object.keys(legendState(s).done).length, legendFails: legendState(s).history.filter((h) => !h.won && !h.abandoned).length,
+    monument: monumentOf(s)?.level || 0, chronicles: s.sagas?.count || 0, rivals: (s.factions || []).filter((f) => rivalryStatus(f, t)?.key === 'rival').length,
+    memory: Math.round((s.factions || []).reduce((a, f) => a + memoryScore(f, t), 0)), insignia: s.meta.insignia || 0,
     chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
     blocked: objectives(s, t).main.filter((m) => !m.done).map((m) => m.id).join(' '),
   };
@@ -238,7 +248,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'shards', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'shards', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');

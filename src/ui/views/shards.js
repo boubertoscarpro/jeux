@@ -42,9 +42,9 @@ export default {
       }).join('')}</div></div>
     <div class="cols-2"><div class="card"><h3>🧭 Sources</h3>
       <p class="small muted">Plus une source donne, moins elle donne ensuite (la « chaleur » retombe en quelques heures). Au-delà du plafond quotidien, les chances chutent fortement. Chaque semaine, une source est favorisée (×${c.rotationBonus}).</p>
-      <table class="table"><thead><tr><th>Source</th><th>Chance actuelle</th><th>Aujourd’hui</th></tr></thead><tbody>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Source</th><th>Chance actuelle</th><th>Aujourd’hui</th></tr></thead><tbody>
       ${Object.entries(c.sources).map(([k, src]) => { const d = sh.daily[k]; const n = d && d.day === dayKey(now) ? d.n : 0; const m = sourceMultiplier(s, k, now); return `<tr title="${esc(src.desc)}"><td>${esc(src.name)}${fav === k ? ' <span class="tag-rot">Favorisée</span>' : ''}<div class="muted small">${esc(src.desc)}</div></td><td class="num">${['forbidden', 'event', 'feat', 'free'].includes(k) ? '—' : `×${m.toFixed(2)}`}</td><td class="num">${n}/${c.dailyCap[k] ?? '∞'}</td></tr>`; }).join('')}
-      </tbody></table>
+      </tbody></table></div>
       <p class="small">Bonus de détection : <b>+${Math.round(detectionBonus(s, now) * 100)} %</b> (héros explorateur, observatoire, artefacts — plafonné à +${Math.round(c.detectionCap * 100)} %).</p></div>
       <div class="card"><h3>⛔ Expédition interdite</h3>
         <p class="small">Une expédition de ${fb.hours} h au-delà des frontières connues. Escorte d’une puissance ≥ ${fmt(fb.minPower)} requise. Issues : ${Math.round(fb.outcomes.fail * 100)} % échec (pertes d’escorte et de vivres), ${Math.round(fb.outcomes.partial * 100)} % ${fb.partial[0]}–${fb.partial[1]} Éclats, ${Math.round(fb.outcomes.success * 100)} % ${fb.success[0]}–${fb.success[1]} Éclats (+ chance d’artefact).</p>
@@ -52,11 +52,11 @@ export default {
         <button class="mini" data-action="nav" data-view="expeditions">⛏️ Aller aux expéditions</button>
         <h3>🏅 Exploits (une seule fois)</h3>${FEATS.map((f) => `<div class="small ${sh.feats[f.id] ? 'ok' : ''}">${sh.feats[f.id] ? '✔' : '◻'} ${esc(f.label)} — 💠 ${f.shards}</div>`).join('')}
       </div></div>
-    <div class="cols-2"><div class="card"><h3>📊 Vos 7 derniers jours</h3><table class="table"><thead><tr><th>Jour</th><th>Gagnés</th><th>Dépensés</th><th>Tickets</th><th>Tours</th></tr></thead><tbody>
-      ${ledgerRows(s).map((r) => `<tr><td>${new Date(r.day * 86400000).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</td><td class="num">${r.gen}</td><td class="num">${r.spent}</td><td class="num">${r.tickets}</td><td class="num">${r.spins}</td></tr>`).join('')}</tbody></table></div>
+    <div class="cols-2"><div class="card"><h3>📊 Vos 7 derniers jours</h3><div class="table-wrap"><table class="table"><thead><tr><th>Jour</th><th>Gagnés</th><th>Dépensés</th><th>Tickets</th><th>Tours</th></tr></thead><tbody>
+      ${ledgerRows(s).map((r) => `<tr><td>${new Date(r.day * 86400000).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</td><td class="num">${r.gen}</td><td class="num">${r.spent}</td><td class="num">${r.tickets}</td><td class="num">${r.spins}</td></tr>`).join('')}</tbody></table></div></div>
       <div class="card"><h3>⚖️ Rythmes attendus</h3><p class="small muted">Estimation à partir de la configuration actuelle (voir docs/ECONOMY.md).</p>
-        <table class="table"><thead><tr><th>Profil</th><th>💠/jour</th><th>Jours/ticket</th><th>Légendaire garanti</th><th>Mythique garanti</th></tr></thead><tbody>
-        ${Object.keys(PROFILES).map((k) => { const p = profileProjection(s, k); return `<tr><td>${esc(p.name)}</td><td class="num">${p.perDay.toFixed(2)}</td><td class="num">${p.ticketDays.toFixed(1)}</td><td class="num">${Math.round(p.legendaryDays)} j</td><td class="num">${Math.round(p.mythicDays)} j</td></tr>`; }).join('')}</tbody></table></div></div>`;
+        <div class="table-wrap"><table class="table"><thead><tr><th>Profil</th><th>💠/jour</th><th>Jours/ticket</th><th>Légendaire garanti</th><th>Mythique garanti</th></tr></thead><tbody>
+        ${Object.keys(PROFILES).map((k) => { const p = profileProjection(s, k); return `<tr><td>${esc(p.name)}</td><td class="num">${p.perDay.toFixed(2)}</td><td class="num">${p.ticketDays.toFixed(1)}</td><td class="num">${Math.round(p.legendaryDays)} j</td><td class="num">${Math.round(p.mythicDays)} j</td></tr>`; }).join('')}</tbody></table></div></div></div>`;
   },
   actions: {
     'sh-spend': (app, el) => app.act(() => spendShards(app.state, el.dataset.id, el.dataset.id === 'guaranteed' ? document.getElementById('sh-choice').value : null), (r) => `💠 ${r.text}`),

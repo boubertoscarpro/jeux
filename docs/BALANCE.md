@@ -166,3 +166,10 @@ leviers sans inflation : défis de maîtrise (récompenses cosmétiques et titre
 par étape, 5 étapes coûteuses), expéditions légendaires (épreuves calibrées sur la force de l’escorte), mémoire des
 factions (demi-vie de 3 jours, plafond ±60), saisons (campagnes d’été plus rapides, d’hiver plus lentes ; résistance
 à l’hiver plafonnée à 80 %). Détail et tableau avant/après : `docs/V10.md`.
+
+## v10 — avec le joueur simulé qui utilise les systèmes récents
+
+Mêmes niveaux d'hôtel de ville pour tous les profils (Exploration : 13 au lieu de 9). Ajustements issus de la
+simulation : expéditions (repos de 12 h après un échec, gardien affaibli, estimation des chances), mystères espacés
+(10 lieux / 3 donjons, effort doublé à chaque mystère, 36 h de repos), « Terres périlleuses » à 1/3/5, réserve de
+référence de « L'année maigre », monument plus long à bâtir. Tableau complet : `docs/V10.md` §8.

@@ -312,7 +312,7 @@ export const BUILDINGS = {
   },  monument: {
     name: 'Monument dynastique', icon: '🗿', cat: 'unique', unique: true, maxLevel: 5, req: { townhall: 7 },
     desc: 'L’œuvre de votre dynastie, bâtie en 5 étapes. Choisissez son orientation (citadelle, archives, jardin ou mémorial) : elle décide de ses bienfaits. Chaque étape achevée rapporte un point d’héritage à la fondation d’une dynastie.',
-    cost: { stone: 4000, wood: 3000, gold: 2500, steel: 150, crystals: 8 }, time: 3600,
+    cost: { stone: 4000, wood: 3000, gold: 2500, steel: 150, crystals: 8 }, time: 14400, // 4 h, puis ×1,5 par étape : un chantier de plusieurs jours
     maxCount: N(1),
   },
 };

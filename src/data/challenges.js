@@ -24,7 +24,7 @@ export const CHALLENGES = {
     name: 'L’année maigre', icon: '🌾', style: 'Survie', hours: 12,
     desc: 'Une maladie frappe les champs : production de nourriture −50 % pendant 12 h. Traversez la crise sans famine.',
     rule: 'Aucune famine pendant l’épreuve (sinon échec).',
-    metric: 'Réserve de nourriture à la fin, comparée à celle du départ.',
+    metric: 'Réserve de nourriture à la fin, comparée à celle du départ (au moins la moitié de la capacité du grenier).',
     targets: [0, 0.5, 1.0],
     rewards: [{ insignia: 2 }, { insignia: 4, title: 'Gardien des greniers' }, { insignia: 6, title: 'Celui qui nourrit le royaume', banner: 'banner_mastery_wheat' }],
   },
@@ -41,7 +41,7 @@ export const CHALLENGES = {
     desc: 'Nettoyez des lieux très dangereux (danger 3 ou plus) en 24 h.',
     rule: 'Aucune.',
     metric: 'Lieux dangereux (danger ≥ 3) nettoyés.',
-    targets: [2, 4, 7],
+    targets: [1, 3, 5], // un joueur actif en nettoie environ un par jour (simulation) : l'or demande un vrai effort
     rewards: [{ insignia: 2 }, { insignia: 4, title: 'Fléau des repaires' }, { insignia: 6, title: 'Pourfendeur des Terres Brisées', banner: 'banner_mastery_blood' }],
   },
   lightHand: {

@@ -4,7 +4,8 @@
 // (lecture rapide, étude approfondie ou cession à un collectionneur) ; une fois les trois réunis, une énigme se pose.
 // La bonne réponse révèle un lieu unique (repère sur la carte), un bonus permanent et un plan de forge.
 export const ARCHAEO_MIN_TH = 4;
-export const CLUE_EVERY = { explored: 6, dungeons: 2 }; // un indice tous les 6 lieux explorés ou 2 donjons vidés
+export const CLUE_EVERY = { explored: 10, dungeons: 3 }; // premier indice : 10 lieux explorés ou 3 donjons vidés ; ×2, ×3… pour les suivants
+export const CLUE_REST_H = 36; // délai minimal entre un mystère résolu et l'indice suivant
 export const DIG = {
   cost: (th) => ({ gold: 80 + 30 * th, food: 120 + 20 * th }),
   minutes: (dist) => Math.round(20 + dist * 1.5),

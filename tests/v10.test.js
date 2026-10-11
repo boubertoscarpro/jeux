@@ -198,3 +198,19 @@ test('Migration : une sauvegarde sans les données v10 se charge et le jeu tourn
   assert.ok(Number.isFinite(st.resources.food));
   assert.equal(memoryScore(st.factions[0], T0), 0);
 });
+
+test('Nouvelles chroniques : elles ne naissent que si la situation existe', () => {
+  const s = createNewState({ seed: 'chron2', now: T0 });
+  for (const f of s.factions) { f.wars = []; f.weariness = 0; f.stance = 'neutral'; f.army = 5; }
+  assert.equal(PICKERS.exile(s), null, 'pas de faction en crise');
+  assert.equal(PICKERS.factionHunger(s), null);
+  assert.equal(PICKERS.tradeFair(s), null, 'pas de marché');
+  assert.equal(PICKERS.borderIncident(s), null, 'pas d’avant-poste');
+  s.factions[2].wars = [4];
+  assert.equal(PICKERS.exile(s).faction, 2);
+  const f = s.factions[1], [fx, fy] = f.territory[0].split(',').map(Number);
+  s.territories[`${fx + 2},${fy}`] = { id: 'o', name: 'Tour', x: fx + 2, y: fy, terrain: 'plain', level: 1, garrison: {} };
+  assert.ok(PICKERS.borderIncident(s), 'un avant-poste proche de ses terres');
+  for (const id of ['cityPlague', 'exile', 'tradeFair', 'borderIncident', 'factionHunger']) assert.ok(SAGAS[id]?.chronicle, id);
+  assert.ok(Object.keys(SAGAS).length >= 17);
+});

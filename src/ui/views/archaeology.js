@@ -41,7 +41,7 @@ export default {
     const cp = clueProgress(s), nx = nextMystery(s);
     const head = `<div class="card"><h2>🏺 Mystères archéologiques</h2>
       <p class="small muted">Certaines découvertes ne livrent pas un trésor mais un indice. Chaque mystère cache trois fragments dans trois régions : explorez la zone indiquée pour localiser chaque site, envoyez une équipe de fouille, étudiez les fragments, puis résolvez l’énigme pour retrouver un lieu oublié.</p>
-      ${a.active ? '' : nx ? `<p class="small">Prochain indice : explorez encore ${Math.max(0, cp.need.explored - cp.explored)} lieu(x) ou videz ${Math.max(0, cp.need.dungeons - cp.dungeons)} donjon(s)${thLevel(s) < MYSTERIES[nx].th ? ` (hôtel de ville ${MYSTERIES[nx].th} requis)` : ''}.</p>` : '<p class="small good">Tous les mystères connus sont résolus.</p>'}</div>`;
+      ${a.active ? '' : nx ? `<p class="small">Prochain indice : explorez encore ${Math.max(0, cp.need.explored - cp.explored)} lieu(x) ou videz ${Math.max(0, cp.need.dungeons - cp.dungeons)} donjon(s)${thLevel(s) < MYSTERIES[nx].th ? ` (hôtel de ville ${MYSTERIES[nx].th} requis)` : ''}${cp.restUntil > Date.now() ? ` — les érudits classent encore la dernière découverte (${countdown(cp.restUntil)})` : ''}.</p>` : '<p class="small good">Tous les mystères connus sont résolus.</p>'}</div>`;
     const solved = MYSTERY_ORDER.filter((id) => a.solved[id]);
     return `${head}${a.active ? activeCard(app, a.active) : ''}
       <div class="card"><h3>🏛️ Lieux retrouvés <span class="muted small">${solved.length}/${MYSTERY_ORDER.length}</span></h3>

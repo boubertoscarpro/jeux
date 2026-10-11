@@ -1,4 +1,5 @@
 import { TECHS, BRANCHES, MAX_MASTERIES, techCost, techLibraryReq } from '../../data/techs.js';
+import { gameIcon } from '../icons.js';
 import { fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { techStatus, startResearch, researchTime, researchCost, masteriesTaken } from '../../systems/research.js';
@@ -18,12 +19,12 @@ export default {
       <p class="muted small">${lib ? `Bibliothèque niv. ${lib} · vitesse de recherche +${Math.round((mods['research.speed'] || 0) * 100)}%` : '⚠️ Construisez une Bibliothèque pour rechercher.'}
        · Maîtrises : <b>${masteriesTaken(s)}/${MAX_MASTERIES}</b> — vous ne pourrez pas tout maîtriser : spécialisez votre royaume. Certaines doctrines sont <b>exclusives</b>.</p>
       ${active ? `<div class="panel-sub">En cours : <b>${esc(TECHS[active.tech].name)}</b> · ${countdown(active.end)}${progress(active.start, active.end)}</div>` : ''}
-      <div class="tabs"><button class="tab ${!branch ? 'active' : ''}" data-action="branch" data-b="">Toutes</button>${Object.entries(BRANCHES).map(([k, b]) => `<button class="tab ${branch === k ? 'active' : ''}" data-action="branch" data-b="${k}">${b.icon} ${esc(b.name)}</button>`).join('')}</div>
+      <div class="tabs"><button class="tab ${!branch ? 'active' : ''}" data-action="branch" data-b="">Toutes</button>${Object.entries(BRANCHES).map(([k, b]) => `<button class="tab ${branch === k ? 'active' : ''}" data-action="branch" data-b="${k}">${gameIcon('b_' + k, 16, b.icon)} ${esc(b.name)}</button>`).join('')}</div>
     </div>
     <div class="tech-tree">${branches.map(([bk, b]) => {
       const techs = Object.entries(TECHS).filter(([, t]) => t.branch === bk).sort((a, c) => a[1].tier - c[1].tier);
       const done = techs.filter(([id]) => s.techs[id]).length;
-      return `<div class="branch"><h3>${b.icon} ${esc(b.name)} <span class="muted small">${done}/${techs.length}</span></h3><div class="muted small">${esc(b.desc)}</div>
+      return `<div class="branch"><h3>${gameIcon('b_' + bk, 22, b.icon)} ${esc(b.name)} <span class="muted small">${done}/${techs.length}</span></h3><div class="muted small">${esc(b.desc)}</div>
         ${techs.map(([id, t]) => {
           const st = techStatus(s, id);
           return `<div class="tech tech-${st.status} ${t.mastery ? 'mastery' : ''}">

@@ -54,7 +54,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 165 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
+npm test        # 166 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/profileSim.js --policies 7 3   # comparaison des priorités royales
@@ -62,6 +62,7 @@ node tools/profileSim.js --projects 7 3   # effet des grands projets sur l’éc
 node tools/economySim.js 90 40   # simulation de l'économie des Éclats (occasionnel / actif / hardcore)
 npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
 npm run smoke   # test de fumée de la version compilée dans Chromium (nécessite Playwright)
+npm run layout  # tests de rendu : les 39 écrans à 4 tailles (téléphone → grand écran), nécessite Playwright
 ```
 
 - `src/core` : état, moteur temporel, sauvegarde
