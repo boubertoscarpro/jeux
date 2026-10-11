@@ -176,6 +176,40 @@ export function setGarrison(state, k, units) {
   return { ok: true };
 }
 
+// Ordre à distance : complète la garnison avec les troupes disponibles au château (infanterie et archers d'abord)
+export const GARRISON_ORDER = ['spearman', 'swordsman', 'heavy', 'archer', 'crossbow', 'lightcav', 'knight', 'heavycav'];
+export function fillGarrison(state, k) {
+  const t = state.territories[k];
+  if (!t) return { ok: false, reason: 'Territoire introuvable' };
+  let left = Math.max(0, garrisonNeed(t) - unitSum(t.garrison));
+  if (!left) return { ok: false, reason: 'Garnison déjà complète' };
+  t.garrison ||= {};
+  let moved = 0;
+  const order = [...GARRISON_ORDER, ...Object.keys(UNITS).filter((u) => !GARRISON_ORDER.includes(u) && !['special', 'siege'].includes(UNITS[u].class))];
+  for (const u of order) {
+    if (left <= 0) break;
+    if (!UNITS[u] || UNITS[u].class === 'special') continue;
+    const n = Math.min(left, state.army[u] || 0);
+    if (n > 0) { state.army[u] -= n; t.garrison[u] = (t.garrison[u] || 0) + n; left -= n; moved += n; }
+  }
+  if (!moved) return { ok: false, reason: 'Aucune troupe disponible au château' };
+  return { ok: true, moved, missing: left };
+}
+
+// Bilan d'un avant-poste pour la vue comparative : production et bonus effectifs, entretien, état
+export function outpostReport(state, k, now = Date.now()) {
+  const t = state.territories[k];
+  const st = outpostStatus(state, t, now);
+  const sp = specOf(t);
+  const aff = sp ? specAffinity(state, t).mult : 1;
+  const lvl = t.level || 1;
+  const prod = {};
+  if (sp?.prod) for (const [r, v] of Object.entries(sp.prod)) prod[r] = v * lvl * st.eff * aff;
+  const mods = {};
+  if (sp?.mods) for (const [m, v] of Object.entries(sp.mods)) mods[m] = v * lvl * st.eff * aff;
+  return { k, t, st, sp, aff, prod, mods, upkeep: outpostUpkeep(t), up: outpostUpgradeCheck(state, k), cat: sp ? specCategory(sp.id) : null };
+}
+
 export function outpostUpkeep(t) {
   return Object.fromEntries(Object.entries(UPKEEP_PER_LEVEL).map(([r, v]) => [r, v * (t.level || 1)]));
 }

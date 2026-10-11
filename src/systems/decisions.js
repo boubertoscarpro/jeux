@@ -18,7 +18,7 @@ import { maxHeroes } from './tavern.js';
 import { log, toast } from './log.js';
 import { shardState } from './shards.js';
 import { castleName, outpostLabel } from './identity.js';
-import { garrisonNeed } from './territory.js';
+import { garrisonNeed, fillGarrison } from './territory.js';
 import { OUTPOST_THREATS } from '../data/territories.js';
 import { levelOf } from './city.js';
 
@@ -247,13 +247,8 @@ export function applyDecisionFx(state, p, fx, now) {
         parts.push(`${n} lanciers engagés pour « ${outpostLabel(t)} » (−${fmt(cost)} 🪙)`);
       }
       if (fx.outpostReinforce) {
-        let left = missingN, moved = 0;
-        for (const u of ['spearman', 'swordsman', 'archer', 'crossbow', 'knight']) {
-          if (left <= 0) break;
-          const n = Math.min(left, state.army[u] || 0);
-          if (n > 0) { state.army[u] -= n; t.garrison[u] = (t.garrison[u] || 0) + n; left -= n; moved += n; }
-        }
-        parts.push(moved ? `${moved} soldat(s) envoyés à « ${outpostLabel(t)} »` : 'aucune troupe disponible au château');
+        const r = fillGarrison(state, c.key);
+        parts.push(r.ok ? `${r.moved} soldat(s) envoyés à « ${outpostLabel(t)} »` : 'aucune troupe disponible au château');
       }
       if (fx.outpostEvac) { t.evacUntil = now + 3 * 3600000; parts.push(`réserves de « ${outpostLabel(t)} » évacuées (production suspendue 3 h)`); }
     }

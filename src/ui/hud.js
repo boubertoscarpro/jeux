@@ -33,6 +33,8 @@ import { missionList, missionState, claimDynMission, missionsUnlocked } from '..
 import { rewardText as rwText } from '../systems/rewards.js';
 import { upIcon } from './art.js';
 import { castleName } from '../systems/identity.js';
+import { activePolicy, policyState } from '../systems/policy.js';
+import { POLICIES } from '../data/policies.js';
 
 const MAIN = ['wood', 'stone', 'iron', 'food', 'gold'];
 
@@ -71,6 +73,7 @@ export function renderTopbar(app) {
     </div>
     <button class="res-more side-toggle" data-action="toggle-side" title="Files & objectifs">📋</button>
     <div class="top-status">
+      ${(() => { const a = activePolicy(s, now), p = policyState(s); return a && a !== 'balanced' ? `<button class="chip" data-action="nav" data-view="policy" title="Priorité royale">${POLICIES[a].icon} ${esc(POLICIES[a].name)}</button>` : p.pending ? `<button class="chip" data-action="nav" data-view="policy" title="Réorganisation en cours">⏳ ${esc(POLICIES[p.pending].name)}</button>` : ''; })()}
       <span class="chip" title="${esc(calendar(s, now).season.desc)}">${calendar(s, now).season.icon} An ${calendar(s, now).year} · ${esc(calendar(s, now).season.name)}</span>
       <span class="chip" title="${esc(w.note)}">${w.icon} ${esc(w.name)} · ${countdown(s.weather.until)}</span>
       ${s.catastrophe && s.catastrophe.until > now ? `<span class="chip chip-bad" title="${esc(CATASTROPHES[s.catastrophe.key].text)}">${CATASTROPHES[s.catastrophe.key].icon} ${esc(CATASTROPHES[s.catastrophe.key].name)} · ${countdown(s.catastrophe.until)}</span>` : ''}

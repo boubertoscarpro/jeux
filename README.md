@@ -24,6 +24,7 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 | Catégorie | Contenu |
 |---|---|
 | 👑 Spécialisations | Moissons, Fer, Marchands, Érudits, Pionniers, Bastions, Ombres, Anciens : bonus et malus permanents branchés sur les formules du jeu ; origines (province impériale, colonie frontalière, communauté reconstruite) ; difficultés (Guidé, Classique, Expert) — voir [`docs/KINGDOMS.md`](docs/KINGDOMS.md) |
+| 👑 Priorité royale | Orientation stratégique du royaume (Prospérité, Défense, Expansion, Commerce) avec bonus et malus, réorganisation, lien avec les missions et l’Intendance |
 | 📖 Parcours | **Quêtes du royaume** (11 chaînes en 7 catégories), **missions dynamiques** adaptées au royaume, tableau de bord, aide ❓ sur chaque écran ; 8 chapitres (du *Dernier hameau* au *Royaume prend son envol*), missions détectées automatiquement, récompenses uniques, exercice d'entraînement sans perte, missions royales du jour, objectifs à long terme, conseiller du tableau de bord (complet / réduit / désactivé), tutoriel relisible |
 | 🏰 Royaume | Grille de construction **24×16 dès le départ** (jusqu'à 40×24), **cases de 64 px et bâtiments illustrés**, icônes ⬆ des améliorations possibles et compteur, infobulles, **château principal nommé par le joueur**, zoom et déplacement, bonus d'adjacence (rivière, forêt, montagne), routes, agrandissement du domaine, fortifications ; **tableau des objectifs** (court / moyen / long terme) et **sagas** narratives |
 | 🗺️ Monde | Carte procédurale **96×96** (cases de 40 px, terrains texturés, frontières ennemies/alliées/neutres, étiquettes sans chevauchement, armées animées, **avant-postes nommés** avec spécialités et affinité) (plus de 600 lieux, 12 cités libres), zoom à la molette ou au pincement centré sur le curseur, mini-carte, filtres de lieux, accès rapide aux lieux découverts, brouillard, sites de farm à risque, donjons procéduraux, boss mondiaux, 5 factions IA, diplomatie, espionnage ; **territoires spécialisés** (avant-postes, garnison, entretien, menaces) |
@@ -42,9 +43,10 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 135 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
+npm test        # 139 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
+node tools/profileSim.js --policies 7 3   # comparaison des priorités royales
 node tools/economySim.js 90 40   # simulation de l'économie des Éclats (occasionnel / actif / hardcore)
 npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
 npm run smoke   # test de fumée de la version compilée dans Chromium (nécessite Playwright)

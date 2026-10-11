@@ -27,6 +27,7 @@ import statsView from './views/stats.js';
 import treasuryView from './views/treasury.js';
 import ecoReportView from './views/ecoReport.js';
 import goalsView from './views/goals.js';
+import policyView from './views/policy.js';
 import territoriesView from './views/territories.js';
 import eventView from './views/events.js';
 import eventShopView from './views/eventShop.js';
@@ -47,7 +48,7 @@ import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, policyView] },
   { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },

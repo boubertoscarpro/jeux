@@ -811,3 +811,18 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .quest-line .story { margin: 4px 0; }
 .mission-box .quest-title { font-size: 12.5px; }
 .subnav .help-btn { margin-left: auto; }
+/* ---------- Priorité royale et vue d'ensemble des avant-postes ---------- */
+.policy-now { margin: 8px 0; padding: 8px 10px; border: 1px solid var(--gold2); border-radius: 9px; background: rgba(226, 184, 74, 0.08); }
+.policy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.policy-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.policy-card.current { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold2); }
+.policy-head { display: flex; align-items: center; gap: 8px; font-family: var(--title); }
+.policy-icon { font-size: 26px; font-family: var(--emoji); }
+.policy-list { margin: 0; padding-left: 4px; list-style: none; }
+.policy-card .btn { margin-top: auto; }
+.table-wrap { overflow-x: auto; }
+.op-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.op-table th, .op-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.op-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.op-table .warn-row { background: rgba(242, 165, 65, 0.06); }
+.op-table tfoot td { border-top: 2px solid var(--line); }

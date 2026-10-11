@@ -17,6 +17,8 @@ import { levelProdFactor } from '../data/buildings.js';
 import { isRevealed, distCap } from './world.js';
 import { outpostLabel } from './identity.js';
 import { grantReward } from './rewards.js';
+import { activePolicy } from './policy.js';
+import { POLICIES } from '../data/policies.js';
 import { log, toast } from './log.js';
 
 export const MISSION_MAX = 3;
@@ -50,6 +52,8 @@ export function playStyle(state) {
   if ((st.explored || 0) > 25) style.explore += 0.5;
   if (Object.keys(state.techs || {}).length > 6) style.know += 0.5;
   if (Object.keys(state.territories || {}).length >= 2) style.outpost += 0.5;
+  // La priorité royale oriente aussi les missions proposées
+  for (const t of POLICIES[activePolicy(state) || 'balanced']?.tags || []) style[t] += 1;
   return style;
 }
 

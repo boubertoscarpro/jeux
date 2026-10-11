@@ -5,7 +5,7 @@ import { RESOURCES } from '../../data/resources.js';
 import { fmt } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { territoryLimit } from '../../systems/world.js';
-import { specOf, outpostStatus, setSpec, upgradeOutpost, setGarrison, outpostUpkeep, garrisonNeed, outpostUpgradeCheck, specAffinity, specCategory } from '../../systems/territory.js';
+import { specOf, outpostStatus, setSpec, upgradeOutpost, setGarrison, outpostUpkeep, garrisonNeed, outpostUpgradeCheck, specAffinity, specCategory, outpostReport, fillGarrison } from '../../systems/territory.js';
 import { outpostLabel } from '../../systems/identity.js';
 import { openRenameOutpost } from '../upgrades.js';
 import { upIcon } from '../art.js';
@@ -13,6 +13,28 @@ import { esc, costList, countdown } from '../components.js';
 
 const prodText = (sp, lvl) => Object.entries(sp.prod || {}).map(([r, v]) => `${RESOURCES[r].icon} ${fmt(v * lvl)}/h`).join(' ');
 const modText = (sp, lvl) => Object.entries(sp.mods || {}).map(([k, v]) => `${k} +${Math.round(v * lvl * 1000) / 10} %`).join(', ');
+
+// Vue comparative : tous les avant-postes sur une ligne chacun, ordres à distance et bilan total
+function overview(app, list) {
+  const s = app.state, now = Date.now();
+  const reps = list.map(([k]) => outpostReport(s, k, now));
+  const tot = {}, up = {};
+  for (const r of reps) { for (const [res, v] of Object.entries(r.prod)) tot[res] = (tot[res] || 0) + v; for (const [res, v] of Object.entries(r.upkeep)) up[res] = (up[res] || 0) + v; }
+  const chips = (o) => Object.entries(o).filter(([, v]) => v > 0.05).map(([r, v]) => `${RESOURCES[r].icon} ${fmt(v)}`).join(' ') || '—';
+  return `<div class="card"><h3>📊 Vue d’ensemble <span class="muted small">production, garnison, entretien et menaces</span></h3>
+    <div class="table-wrap"><table class="op-table"><thead><tr><th>Avant-poste</th><th>Spécialité</th><th>Niv.</th><th>Production /h</th><th>Garnison</th><th>Entretien /h</th><th>État</th><th>Ordres</th></tr></thead><tbody>
+    ${reps.map((r) => `<tr class="${r.st.eff < 1 ? 'warn-row' : ''}">
+      <td><b>${esc(outpostLabel(r.t))}</b><div class="small muted">${esc(TERRAINS[r.t.terrain].name)} (${r.t.x}, ${r.t.y})</div></td>
+      <td>${r.sp ? `${r.sp.icon} ${esc(r.sp.name)}${r.cat ? `<div class="small muted">${esc(r.cat.name.replace('Avant-poste ', ''))} · affinité +${Math.round((r.aff - 1) * 100)} %</div>` : ''}` : '<span class="req small">à choisir</span>'}</td>
+      <td>${r.t.level || 1}</td>
+      <td class="small">${chips(r.prod)}${Object.keys(r.mods).length ? `<div class="muted">+ ${Object.entries(r.mods).map(([m, v]) => `${esc(m)} ${(v * 100).toFixed(1)} %`).join(', ')}</div>` : ''}</td>
+      <td class="${r.st.garrison < r.st.need ? 'bad' : 'ok'}">${r.st.garrison}/${r.st.need}</td>
+      <td class="small">${chips(r.upkeep)}</td>
+      <td class="small">${r.st.eff >= 1 ? '<span class="ok">✔ actif</span>' : `<span class="bad">${Math.round(r.st.eff * 100)} %</span>`}${r.t.threatAt > now ? `<div class="bad">⚠️ attaque dans ${countdown(r.t.threatAt)}</div>` : ''}${r.t.pillagedUntil > now ? '<div class="bad">pillé</div>' : ''}</td>
+      <td><div class="row gap wrap">${r.st.garrison < r.st.need ? `<button class="mini" data-action="tr-fill" data-k="${esc(r.k)}" title="Envoyer des troupes du château pour compléter la garnison">🛡️ Garnison</button>` : ''}${r.up.status === 'ready' ? `<button class="mini primary" data-action="tr-up" data-k="${esc(r.k)}">⬆ Niv. ${r.up.next}</button>` : ''}<button class="mini ghost" data-action="tr-rename" data-k="${esc(r.k)}" title="Renommer">✎</button></div></td></tr>`).join('')}
+    </tbody><tfoot><tr><td colspan="3"><b>Total</b></td><td class="small">${chips(tot)}</td><td></td><td class="small">${chips(up)}</td><td colspan="2">${reps.some((r) => r.st.garrison < r.st.need) ? '<button class="mini" data-action="tr-fill-all">🛡️ Compléter toutes les garnisons</button>' : ''}</td></tr></tfoot></table></div>
+    <p class="small muted">Production effective (après garnison, état et affinité). Les ordres « Garnison » prélèvent des soldats au château : gardez-en assez pour défendre la capitale.</p></div>`;
+}
 
 function card(app, k, t) {
   const s = app.state;
@@ -53,12 +75,15 @@ export default {
     return `<div class="card"><h2>🚩 Territoires & avant-postes <span class="muted small">${list.length}/${territoryLimit(s, computeMods(s))}</span></h2>
       <p class="small muted">Chaque avant-poste a son propre nom (✎ pour le changer) et une <b>spécialité</b> liée à son terrain : forestier, minier, agricole, commercial, militaire ou du savoir. L’<b>affinité</b> (cases favorables et gisements à proximité) augmente jusqu’à +30 % sa production et ses bonus : choisissez bien l’emplacement. Un territoire se conquiert sur la Carte (case explorée, nettoyée, à portée). Il faut ensuite le <b>spécialiser</b>, l’<b>améliorer</b>, y laisser une <b>garnison</b> et payer son <b>entretien</b>. Une garnison insuffisante réduit la production de 70 % et double le risque d’attaque ; un avant-poste pillé ne produit plus pendant 3 h.</p>
       ${list.length ? '' : '<p>Aucun territoire pour l’instant. Sélectionnez une case sur la Carte pour établir un avant-poste.</p><button class="btn" data-action="nav" data-view="world">🗺️ Ouvrir la carte</button>'}</div>
+      ${list.length ? overview(app, list) : ''}
       ${list.map(([k, t]) => card(app, k, t)).join('')}`;
   },
   actions: {
     'tr-spec': (app, el) => app.act(() => setSpec(app.state, el.dataset.k, el.dataset.s), 'Spécialisation choisie'),
     'tr-up': (app, el) => app.act(() => upgradeOutpost(app.state, el.dataset.k), 'Avant-poste amélioré'),
     'tr-rename': (app, el) => openRenameOutpost(app, el.dataset.k),
+    'tr-fill': (app, el) => app.act(() => fillGarrison(app.state, el.dataset.k), (r) => `${r.moved} soldat(s) envoyé(s)${r.missing ? ` (il en manque encore ${r.missing})` : ''}`),
+    'tr-fill-all': (app) => app.act(() => { let n = 0; for (const k of Object.keys(app.state.territories)) { const r = fillGarrison(app.state, k); if (r.ok) n += r.moved; } return n ? { ok: true, n } : { ok: false, reason: 'Aucune troupe disponible au château, ou garnisons déjà complètes' }; }, (r) => `${r.n} soldat(s) envoyé(s) dans les avant-postes`),
     'tr-garrison': (app, el) => {
       const k = el.dataset.k;
       const units = {};

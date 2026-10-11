@@ -58,6 +58,12 @@ const H = {
     ['Utiliser', 'Un héros commande une marche, ou administre un secteur comme intendant. La forge et le laboratoire équipent vos héros.'],
   ] },
 };
+H.policy = { title: '👑 Priorité royale', sections: [
+  ['Principe', 'Une orientation générale du royaume : Prospérité (production), Défense (garnisons, fortifications), Expansion (exploration, avant-postes) ou Commerce (caravanes, contrats). Chacune a des avantages et un coût affichés ; aucune n’est meilleure en tout.'],
+  ['Changer', 'Une réorganisation d’une heure suit chaque changement (aucun effet pendant ce temps), puis il faut attendre 4 h avant d’en changer à nouveau. Revenir à l’Équilibre est immédiat.'],
+  ['Liens', 'La priorité oriente les missions du royaume proposées et peut aligner l’ordre des secteurs d’ouvriers (Intendance, palier 4).'],
+] };
+
 // Les sous-écrans partagent l'aide de leur catégorie
 const ALIAS = { steward: 'ecoReport', workers: 'ecoReport', expeditions: 'ecoReport', chains: 'ecoReport', convoys: 'market', talents: 'research', craft: 'heroes' };
 export const helpFor = (viewId) => H[viewId] || H[ALIAS[viewId]] || null;

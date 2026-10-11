@@ -2,6 +2,7 @@
 // Profils : occasionnel, actif, très optimisé, économie, armée, exploration.
 // Lancer : node tools/profileSim.js [jours] [graines]
 //         node tools/profileSim.js --kingdoms [jours] [graines]   (comparaison des 8 spécialisations)
+//         node tools/profileSim.js --policies [jours] [graines]   (comparaison des priorités royales)
 import { createNewState } from '../src/core/state.js';
 import { advance } from '../src/core/engine.js';
 import { serialize } from '../src/core/save.js';
@@ -32,6 +33,8 @@ import { TERRITORY_SPECS } from '../src/data/territories.js';
 import { recruitWorker, assignMany, housing } from '../src/systems/workforce.js';
 import { unlockAutomation } from '../src/systems/automation.js';
 import { shardState } from '../src/systems/shards.js';
+import { setPolicy, policyState } from '../src/systems/policy.js';
+import { POLICIES } from '../src/data/policies.js';
 
 const H = 3600000;
 const ECO = ['farm', 'sawmill', 'quarry', 'mine', 'house', 'warehouse', 'mill', 'bakery', 'market', 'charcoal', 'foundry', 'library', 'herbalist', 'hunter', 'tannery', 'weaver', 'carpentry', 'fishery'];
@@ -124,7 +127,7 @@ const isActive = (p, t) => {
   return hour >= p.from && hour < p.to && min % p.every < 10;
 };
 
-export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, checkpoints = []) {
+export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, checkpoints = [], policy = null) {
   const p = PROFILES[profileKey];
   rng.setSource(mulberry32(seed * 131 + profileKey.length * 7));
   const T0 = Date.UTC(2026, 5, 1, 0, 0);
@@ -135,6 +138,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
   for (let i = 0; i < (days * 24 * H) / STEP; i++) {
     t += STEP;
     advance(s, t);
+    if (policy && thLevel(s) >= 3 && policyState(s).id !== policy && policyState(s).pending !== policy) setPolicy(s, policy, t);
     if (isActive(p, t)) session(s, p, t);
     if (s.famine) famineMin += 10;
     if (i % 6 === 0) {
@@ -177,7 +181,23 @@ function kingdomTable(days, seeds) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--kingdoms') {
+// Comparaison des priorités royales : profil « Actif », adoptée dès l'hôtel de ville 3
+function policyTable(days, seeds) {
+  const cps = [3, days];
+  console.log(`Priorités royales — profil Actif, ${seeds} partie(s), relevés à ${cps.join(' / ')} jours\n`);
+  console.log('| Priorité | HdV | Niv. bâtiments | Technos | Victoires | Défaites | Cases explorées | Avant-postes | Contrats | Or/h (fin) | Richesse (fin) | Raids perdus | Famine (h) |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const k of Object.keys(POLICIES)) {
+    const runs = Array.from({ length: seeds }, (_, i) => simulate('active', days, i + 1, null, cps, k));
+    const avg = (f) => Math.round(runs.reduce((a, r) => a + f(r), 0) / runs.length * 10) / 10;
+    const f2 = (f) => cps.map((d) => avg((r) => f(r.snaps[d] || {}))).join(' / ');
+    console.log(`| ${POLICIES[k].icon} ${POLICIES[k].name} | ${f2((x) => x.th || 0)} | ${f2((x) => x.levels || 0)} | ${f2((x) => x.techs || 0)} | ${avg((r) => r.battlesWon)} | ${avg((r) => r.battlesLost)} | ${avg((r) => r.explored)} | ${avg((r) => r.territories)} | ${avg((r) => r.contracts)} | ${avg((r) => r.goldPerH)} | ${avg((r) => r.wealth)} | ${avg((r) => r.raidsLost)} | ${avg((r) => r.famineH)} |`);
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--policies') {
+  policyTable(+(process.argv[3] || 7), +(process.argv[4] || 2));
+} else if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--kingdoms') {
   kingdomTable(+(process.argv[3] || 7), +(process.argv[4] || 2));
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const days = +(process.argv[2] || 7), seeds = +(process.argv[3] || 2);
