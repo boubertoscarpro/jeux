@@ -126,6 +126,10 @@ export function netRates(state, mods) {
   return net;
 }
 
+// Écoulement des surplus par le marché : 15 % du prix, au plus 60 or par heure et par niveau de marché
+export const OVERFLOW_RATE = 0.15;
+export const OVERFLOW_GOLD_PER_LVL = 60;
+
 export function addResource(state, res, amount, mods, cap = null) {
   if (!RESOURCES[res] || !amount) return 0;
   const before = state.resources[res] || 0;
@@ -150,6 +154,12 @@ export function advanceEconomy(state, dt, mods) {
   const buildings = allBuildings(state).filter((b) => b.level > 0);
   const roads = roadConnected(state);
 
+  // Débordement : la production qui ne rentre plus dans l'entrepôt est écoulée par le marché à 15 % de son prix
+  // (s'il existe), sinon perdue. Vendre soi-même rapporte toujours bien davantage.
+  const marketLvl = buildings.reduce((m, b) => (b.type === 'market' ? Math.max(m, b.level) : m), 0);
+  const market = marketLvl > 0;
+  const over = (state.stats.overflow ||= {});
+  let overGold = 0;
   // 1) Production simple
   for (const b of buildings) {
     if (b.paused || recipeOf(b)) continue;
@@ -157,8 +167,12 @@ export function advanceEconomy(state, dt, mods) {
     for (const [k, v] of Object.entries(r.out)) {
       const got = addResource(state, k, v * h, mods, capOf(k));
       produced[k] = (produced[k] || 0) + got;
+      const lost = v * h - got;
+      if (lost > 1e-6 && isCapped(k)) { over[k] = (over[k] || 0) + lost; if (market) overGold += lost * (RESOURCES[k].price || 0) * OVERFLOW_RATE; }
     }
   }
+  overGold = Math.min(overGold, OVERFLOW_GOLD_PER_LVL * marketLvl * h);
+  if (overGold > 0) { state.resources.gold = (state.resources.gold || 0) + overGold; state.stats.overflowGold = (state.stats.overflowGold || 0) + overGold; }
   // 2) Chaînes de transformation (quota de sortie, réserve d'entrée)
   for (const type of CONVERT_ORDER) {
     for (const b of buildings.filter((x) => x.type === type)) {

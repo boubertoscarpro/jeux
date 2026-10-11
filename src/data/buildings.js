@@ -328,8 +328,12 @@ export function buildingCost(type, level) {
   return out;
 }
 
+// Hôtel de ville : à partir du niveau 9, chaque niveau demande nettement plus de temps (×1,5 cumulés), pour que la
+// fin de partie et la fondation d'une dynastie (niveau 15) restent des objectifs de plusieurs semaines.
+export const TH_LATE_FROM = 9, TH_LATE_GROWTH = 1.5;
 export function buildingTime(type, level) {
-  return BUILDINGS[type].time * Math.pow(TIME_GROWTH, level - 1) * 1000;
+  const late = type === 'townhall' && level >= TH_LATE_FROM ? Math.pow(TH_LATE_GROWTH, level - TH_LATE_FROM + 1) : 1;
+  return BUILDINGS[type].time * Math.pow(TIME_GROWTH, level - 1) * 1000 * late;
 }
 
 export function levelProdFactor(level) {
