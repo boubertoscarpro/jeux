@@ -67,6 +67,43 @@ Aucune valeur invalide (NaN, ressource négative).
 - Pas d'abus possible : la démolition ne rembourse rien, et l'annulation rembourse 80 % de ce qui a été payé (donc rien).
 - Le cas est couvert par un test de non-régression.
 
+
+## Passe d'équilibrage v9 (stocks, raids, fin de partie)
+
+Mesures avant / après sur 7 jours, 2 parties par profil (`node tools/profileSim.js 7 2`). Le joueur simulé finance
+aussi les grands projets.
+
+| Profil | HdV avant → après | Raids subis / 7 j (après) | Raids perdus avant → après | Heures au plafond avant → après | Or des surplus écoulés (après) | Richesse finale avant → après |
+|---|---|---|---|---|---|---|
+| Occasionnel | 7,5 → 8 | 12 | 30,5 → 12 | 17 → 45 | 0 (pas de marché) | 24 110 → 37 664 |
+| Actif | 10,5 → 11 | 15 | 36 → 14 | 90,5 → 111 | 15 186 | 369 641 → 498 721 |
+| Très optimisé | 15 → 14 | 15,5 | 21 → 10,5 | 123,5 → 133 | 37 531 | 2 513 503 → 2 043 854 |
+| Économie | 11 → 11 | 14,5 | 39 → 14 | 35 → 46,5 | 12 375 | 463 731 → 710 758 |
+| Armée | 10,5 → 11 | 14,5 | 34 → 11,5 | 76,5 → 100,5 | 12 827 | 329 782 → 603 505 |
+| Exploration | 9 → 11 | 14 | 36 → 13,5 | 90 → 112,5 | 10 321 | 370 754 → 409 461 |
+
+**Corrections**
+
+1. **Raids** : trêve de 6 h après chaque raid (3 h auparavant) et 4 h de répit en plus après un pillage. Les royaumes
+   subissent désormais environ **2 raids par jour au plus** (contre 4 à 5) et en perdent 2 à 3 fois moins. Les raids
+   restent un défi régulier pour qui néglige sa défense, sans spirale de pertes.
+2. **Surplus** : avec un marché, la production qui déborde d'un entrepôt plein est écoulée à **15 % de son prix**,
+   plafonnée à 60 or par heure et par niveau de marché (`OVERFLOW_RATE`, `OVERFLOW_GOLD_PER_LVL`). Ce n'est qu'un filet :
+   environ 3 % de la richesse du profil Actif. Vendre soi-même, transformer ou investir (chantiers, grand projet)
+   reste nettement plus rentable. Le Bilan l'explique quand un entrepôt est plein.
+3. **Fin de partie** : à partir du niveau 9, chaque niveau d'hôtel de ville demande ×1,5 de temps supplémentaire
+   (cumulé). Le profil Très optimisé atteint le niveau 14 au lieu de 15 en 7 jours (610 niveaux de bâtiments au lieu
+   de 690) ; les autres profils, qui restent sous le niveau 12, ne sont pas freinés.
+
+**Effets à surveiller**
+
+- Moins de raids perdus = moins de ressources pillées : la richesse des joueurs actifs augmente (+35 % pour le profil
+  Actif), et leurs **heures au plafond augmentent** (90 → 111 h). Les raids servaient de puits de ressources. Le
+  plafond reste un signal, pas une perte sèche : le surplus est partiellement écoulé, le Bilan et le conseiller
+  proposent de vendre, transformer ou investir, et les grands projets absorbent les stocks. Les bots n'agissent pas
+  sur ces conseils (le profil Économie, qui vend ses surplus, reste à 46 h).
+- La dynastie (hôtel de ville 15) demande désormais davantage qu'une semaine, même en jeu très optimisé.
+
 ## Points observés, laissés en l'état (et pourquoi)
 
 **Raids fréquents contre les royaumes sans défense** (~2 à 5 par jour).

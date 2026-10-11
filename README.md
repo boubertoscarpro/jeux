@@ -44,7 +44,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 143 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
+npm test        # 146 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/profileSim.js --policies 7 3   # comparaison des priorités royales

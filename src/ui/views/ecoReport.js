@@ -14,7 +14,9 @@ export default {
     const alerts = [];
     if (r.famine) alerts.push('<div class="req">⚠️ <b>Famine</b> : l’entretien n’est plus payé. Moral −30 et formation d’unités impossible. Produisez de la nourriture ou réduisez l’armée.</div>');
     for (const x of r.shortages) alerts.push(`<div class="req">${x.icon} <b>${esc(x.name)}</b> : stock épuisé dans ${fmtTime(x.hoursLeft * 3600000)} (${rate(x.net)}). Gros consommateurs : ${top(x.users) || '—'}.</div>`);
-    for (const x of r.list.filter((l) => l.full && l.prod > 0)) alerts.push(`<div class="small warn-text">📦 ${x.icon} ${esc(x.name)} : entrepôt plein, la production est perdue. Vendez, consommez ou agrandissez l’entrepôt.</div>`);
+    const hasMarket = Object.values(s.city.buildings).some((b) => b.type === 'market' && b.level > 0);
+    for (const x of r.list.filter((l) => l.full && l.prod > 0)) alerts.push(`<div class="small warn-text">📦 ${x.icon} ${esc(x.name)} : entrepôt plein. ${hasMarket ? 'Le surplus est écoulé par le marché à 15 % de son prix seulement (plafonné selon le niveau du marché) : vendez-le vous-même (bien plus rentable), transformez-le ou investissez-le (chantiers, grand projet).' : 'La production est perdue : vendez, consommez ou agrandissez l’entrepôt (un marché écoulerait au moins une partie du surplus, à bas prix).'}</div>`);
+    if (s.stats.overflowGold > 0) alerts.push(`<div class="small muted">💰 Surplus écoulés automatiquement depuis le début : ${fmt(s.stats.overflowGold)} or.</div>`);
     return `<div class="card"><h2>⚖️ Bilan économique</h2>
       <p class="small muted">Valeurs <b>réelles par heure</b>, calculées avec les mêmes formules que la simulation : bonus de terrain, d’adjacence, de route, d’ouvriers, de technologies, de saison et d’événement compris. Une chaîne bloquée est comptée comme arrêtée.</p>
       ${alerts.join('') || '<div class="ok small">✔ Aucune pénurie prévue dans les 6 prochaines heures.</div>'}</div>

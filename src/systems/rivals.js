@@ -19,6 +19,10 @@ import { bumpRep, recordMax } from './reputation.js';
 import { chronicle } from './chronicle.js';
 
 export const PROTECTION_TH = 4;
+// Trêve après un raid (6 h, contre 3 auparavant) et répit supplémentaire après un pillage : les raids restent un
+// défi régulier (≈ 2 par jour au plus) sans tourner à la corvée ni à la spirale de pertes.
+export const RAID_TRUCE_H = 6;
+export const RAID_LOST_GRACE_H = 4;
 
 const kingdoms = (state) => Object.values(state.world.pois).filter((p) => p.type === 'kingdom');
 
@@ -84,7 +88,7 @@ export function rivalTick(state, now) {
   const mods = computeMods(state, now);
   const army = raidArmy(state, p, now);
   const warn = raidWarning(state, mods);
-  state.raidCooldown = now + warn + 3 * 3600 * 1000; // trêve après chaque raid
+  state.raidCooldown = now + warn + RAID_TRUCE_H * 3600 * 1000; // trêve après chaque raid
   state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0 });
   if (p.anger) p.anger--;
   log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre ${castleName(state)} ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);
@@ -131,6 +135,7 @@ export function resolveRaid(state, raid, t) {
       if (v > 0) { stolen[r] = v; state.resources[r] -= v; }
     }
     recordLoss(state, 'raid', stolen, t);
+    state.raidCooldown = Math.max(state.raidCooldown || 0, t + (RAID_TRUCE_H + RAID_LOST_GRACE_H) * 3600000); // les pillards repus laissent le royaume se relever
     text = `${castleName(state)} est pillé par ${raid.name} : ${Object.entries(stolen).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien (tout était à l’abri)'}.`;
     state.stats.raidsLost = (state.stats.raidsLost || 0) + 1;
     log(state, 'bad', `🔥 ${text}`, t);
