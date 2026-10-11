@@ -117,6 +117,7 @@ function sanitize(d, fresh) {
   if (d.shards) for (const k of ['count', 'tickets', 'mythicFragments', 'legendaryFragments', 'relicFragments']) if (!Number.isFinite(d.shards[k]) || d.shards[k] < 0) d.shards[k] = 0;
   // Références orphelines : héros marquant une marche disparue
   const marchIds = new Set([...(d.marches || []).map((m) => m.id), ...(d.live?.marches || []).map((m) => m.id)]);
+  if (d.war?.active?.op?.heroId) marchIds.add('war'); // héros engagé dans une opération de campagne
   for (const h of d.heroes || []) if (h.marchId && !marchIds.has(h.marchId)) h.marchId = null;
   return fixes;
 }

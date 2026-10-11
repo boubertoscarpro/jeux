@@ -29,6 +29,8 @@ import ecoReportView from './views/ecoReport.js';
 import goalsView from './views/goals.js';
 import policyView from './views/policy.js';
 import projectsView from './views/projects.js';
+import shopView from './views/shop.js';
+import warView from './views/warcampaign.js';
 import territoriesView from './views/territories.js';
 import eventView from './views/events.js';
 import eventShopView from './views/eventShop.js';
@@ -51,9 +53,9 @@ import { missionsTick } from '../systems/missions.js';
 export const GROUPS = [
   { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, policyView, projectsView] },
   { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView] },
-  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView] },
+  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
-  { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView] },
+  { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
   { id: 'g-tech', title: 'Technologies', icon: '🔬', tabs: [researchView, talentsView] },
   { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },

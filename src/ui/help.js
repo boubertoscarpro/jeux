@@ -72,6 +72,17 @@ H.projects = { title: '🏗️ Grands projets royaux', sections: [
   ['Récompense', 'Des bonus permanents modestes et un repère sur la carte du monde. Abandonner rend la moitié des apports de l’étape en cours ; les étapes achevées sont perdues.'],
 ] };
 
+H.campaigns = { title: '🎖️ Campagnes militaires', sections: [
+  ['Principe', 'Trois opérations contre une faction : sécuriser le col, prendre le fort frontalier, puis un objectif final au choix. Chaque succès rend la suite plus facile et affaiblit durablement la faction.'],
+  ['Engager ses troupes', 'Vous choisissez la part de l’armée engagée ; ces soldats quittent le château pendant l’opération (40 à 90 min). Gardez une garnison si un raid menace. Votre meilleur héros disponible accompagne l’opération et gagne de l’expérience.'],
+  ['Risques', 'L’aperçu donne l’issue probable et les pertes estimées. Deux revers terminent la campagne (relation en baisse) ; il faut ensuite 12 h de repos.'],
+] };
+H.shop = { title: '💎 Comptoir du Joaillier', sections: [
+  ['Monnaie', 'Uniquement des ressources rares gagnées en jeu : gemmes, cristaux, argent, minerai rare, bois ancien. Rien ne s’achète avec de l’argent réel.'],
+  ['Limites', 'Chaque article a une quantité quotidienne, renouvelée à minuit, pour ne pas remplacer la forge, le laboratoire ou la production.'],
+  ['Où trouver ces ressources', 'Donjons, grottes et gisements rares de la carte, avant-postes spécialisés (cristaux, mines profondes, bois de cœur), contrats, quêtes et événements.'],
+] };
+
 // Les sous-écrans partagent l'aide de leur catégorie
 const ALIAS = { steward: 'ecoReport', workers: 'ecoReport', expeditions: 'ecoReport', chains: 'ecoReport', convoys: 'market', talents: 'research', craft: 'heroes' };
 export const helpFor = (viewId) => H[viewId] || H[ALIAS[viewId]] || null;

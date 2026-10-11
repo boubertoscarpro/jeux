@@ -28,6 +28,7 @@ import { seasonTick } from '../systems/quests.js';
 import { sagaTick } from '../systems/sagas.js';
 import { policyTick } from '../systems/policy.js';
 import { projectTick } from '../systems/projects.js';
+import { warTick } from '../systems/warcampaign.js';
 import { inventoryCapTick } from '../systems/crafting.js';
 import { bus } from './bus.js';
 
@@ -92,6 +93,7 @@ function processDue(state, t) {
     sagaTick(state, t);
     policyTick(state, t);
     projectTick(state, t);
+    warTick(state, t);
     inventoryCapTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;

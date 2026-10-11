@@ -847,3 +847,21 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .stab-unrest { border-color: var(--bad); }
 .stab-unhappy { border-color: var(--warn); }
 .stab-prosperous { border-color: var(--good); }
+/* ---------- Comptoir du Joaillier ---------- */
+.shop-wallet { display: flex; flex-wrap: wrap; gap: 6px; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.shop-item { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.shop-item.avail { border-color: var(--gold2); }
+.shop-head > div { text-align: left; }
+.shop-head { display: flex; gap: 10px; align-items: flex-start; }
+.shop-icon { font-size: 28px; font-family: var(--emoji); }
+.shop-item .btn { align-self: flex-start; }
+/* ---------- Campagnes militaires ---------- */
+.war-targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.war-target { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.war-target .btn { align-self: flex-start; }
+.war-track { padding-left: 20px; }
+.war-track li { margin: 5px 0; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.15); }
+.war-track li.done { border-left: 3px solid var(--good); }
+.war-track li.current { border-left: 3px solid var(--gold); }
+.war-track li.locked { opacity: 0.6; }

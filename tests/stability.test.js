@@ -38,7 +38,9 @@ test('Stabilité : cible selon des facteurs visibles, dérive progressive, valeu
   assert.ok(Math.abs(stabOf(Object.values(back.territories)[0]) - stabOf(t)) < 1e-9, 'sauvegardée');
 });
 
-test('Stabilité : impôts (or contre satisfaction), festivités, effets sur la production', () => {
+test('Stabilité : impôts (or contre satisfaction), festivités, effets sur la production', (tc) => {
+  rng.setSource(() => 0.99); // aucune attaque aléatoire de l'avant-poste pendant le test
+  tc.after(() => rng.setSource(null));
   const { s, k, t } = setup();
   t.garrison = { spearman: garrisonNeed(t) };
   const base = stabilityTarget(s, t, T0);
