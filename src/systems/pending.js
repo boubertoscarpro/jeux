@@ -2,7 +2,7 @@ import { EXPLORE_EVENTS } from '../data/exploration.js';
 import { EXPEDITION_EVENTS } from '../data/workers.js';
 import { resolvePending } from './marches.js';
 import { resolveExpeditionEvent, resolveAnomaly, ANOMALY } from './expeditions.js';
-import { resolveDecision, decisionSource } from './decisions.js';
+import { resolveDecision, decisionSource, fillDilemma } from './decisions.js';
 import { describeRiddle, resolveRiddle } from './liveEvents.js';
 import { describeSaga, resolveSaga } from './sagas.js';
 
@@ -18,7 +18,7 @@ export function describePending(state, p) {
   }
   if (p.kind === 'dilemma' || p.kind === 'secret') {
     const src = decisionSource(p);
-    return { icon: src.icon, title: p.title, text: p.text, choices: src.choices.map((c) => ({ label: c.label, hint: c.hint })), deadline: p.deadline, def: src.default };
+    return { icon: src.icon, title: p.title, text: p.text, choices: src.choices.map((c) => ({ label: fillDilemma(c.label, p), hint: fillDilemma(c.hint, p) })), deadline: p.deadline, def: src.default };
   }
   const ev = EXPLORE_EVENTS[p.event];
   return { icon: '🧭', title: ev.title, text: ev.text, choices: ev.choices.map((c) => ({ label: c.label, hint: c.hint, cost: c.cost })), deadline: null, coords: `(${p.x}, ${p.y})` };

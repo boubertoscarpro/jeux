@@ -3,6 +3,7 @@ import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
 import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './state.js';
 import { extendWorld } from '../systems/worldgen.js';
 import { mulberry32 } from './rng.js';
+import { ensureIdentity } from '../systems/identity.js';
 
 export const SAVE_KEY = 'cendrelande_save';
 export const BACKUP_KEY = 'cendrelande_save_backup';     // dernière sauvegarde saine (rotation toutes les 10 min)
@@ -50,6 +51,13 @@ export const MIGRATIONS = {
     }
     const w = d.world;
     if (w && typeof w.terrain === 'string' && Array.isArray(w.revealed) && w.size > 0 && w.terrain.length === w.size * w.size && w.capital && w.pois) extendWorld(w, seed);
+    return d;
+  },
+  // v8 → v9 : identité stable (joueur, royaume, château), nom du château principal, identifiant et nom de chaque
+  // avant-poste (un nom médiéval par défaut est attribué aux avant-postes qui n'en ont pas), quêtes du royaume
+  // et missions dynamiques (ajouts purs, complétés par fill). Rien n'est retiré ni déplacé.
+  8: (d) => {
+    ensureIdentity(d);
     return d;
   },
 };
@@ -127,11 +135,15 @@ export function validateShape(data) {
 export function migrate(data) {
   const from = typeof data.version === 'number' ? data.version : 1;
   for (let v = from; v < SAVE_VERSION; v++) if (MIGRATIONS[v]) data = MIGRATIONS[v](data) || data;
+  // Identité (ids stables, noms) complétée AVANT fill : une partie importée ne reçoit jamais le nom par défaut
+  // d'un autre royaume ; les avant-postes sans nom reçoivent un nom par défaut
+  if (data.meta && typeof data.meta === 'object') ensureIdentity(data);
   const needCampaign = !data.campaign || typeof data.campaign !== 'object';
   const fresh = createNewState({ seed: data?.meta?.seed || 1, now: data?.meta?.lastTick || Date.now() });
   fill(data, fresh);
   if (needCampaign) { data.campaign = fresh.campaign; initLegacyCampaign(data, data.meta.lastTick || Date.now()); }
   const fixes = sanitize(data, createNewState({ seed: 1, now: Date.now() }));
+  ensureIdentity(data); // noms invalides (modifiés à la main) → noms par défaut
   data.version = SAVE_VERSION;
   if (from < SAVE_VERSION) data.meta.migratedFrom = from;
   if (fixes.length) data.meta.repaired = fixes;

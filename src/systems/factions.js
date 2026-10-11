@@ -1,3 +1,4 @@
+import { outpostLabel } from './identity.js';
 import { RIVALS, PERSONALITIES, STANCES, POI_TYPES } from '../data/world.js';
 import { ENEMY_UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
@@ -119,9 +120,10 @@ function expand(state, f, now) {
         // Conquête d'un avant-poste du joueur, seulement en guerre
         if (f.stance !== 'war') continue;
         if (rng.chance(0.5)) {
+          const lost = state.territories[nk];
           delete state.territories[nk];
-          chronicle(state, `${factionName(f.idx)} s’empare de votre avant-poste en (${nx}, ${ny}) !`, now);
-          toast(`🚩 Avant-poste perdu face à ${factionName(f.idx)}`, 'bad');
+          chronicle(state, `${factionName(f.idx)} s’empare de votre avant-poste ${outpostLabel(lost)} en (${nx}, ${ny}) !`, now);
+          toast(`🚩 Avant-poste ${outpostLabel(lost)} perdu face à ${factionName(f.idx)}`, 'bad');
         } else continue;
       }
       cands.push(nk);

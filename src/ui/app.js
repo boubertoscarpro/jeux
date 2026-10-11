@@ -27,6 +27,8 @@ import statsView from './views/stats.js';
 import treasuryView from './views/treasury.js';
 import ecoReportView from './views/ecoReport.js';
 import goalsView from './views/goals.js';
+import policyView from './views/policy.js';
+import projectsView from './views/projects.js';
 import territoriesView from './views/territories.js';
 import eventView from './views/events.js';
 import eventShopView from './views/eventShop.js';
@@ -37,13 +39,17 @@ import adminView from './views/admin.js';
 import { reportHtml } from './views/calendar.js';
 import { notifications } from '../systems/liveEvents.js';
 import { openAdvisor } from './advisor.js';
+import { openUpgradeList } from './upgrades.js';
+import { helpFor, openHelp } from './help.js';
 import { showTip } from './tips.js';
 import { markVisited, campaignTick } from '../systems/campaign.js';
 import { pruneAdvice } from '../systems/guide.js';
+import { questTick } from '../systems/questlines.js';
+import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, policyView, projectsView] },
   { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
@@ -162,6 +168,9 @@ export class App {
     if (!(this.cpTick > now - 3000)) {
       this.cpTick = now;
       try { if (campaignTick(this.state, now).length) this.dirty = true; pruneAdvice(this.state, now); } catch (e) { console.error(e); }
+      // Quêtes du royaume et missions dynamiques (détection, nouvelles propositions)
+      try { if (questTick(this.state, now).length) this.dirty = true; } catch (e) { console.error(e); }
+      try { if (missionsTick(this.state, now).length) this.dirty = true; } catch (e) { console.error(e); }
     }
     this.showEventReport();
     showTip(this);
@@ -224,11 +233,12 @@ export class App {
     this.$('#topbar').innerHTML = renderTopbar(this);
     const main = this.$('#view');
     const locked = view.locked?.(this);
-    const tabs = group.tabs.length > 1 ? `<div class="subnav">${group.tabs.map((t) => {
+    const helpBtn = helpFor(view.id) ? `<button class="subtab help-btn" data-action="help" title="Aide sur cet écran : mécanismes, coûts, prérequis">❓ Aide</button>` : '';
+    const tabs = group.tabs.length > 1 || helpBtn ? `<div class="subnav">${group.tabs.length > 1 ? group.tabs.map((t) => {
       const l = t.locked?.(this);
       const n = t.badge?.(this) || 0;
       return `<button class="subtab ${t.id === view.id ? 'active' : ''} ${l ? 'locked' : ''} ${t.id === this.ui.highlight ? 'tut-hl' : ''}" data-action="nav" data-view="${t.id}" title="${esc(l || t.title)}">${t.icon} ${esc(t.title)}${l ? ' 🔒' : ''}${n ? ` <span class="sub-badge">${n}</span>` : ''}</button>`;
-    }).join('')}</div>` : '';
+    }).join('') : ''}${helpBtn}</div>` : '';
     this.preserveInputs(main, () => {
       main.innerHTML = `${tabs}<div class="view view-${view.id}">${locked ? `<div class="card locked-card"><h2>🔒 ${esc(view.title)}</h2><p>${esc(locked)}</p><p class="muted small">Les systèmes avancés se débloquent au fil de votre progression : ils n’encombrent pas l’interface tant que vous n’en avez pas besoin.</p></div>` : view.render(this)}</div>`;
     });
@@ -304,6 +314,8 @@ export class App {
     'toggle-res': (app) => { app.ui.showAllRes = !app.ui.showAllRes; app.render(); },
     'toggle-side': (app) => { app.root.classList.toggle('show-side'); },
     advisor: (app) => openAdvisor(app),
+    'up-list': (app) => openUpgradeList(app),
+    help: (app) => openHelp(app, app.ui.view, groupOf(app.ui.view)),
     'kingdom-info': (app) => app.modal(`<h2>Votre royaume</h2>${kingdomInfoHtml(app.state)}`, {}, 'wide'),
     notifs: (app) => { app.openNotifications(); app.$('#topbar').innerHTML = renderTopbar(app); },
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),

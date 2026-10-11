@@ -2,6 +2,8 @@
 // Profils : occasionnel, actif, très optimisé, économie, armée, exploration.
 // Lancer : node tools/profileSim.js [jours] [graines]
 //         node tools/profileSim.js --kingdoms [jours] [graines]   (comparaison des 8 spécialisations)
+//         node tools/profileSim.js --policies [jours] [graines]   (comparaison des priorités royales)
+//         node tools/profileSim.js --projects [jours] [graines]   (effet des grands projets)
 import { createNewState } from '../src/core/state.js';
 import { advance } from '../src/core/engine.js';
 import { serialize } from '../src/core/save.js';
@@ -32,6 +34,10 @@ import { TERRITORY_SPECS } from '../src/data/territories.js';
 import { recruitWorker, assignMany, housing } from '../src/systems/workforce.js';
 import { unlockAutomation } from '../src/systems/automation.js';
 import { shardState } from '../src/systems/shards.js';
+import { setPolicy, policyState } from '../src/systems/policy.js';
+import { POLICIES } from '../src/data/policies.js';
+import { PROJECTS } from '../src/data/projects.js';
+import { projectState, startProject, contribute, startStageWorks } from '../src/systems/projects.js';
 
 const H = 3600000;
 const ECO = ['farm', 'sawmill', 'quarry', 'mine', 'house', 'warehouse', 'mill', 'bakery', 'market', 'charcoal', 'foundry', 'library', 'herbalist', 'hunter', 'tannery', 'weaver', 'carpentry', 'fishery'];
@@ -124,7 +130,7 @@ const isActive = (p, t) => {
   return hour >= p.from && hour < p.to && min % p.every < 10;
 };
 
-export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, checkpoints = []) {
+export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, checkpoints = [], policy = null) {
   const p = PROFILES[profileKey];
   rng.setSource(mulberry32(seed * 131 + profileKey.length * 7));
   const T0 = Date.UTC(2026, 5, 1, 0, 0);
@@ -135,7 +141,8 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
   for (let i = 0; i < (days * 24 * H) / STEP; i++) {
     t += STEP;
     advance(s, t);
-    if (isActive(p, t)) session(s, p, t);
+    if (policy && thLevel(s) >= 3 && policyState(s).id !== policy && policyState(s).pending !== policy) setPolicy(s, policy, t);
+    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); }
     if (s.famine) famineMin += 10;
     if (i % 6 === 0) {
       const cap = storageCap(s, computeMods(s, t));
@@ -177,7 +184,46 @@ function kingdomTable(days, seeds) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--kingdoms') {
+// Grands projets : le joueur en lance un dès que possible et y consacre 30 % de ses stocks à chaque session
+function projectBot(s, t) {
+  const P = projectState(s);
+  if (!P.active) { const id = Object.keys(PROJECTS).find((k) => !P.done[k] && startProject(s, k, t).ok); if (!id) return; }
+  contribute(s, null, 0.3, t);
+  startStageWorks(s, t);
+}
+
+function projectTable(days, seeds) {
+  console.log(`Grands projets — profil Actif, ${seeds} partie(s), ${days} jours\n`);
+  console.log('| Variante | HdV | Niv. bâtiments | Technos | Étapes de projet | Projets achevés | Victoires | Or/h (fin) | Richesse (fin) | Famine (h) | Raids perdus |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const off of [true, false]) {
+    globalThis.__noProjects = off; globalThis.__simKeep = true;
+    const runs = Array.from({ length: seeds }, (_, i) => simulate('active', days, i + 1));
+    const avg = (f) => Math.round(runs.reduce((a, r) => a + f(r), 0) / runs.length * 10) / 10;
+    console.log(`| ${off ? 'Sans projets' : 'Avec projets'} | ${avg((r) => r.th)} | ${avg((r) => r.levels)} | ${avg((r) => r.techs)} | ${avg((r) => r.state.stats.projectStages || 0)} | ${avg((r) => Object.keys(r.state.projects.done).length)} | ${avg((r) => r.battlesWon)} | ${avg((r) => r.goldPerH)} | ${avg((r) => r.wealth)} | ${avg((r) => r.famineH)} | ${avg((r) => r.raidsLost)} |`);
+  }
+  globalThis.__noProjects = false; globalThis.__simKeep = false;
+}
+
+// Comparaison des priorités royales : profil « Actif », adoptée dès l'hôtel de ville 3
+function policyTable(days, seeds) {
+  const cps = [3, days];
+  console.log(`Priorités royales — profil Actif, ${seeds} partie(s), relevés à ${cps.join(' / ')} jours\n`);
+  console.log('| Priorité | HdV | Niv. bâtiments | Technos | Victoires | Défaites | Cases explorées | Avant-postes | Contrats | Or/h (fin) | Richesse (fin) | Raids perdus | Famine (h) |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const k of Object.keys(POLICIES)) {
+    const runs = Array.from({ length: seeds }, (_, i) => simulate('active', days, i + 1, null, cps, k));
+    const avg = (f) => Math.round(runs.reduce((a, r) => a + f(r), 0) / runs.length * 10) / 10;
+    const f2 = (f) => cps.map((d) => avg((r) => f(r.snaps[d] || {}))).join(' / ');
+    console.log(`| ${POLICIES[k].icon} ${POLICIES[k].name} | ${f2((x) => x.th || 0)} | ${f2((x) => x.levels || 0)} | ${f2((x) => x.techs || 0)} | ${avg((r) => r.battlesWon)} | ${avg((r) => r.battlesLost)} | ${avg((r) => r.explored)} | ${avg((r) => r.territories)} | ${avg((r) => r.contracts)} | ${avg((r) => r.goldPerH)} | ${avg((r) => r.wealth)} | ${avg((r) => r.raidsLost)} | ${avg((r) => r.famineH)} |`);
+  }
+}
+
+if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--projects') {
+  projectTable(+(process.argv[3] || 7), +(process.argv[4] || 2));
+} else if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--policies') {
+  policyTable(+(process.argv[3] || 7), +(process.argv[4] || 2));
+} else if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--kingdoms') {
   kingdomTable(+(process.argv[3] || 7), +(process.argv[4] || 2));
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const days = +(process.argv[2] || 7), seeds = +(process.argv[3] || 2);

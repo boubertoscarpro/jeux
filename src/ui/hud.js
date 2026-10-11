@@ -28,6 +28,13 @@ import { LIVE_EVENTS } from '../data/liveEvents.js';
 import { SURPRISE_EVENTS } from '../data/liveEvents.js';
 import { shardState } from '../systems/shards.js';
 import { esc, countdown, progress, resChips } from './components.js';
+import { upgradeCount } from './upgrades.js';
+import { missionList, missionState, claimDynMission, missionsUnlocked } from '../systems/missions.js';
+import { rewardText as rwText } from '../systems/rewards.js';
+import { upIcon } from './art.js';
+import { castleName } from '../systems/identity.js';
+import { activePolicy, policyState } from '../systems/policy.js';
+import { POLICIES } from '../data/policies.js';
 
 const MAIN = ['wood', 'stone', 'iron', 'food', 'gold'];
 
@@ -52,7 +59,7 @@ export function renderTopbar(app) {
   return `
     <div class="brand" data-action="nav" data-view="kingdom" title="Royaume">
       <span class="banner" style="--banner:${s.meta.banner}"></span>
-      <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))} ${kingdomBadge(s)}</div></div>
+      <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-castle" title="Château principal">🏰 ${esc(castleName(s))}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))} ${kingdomBadge(s)}</div></div>
     </div>
     <div class="resbar">${res}<button class="res-more" data-action="toggle-res" title="Toutes les ressources">${app.ui.showAllRes ? '−' : '+'}</button>
       <div class="res cap" title="Capacité de l'entrepôt">📦 <span class="res-val">${fmt(cap)}</span></div></div>
@@ -61,10 +68,12 @@ export function renderTopbar(app) {
       <button class="chip chip-ticket" data-action="nav" data-view="g-wheel" title="Tickets de la Roue des Anciens">🎟️ ${shardState(s).tickets}</button>
       ${s.live?.current ? `<button class="chip chip-event" data-action="nav" data-view="event" style="--evc:${LIVE_EVENTS[s.live.current.key].color}" title="${esc(LIVE_EVENTS[s.live.current.key].name)} — ${esc(LIVE_EVENTS[s.live.current.key].currency.name)}">${LIVE_EVENTS[s.live.current.key].icon} ${LIVE_EVENTS[s.live.current.key].currency.icon} ${fmt(s.live.current.wallet)} · ${countdown(s.live.current.end)}</button>` : ''}
       ${(s.live?.surprises || []).filter((x) => x.end > now).map((x) => `<span class="chip chip-event" title="${esc(SURPRISE_EVENTS[x.key].desc)}">${SURPRISE_EVENTS[x.key].icon} ${countdown(x.end)}</span>`).join('')}
+      ${(() => { const n = upgradeCount(s, mods); return `<button class="chip chip-up ${n ? 'on' : ''}" data-action="up-list" title="Améliorations réalisables maintenant (bâtiments, fortifications, avant-postes) — ouvrir la liste">${upIcon('ready')} ${n} amélioration${n > 1 ? 's' : ''}</button>`; })()}
       <button class="chip chip-bell ${(s.notifications || []).some((n) => !n.read) ? 'on' : ''}" data-action="notifs" title="Notifications">🔔${(s.notifications || []).filter((n) => !n.read).length || ''}</button>
     </div>
     <button class="res-more side-toggle" data-action="toggle-side" title="Files & objectifs">📋</button>
     <div class="top-status">
+      ${(() => { const a = activePolicy(s, now), p = policyState(s); return a && a !== 'balanced' ? `<button class="chip" data-action="nav" data-view="policy" title="Priorité royale">${POLICIES[a].icon} ${esc(POLICIES[a].name)}</button>` : p.pending ? `<button class="chip" data-action="nav" data-view="policy" title="Réorganisation en cours">⏳ ${esc(POLICIES[p.pending].name)}</button>` : ''; })()}
       <span class="chip" title="${esc(calendar(s, now).season.desc)}">${calendar(s, now).season.icon} An ${calendar(s, now).year} · ${esc(calendar(s, now).season.name)}</span>
       <span class="chip" title="${esc(w.note)}">${w.icon} ${esc(w.name)} · ${countdown(s.weather.until)}</span>
       ${s.catastrophe && s.catastrophe.until > now ? `<span class="chip chip-bad" title="${esc(CATASTROPHES[s.catastrophe.key].text)}">${CATASTROPHES[s.catastrophe.key].icon} ${esc(CATASTROPHES[s.catastrophe.key].name)} · ${countdown(s.catastrophe.until)}</span>` : ''}
@@ -131,6 +140,7 @@ export function renderSide(app) {
   }
   parts.push(adviceBox(s, now));
   parts.push(chapterBox(s, now));
+  parts.push(missionBox(s, now));
   return parts.join('');
 }
 
@@ -164,6 +174,16 @@ export const sideActions = {
   'adv-snooze': (app, el) => app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'),
   'adv-dismiss': (app, el) => app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'),
   'cp-training': (app) => runTraining(app),
+  'dm-claim': (app, el) => app.act(() => claimDynMission(app.state, el.dataset.id), (r) => `Mission accomplie : ${r.text}`),
+  // Ouvre l'écran d'une mission dynamique, avec la case ou le lieu concerné déjà sélectionné
+  'dm-go': (app, el) => {
+    const m = missionState(app.state).active.find((x) => x.id === el.dataset.id);
+    if (!m) return;
+    if (m.sel) { app.ui.citySel = m.sel; (app.ui.cityCam ||= { x: 0, y: 0, z: 1, init: false }).centerOn = m.sel; app.ui.focusUpgrade = m.kind === 'level'; }
+    if (m.worldSel) { app.ui.worldSel = m.worldSel; const c = (app.ui.cam ||= { x: 0, y: 0, zoom: 1 }); c.x = m.worldSel.x + 0.5; c.y = m.worldSel.y + 0.5; c.zoom = Math.max(c.zoom, 1); }
+    if (app.modalActions) app.closeModal();
+    app.go(m.view || 'goals');
+  },
   'open-pending': (app, el) => openPending(app, el.dataset.id),
 };
 
@@ -177,7 +197,7 @@ export function adviceBox(s, now = Date.now()) {
   const shown = list.slice(0, level === 'reduced' ? 2 : 3);
   return `<section class="side-box advice-box"><h3>🧙‍♂️ Conseiller${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
     ${shown.map((r) => `<div class="advice sev-${r.sev}"><div class="small">${SEV_ICON[r.sev] || ''} ${esc(r.text)}</div>
-      <div class="advice-foot">${r.action ? `<button class="mini" data-action="${r.action}">Lancer</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
+      <div class="advice-foot">${r.action ? `<button class="mini" data-action="${r.action}">${r.action === 'up-list' ? 'Voir' : 'Lancer'}</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
       <button class="mini ghost" data-action="adv-snooze" data-id="${esc(r.id)}" title="Masquer 4 h">⏰</button>${r.sev !== 'bad' ? `<button class="mini ghost" data-action="adv-dismiss" data-id="${esc(r.id)}" title="Ne plus afficher ce conseil">✕</button>` : ''}</div></div>`).join('') || '<div class="muted small">Rien d’urgent. Votre royaume tourne bien.</div>'}
     <button class="btn block ghost small" data-action="advisor">Analyse détaillée →</button></section>`;
 }
@@ -197,6 +217,19 @@ export function chapterBox(s, now = Date.now()) {
     ${ch.complete && !ch.rewardClaimed ? `<div class="quest done"><div class="quest-title">🏆 Chapitre terminé</div><div class="quest-foot">${resChips(ch.reward)}<button class="mini good" data-action="claim-chapter" data-n="${ch.n}">Réclamer</button></div></div>` : ''}
     ${!list.length && !(ch.complete && !ch.rewardClaimed) ? '<div class="muted small">Parcours terminé ! Les objectifs à long terme continuent.</div>' : ''}
     <button class="btn block ghost small" data-action="nav" data-view="goals">Tous les objectifs →</button></section>`;
+}
+
+// Missions dynamiques du royaume (encart compact)
+export function missionBox(s, now = Date.now()) {
+  if (!missionsUnlocked(s)) return '';
+  let list;
+  try { list = missionList(s, now); } catch (e) { console.error(e); list = []; }
+  if (!list.length) return '';
+  return `<section class="side-box mission-box"><h3>🧭 Missions du royaume <span class="muted small">${list.length}/3</span></h3>
+    ${list.map((m) => `<div class="quest ${m.done ? 'done' : ''}"><div class="quest-title">${m.icon} ${esc(m.title)} <span class="muted">${fmt(m.cur)}/${fmt(m.target)}</span></div>
+      ${m.void ? `<div class="req small">⚠️ ${esc(m.void)}</div>` : ''}
+      <div class="quest-foot"><span class="small muted">${esc(rwText(m.reward))}</span>${m.done ? `<button class="mini good" data-action="dm-claim" data-id="${m.id}">Réclamer</button>` : `<button class="mini ghost" data-action="dm-go" data-id="${m.id}">Y aller</button>`}</div></div>`).join('')}
+    <button class="btn block ghost small" data-action="goto" data-view="goals" data-sel='{"goalCat":"missions"}'>Toutes les missions →</button></section>`;
 }
 
 export function runTraining(app) {

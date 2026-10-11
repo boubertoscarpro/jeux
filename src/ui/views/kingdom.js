@@ -11,6 +11,8 @@ import { exportSave, importSave, deleteSave, saveGame } from '../../core/save.js
 import { esc, resChips, bar } from '../components.js';
 import { kingdomBadge } from '../creation.js';
 import { kingdomDef, originDef, difficultyDef } from '../../systems/kingdom.js';
+import { castleName, outpostLabel, renameKingdom } from '../../systems/identity.js';
+import { openRenameCastle, openRenameOutpost } from '../upgrades.js';
 
 const MOD_NAMES = {
   'prod.all': 'Toute production', 'prod.food': 'Nourriture', 'prod.wood': 'Bois', 'prod.stone': 'Pierre', 'prod.iron': 'Fer', 'prod.gold': 'Or', 'prod.steel': 'Acier',
@@ -31,7 +33,7 @@ export default {
     const keyMods = Object.entries(MOD_NAMES).filter(([k]) => Math.abs(mods[k] || 0) > 0.001);
     return `<div class="cols-2">
       <div class="card"><h2>👑 ${esc(s.meta.kingdomName)}</h2>
-        <div class="form-row"><label>Nom du royaume</label><input id="k-name" value="${esc(s.meta.kingdomName)}" maxlength="28"><button class="mini" data-action="rename">OK</button></div>
+        <div class="form-row"><label>Nom du royaume</label><input id="k-name" value="${esc(s.meta.kingdomName)}" maxlength="28" aria-label="Nom du royaume"><button class="mini" data-action="rename">OK</button></div>
         ${s.meta.titles?.length ? `<div class="form-row"><label>Titre</label><select data-change="title" id="k-title"><option value="">— Aucun —</option>${s.meta.titles.map((t) => `<option ${s.meta.title === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
         <div class="stats-grid">
           <div><span>Hôtel de ville</span><b>${thLevel(s)}</b></div><div><span>Niveaux de bâtiments</span><b>${totalLevels(s)}</b></div>
@@ -45,7 +47,13 @@ export default {
         <h3>Spécialisation</h3><div class="row gap wrap">${kingdomBadge(s)}<span class="small muted">${esc(originDef(s).icon + ' ' + originDef(s).name)} · ${esc(difficultyDef(s).icon + ' ' + difficultyDef(s).name)}</span></div>
         <div class="small"><span class="ok">${kingdomDef(s).bonuses.map(esc).join(' · ')}</span><br><span class="bad">${kingdomDef(s).maluses.map(esc).join(' · ')}</span></div>
         <h3>Bonus actifs</h3><div class="mods-grid">${keyMods.map(([k, n]) => `<div class="small">${esc(n)} <b class="${(k === 'upkeep' || k === 'market.fee') === (mods[k] < 0) ? 'ok' : (mods[k] < 0 ? 'bad' : 'ok')}">${['combat.morale'].includes(k) ? (mods[k] > 0 ? '+' : '') + Math.round(mods[k]) : (mods[k] > 0 ? '+' : '') + Math.round(mods[k] * 1000) / 10 + '%'}</b></div>`).join('') || '<span class="muted small">Aucun pour l’instant.</span>'}</div>
-        ${Object.keys(s.territories).length ? `<h3>Territoires</h3><div class="small">${Object.values(s.territories).map((t) => `🚩 (${t.x},${t.y}) ${esc(TERRAINS[t.terrain].name)}`).join(' · ')}</div>` : ''}
+        <h3>Identité du royaume</h3>
+        <div class="identity-list">
+          <div class="id-row"><span>👑 Royaume</span><b>${esc(s.meta.kingdomName)}</b></div>
+          <div class="id-row"><span>🏰 Capitale (château principal)</span><b>${esc(castleName(s))}</b><button class="mini ghost" data-action="rename-castle">✎ Renommer</button></div>
+          ${Object.entries(s.territories).map(([k, t]) => `<div class="id-row"><span>🚩 Avant-poste · ${esc(TERRAINS[t.terrain].name)} (${t.x}, ${t.y})</span><b>${esc(outpostLabel(t))}</b><button class="mini ghost" data-action="rename-outpost" data-k="${esc(k)}">✎ Renommer</button></div>`).join('')}
+        </div>
+        <details class="small muted"><summary>Identifiants techniques</summary>Joueur ${esc(s.identity?.playerId || '')} · royaume ${esc(s.identity?.kingdomId || '')} · château ${esc(s.identity?.castleId || '')}. Ils identifient vos données indépendamment des noms (préparation d’un éventuel mode multijoueur ; le jeu reste entièrement solo).</details>
       </div>
 
       <div class="card"><h2>🏅 Jalons</h2><p class="muted small">Objectifs infinis : chaque palier rapporte des ressources et un insigne.</p>
@@ -85,7 +93,9 @@ export default {
       </div>`;
   },
   actions: {
-    rename: (app) => { const v = document.getElementById('k-name').value.trim(); if (v) { app.state.meta.kingdomName = v.slice(0, 28); app.render(); app.save(); } },
+    rename: (app) => app.act(() => renameKingdom(app.state, document.getElementById('k-name').value), (r) => `👑 Royaume renommé : ${r.name}`),
+    'rename-castle': (app) => openRenameCastle(app),
+    'rename-outpost': (app, el) => openRenameOutpost(app, el.dataset.k),
     title: (app, el) => { app.state.meta.title = el.value || null; app.render(); },
     milestone: (app, el) => app.act(() => claimMilestone(app.state, el.dataset.id), 'Jalon atteint !'),
     season: (app, el) => app.act(() => claimSeasonTier(app.state, +el.dataset.i), 'Récompense de saison !'),

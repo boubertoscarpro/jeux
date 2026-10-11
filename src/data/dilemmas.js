@@ -64,6 +64,65 @@ export const DILEMMAS = {
   },
 };
 
+// ───────── Événements liés à la situation du royaume (v9) ─────────
+// need(state, h) : l'événement n'est proposé que s'il a du sens maintenant (marché construit, avant-poste exposé…).
+// prepare(state, now) : contexte concret ({res}, {qty}, {gold}, {outpost}, {threat}) enregistré sur la décision.
+// Coûts, risques et bénéfices sont annoncés dans chaque choix ; aucune perte importante sans avertissement.
+Object.assign(DILEMMAS, {
+  caravanArrives: {
+    title: 'Une caravane fait halte', icon: '🐪', minTH: 2, weight: 5,
+    need: (s, h) => h.market > 0,
+    text: 'Une caravane de {town} s’arrête devant {castle}. Son maître propose de racheter votre surplus de {resName}, de vous vendre des marchandises rares, ou de vous confier une escorte.',
+    choices: [
+      { label: 'Vendre {qty} {resName} (×1,6 le prix normal : {gold} or)', fx: { sell: true, rep: { merchant: 5 } }, hint: 'Or immédiat, sans taxe du marché.' },
+      { label: 'Acheter planches et cuir (350 or)', fx: { res: { gold: -350, planks: 80, leather: 25 } }, hint: '80 planches et 25 cuirs, utiles aux chantiers avancés et à l’armurerie.' },
+      { label: 'Escorter la caravane jusqu’à {town}', fx: { res: { gold: 150 }, townRel: 5, rep: { merchant: 8 } }, hint: 'Petit paiement, relation avec la cité +5 et réputation marchande.' },
+      { label: 'La laisser repartir', fx: {}, hint: 'Aucun effet.' },
+    ], default: 3,
+  },
+  woodShortage: {
+    title: 'Pénurie de bois dans la région', icon: '🪵', minTH: 2, weight: 4,
+    need: (s) => (s.resources.wood || 0) >= 300,
+    text: 'Un incendie a ravagé les forêts voisines : les cités s’arrachent le bois. C’est une belle occasion de vente… mais vos propres chantiers dépendent de vos réserves.',
+    choices: [
+      { label: 'Vendre {qty} bois aux cités (×2 le prix : {gold} or)', fx: { sell: true, ifLow: { res: 'wood', below: 400, buff: { name: 'Chantiers à court de bois', mods: { 'build.speed': -0.15 }, duration: 2 * 3600 } } }, hint: 'Beaucoup d’or. Attention : s’il vous reste moins de 400 bois, vos chantiers sont ralentis de 15 % pendant 2 h.' },
+      { label: 'Constituer des réserves (300 or contre 450 bois)', fx: { res: { gold: -300, wood: 450 } }, hint: 'Vous achetez avant la flambée des prix.' },
+      { label: 'Ne rien faire', fx: { buff: { name: 'Bois hors de prix', mods: { 'build.cost': 0.08 }, duration: 3 * 3600 } }, hint: 'Les constructions coûtent 8 % de plus pendant 3 h.' },
+    ], default: 2,
+  },
+  scoutsRuins: {
+    title: 'Des éclaireurs signalent des ruines', icon: '🏛️', minTH: 2, weight: 4,
+    need: (s) => (s.army.scout || 0) > 0 || (s.stats.explored || 0) > 0,
+    text: 'Vos éclaireurs reviennent, couverts de poussière : des ruines de l’Aube affleurent à quelques lieues de {castle}. Des pillards… ou pire, pourraient s’y terrer.',
+    choices: [
+      { label: 'Financer des fouilles (300 nourriture)', fx: { res: { food: -300 }, spawnRuin: { threat: 0.3, loot: { stone: 300, gold: 150 } }, rep: { explorer: 6 } }, hint: 'Premières trouvailles immédiates et ruines révélées sur la carte. 30 % de risque : les fouilles réveillent des gardiens (une crypte apparaît, sans attaquer).' },
+      { label: 'Noter l’emplacement', fx: { spawnRuin: { threat: 0 } }, hint: 'Les ruines sont révélées sur la carte ; à vous de les nettoyer plus tard.' },
+      { label: 'Ignorer le rapport', fx: {}, hint: 'Aucun effet.' },
+    ], default: 1,
+  },
+  factionOffer: {
+    title: '{faction} propose un accord', icon: '🤝', minTH: 3, weight: 4, faction: true,
+    need: (s, h, f) => f && f.stance !== 'war',
+    text: 'Un envoyé de {faction} se présente à {castle} avec deux propositions : un présent immédiat contre votre neutralité, ou un accord de travail qui engagerait l’avenir.',
+    choices: [
+      { label: 'Accepter le présent (+600 or)', fx: { res: { gold: 600 }, relation: 2 }, hint: 'Récompense immédiate, relation presque inchangée.' },
+      { label: 'Conclure un accord de travail', fx: { relation: 15, rep: { diplomat: 8 } }, hint: 'Relation +15 : pactes, alliances et moins de raids à terme.' },
+      { label: 'Décliner poliment', fx: {}, hint: 'Aucun effet.' },
+    ], default: 2,
+  },
+  outpostThreat: {
+    title: 'Menace sur {outpost}', icon: '⚠️', minTH: 2, weight: 6,
+    need: (s, h) => h.exposedOutpost !== null,
+    text: 'Des sentinelles aperçoivent {threat} près de l’avant-poste « {outpost} » (garnison {garrison}/{need}). Ils attaqueront dans environ 2 heures. Comment organisez-vous la défense ?',
+    choices: [
+      { label: 'Engager des mercenaires ({gold} or)', fx: { outpostHire: true }, hint: 'Des lanciers rejoignent la garnison jusqu’au niveau requis.' },
+      { label: 'Envoyer des troupes du château', fx: { outpostReinforce: true }, hint: 'Les lanciers, épéistes et archers disponibles en ville complètent la garnison.' },
+      { label: 'Évacuer les réserves', fx: { outpostEvac: true }, hint: 'Production suspendue 3 h, mais aucun or ne peut être pillé.' },
+      { label: 'Laisser la garnison se débrouiller', fx: {}, hint: 'Risque de pillage : production arrêtée 3 h et or volé en cas de défaite.' },
+    ], default: 3,
+  },
+});
+
 // Événements secrets : extrêmement rares
 export const SECRET_EVENTS = {
   meteorite: { title: 'Une étoile tombe', icon: '☄️', text: 'Une météorite s’écrase dans les Terres Brisées. Un cratère fumant contient un métal inconnu.', fx: { crater: true } },

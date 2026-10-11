@@ -1,3 +1,4 @@
+import { sanitizeName, KINGDOM_NAME_MAX } from '../systems/identity.js';
 // Écran de création : nom, spécialisation (8 cartes comparables), origine et difficulté optionnelles, confirmation.
 // Affiché uniquement pour une nouvelle partie (aucune sauvegarde) ou après « Nouvelle partie » explicite.
 import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES, DIFFICULTY_STARS } from '../data/kingdoms.js';
@@ -95,7 +96,7 @@ export function creationScreen(onStart, prev = {}) {
       ${supportHtml()}
       <div class="creation-foot"><button class="btn primary big" id="intro-review" ${k ? '' : 'disabled'}>${k ? `Continuer avec ${k.icon} ${esc(k.name)} →` : 'Choisissez une spécialisation'}</button></div>
     </div>`;
-    const keep = () => { st.name = root.querySelector('#intro-name').value.trim() || 'Cendrelande'; st.seed = root.querySelector('#intro-seed').value.trim(); };
+    const keep = () => { const n = sanitizeName(root.querySelector('#intro-name').value, { max: KINGDOM_NAME_MAX }); st.name = n.ok ? n.value : 'Cendrelande'; st.seed = root.querySelector('#intro-seed').value.trim(); };
     root.querySelectorAll('[data-kt]').forEach((b) => { b.onclick = () => { keep(); st.type = b.dataset.kt; render(); root.querySelector('#kt-detail-box')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }; });
     root.querySelectorAll('input[name="kt-origin"]').forEach((i) => { i.onchange = () => { keep(); st.origin = i.value; render(); }; });
     root.querySelectorAll('input[name="kt-diff"]').forEach((i) => { i.onchange = () => { keep(); st.difficulty = i.value; render(); }; });
