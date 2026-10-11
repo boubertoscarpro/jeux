@@ -3,7 +3,7 @@
 import { CHALLENGES, TIERS, CHALLENGE_MIN_TH, CHALLENGE_RETRY_H, MASTERY_BANNERS } from '../data/challenges.js';
 import { thLevel } from './city.js';
 import { computeMods } from './modifiers.js';
-import { netRates } from './economy.js';
+import { netRates, storageCap } from './economy.js';
 import { stabOf } from './stability.js';
 import { chronicle } from './chronicle.js';
 import { feat, log } from './log.js';
@@ -49,7 +49,8 @@ export function startChallenge(state, id, now = Date.now()) {
     produced: producedBase(state), rate: Math.max(1, BASE.reduce((a, r) => a + Math.max(0, net[r] || 0), 0)),
     trades: state.stats.trades || 0, caravans: state.stats.caravans || 0, trained: state.stats.trained || 0,
     hardClears: state.stats.hardClears || 0, missions: state.missions?.done || 0, policyN: (state.policy?.history || []).length,
-    food: Math.max(1, state.resources.food || 0),
+    // Réserve de référence : au moins la moitié de la capacité (sinon partir d'un grenier vide rendrait l'or trivial)
+    food: Math.max(1, state.resources.food || 0, storageCap(state, mods, 'food') * 0.5),
   };
   C.active = { id, start: now, end: now + def.hours * H, base };
   if (id === 'scarcity') state.buffs.push({ name: 'L’année maigre (défi)', mods: { 'prod.food': -0.5 }, until: now + def.hours * H, challenge: true });

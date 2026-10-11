@@ -89,7 +89,7 @@ H.shop = { title: '💎 Comptoir du Joaillier', sections: [
 ] };
 
 H.archaeo = { title: '🏺 Mystères archéologiques', sections: [
-  ['Indices', 'À partir de l’hôtel de ville 4, explorer 6 lieux ou vider 2 donjons livre un indice. Un seul mystère à la fois ; cinq mystères au total.'],
+  ['Indices', 'À partir de l’hôtel de ville 4, explorer 10 lieux ou vider 3 donjons livre un indice ; chaque mystère résolu double l’effort du suivant et 36 h passent entre deux. Un seul mystère à la fois ; cinq au total.'],
   ['Retrouver les sites', 'Chaque mystère cache trois fragments dans trois régions. L’indice ne donne qu’une zone (cercle pointillé sur la carte) : explorez-la (éclaireurs, exploration, expéditions) pour localiser le site exact, puis envoyez une équipe de fouille. Les lieux dangereux non nettoyés autour d’un site peuvent la chasser.'],
   ['Étudier et résoudre', 'Chaque fragment s’étudie : lecture rapide (localise le site suivant), étude approfondie (écarte une mauvaise réponse) ou cession à un collectionneur (6 gemmes). Les trois fragments réunis, une énigme se pose ; la réponse se déduit de leurs textes. Une erreur impose 4 h de réflexion.'],
   ['Récompense', 'Un lieu oublié apparaît sur la carte, avec un bonus permanent, des ressources et un plan de forge unique.'],

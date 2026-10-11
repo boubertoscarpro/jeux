@@ -1,4 +1,6 @@
 import { UNITS, UNIT_CLASSES, FORMATIONS, TERRAIN_COMBAT, WEATHER } from '../../data/units.js';
+import { gameIcon, unitIcon } from '../icons.js';
+import { buildingIcon } from '../art.js';
 import { BUILDINGS } from '../../data/buildings.js';
 import { fmt, fmtTime, scaleObj } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
@@ -13,9 +15,9 @@ function unitRow(app, type, mods) {
   const u = UNITS[type];
   const st = unitStatus(s, type);
   const have = s.army[type] || 0;
-  const vs = Object.entries(u.vs || {}).map(([c, m]) => `<span class="vs" title="Dégâts ×${m} contre ${UNIT_CLASSES[c].name}">${UNIT_CLASSES[c].icon}×${m}</span>`).join(' ');
+  const vs = Object.entries(u.vs || {}).map(([c, m]) => `<span class="vs" title="Dégâts ×${m} contre ${UNIT_CLASSES[c].name}">${gameIcon('c_' + c, 15, UNIT_CLASSES[c].icon)}×${m}</span>`).join(' ');
   return `<tr class="${st.ok ? '' : 'locked'}">
-    <td><span class="u-icon">${u.icon}</span> <b>${esc(u.name)}</b><div class="muted small">${UNIT_CLASSES[u.class].name}</div></td>
+    <td><span class="u-icon">${unitIcon(type, 26, u.icon)}</span> <b>${esc(u.name)}</b><div class="muted small">${UNIT_CLASSES[u.class].name}</div></td>
     <td class="num">${u.atk}</td><td class="num">${u.def}</td><td class="num">${u.hp}</td><td class="num">${u.speed}</td><td class="num">${u.carry}</td><td class="num">${u.upkeep}</td>
     <td>${vs}${u.pierce ? ' <span class="vs" title="Perforant">🎯</span>' : ''}${u.rangedResist ? ` <span class="vs" title="Résiste aux tirs">🛡️${Math.round(u.rangedResist * 100)}%</span>` : ''}${u.wallBreak ? ' <span class="vs" title="Brise les murailles">🧱</span>' : ''}</td>
     <td class="num"><b>${fmt(have)}</b></td>
@@ -37,8 +39,8 @@ export default {
       <div><span class="muted">Attaque / Défense</span><b>${pctTxt(mods['combat.atk'] || 0)} / ${pctTxt(mods['combat.def'] || 0)}</b></div></div>
       ${s.famine ? '<div class="req">⚠️ Famine : vos réserves de nourriture sont vides. Formation impossible et moral −30.</div>' : ''}
       </div>
-      ${Object.entries(byBuilding).map(([b, types]) => `<div class="card"><h3>${BUILDINGS[b].icon} ${esc(BUILDINGS[b].name)}</h3>
-        <div class="table-wrap"><table class="units"><thead><tr><th>Unité</th><th title="Attaque">⚔️</th><th title="Défense">🛡️</th><th title="Points de vie">❤️</th><th title="Vitesse">💨</th><th title="Transport">🎒</th><th title="Entretien nourriture/h">🍖</th><th>Contres</th><th>En ville</th><th>Formation</th></tr></thead>
+      ${Object.entries(byBuilding).map(([b, types]) => `<div class="card"><h3>${buildingIcon(b, 26)} ${esc(BUILDINGS[b].name)}</h3>
+        <div class="table-wrap"><table class="units"><thead><tr><th>Unité</th><th title="Attaque">${gameIcon('s_atk', 16)}</th><th title="Défense">${gameIcon('s_def', 16)}</th><th title="Points de vie">${gameIcon('s_hp', 16)}</th><th title="Vitesse">${gameIcon('s_speed', 16)}</th><th title="Transport">${gameIcon('s_carry', 16)}</th><th title="Entretien nourriture/h">${gameIcon('s_upkeep', 16)}</th><th>Contres</th><th>En ville</th><th>Formation</th></tr></thead>
         <tbody>${types.map((t) => unitRow(app, t, mods)).join('')}</tbody></table></div></div>`).join('')}
       <div class="card"><h3>📖 Manuel tactique</h3>
         <div class="cols-3">
@@ -51,7 +53,7 @@ export default {
             <h4>Météo</h4><ul class="small">${Object.values(WEATHER).map((w) => `<li>${w.icon} <b>${esc(w.name)}</b> : ${esc(w.note)}</li>`).join('')}</ul></div>
         </div></div>
       <div class="card"><h3>Renvoyer des troupes</h3><p class="muted small">Réduit l’entretien en nourriture. Aucun remboursement.</p>
-        <div class="row gap wrap">${Object.entries(s.army).filter(([, n]) => n > 0).map(([u, n]) => `<button class="mini ghost" data-action="dismiss" data-type="${u}">${UNITS[u].icon} −10 ${esc(UNITS[u].name)} (${n})</button>`).join('')}</div></div>`;
+        <div class="row gap wrap">${Object.entries(s.army).filter(([, n]) => n > 0).map(([u, n]) => `<button class="mini ghost" data-action="dismiss" data-type="${u}">${unitIcon(u, 16, UNITS[u].icon)} −10 ${esc(UNITS[u].name)} (${n})</button>`).join('')}</div></div>`;
   },
   actions: {
     train: (app, el) => {

@@ -41,6 +41,31 @@ export const PICKERS = {
     if (!t.length) return null;
     return townCtx(rng.pick(t));
   },
+  cityPlague(state) {
+    const t = revealedTowns(state);
+    return t.length ? townCtx(rng.pick(t)) : null;
+  },
+  // Un prince exilé ne vient que d'une faction en crise : en guerre, ou éprouvée par la lassitude
+  exile(state) {
+    const f = (state.factions || []).filter((x) => x.wars.length || x.weariness > 30 || x.stance === 'war');
+    return f.length ? { faction: rng.pick(f).idx } : null;
+  },
+  tradeFair(state) {
+    if (!Object.values(state.city?.buildings || {}).some((b) => b.type === 'market' && b.level > 0)) return null;
+    const t = revealedTowns(state);
+    return t.length ? townCtx(rng.pick(t)) : null;
+  },
+  // Incident : une faction dont le territoire touche presque un de vos avant-postes (moins de 6 cases)
+  borderIncident(state) {
+    const outs = Object.values(state.territories || {});
+    if (!outs.length) return null;
+    const near = (state.factions || []).filter((f) => f.stance !== 'war' && f.territory.some((k) => { const [x, y] = k.split(',').map(Number); return outs.some((o) => Math.hypot(o.x - x, o.y - y) < 6); }));
+    return near.length ? { faction: rng.pick(near).idx } : null;
+  },
+  factionHunger(state) {
+    const f = (state.factions || []).filter((x) => x.stance !== 'war' && (x.wars.length || x.army < 3));
+    return f.length ? { faction: rng.pick(f).idx } : null;
+  },
   ruinRush(state) {
     const fs = (state.factions || []).filter((f) => f.stance !== 'alliance');
     if (fs.length < 2) return null;

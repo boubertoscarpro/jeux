@@ -6,7 +6,7 @@ import { RIVALS } from '../data/world.js';
 import { thLevel } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing, gain } from './economy.js';
-import { simulateBattle } from './combat.js';
+import { simulateBattle, previewBattle } from './combat.js';
 import { armyPower } from './army.js';
 import { heroStats, giveXp } from './heroes.js';
 import { grantArtifact } from './collection.js';
@@ -17,6 +17,18 @@ import { chronicle } from './chronicle.js';
 import { feat, log, toast } from './log.js';
 
 const MIN = 60000;
+export const LEGEND_RETRY_H = 12;
+
+// Estimation des chances de l'épreuve finale avec l'escorte envisagée (affichée avant le départ)
+export function estimateFinal(state, id, opts, now = Date.now()) {
+  const def = LEGENDS[id], route = def?.routes.find((r) => r.id === opts.route);
+  if (!route || !ESCORTS[opts.escort]) return null;
+  const team = {};
+  for (const [u, v] of combatUnits(state.army)) { const k = Math.floor(v * ESCORTS[opts.escort].share); if (k > 0) team[u] = k; }
+  if (!Object.keys(team).length) return null;
+  const pv = previewBattle({ units: team, mods: computeMods(state, now), formation: 'balanced' }, { units: finalEnemies(state, { id, route: route.id, team }), mods: {} }, { terrain: def.final.terrain, weather: 'clear' });
+  return pv;
+}
 
 export function legendState(state) {
   const L = (state.legendary && typeof state.legendary === 'object' && !Array.isArray(state.legendary)) ? state.legendary : (state.legendary = {});
@@ -49,6 +61,7 @@ export function canDepart(state, id, opts = {}, now = Date.now()) {
   if (!LEGENDS[id]) return { ok: false, reason: 'Expédition inconnue' };
   if (!L.unlocked[id]) return { ok: false, reason: 'Aucun indice ne mène encore à ce lieu' };
   if (L.done[id]) return { ok: false, reason: 'Cette expédition a déjà été menée à son terme' };
+  if (L.retryAt?.[id] > now) return { ok: false, reason: 'Les survivants pansent leurs plaies : nouvelle tentative possible plus tard' };
   if (L.active) return { ok: false, reason: 'Une expédition légendaire est déjà en route' };
   if (!PROVISIONS[opts.provisions] || !ESCORTS[opts.escort]) return { ok: false, reason: 'Préparez les provisions et l’escorte' };
   if (!LEGENDS[id].routes.some((r) => r.id === opts.route)) return { ok: false, reason: 'Choisissez un itinéraire' };
@@ -127,7 +140,8 @@ export function finalEnemies(state, a) {
   const def = LEGENDS[a.id], route = def.routes.find((r) => r.id === a.route);
   const base = def.final.enemies;
   const team = a.team && Object.keys(a.team).length ? a.team : null;
-  const k = team ? (GUARD_RATIO * (def.final.cal || 1) * (route.guard || 1) * armyPower(team)) / Math.max(1, armyPower(base)) : (0.6 + thLevel(state) * 0.08) * (route.guard || 1);
+  const wound = Math.max(0.7, 1 - 0.1 * (legendState(state).fails?.[a.id] || 0)); // chaque échec affaiblit le gardien (−10 %, jusqu'à −30 %)
+  const k = team ? (GUARD_RATIO * wound * (def.final.cal || 1) * (route.guard || 1) * armyPower(team)) / Math.max(1, armyPower(base)) : (0.6 + thLevel(state) * 0.08) * (route.guard || 1);
   return Object.fromEntries(Object.entries(base).map(([u, n]) => [u, Math.max(1, Math.round(n * k))]));
 }
 
@@ -164,6 +178,8 @@ export function legendTick(state, now = Date.now()) {
   if (h) giveXp(state, h, won ? 400 : 120, computeMods(state, now));
   if (!won) {
     returnHome(state, a);
+    (L.fails ||= {})[a.id] = (L.fails[a.id] || 0) + 1;
+    (L.retryAt ||= {})[a.id] = now + LEGEND_RETRY_H * 3600000;
     L.history.unshift({ id: a.id, t: now, won: false, log: a.log });
     L.active = null;
     log(state, 'bad', `${def.icon} L’expédition « ${def.name} » échoue face à ${def.final.name}. Les survivants rentrent ; l’indice reste valable.`, now);

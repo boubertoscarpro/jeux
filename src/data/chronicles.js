@@ -134,4 +134,83 @@ export const CHRONICLES = {
       },
     },
   },
+  cityPlague: {
+    title: 'La fièvre de {town}', icon: '🕯️', minTH: 3, cooldownH: 60, chronicle: true,
+    steps: {
+      start: {
+        title: 'Une fièvre à {town}', text: 'Une fièvre ravage {town}. Ses médecins manquent d’herbes, et les marchands qui en reviennent toussent déjà.',
+        choices: [
+          { label: 'Envoyer des herbes et des guérisseurs (150 herbes)', hint: 'La cité vous en sera profondément reconnaissante.', fx: { res: { herbs: -150 }, townRel: 10, rep: { benefactor: 15 } } },
+          { label: 'Fermer les routes vers {town}', hint: 'Aucun risque, mais caravanes −10 % pendant 12 h et une cité froissée.', fx: { townRel: -4, buff: { name: 'Quarantaine', mods: { 'caravan.gain': -0.1 }, duration: 12 * 3600 } } },
+          { label: 'Ne rien faire', hint: 'La fièvre pourrait gagner vos terres.', fx: {}, next: ['spread', 120] },
+        ], default: 2,
+      },
+      spread: {
+        title: 'La fièvre gagne vos faubourgs', text: 'Des ouvriers tombent malades. Les herboristes réclament des moyens.',
+        choices: [
+          { label: 'Financer les herboristes (500 or)', hint: 'L’épidémie est enrayée.', fx: { res: { gold: -500 }, rep: { lord: 5 } } },
+          { label: 'Laisser la fièvre passer', hint: '3 ouvriers malades pendant 3 h.', fx: { injureWorkers: 3 } },
+        ], default: 1,
+      },
+    },
+  },
+  exile: {
+    title: 'Le prince exilé de {faction}', icon: '👑', minTH: 4, cooldownH: 96, chronicle: true,
+    steps: {
+      start: {
+        title: 'Un exilé à vos portes', text: 'Un prince de {faction}, chassé par son propre conseil, demande asile. Il connaît les secrets de son ancienne cour… et {faction} le réclame.',
+        choices: [
+          { label: 'Lui offrir l’asile', hint: '{faction} s’en souviendra ; le prince pourrait servir plus tard.', fx: { memory: { f: -12 }, rep: { lord: 8 } }, next: ['claim', 120] },
+          { label: 'Le livrer à {faction}', hint: '+600 or et un souvenir favorable ; réputation de tyran.', fx: { res: { gold: 600 }, memory: { f: 18 }, rep: { tyrant: 8 } } },
+          { label: 'Le laisser repartir', hint: 'Personne n’est offensé.', fx: {} },
+        ], default: 2,
+      },
+      claim: {
+        title: 'Les prétentions du prince', text: 'Le prince vous presse de l’aider à reprendre son trône. Ses partisans attendent un signe.',
+        choices: [
+          { label: 'Soutenir son retour par les armes', hint: 'Combat ; en cas de victoire, {faction} est affaiblie et vous doit beaucoup.', fx: { fight: { guard: 10, royalKnight: 4 }, win: { world: { armyF: -0.2 }, relation: 20, memory: { f: 15 }, rep: { warrior: 10 } } } },
+          { label: 'Le garder comme conseiller', hint: 'Recherche +8 % pendant 24 h.', fx: { buff: { name: 'Le conseiller exilé', mods: { 'research.speed': 0.08 }, duration: 24 * 3600 } } },
+        ], default: 1,
+      },
+    },
+  },
+  tradeFair: {
+    title: 'La grande foire de {town}', icon: '🎪', minTH: 3, cooldownH: 48, chronicle: true,
+    steps: {
+      start: {
+        title: 'Une foire à {town}', text: '{town} organise sa grande foire annuelle. Les marchands de tout le pays y convergent.',
+        choices: [
+          { label: 'Envoyer un convoi de marchandises (400 bois, 400 pierre)', hint: '+1 400 or et la cité vous accueille à bras ouverts.', fx: { res: { wood: -400, stone: -400, gold: 1400 }, townRel: 4, rep: { merchant: 8 } } },
+          { label: 'Financer un tournoi (800 or)', hint: 'Moral +8 pendant 24 h, réputation de seigneur.', fx: { res: { gold: -800 }, rep: { lord: 10 }, buff: { name: 'Gloire du tournoi', mods: { 'combat.morale': 8 }, duration: 24 * 3600 } } },
+          { label: 'Ne pas y aller', hint: 'Rien ne se passe.', fx: {} },
+        ], default: 2,
+      },
+    },
+  },
+  borderIncident: {
+    title: 'Incident à la frontière de {faction}', icon: '🚧', minTH: 3, cooldownH: 48, chronicle: true,
+    steps: {
+      start: {
+        title: 'Une rixe à la frontière', text: 'Une patrouille de {faction} et vos colons se sont battus près d’un de vos avant-postes. Il y a des blessés des deux côtés.',
+        choices: [
+          { label: 'Présenter des excuses et dédommager (400 or)', hint: '{faction} apprécie le geste.', fx: { res: { gold: -400 }, memory: { f: 10 } } },
+          { label: 'Exiger réparation', hint: 'Réputation de guerrier ; {faction} s’en souviendra.', fx: { memory: { f: -8 }, rep: { warrior: 8 }, res: { gold: 300 } } },
+          { label: 'Proposer des patrouilles communes', hint: 'Défense des garnisons +10 % pendant 24 h ; un souvenir favorable.', fx: { memory: { f: 6 }, buff: { name: 'Patrouilles communes', mods: { 'garrison.def': 0.1 }, duration: 24 * 3600 } } },
+        ], default: 0,
+      },
+    },
+  },
+  factionHunger: {
+    title: 'La disette de {faction}', icon: '🥖', minTH: 3, cooldownH: 72, chronicle: true,
+    steps: {
+      start: {
+        title: '{faction} a faim', text: 'Les récoltes de {faction} ont échoué. Son ambassadeur, humble pour une fois, sollicite vos greniers.',
+        choices: [
+          { label: 'Donner 800 nourriture', hint: 'Relation +15 et un souvenir durable.', fx: { res: { food: -800 }, relation: 15, memory: { f: 20 }, rep: { benefactor: 10 } } },
+          { label: 'Vendre au prix fort', hint: '+900 or ; on vous trouvera âpre au gain.', fx: { res: { food: -800, gold: 900 }, memory: { f: -4 }, rep: { merchant: 6 } } },
+          { label: 'Refuser', hint: '{faction} s’en souviendra, et ses soldats affamés s’affaiblissent.', fx: { memory: { f: -6 }, world: { armyF: -0.1 } } },
+        ], default: 2,
+      },
+    },
+  },
 };

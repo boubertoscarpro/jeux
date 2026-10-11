@@ -3,7 +3,7 @@
 import { LEGENDS, PROVISIONS, ESCORTS, FATES, LEGEND_MIN_TH } from '../../data/legendary.js';
 import { ALL_UNITS } from '../../data/units.js';
 import { thLevel } from '../../systems/city.js';
-import { legendState, canDepart, depart, decide, currentEvent, choiceAllowed, finalEnemies, chooseFate, abandonLegend, freeHeroes, prepCost } from '../../systems/legendary.js';
+import { legendState, canDepart, depart, decide, currentEvent, choiceAllowed, finalEnemies, chooseFate, abandonLegend, freeHeroes, prepCost, estimateFinal } from '../../systems/legendary.js';
 import { esc, costList, countdown } from '../components.js';
 
 function activeCard(app, a) {
@@ -39,7 +39,8 @@ export default {
       const c = canDepart(s, id, { ...ui, route }, Date.now());
       return `<div class="ch-card"><b>${def.icon} ${esc(def.name)}</b><div class="small">${esc(def.desc)}</div>
         <h4>Itinéraire</h4><div class="lx-route">${def.routes.map((r) => `<div class="lx-opt ${r.id === route ? 'sel' : ''}"><b>${esc(r.name)}</b><span class="small muted">${esc(r.desc)} · ${r.events.length} étapes de ${r.legMin} min${r.guard ? ' · gardien plus fort' : ''}</span><button class="mini ${r.id === route ? 'selected' : ''}" data-action="lx-route" data-k="${r.id}">${r.id === route ? 'Choisi' : 'Choisir'}</button></div>`).join('')}</div>
-        <div class="small muted">Épreuve finale : ${esc(def.final.name)}. Récompense : ressources, fragments de relique, puis vous décidez du sort de la découverte.</div>
+        <div class="small muted">Épreuve finale : ${esc(def.final.name)}. Récompense : ressources, fragments de relique, puis vous décidez du sort de la découverte.${L.fails?.[id] ? ` Le gardien est affaibli par vos ${L.fails[id]} tentative(s) précédente(s).` : ''}</div>
+        ${(() => { const e = estimateFinal(s, id, { ...ui, route }); return e ? `<div class="small ${e.winner === 'attacker' ? 'ok' : 'bad'}">Estimation avec cette escorte, avant les événements de la route : <b>${esc(e.verdict)}</b> (pertes ≈ ${Math.round(e.lossRatio * 100)} %). Les bons choix en chemin renforcent l’escorte.</div>` : ''; })()}
         ${L.active ? '' : c.ok ? `<button class="btn primary small" data-action="lx-go" data-id="${id}" data-route="${route}">Partir</button> ${costList(prepCost(ui.provisions), s)}` : `<div class="req small">${esc(c.reason)}</div>`}</div>`;
     }).join('');
     const prep = `<div class="card"><h3>🎒 Préparatifs</h3>
