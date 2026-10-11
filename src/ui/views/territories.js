@@ -1,4 +1,5 @@
 import { TERRITORY_SPECS, OUTPOST_MAX_LEVEL, outpostUpgradeCost, RESPEC_COST, OUTPOST_THREATS } from '../../data/territories.js';
+import { resIcon } from '../icons.js';
 import { TERRAINS } from '../../data/world.js';
 import { UNITS } from '../../data/units.js';
 import { RESOURCES } from '../../data/resources.js';
@@ -13,7 +14,7 @@ import { ROADS, LOGI, roadUpgradeCost, upgradeRoad, rationsCost, sendRations, su
 import { upIcon } from '../art.js';
 import { esc, costList, countdown } from '../components.js';
 
-const prodText = (sp, lvl) => Object.entries(sp.prod || {}).map(([r, v]) => `${RESOURCES[r].icon} ${fmt(v * lvl)}/h`).join(' ');
+const prodText = (sp, lvl) => Object.entries(sp.prod || {}).map(([r, v]) => `${resIcon(r, 16, RESOURCES[r]?.icon)} ${fmt(v * lvl)}/h`).join(' ');
 const modText = (sp, lvl) => Object.entries(sp.mods || {}).map(([k, v]) => `${k} +${Math.round(v * lvl * 1000) / 10} %`).join(', ');
 
 const viaName = (s, r) => (r.route?.via ? outpostLabel(s.territories[r.route.via]) : 'château');
@@ -46,7 +47,7 @@ function overview(app, list) {
   const reps = list.map(([k]) => outpostReport(s, k, now));
   const tot = {}, up = {};
   for (const r of reps) { for (const [res, v] of Object.entries(r.prod)) tot[res] = (tot[res] || 0) + v; for (const [res, v] of Object.entries(r.upkeep)) up[res] = (up[res] || 0) + v; }
-  const chips = (o) => Object.entries(o).filter(([, v]) => v > 0.05).map(([r, v]) => `${RESOURCES[r].icon} ${fmt(v)}`).join(' ') || '—';
+  const chips = (o) => Object.entries(o).filter(([, v]) => v > 0.05).map(([r, v]) => `${resIcon(r, 16, RESOURCES[r]?.icon)} ${fmt(v)}`).join(' ') || '—';
   return `<div class="card"><h3>📊 Vue d’ensemble <span class="muted small">production, garnison, entretien et menaces</span></h3>
     <div class="table-wrap"><table class="op-table"><thead><tr><th>Avant-poste</th><th>Spécialité</th><th>Niv.</th><th>Production /h</th><th>Acheminement</th><th>Garnison</th><th>Stabilité</th><th>Entretien /h</th><th>État</th><th>Ordres</th></tr></thead><tbody>
     ${reps.map((r) => `<tr class="${r.st.eff < 1 ? 'warn-row' : ''}">
@@ -96,13 +97,13 @@ function card(app, k, t) {
     ${st.reasons.map((r) => `<div class="small req">⚠️ ${esc(r)}</div>`).join('')}${t.pillagedUntil > Date.now() ? `<div class="small">Reprise dans ${countdown(t.pillagedUntil)}</div>` : ''}
     <div class="small">Bonus de terrain (si garnison complète) : ${Object.entries(TERRAINS[t.terrain].territory).map(([m, v]) => `${m} +${Math.round(v * 100)} %`).join(', ')}</div>
     ${sp ? `<div class="small">Production : ${prodText(sp, lvl) || '—'}${sp.mods ? ` · Bonus : ${modText(sp, lvl)}` : ''}${sp.relicChance ? ' · chance de fragments de relique' : ''}</div>` : ''}
-    <div class="small">Entretien : ${Object.entries(outpostUpkeep(t)).map(([r, v]) => `${RESOURCES[r].icon} ${v}/h`).join(' ')} · Menace : ${esc(OUTPOST_THREATS[t.terrain]?.name || '')}${t.defended ? ` · ${t.defended} attaque(s) repoussée(s)` : ''}</div>
+    <div class="small">Entretien : ${Object.entries(outpostUpkeep(t)).map(([r, v]) => `${resIcon(r, 16, RESOURCES[r]?.icon)} ${v}/h`).join(' ')} · Menace : ${esc(OUTPOST_THREATS[t.terrain]?.name || '')}${t.defended ? ` · ${t.defended} attaque(s) repoussée(s)` : ''}</div>
     ${stabBlock(s, k, t)}
     ${logiBlock(s, k, t)}
-    <h4>Spécialisation ${t.spec ? `<span class="muted small">(reconversion : ${Object.entries(RESPEC_COST).map(([r, v]) => `${v} ${RESOURCES[r].icon}`).join(' ')}, retour au niveau 1)</span>` : ''}</h4>
+    <h4>Spécialisation ${t.spec ? `<span class="muted small">(reconversion : ${Object.entries(RESPEC_COST).map(([r, v]) => `${v} ${resIcon(r, 16, RESOURCES[r]?.icon)}`).join(' ')}, retour au niveau 1)</span>` : ''}</h4>
     <div class="spec-grid">${opts.map((o) => { const a = specAffinity(s, t, o.id); const c2 = specCategory(o.id); return `<button class="spec ${t.spec === o.id ? 'active' : ''}" data-action="tr-spec" data-k="${k}" data-s="${o.id}" ${t.spec === o.id ? 'disabled' : ''}><b>${o.icon} ${esc(o.name)}</b>${c2 ? `<span class="small gold-text">${c2.icon} ${esc(c2.name)}</span>` : ''}<span class="small muted">${esc(o.desc)}</span><span class="small">${prodText(o, 1)} ${o.mods ? modText(o, 1) : ''} <i>par niveau</i></span><span class="small ${a.bonus > 0 ? 'ok' : 'muted'}">Affinité ici : +${Math.round(a.bonus * 100)} %</span></button>`; }).join('')}</div>
     ${sp && lvl < OUTPOST_MAX_LEVEL ? `<div class="panel-sub up-block ${up.status}"><h4>Amélioration → niveau ${lvl + 1}</h4><div class="row gap wrap">${costList(outpostUpgradeCost(lvl + 1), s)}<button class="btn small ${up.status === 'ready' ? 'primary' : ''}" data-action="tr-up" data-k="${k}" ${up.status === 'ready' ? '' : 'disabled'}>⬆ Améliorer → niv. ${lvl + 1}</button></div>
-      <div class="small muted">Bénéfices : production et bonus de spécialité ×${((lvl + 1) / lvl).toFixed(2)} · garnison requise ${garrisonNeed({ level: lvl + 1 })} soldats · entretien ${Object.entries(outpostUpkeep({ level: lvl + 1 })).map(([r, v]) => `${RESOURCES[r].icon} ${v}/h`).join(' ')}</div>
+      <div class="small muted">Bénéfices : production et bonus de spécialité ×${((lvl + 1) / lvl).toFixed(2)} · garnison requise ${garrisonNeed({ level: lvl + 1 })} soldats · entretien ${Object.entries(outpostUpkeep({ level: lvl + 1 })).map(([r, v]) => `${resIcon(r, 16, RESOURCES[r]?.icon)} ${v}/h`).join(' ')}</div>
       ${up.status !== 'ready' ? `<div class="req">⚠️ ${esc(up.reasons[0] || '')}${up.missing ? ' : ' + Object.entries(up.missing).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].name.toLowerCase()}`).join(', ') : ''}</div>` : ''}</div>` : sp ? '<div class="small muted">Niveau maximal atteint.</div>' : ''}
     <h4>Garnison <span class="muted small">${st.garrison}/${st.need} soldats requis</span></h4>
     <div class="row gap wrap">${units.map(([u, d]) => `<label class="small">${d.icon} ${esc(d.name)} <input class="qty" type="number" min="0" max="${(s.army[u] || 0) + (t.garrison?.[u] || 0)}" value="${t.garrison?.[u] || 0}" id="g-${k}-${u}" data-u="${u}"></label>`).join('') || '<span class="muted small">Aucune troupe disponible.</span>'}

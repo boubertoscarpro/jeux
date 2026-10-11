@@ -12,7 +12,7 @@ import { grantArtifact } from './collection.js';
 import { rollShards } from './shards.js';
 import { spawnPoi, findFreeTile, reveal, poiAt, key, distCap, aroundCapital, worldScale } from './world.js';
 import { spawnMerchant } from './market.js';
-import { log, toast } from './log.js';
+import { log, toast, feat } from './log.js';
 import { calendar, chronicle } from './chronicle.js';
 
 export function changeWeather(state, now) {
@@ -117,6 +117,7 @@ function bossTick(state, dtSec, now) {
       const reward = Object.fromEntries(Object.entries(def.reward).map(([r, v]) => [r, Math.round(v * k)]));
       gain(state, reward, mods);
       state.stats.bossKills++;
+      feat('🐉', `${def.name} est vaincu`, `Votre part : ${(share * 100).toFixed(1)} %`);
       (state.bossTrophies ||= {})[b.key] = now;
       chronicle(state, `${def.name} tombe sous les coups des seigneurs ; ${state.meta.kingdomName} y prend ${(share * 100).toFixed(1)}% de part.`, now);
       if (share >= 0.1 && rng.chance(0.25)) grantArtifact(state, 'emberHorn', now, def.name);

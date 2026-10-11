@@ -1,3 +1,4 @@
+import { WINTER_FOOD_KEYS } from '../data/seasons.js';
 import { CATASTROPHES, SEASONS } from '../data/seasons.js';
 import { POI_TYPES } from '../data/world.js';
 import { RESOURCES, TRADABLE } from '../data/resources.js';
@@ -12,10 +13,25 @@ import { computeMods } from './modifiers.js';
 import { log, toast } from './log.js';
 
 // Modificateurs de la saison et de la catastrophe en cours
+// Résistance à l'hiver (spécialisation, monument, traditions) — calculée sans computeMods pour éviter une boucle
+export function winterResist(state) {
+  let r = 0;
+  if (state.kingdom?.type === 'harvest') r += 0.4;
+  const m = Object.values(state.city?.buildings || {}).find((b) => b.type === 'monument' && b.orient === 'garden');
+  if (m) r += 0.08 * m.level;
+  if ((state.legacy?.traditions || []).includes('stewards')) r += 0.15;
+  if (levelOfB(state, 'warehouse') >= 10) r += 0.1;
+  return r;
+}
+const levelOfB = (state, type) => Math.max(0, ...Object.values(state.city?.buildings || {}).filter((b) => b.type === type).map((b) => b.level || 0));
+
 export function livingMods(state, now) {
   const m = {};
   const add = (o) => { for (const [k, v] of Object.entries(o || {})) m[k] = (m[k] || 0) + v; };
-  add(calendar(state, now).season.mods);
+  const season = calendar(state, now).season;
+  // Hiver : les moyens d'adaptation réduisent le malus de nourriture (sans jamais le transformer en bonus)
+  const resist = season.key === 'winter' ? Math.min(0.8, winterResist(state)) : 0;
+  add(Object.fromEntries(Object.entries(season.mods).map(([k, v]) => [k, v < 0 && WINTER_FOOD_KEYS.includes(k) ? v * (1 - resist) : v])));
   const c = state.catastrophe;
   if (c && c.until > now) add(CATASTROPHES[c.key].mods);
   if (state.fertileUntil > now) add({ 'prod.food': 0.2, 'prod.grain': 0.2 });

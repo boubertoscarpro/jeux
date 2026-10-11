@@ -158,3 +158,11 @@ Lecture :
 
 - Les bots jouent mal la guerre (ils envoient toute l'armée), ne font pas de diplomatie et ne participent pas aux événements. Leurs défaites et raids perdus sont donc **pessimistes**.
 - 7 jours ne couvrent pas la fin de partie (dynasties successives, collections complètes).
+
+## v10 (résumé)
+
+Aucun changement de rythme : mêmes niveaux d’hôtel de ville en 7 jours pour les six profils simulés. Nouveaux
+leviers sans inflation : défis de maîtrise (récompenses cosmétiques et titres), monument dynastique (bonus modestes
+par étape, 5 étapes coûteuses), expéditions légendaires (épreuves calibrées sur la force de l’escorte), mémoire des
+factions (demi-vie de 3 jours, plafond ±60), saisons (campagnes d’été plus rapides, d’hiver plus lentes ; résistance
+à l’hiver plafonnée à 80 %). Détail et tableau avant/après : `docs/V10.md`.

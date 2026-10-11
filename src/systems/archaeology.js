@@ -11,7 +11,7 @@ import { isRevealed, reveal, distCap, poiAt } from './world.js';
 import { chronicle } from './chronicle.js';
 import { learnPlan } from './recipes.js';
 import { bumpRep } from './reputation.js';
-import { log, toast } from './log.js';
+import { log, toast, feat } from './log.js';
 
 export function archaeoState(state) {
   const a = (state.archaeo && typeof state.archaeo === 'object') ? state.archaeo : (state.archaeo = {});
@@ -177,7 +177,7 @@ export function answerRiddle(state, k, now = Date.now()) {
   const plan = def.reward.plan ? learnPlan(state, def.reward.plan, `mystère « ${def.name} »`, now) : null;
   bumpRep(state, 'explorer', 10);
   chronicle(state, `Le mystère « ${def.name} » est résolu : ${def.place.name} est retrouvé. ${def.reward.text}.`, now);
-  toast(`🏛️ ${def.place.name} découvert !`, 'good');
+  feat(def.place.icon, `${def.place.name} retrouvé`, def.reward.text);
   return { ok: true, correct: true, text: `${def.reward.text}${plan ? ` · plan « ${plan} »` : ''}` };
 }
 

@@ -1,4 +1,5 @@
 import { RESOURCES, TRADABLE } from '../../data/resources.js';
+import { resIcon } from '../icons.js';
 import { WORLD_EVENTS } from '../../data/events.js';
 import { fmt } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
@@ -29,7 +30,7 @@ export default {
     return `<div class="card"><h2>⚖️ Marché ${lvl ? `<span class="muted small">niv. ${lvl}</span>` : ''}</h2>
       ${!lvl ? '<p class="req">Construisez un Marché (Hôtel de ville niv. 2) pour commercer.</p>' : ''}
       <p class="muted small">Les prix évoluent selon l’offre et la demande : vos ventes font baisser le prix, vos achats le font monter. Les événements (guerre, hiver…) bousculent les cours. Taxe : <b>${Math.round(marketFee(mods) * 100)}%</b>.</p>
-      ${evs.length ? `<div class="chips">${evs.map((e) => `<span class="chip chip-event">${WORLD_EVENTS[e.key].icon} ${esc(WORLD_EVENTS[e.key].name)} : ${Object.entries(WORLD_EVENTS[e.key].market).map(([r, k]) => `${RESOURCES[r].icon} ${k > 1 ? '+' : ''}${Math.round((k - 1) * 100)}%`).join(' ')}</span>`).join('')}</div>` : ''}
+      ${evs.length ? `<div class="chips">${evs.map((e) => `<span class="chip chip-event">${WORLD_EVENTS[e.key].icon} ${esc(WORLD_EVENTS[e.key].name)} : ${Object.entries(WORLD_EVENTS[e.key].market).map(([r, k]) => `${resIcon(r, 16, RESOURCES[r]?.icon)} ${k > 1 ? '+' : ''}${Math.round((k - 1) * 100)}%`).join(' ')}</span>`).join('')}</div>` : ''}
       <div class="form-row"><label>Quantité</label><input type="number" id="trade-qty" min="1" value="${qty}" data-change="qty"><div class="row gap">${[100, 500, 1000, 5000].map((q) => `<button class="mini ghost" data-action="set-qty" data-q="${q}">${q}</button>`).join('')}</div></div>
       <div class="table-wrap"><table class="market"><thead><tr><th>Ressource</th><th>Stock</th><th>Cours</th><th>Tendance</th><th>Vendre ×${fmt(qty)}</th><th>Acheter ×${fmt(qty)}</th></tr></thead><tbody>
       ${TRADABLE.map((r) => {
@@ -37,7 +38,7 @@ export default {
         const base = RESOURCES[r].price;
         const ratio = p / base;
         const sq = quote(s, r, qty, -1, mods), bq = quote(s, r, qty, 1, mods);
-        return `<tr><td>${RESOURCES[r].icon} ${esc(RESOURCES[r].name)}</td><td class="num">${fmt(s.resources[r] || 0)}</td>
+        return `<tr><td>${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)}</td><td class="num">${fmt(s.resources[r] || 0)}</td>
           <td class="num"><b>${p.toFixed(2)}</b> <span class="${ratio > 1.05 ? 'up' : ratio < 0.95 ? 'down' : 'muted'} small">${ratio > 1 ? '+' : ''}${Math.round((ratio - 1) * 100)}%</span></td>
           <td>${spark(s.market.history[r], base)}</td>
           <td><button class="mini" data-action="sell" data-r="${r}" ${!lvl || (s.resources[r] || 0) < qty ? 'disabled' : ''}>+${fmt(sq.total)} 🪙</button></td>
@@ -47,7 +48,7 @@ export default {
       <div class="card"><h2>🐪 Caravanes & routes commerciales</h2>
         <p class="muted small">Les cités libres paient plus cher (★ +60% pour les ressources demandées). Sélectionnez une cité 🏘️ sur la Carte pour y envoyer une caravane. Caravanes : ${s.caravans.length}/${caravanSlots(mods)}.</p>
         ${s.caravans.map((c) => `<div class="q-row"><div class="q-top"><span>🐪 ${esc(c.town)} — ${fmt(c.qty)} ${RESOURCES[c.res].icon} → ${fmt(c.gold)} 🪙 ${c.repeat ? '🔁' : ''}</span>${countdown(c.end)}${c.repeat ? `<button class="mini ghost" data-action="stop-route" data-id="${c.id}">Arrêter la route</button>` : ''}</div>${progress(c.start, c.end)}</div>`).join('') || '<div class="muted small">Aucune caravane en route.</div>'}
-        <div class="town-list">${Object.values(s.world.pois).filter((p) => p.type === 'town' && s.world.revealed[p.y * s.world.size + p.x]).map((t) => `<button class="btn ghost small" data-action="goto-town" data-x="${t.x}" data-y="${t.y}">🏘️ ${esc(t.name)} — ★ ${t.wants.map((r) => RESOURCES[r].icon).join('')}</button>`).join('') || '<div class="muted small">Explorez pour découvrir des cités libres.</div>'}</div>
+        <div class="town-list">${Object.values(s.world.pois).filter((p) => p.type === 'town' && s.world.revealed[p.y * s.world.size + p.x]).map((t) => `<button class="btn ghost small" data-action="goto-town" data-x="${t.x}" data-y="${t.y}">🏘️ ${esc(t.name)} — ★ ${t.wants.map((r) => resIcon(r, 16, RESOURCES[r]?.icon)).join('')}</button>`).join('') || '<div class="muted small">Explorez pour découvrir des cités libres.</div>'}</div>
       </div>
 
       ${mer ? `<div class="card merchant"><h2>🧙 Marchand mystérieux <span class="muted small">part dans ${countdown(mer.until)}</span></h2><div class="item-grid">${mer.offers.map((o, i) => `<div class="item-wrap">${o.item ? itemCard(o.item) : `<div class="item-card"><b>${RESOURCES[o.res].icon} ${o.qty} ${esc(RESOURCES[o.res].name)}</b></div>`}${costList(o.cost, s)}<button class="mini primary" data-action="merchant" data-i="${i}" ${o.sold ? 'disabled' : ''}>${o.sold ? 'Vendu' : 'Acheter'}</button></div>`).join('')}</div></div>` : ''}`;

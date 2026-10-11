@@ -4,7 +4,7 @@ import { UNITS, ALL_UNITS } from '../../data/units.js';
 import { fmt } from '../../core/util.js';
 import { thLevel } from '../../systems/city.js';
 import { armyPower } from '../../systems/army.js';
-import { OPS, SEQUENCE, WAR_MIN_TH, warState, campaignTargets, canStartCampaign, startCampaign, currentOpKey, opEnemies, previewOp, chooseFinal, launchOp, abandonCampaign } from '../../systems/warcampaign.js';
+import { OPS, SEQUENCE, WAR_MIN_TH, warState, campaignTargets, canStartCampaign, startCampaign, currentOpKey, opEnemies, previewOp, chooseFinal, launchOp, abandonCampaign, seasonWar } from '../../systems/warcampaign.js';
 import { esc, countdown, progress } from '../components.js';
 
 const SHARES = { all: ['Toute l’armée', 1], two: ['Les deux tiers', 2 / 3], half: ['La moitié (garder une garnison)', 0.5] };
@@ -51,7 +51,7 @@ export default {
       body = `<div class="card"><div class="row between wrap"><h3>Campagne contre ${RIVALS[a.faction].icon} ${esc(RIVALS[a.faction].name)}</h3><span class="small ${a.fails ? 'bad' : 'muted'}">Revers : ${a.fails}/2</span></div>${track(a)}${opHtml}
         ${a.op ? '' : '<button class="mini ghost danger" data-action="war-abandon">Abandonner la campagne</button>'}</div>`;
     }
-    return `<div class="card"><h2>🎖️ Campagnes militaires</h2><p class="small muted">Une campagne enchaîne trois opérations contre une faction : <b>sécuriser le col</b> (attaque +10 % pour la suite, raids de la faction affaiblis), <b>prendre le fort frontalier</b> (la faction perd territoires et troupes) puis un <b>objectif final</b> au choix (tribut imposé, ou cité libre protégée et trêve). Deux revers mettent fin à la campagne. L’aperçu indique vos chances avant chaque opération.</p></div>${body}
+    return `<div class="card"><h2>🎖️ Campagnes militaires</h2><p class="small muted">Une campagne enchaîne trois opérations contre une faction : <b>sécuriser le col</b> (attaque +10 % pour la suite, raids de la faction affaiblis), <b>prendre le fort frontalier</b> (la faction perd territoires et troupes) puis un <b>objectif final</b> au choix (tribut imposé, ou cité libre protégée et trêve). Deux revers mettent fin à la campagne. L’aperçu indique vos chances avant chaque opération.</p><div class="season-fore">🗓️ ${esc(seasonWar(app.state).text)}</div></div>${body}
       ${W.history.length ? `<div class="card"><h3>Campagnes passées</h3>${W.history.map((h) => `<div class="small">${h.won ? '🏆' : '🩸'} ${esc(RIVALS[h.faction].name)} — ${h.results.map((r) => `${OPS[r.key].icon}${r.won ? '✔' : '✖'}`).join(' ')} · ${new Date(h.t).toLocaleDateString('fr-FR')}</div>`).join('')}</div>` : ''}`;
   },
   actions: {

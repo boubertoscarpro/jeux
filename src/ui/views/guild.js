@@ -1,4 +1,5 @@
 import { GUILDS, GUILD_LEVELS, GUILD_OBJECTIVES, guildXpForLevel } from '../../data/social.js';
+import { resIcon } from '../icons.js';
 import { RESOURCES } from '../../data/resources.js';
 import { fmt } from '../../core/util.js';
 import { levelOf } from '../../systems/city.js';
@@ -32,7 +33,7 @@ export default {
           ${GUILD_LEVELS.map((l) => `<li class="${g.level >= l.lvl ? 'ok' : 'off'}">${g.level >= l.lvl ? '✔' : '🔒'} Niv. ${l.lvl} — ${esc(l.name)} : ${Object.entries(l.mods).map(([m, v]) => `${m} ${v < 1 ? '+' + Math.round(v * 100) + '%' : '+' + v}`).join(', ')}</li>`).join('')}</ul>
         <h3>Dons</h3><p class="muted small">Les dons font monter la guilde de niveau (Maison de guilde niv. ${hall} : +${hall * 5}% d’efficacité).</p>
         <div class="form-row"><input type="number" id="donate-amt" min="1" value="${amt}" data-change="donate-amt"></div>
-        <div class="row gap wrap">${['gold', 'wood', 'stone', 'iron', 'food', 'steel'].map((r) => `<button class="mini" data-action="donate" data-r="${r}">${RESOURCES[r].icon} Donner</button>`).join('')}</div>
+        <div class="row gap wrap">${['gold', 'wood', 'stone', 'iron', 'food', 'steel'].map((r) => `<button class="mini" data-action="donate" data-r="${r}">${resIcon(r, 16, RESOURCES[r]?.icon)} Donner</button>`).join('')}</div>
         <button class="btn ghost danger small" data-action="leave">Quitter la guilde</button>
       </div>
       <div class="card"><h2>🎯 Objectifs collectifs <span class="muted small">cycle ${g.round + 1}</span></h2>

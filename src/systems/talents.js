@@ -1,4 +1,5 @@
 import { applyLegacy } from './legacy.js';
+import { MONUMENT_HERITAGE_PER_STAGE } from '../data/monument.js';
 import { TALENTS, BUILD_PRESETS, DYNASTY_PERKS } from '../data/talents.js';
 import { RESOURCES } from '../data/resources.js';
 import { thLevel, totalLevels } from './city.js';
@@ -80,7 +81,9 @@ export const PRESTIGE_TH = 15;
 export function prestigeGain(state) {
   // Seuls les artefacts obtenus pendant cette dynastie comptent (les artefacts conservés ne repaient pas)
   const newArts = Object.values(state.artifacts || {}).filter((a) => (a?.t || 0) >= (state.meta.created || 0)).length;
-  return Math.floor(totalLevels(state) / 40 + newArts * 2 + (state.stats.bossKills || 0) + (state.stats.dungeons || 0) / 2 + thLevel(state) / 3);
+  // Monument dynastique : un point par étape achevée (orientation choisie)
+  const mon = Object.values(state.city.buildings).find((b) => b.type === 'monument' && b.orient);
+  return Math.floor(totalLevels(state) / 40 + newArts * 2 + (state.stats.bossKills || 0) + (state.stats.dungeons || 0) / 2 + thLevel(state) / 3) + (mon ? mon.level * MONUMENT_HERITAGE_PER_STAGE : 0) + (state.legacy?.bonusHeritage || 0);
 }
 export function canPrestige(state) {
   if (thLevel(state) < PRESTIGE_TH) return { ok: false, reason: `Hôtel de ville niveau ${PRESTIGE_TH} requis` };

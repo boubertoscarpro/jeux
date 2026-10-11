@@ -1,4 +1,5 @@
 import { RESOURCES, RES_ORDER, isCapped } from '../data/resources.js';
+import { resIcon } from './icons.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { UNITS, WEATHER } from '../data/units.js';
 import { TECHS } from '../data/techs.js';
@@ -6,7 +7,7 @@ import { WORLD_EVENTS } from '../data/events.js';
 import { EXPLORE_EVENTS } from '../data/exploration.js';
 import { CONSUMABLES, SLOTS } from '../data/items.js';
 import { POI_TYPES } from '../data/world.js';
-import { fmt } from '../core/util.js';
+import { fmt, fmtTime } from '../core/util.js';
 import { kingdomBadge } from './creation.js';
 import { trainingBattle, campaignTick } from '../systems/campaign.js';
 import { reportModal } from './views/journal.js';
@@ -47,11 +48,16 @@ export function renderTopbar(app) {
   const list = app.ui.showAllRes ? RES_ORDER : [...MAIN, 'bread', 'steel'];
   const res = list.map((r) => {
     const v = s.resources[r] || 0;
+    const capped = isCapped(r);
     const capR = storageCap(s, mods, r);
-    const full = isCapped(r) && v >= capR * 0.98;
+    const fill = capped ? Math.min(1, v / Math.max(1, capR)) : 0;
     const rate = net[r] || 0;
-    return `<div class="res ${full ? 'full' : ''}" title="${esc(RESOURCES[r].name)} — ${esc(RESOURCES[r].uses)}${isCapped(r) ? `\nCapacité : ${fmt(capR)}` : ''}\n${rate >= 0 ? '+' : ''}${fmt(rate)}/h">
-      <span class="res-icon">${RESOURCES[r].icon}</span><span class="res-val">${fmt(v)}</span>${rate ? `<span class="res-rate ${rate < 0 ? 'neg' : ''}">${rate > 0 ? '+' : ''}${fmt(rate)}/h</span>` : ''}</div>`;
+    // État : plein (≥ 98 %), presque plein (≥ 85 %), pénurie (production négative, épuisé en moins de 2 h)
+    const hoursLeft = rate < 0 ? v / -rate : Infinity;
+    const st = capped && fill >= 0.98 ? 'full' : hoursLeft < 2 ? 'short' : capped && fill >= 0.85 ? 'near' : '';
+    const tip = `${RESOURCES[r].name} — ${RESOURCES[r].uses}${capped ? `\nStock : ${fmt(v)} / ${fmt(capR)} (${Math.round(fill * 100)} %)` : ''}\n${rate >= 0 ? '+' : ''}${fmt(rate)}/h${st === 'full' ? '\nEntrepôt plein : la production est perdue (ou vendue en partie si vous avez un marché).' : st === 'short' ? `\nÉpuisé dans ${fmtTime(hoursLeft * 3600000)} au rythme actuel.` : ''}`;
+    return `<div class="res ${st}" title="${esc(tip)}">
+      <span class="res-icon">${resIcon(r, 18, RESOURCES[r].icon)}</span><span class="res-val">${fmt(v)}</span>${rate ? `<span class="res-rate ${rate < 0 ? 'neg' : ''}">${rate > 0 ? '+' : ''}${fmt(rate)}</span>` : ''}${capped ? `<span class="res-gauge" aria-hidden="true"><i style="width:${(fill * 100).toFixed(1)}%"></i></span>` : ''}</div>`;
   }).join('');
   const w = WEATHER[s.weather.type];
   const events = s.events.filter((e) => e.end > now).map((e) => `<span class="chip chip-event" title="${esc(WORLD_EVENTS[e.key].text)}">${WORLD_EVENTS[e.key].icon} ${esc(WORLD_EVENTS[e.key].name)} · ${countdown(e.end)}</span>`).join('');

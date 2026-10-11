@@ -4,7 +4,7 @@ import { uid } from '../core/util.js';
 import { levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing } from './economy.js';
-import { log } from './log.js';
+import { log, feat } from './log.js';
 import { costMult, applyCostMult } from './kingdom.js';
 
 export const researchSlots = (state) => 1 + (levelOf(state, 'library') >= 10 ? 1 : 0);
@@ -57,6 +57,7 @@ export function completeResearch(state, q, now) {
   state.techs[q.tech] = now;
   state.season.points += SEASON.points.research;
   log(state, 'good', `📜 Recherche terminée : ${TECHS[q.tech].name}.`, now);
+  feat('📜', 'Recherche terminée', TECHS[q.tech].name);
 }
 
 // Accélère la recherche en cours (parchemins trouvés en exploration)

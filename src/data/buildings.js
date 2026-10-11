@@ -309,6 +309,11 @@ export const BUILDINGS = {
     cost: { stone: 3000, wood: 3000, silver: 40, crystals: 20 }, time: 1200,
     effects: (lvl) => ({ vision: 2, 'explore.speed': 0.04 * lvl, 'loot.rare': 0.02 * lvl }),
     maxCount: N(1),
+  },  monument: {
+    name: 'Monument dynastique', icon: '🗿', cat: 'unique', unique: true, maxLevel: 5, req: { townhall: 7 },
+    desc: 'L’œuvre de votre dynastie, bâtie en 5 étapes. Choisissez son orientation (citadelle, archives, jardin ou mémorial) : elle décide de ses bienfaits. Chaque étape achevée rapporte un point d’héritage à la fondation d’une dynastie.',
+    cost: { stone: 4000, wood: 3000, gold: 2500, steel: 150, crystals: 8 }, time: 3600,
+    maxCount: N(1),
   },
 };
 

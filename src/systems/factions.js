@@ -13,6 +13,7 @@ import { chronicle } from './chronicle.js';
 import { startWorldEvent } from './events.js';
 import { log, toast } from './log.js';
 import { costMult } from './kingdom.js';
+import { remember, memoryScore, rivalryTick } from './rivalry.js';
 
 export { STANCES, PERSONALITIES };
 
@@ -38,7 +39,7 @@ export function playerPower(state) { return armyPower(armyTotals(state)); }
 // Puissance militaire estimée d'une faction (même échelle que armyPower)
 export const factionPower = (state, f) => Math.round(f.army * (200 + thLevel(state) * 180));
 
-function baselineRelation(state, f) {
+function baselineRelation(state, f, now = Date.now()) {
   const p = PERSONALITIES[RIVALS[f.idx].personality];
   const rep = state.reputation || {};
   let b = p.base;
@@ -50,6 +51,8 @@ function baselineRelation(state, f) {
   }
   if (f.stance === 'trade') b += 10;
   if (f.stance === 'alliance') b += 25;
+  // Mémoire des actes du joueur (griefs et faveurs, demi-vie de 3 jours)
+  b += memoryScore(f, now);
   return Math.max(-100, Math.min(100, b));
 }
 
@@ -70,7 +73,7 @@ export function factionsTick(state, now) {
     f.tech += 0.01 * per.tech;
     if (f.wars.length) f.weariness = Math.min(100, f.weariness + 2); else f.weariness = Math.max(0, f.weariness - 1);
     // Dérive des relations vers la base (personnalité + réputation du joueur)
-    const base = baselineRelation(state, f);
+    const base = baselineRelation(state, f, now);
     f.relation += (base - f.relation) * 0.04;
     // Expansion territoriale
     if (f.territory.length < 30 + f.army * 3 && rng.chance(per.expand * 0.35)) expand(state, f, now);
@@ -79,6 +82,7 @@ export function factionsTick(state, now) {
     const poi = kingdomPoi(state, f.idx);
     if (poi) poi.power = Math.round(f.army * 100) / 100;
   }
+  memoryTick(state, now);
   // Guerres entre factions
   if (rng.chance(0.04)) {
     const [a, b] = [rng.pick(state.factions), rng.pick(state.factions)];
@@ -102,6 +106,9 @@ export function factionsTick(state, now) {
     }
   }
 }
+
+// (appelé par factionsTick) : commerce durable, promesses rompues
+function memoryTick(state, now) { rivalryTick(state, now); }
 
 function expand(state, f, now) {
   const w = state.world;
@@ -169,6 +176,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       state.stats.envoys = (state.stats.envoys || 0) + 1;
       const gainRel = Math.round(rng.int(6, 14) * (1 + repD / 400) * (f.stance === 'war' ? 0.5 : 1));
       f.relation = Math.min(100, f.relation + gainRel);
+      remember(state, i, 'envoy', 3, 'Ambassade bien reçue', now);
       bumpRep(state, 'diplomat', 4);
       return { ok: true, msg: `Votre ambassadeur est bien reçu à ${name} (+${gainRel} relation).` };
     }
@@ -178,6 +186,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       if (f.relation < need) return { ok: false, reason: `Relation insuffisante (${need} requis)` };
       if (per === 'isolationist' && f.relation < 40) return { ok: false, reason: `${name} refuse d’ouvrir ses marchés (relation 40 requise)` };
       f.stance = 'trade'; f.treatyAt = now;
+      remember(state, i, 'treaty', 10, 'Pacte commercial signé', now);
       bumpRep(state, 'merchant', 10); bumpRep(state, 'diplomat', 8);
       chronicle(state, `Un pacte commercial est signé avec ${name}.`, now);
       return { ok: true, msg: 'Pacte commercial signé : −2% de taxe au marché et contrats exclusifs.' };
@@ -186,6 +195,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       if (f.stance !== 'trade') return { ok: false, reason: 'Un pacte commercial est requis d’abord' };
       if (f.relation < 60) return { ok: false, reason: 'Relation 60 requise' };
       f.stance = 'alliance'; f.treatyAt = now;
+      remember(state, i, 'treaty', 15, 'Alliance scellée', now);
       bumpRep(state, 'diplomat', 20);
       chronicle(state, `Une alliance est scellée avec ${name}.`, now);
       return { ok: true, msg: 'Alliance scellée : renforts lors des raids et carte partagée.' };
@@ -195,6 +205,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       const chance = 0.25 + (f.relation + 60) / 250 + f.weariness / 200 + Math.max(0, ratio - 1) * 0.25;
       if (!rng.chance(Math.min(0.95, chance))) { f.relation = Math.max(-100, f.relation - 3); return { ok: false, reason: `${name} rejette votre proposition (chance ${Math.round(Math.min(0.95, chance) * 100)}%)` }; }
       f.stance = 'truce'; f.treatyAt = now; f.relation = Math.max(f.relation, -10);
+      remember(state, i, 'peace', 6, 'Paix signée', now);
       bumpRep(state, 'diplomat', 15);
       chronicle(state, `La paix est signée avec ${name}.`, now);
       return { ok: true, msg: 'Paix signée : trêve de 6 h.' };
@@ -203,6 +214,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       if (f.stance === 'war') return { ok: false, reason: 'Déjà en guerre' };
       const betrayal = ['alliance', 'trade', 'truce'].includes(f.stance);
       f.stance = 'war'; f.treatyAt = now; f.relation = Math.min(f.relation, -50);
+      remember(state, i, betrayal ? 'betrayal' : 'war', betrayal ? -40 : -20, betrayal ? 'Serments trahis : guerre déclarée en plein traité' : 'Guerre déclarée', now);
       bumpRep(state, 'warrior', 10);
       if (betrayal) { bumpRep(state, 'tyrant', 25); bumpRep(state, 'diplomat', -40); for (const o of state.factions) if (o !== f) o.relation = Math.max(-100, o.relation - 10); }
       state.stats.wars = (state.stats.wars || 0) + 1;
@@ -216,10 +228,12 @@ export function diplomacy(state, i, action, now = Date.now()) {
       bumpRep(state, 'tyrant', 10);
       if (rng.chance(Math.min(0.9, (ratio - 1) * 0.5 + 0.2 - resist * 0.3 + (state.reputation?.tyrant || 0) / 2000))) {
         f.stance = 'tributary'; f.treatyAt = now; f.relation = Math.max(-100, f.relation - 20);
+        remember(state, i, 'humiliation', -15, 'Humiliation du tribut imposé', now);
         chronicle(state, `${name} accepte de payer tribut à ${state.meta.kingdomName}.`, now);
         return { ok: true, msg: `${name} vous versera un tribut régulier.` };
       }
       f.relation = Math.max(-100, f.relation - 15);
+      remember(state, i, 'threat', -8, 'Ultimatum insultant', now);
       if (per === 'aggressive' || per === 'military') { f.stance = 'war'; chronicle(state, `${name} répond à votre ultimatum par la guerre !`, now); }
       return { ok: false, reason: `${name} refuse avec mépris.` };
     }

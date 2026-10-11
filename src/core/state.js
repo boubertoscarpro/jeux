@@ -165,6 +165,9 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     council: { favor: { merchants: 50, army: 50, peasants: 50, scholars: 50, nobles: 50 }, memory: [], history: [], motion: null, nextAt: 0 },
     // --- Héritage dynastique (traditions, archives, vestiges, défis ancestraux) ---
     legacy: { traditions: [], milestones: {}, offer: null, archives: [], remnants: [], challenges: [] },
+    // --- v10 : défis de maîtrise, expéditions légendaires ---
+    challenges: { active: null, best: {}, claimed: {}, history: [], retryAt: {} },
+    legendary: { unlocked: {}, done: {}, active: null, history: [] },
   };
   ensureIdentity(state);
 

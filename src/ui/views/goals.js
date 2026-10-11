@@ -1,11 +1,14 @@
 import { fmt } from '../../core/util.js';
+import { strategicSummary } from '../../systems/dashboard.js';
+import { RESOURCES } from '../../data/resources.js';
+import { resIcon } from '../icons.js';
 import { goals } from '../../systems/goals.js';
 import { objectives, claimRoyalDaily, objectivesBadge } from '../../systems/campaign.js';
 import { claimDaily } from '../../systems/liveEvents.js';
 import { KINGDOM_HINTS } from '../../data/campaign.js';
 import { ADVICE_LEVELS, setAdviceLevel } from '../../systems/guide.js';
 import { resChips } from '../components.js';
-import { SAGAS } from '../../data/sagas.js';
+import { SAGAS, fillText } from '../../systems/sagas.js';
 import { esc, bar, countdown } from '../components.js';
 import { questlineList, questlinesBadge, claimQuestStep, claimQuestFinal } from '../../systems/questlines.js';
 import { QUEST_CATS } from '../../data/questlines.js';
@@ -27,11 +30,12 @@ function card(g) {
 
 function sagaCard(s) {
   const S = s.sagas || { done: {}, log: [] };
-  const total = Object.keys(SAGAS).length, done = Object.keys(S.done || {}).length;
+  const list = Object.entries(SAGAS);
+  const seen = list.filter(([k]) => S.done?.[k]).length;
   const a = S.active;
-  return `<div class="card"><h3>📖 Sagas des Terres Brisées <span class="muted small">${done}/${total} achevées</span></h3>
-    <p class="small muted">Des chaînes d’événements narratifs se présentent de temps à autre (une à la fois). Vos choix ont des conséquences sur les étapes suivantes, vos relations et votre réputation. Aucune réponse n’est toujours la meilleure.</p>
-    ${a ? `<div class="goal urgent"><b>${SAGAS[a.id].icon} ${esc(SAGAS[a.id].title)}</b><div class="small">${a.at > Date.now() ? `Prochaine étape dans ${countdown(a.at)}` : 'Une décision vous attend (panneau Décisions).'}</div></div>` : '<p class="small">Aucune saga en cours.</p>'}
+  return `<div class="card"><h3>📖 Chroniques et sagas <span class="muted small">${seen}/${list.length} histoires connues · ${S.count || 0} achevée(s)</span></h3>
+    <p class="small muted">Des histoires à plusieurs étapes se présentent de temps à autre (une à la fois). Les <b>chroniques du monde</b> naissent de la situation réelle (une faction trop puissante, une guerre, un pacte fragile, une rancune, une route menacée…) et modifient le monde en retour. Une histoire peut revenir plus tard si la situation se reproduit.</p>
+    ${a ? `<div class="goal urgent"><b>${SAGAS[a.id]?.icon || '📖'} ${esc(fillText(SAGAS[a.id]?.title || '', a))}</b><div class="small">${a.at > Date.now() ? `Prochaine étape dans ${countdown(a.at)}` : 'Une décision vous attend (panneau de droite ou Objectifs).'}</div></div>` : ''}
     ${(S.log || []).slice(0, 8).map((l) => `<div class="small">• <b>${esc(l.title)}</b> — « ${esc(l.choice)} » : ${esc(l.text)}</div>`).join('')}</div>`;
 }
 
@@ -93,18 +97,23 @@ function dashboard(s, o) {
     ...ms.filter((m) => m.done).map((m) => ({ t: m.title, a: `<button class="mini good" data-action="dm-claim" data-id="${m.id}">Réclamer</button>` })),
     ...o.daily.filter((m) => m.done && !m.claimed).map((m) => ({ t: m.title, a: `<button class="mini good" data-action="claim-royal" data-id="${esc(String(m.id))}">Réclamer</button>` })),
   ];
-  const ups = upgradeSummary(s, computeMods(s)).count;
-  const finishedQ = ql.filter((l) => l.finished).length;
-  const box = (title, body) => `<div class="dash-col"><h4>${title}</h4>${body}</div>`;
-  const line = (icon, title, sub, btn = '') => `<div class="dash-item"><span class="dash-ic">${icon}</span><div><b>${esc(title)}</b>${sub ? `<div class="small muted">${sub}</div>` : ''}</div>${btn}</div>`;
-  return `<div class="card dash"><h3>🧭 Tableau de bord — que faire maintenant ?</h3>
-    <div class="dash-grid">
-      ${box('📖 Quête principale', next ? line(o.chapter.icon, next.title, `${esc(next.desc)} <b>${fmt(next.cur)}/${fmt(next.target)}</b>`, next.action ? `<button class="mini" data-action="${next.action}">Lancer</button>` : next.view ? `<button class="mini ghost" data-action="goto" data-view="${next.view}">Y aller</button>` : '') : '<div class="small muted">Chapitre terminé : réclamez sa récompense, puis place aux quêtes du royaume.</div>')}
-      ${box('🗺️ Objectifs secondaires', qCur.map((l) => line(l.icon, `${l.title} : ${l.current.title}`, `${esc(l.current.desc)} <b>${fmt(l.current.cur)}/${fmt(l.current.target)}</b>`, l.current.view ? `<button class="mini ghost" data-action="goto" data-view="${l.current.view}">Y aller</button>` : '')).join('') || '<div class="small muted">Les quêtes du royaume s’ouvrent au fil de votre progression (voir l’onglet Quêtes).</div>')}
-      ${box(`🧭 Missions du royaume <span class="muted">${ms.length}/${MISSION_MAX}</span>`, ms.map((m) => line(m.icon, m.title, `<b>${fmt(m.cur)}/${fmt(m.target)}</b>${m.void ? ' · <span class="req">impossible</span>' : ''}`, m.done ? '' : `<button class="mini ghost" data-action="dm-go" data-id="${m.id}">Y aller</button>`)).join('') || `<div class="small muted">${missionsUnlocked(s) ? 'Une mission adaptée à votre royaume arrivera bientôt.' : 'Les missions du royaume arrivent au chapitre 2.'}</div>`)}
-      ${box(`🎁 Récompenses à récupérer <span class="muted">${claims.length}</span>`, claims.slice(0, 6).map((c) => `<div class="dash-item"><span class="dash-ic">✅</span><div class="small">${esc(c.t)}</div>${c.a}</div>`).join('') + (claims.length > 6 ? `<div class="small muted">… et ${claims.length - 6} autre(s).</div>` : '') || '<div class="small muted">Rien à réclamer pour l’instant.</div>')}
-    </div>
-    <div class="small muted dash-foot">${ups ? `<button class="mini" data-action="up-list">⬆ ${ups} amélioration(s) possible(s)</button> · ` : ''}Terminé : ${Object.keys(s.campaign?.claimed || {}).length} mission(s) du parcours, ${finishedQ} quête(s) du royaume, ${missionState(s).done || 0} mission(s) dynamique(s). Rien n’est obligatoire : jouez librement, ces objectifs ne sont que des propositions.</div></div>`;
+  const D = strategicSummary(s);
+  const go = (g, pid) => (g === 'up-list' ? 'data-action="up-list"' : g === 'decide' ? `data-action="open-pending" data-id="${esc(pid || '')}"` : `data-action="goto" data-view="${g}"`);
+  const sevIcon = { bad: '🔴', warn: '🟠', next: '➡️', info: '💡' };
+  const obj = D.objective ? `<div class="dash-objective"><span class="big-ic">${D.objective.chapter?.icon || '📖'}</span><div class="grow"><div class="small muted">Objectif principal — chapitre ${D.objective.chapter?.n || ''}</div><b>${esc(D.objective.title)}</b><div class="small">${esc(D.objective.desc || '')}</div>${bar(D.objective.cur || 0, D.objective.target || 1)}<div class="small muted">${fmt(D.objective.cur || 0)} / ${fmt(D.objective.target || 0)}</div></div>${D.objective.action ? `<button class="btn small primary" data-action="${D.objective.action}">Lancer</button>` : D.objective.view ? `<button class="btn small primary" data-action="goto" data-view="${D.objective.view}">Y aller</button>` : ''}</div>`
+    : `<div class="dash-objective"><span class="big-ic">🏰</span><div><b>Le parcours guidé est achevé.</b><div class="small">Place à la fin de partie : maîtrise, découverte et héritage (onglet Chronique → Accomplissements).</div></div><button class="btn small primary" data-action="goto" data-view="accomplish">Voir</button></div>`;
+  const recs = D.recs.length ? `<div class="dash-recs">${D.recs.map((r, i) => `<div class="dash-rec"><span class="n">${i + 1}</span><div class="txt small">${sevIcon[r.sev] || ''} ${esc(r.text)}</div>${r.goto ? `<button class="mini" ${go(r.goto)}>Y aller</button>` : ''}</div>`).join('')}</div>` : '<div class="small muted">Aucune urgence : le royaume tourne. Profitez-en pour un défi ou une expédition.</div>';
+  const alerts = D.alerts.map((a) => `<div class="dash-alert ${a.sev}"><span>${a.icon}</span><span class="grow">${esc(a.text)}${a.until ? ` · ${countdown(a.until)}` : ''}</span>${a.goto ? `<button class="mini" ${go(a.goto, a.pid)}>${a.goto === 'decide' ? 'Décider' : 'Voir'}</button>` : ''}</div>`).join('');
+  const resLine = [...D.shortages.map((x) => `<span class="res-chip lack" title="Épuisé dans ${esc(fmtTime(x.hours * 3600000))}">${resIcon(x.res, 16, RESOURCES[x.res]?.icon)} ${esc(RESOURCES[x.res].name)} · ${esc(fmtTime(x.hours * 3600000))}</span>`), ...D.surplus.map((x) => `<span class="res-chip" title="Stock presque plein : dépensez, vendez ou agrandissez l’entrepôt">${resIcon(x.res, 16, RESOURCES[x.res]?.icon)} ${esc(RESOURCES[x.res].name)} ${x.pct >= 100 ? 'plein' : x.pct + ' %'}</span>`)].join('');
+  const se = D.season;
+  return `<div class="card"><h2>🧭 Tableau de bord du royaume</h2>
+    <div class="dash"><div class="dash-main">${obj}<h4>Prochaines actions conseillées</h4>${recs}
+      ${claims.length ? `<h4>🎁 Récompenses à récupérer <span class="muted">${claims.length}</span></h4><div class="dash-alerts">${claims.slice(0, 4).map((c) => `<div class="dash-alert good"><span>✅</span><span class="grow">${esc(c.t)}</span>${c.a}</div>`).join('')}</div>` : D.reward ? `<div class="small muted">Prochaine récompense : ${D.reward.icon} ${esc(D.reward.text)}</div>` : ''}</div>
+      <div class="dash-main">${alerts ? `<h4>⚠️ Menaces et décisions</h4><div class="dash-alerts">${alerts}</div>` : '<h4>⚠️ Menaces et décisions</h4><div class="small muted">Aucune menace ni décision en attente.</div>'}
+        ${resLine ? `<h4>📦 Pénuries et excédents</h4><div class="dash-res">${resLine}</div>` : ''}
+        <div class="season-fore"><span>${se.now.icon}</span><span class="grow"><b>${esc(se.now.name)}</b> · ${se.next.icon} ${esc(se.next.name)} dans ${countdown(Date.now() + se.inMs)}<br><span class="muted">${esc(se.next.desc)}</span></span></div>
+        <h4>🏆 Fin de partie</h4><div class="axis-grid">${Object.values(D.axes).map((ax) => `<div class="axis"><span class="small">${ax.icon} ${esc(ax.name)}</span><span class="pct">${ax.pct} %</span>${bar(ax.pct, 100)}</div>`).join('')}</div>
+        <button class="mini ghost" data-action="goto" data-view="accomplish">Détail des accomplissements →</button></div></div></div>`;
 }
 
 function chapterHeader(s, o) {
