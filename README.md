@@ -29,9 +29,10 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 | 📖 Parcours | **Quêtes du royaume** (11 chaînes en 7 catégories), **missions dynamiques** adaptées au royaume, tableau de bord, aide ❓ sur chaque écran ; 8 chapitres (du *Dernier hameau* au *Royaume prend son envol*), missions détectées automatiquement, récompenses uniques, exercice d'entraînement sans perte, missions royales du jour, objectifs à long terme, conseiller du tableau de bord (complet / réduit / désactivé), tutoriel relisible |
 | 🏰 Royaume | Grille de construction **24×16 dès le départ** (jusqu'à 40×24), **cases de 64 px et bâtiments illustrés**, icônes ⬆ des améliorations possibles et compteur, infobulles, **château principal nommé par le joueur**, zoom et déplacement, bonus d'adjacence (rivière, forêt, montagne), routes, agrandissement du domaine, fortifications ; **tableau des objectifs** (court / moyen / long terme) et **sagas** narratives |
 | 🗺️ Monde | Carte procédurale **96×96** (cases de 40 px, terrains texturés, frontières ennemies/alliées/neutres, étiquettes sans chevauchement, armées animées, **avant-postes nommés** avec spécialités et affinité) (plus de 600 lieux, 12 cités libres), zoom à la molette ou au pincement centré sur le curseur, mini-carte, filtres de lieux, accès rapide aux lieux découverts, brouillard, sites de farm à risque, donjons procéduraux, boss mondiaux, 5 factions IA, diplomatie, espionnage ; **territoires spécialisés** (avant-postes, garnison, entretien, menaces) |
-| ⚔️ Armée | 15 unités, contres, formations, terrain, météo, moral, ravitaillement, siège |
+| ⚔️ Armée | 15 unités, contres, formations, terrain, météo, moral, ravitaillement, siège ; **campagnes militaires** contre une faction (col, forteresse frontalière, puis siège de la capitale ou protection d’une cité libre) avec effets durables |
 | ⛏️ Production | Ouvriers & contremaîtres, expéditions automatiques, chaînes configurables, Intendance, priorités, **Ordres du royaume** (SI → ALORS), **bilan économique** (production/consommation par heure, pénuries, chaînes bloquées, pertes) |
 | 🚚 Commerce | Marché dynamique (saisons, guerres, pénuries, rumeurs), convois sécurisés/rapides/clandestins, routes, contrats en 7 catégories (commerce, urgence, artisanat, exploration, militaire, diplomatie, guilde) |
+| 💎 Joaillier | **Comptoir du Joaillier** : équipements, faveurs temporaires, élixirs, plans d’architecte, traités, cartes de fouilles et artisans, payés uniquement en gemmes, cristaux, argent, minerai rare et bois ancien (limites quotidiennes) |
 | 🧙 Héros | 6 classes, raretés, compétences, intendants/commandants, équipement, forge, potions |
 | 🔬 Technologies | Arbre technologique à maîtrises, recherche automatique, talents permanents, doctrines, prestige dynastique |
 | 🎪 Événements | Un grand événement de 72 h tous les ~3 jours (11 événements en rotation : Cavaliers des Steppes, Corsaires, Hiver des Géants, Ruines, Chasse au Dragon, Guerre des Royaumes, Ruée vers l'Or, Volcan, Nuit des Morts, Siège des Anciens, Convoi des Sept Marchands), cartes dédiées, monnaies, stratégie et missions du jour, boutiques à stock limité, marchand mystère, passe gratuite, tableau d'honneur (rivaux IA locaux), boss en 3 phases, défi héroïque, surprises (météores, dragon errant, Grande Foire, éclipse) |
@@ -44,7 +45,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 149 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
+npm test        # 152 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/profileSim.js --policies 7 3   # comparaison des priorités royales

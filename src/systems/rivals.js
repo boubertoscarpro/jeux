@@ -1,5 +1,6 @@
 import { recordLoss } from './losses.js';
 import { castleName } from './identity.js';
+import { raidPenalty } from './warcampaign.js';
 import { RIVALS, POI_TYPES } from '../data/world.js';
 import { BASE_RES, RESOURCES } from '../data/resources.js';
 import { rng } from '../core/rng.js';
@@ -58,7 +59,7 @@ export function onRivalDefeated(state, poi, now) {
 // Armée de raid : calibrée sur la puissance totale du joueur (préparer sa défense permet de gagner)
 function raidArmy(state, poi, now) {
   const mix = { militia: 0.35, guard: 0.1, royalArcher: 0.3, royalKnight: 0.25 };
-  const target = Math.max(250 * thLevel(state), armyPower(armyTotals(state)) * rng.float(0.6, 1.0) * (0.9 + 0.08 * poi.rival)) * warWeakness(state, now);
+  const target = Math.max(250 * thLevel(state), armyPower(armyTotals(state)) * rng.float(0.6, 1.0) * (0.9 + 0.08 * poi.rival)) * warWeakness(state, now) * raidPenalty(state, poi.rival, now);
   const out = {};
   for (const [u, share] of Object.entries(mix)) {
     const unit = ENEMY_UNITS[u];
