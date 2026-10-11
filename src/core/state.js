@@ -158,6 +158,13 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     // --- Campagnes militaires et Comptoir du Joaillier ---
     war: { active: null, history: [], cooldownUntil: 0 },
     shop: { day: 0, bought: {}, total: 0 },
+    // --- Mystères archéologiques et plans de forge ---
+    archaeo: { active: null, solved: {}, places: {}, exploredMark: 0, dungeonMark: 0 },
+    recipes: { known: {}, workshop: null, changedAt: 0, experiments: 0 },
+    // --- Conseil royal ---
+    council: { favor: { merchants: 50, army: 50, peasants: 50, scholars: 50, nobles: 50 }, memory: [], history: [], motion: null, nextAt: 0 },
+    // --- Héritage dynastique (traditions, archives, vestiges, défis ancestraux) ---
+    legacy: { traditions: [], milestones: {}, offer: null, archives: [], remnants: [], challenges: [] },
   };
   ensureIdentity(state);
 

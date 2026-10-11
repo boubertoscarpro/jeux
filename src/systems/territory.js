@@ -18,6 +18,7 @@ import { thLevel } from './city.js';
 import { recordLoss } from './losses.js';
 import { shardState } from './shards.js';
 import { toast } from './log.js';
+import { logisticsNetwork, deliveredProd, logisticsUpkeepTick } from './logistics.js';
 
 export function territoryCost(state) {
   const n = Object.keys(state.territories).length;
@@ -208,11 +209,14 @@ export function outpostReport(state, k, now = Date.now()) {
   const sp = specOf(t);
   const aff = sp ? specAffinity(state, t).mult : 1;
   const lvl = t.level || 1;
-  const prod = {};
+  let prod = {};
   if (sp?.prod) for (const [r, v] of Object.entries(sp.prod)) prod[r] = v * lvl * st.eff * aff;
+  const route = logisticsNetwork(state, now)[k] || null;
+  const raw = prod;
+  prod = deliveredProd(raw, route);
   const mods = {};
   if (sp?.mods) for (const [m, v] of Object.entries(sp.mods)) mods[m] = v * lvl * st.eff * aff;
-  return { k, t, st, sp, aff, prod, mods, upkeep: outpostUpkeep(t), up: outpostUpgradeCheck(state, k), cat: sp ? specCategory(sp.id) : null, stab: stabOf(t), stabLevel: stabLevel(stabOf(t)), tax: taxOf(t) };
+  return { k, t, st, sp, aff, prod, mods, upkeep: outpostUpkeep(t), up: outpostUpgradeCheck(state, k), cat: sp ? specCategory(sp.id) : null, route, raw, stab: stabOf(t), stabLevel: stabLevel(stabOf(t)), tax: taxOf(t) };
 }
 
 export function outpostUpkeep(t) {
@@ -223,6 +227,9 @@ export function outpostUpkeep(t) {
 export function territoryTick(state, dtSec, now) {
   const h = dtSec / 3600;
   const mods = computeMods(state, now);
+  // Réseau logistique : entretien des routes, puis acheminement de la production
+  const net = logisticsNetwork(state, now);
+  logisticsUpkeepTick(state, net, h);
   for (const [k, t] of Object.entries(state.territories || {})) {
     // Entretien
     const up = outpostUpkeep(t);
@@ -230,12 +237,12 @@ export function territoryTick(state, dtSec, now) {
     t.unpaid = !Object.entries(due).every(([r, v]) => (state.resources[r] || 0) >= v);
     if (!t.unpaid) for (const [r, v] of Object.entries(due)) state.resources[r] -= v;
     // Stabilité de la province (dérive vers sa cible) et impôts
-    stabilityTick(state, t, h, now);
+    stabilityTick(state, t, h, now, net[k]);
     // Production
     const st = outpostStatus(state, t, now);
     const sp = specOf(t);
     const aff = sp ? specAffinity(state, t).mult : 1;
-    if (sp?.prod && st.eff > 0) gain(state, Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), mods);
+    if (sp?.prod && st.eff > 0) gain(state, deliveredProd(Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), net[k] && { ...net[k], cap: net[k].cap * h }), mods);
     if (sp?.relicChance && st.eff > 0 && rng.chance(sp.relicChance * (1 + (mods['relic.find'] || 0)) * (t.level || 1) * h * st.eff)) {
       shardState(state).relicFragments++;
       log(state, 'good', `🏺 Les fouilles de ${outpostLabel(t)} mettent au jour un fragment de relique !`, now);

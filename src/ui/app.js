@@ -30,6 +30,9 @@ import goalsView from './views/goals.js';
 import policyView from './views/policy.js';
 import projectsView from './views/projects.js';
 import shopView from './views/shop.js';
+import archaeoView from './views/archaeology.js';
+import councilView from './views/council.js';
+import legacyView from './views/legacy.js';
 import warView from './views/warcampaign.js';
 import territoriesView from './views/territories.js';
 import eventView from './views/events.js';
@@ -51,13 +54,13 @@ import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, policyView, projectsView] },
-  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, policyView, councilView, projectsView] },
+  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView, archaeoView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
-  { id: 'g-tech', title: 'Technologies', icon: '🔬', tabs: [researchView, talentsView] },
+  { id: 'g-tech', title: 'Technologies', icon: '🔬', tabs: [researchView, talentsView, legacyView] },
   { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },
   { id: 'g-wheel', title: 'Roue', icon: '🎡', tabs: [wheelView, shardsView] },
   { id: 'g-guild', title: 'Guilde', icon: '🏛️', tabs: [guildView] },

@@ -7,28 +7,41 @@ import { pay, missing, gain } from './economy.js';
 import { generateItem, upgradeCost, salvageYield, MAX_PLUS, itemScore } from './items.js';
 import { log } from './log.js';
 import { costMult, applyCostMult } from './kingdom.js';
+import { PLANS } from '../data/recipes.js';
+import { workshopEffect, knowsPlan, applyPlan } from './recipes.js';
 
-// Coût de fabrication ; la réduction cost.craft (spécialisation) s'applique si mods est fourni
-export function craftCost(slot, catalyst = 'none', mods = null) {
+// Coût de fabrication ; la réduction cost.craft (spécialisation) s'applique si mods est fourni.
+// Avec state : spécialisation de l'atelier ; avec plan : coût supplémentaire du plan de forge.
+export function craftCost(slot, catalyst = 'none', mods = null, state = null, plan = null) {
   const c = { ...CRAFT_RECIPES[slot].cost };
   for (const [r, v] of Object.entries(CATALYSTS[catalyst].cost)) c[r] = (c[r] || 0) + v;
-  return mods ? applyCostMult(c, costMult(mods, 'craft')) : c;
+  if (plan && PLANS[plan]) for (const [r, v] of Object.entries(PLANS[plan].cost || {})) c[r] = (c[r] || 0) + v;
+  const k = (mods ? costMult(mods, 'craft') : 1) * (state ? workshopEffect(state, slot).costMult : 1);
+  return k !== 1 ? applyCostMult(c, k) : c;
 }
 
-export function craftQuality(state, catalyst, mods) {
-  return levelOf(state, 'forge') * 0.06 + (mods['craft.quality'] || 0) + CATALYSTS[catalyst].boost;
+export function craftQuality(state, catalyst, mods, slot = null) {
+  return levelOf(state, 'forge') * 0.06 + (mods['craft.quality'] || 0) + CATALYSTS[catalyst].boost + (slot ? workshopEffect(state, slot).quality : 0);
 }
 
-export function startCraft(state, slot, catalyst = 'none', now = Date.now()) {
+export function startCraft(state, slot, catalyst = 'none', now = Date.now(), plan = null, variant = null) {
   const forge = levelOf(state, 'forge');
   if (!forge) return { ok: false, reason: 'Forge requise' };
   if (!SLOTS[slot]) return { ok: false };
+  if (plan) {
+    const p = PLANS[plan];
+    if (!p || p.slot !== slot) return { ok: false, reason: 'Ce plan ne correspond pas à cet emplacement' };
+    if (!knowsPlan(state, plan)) return { ok: false, reason: 'Plan inconnu' };
+    if (!p.variants[variant]) variant = Object.keys(p.variants)[0];
+  }
   if (state.queues.craft.some((q) => q.kind === 'item')) return { ok: false, reason: 'La forge est occupée' };
   const mods = computeMods(state, now);
-  const cost = craftCost(slot, catalyst, mods);
+  const cost = craftCost(slot, catalyst, mods, state, plan);
   if (!pay(state, cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, cost) };
   const dur = (CRAFT_RECIPES[slot].time * 1000) / (1 + (mods['craft.speed'] || 0));
-  state.queues.craft.push({ id: uid('c'), kind: 'item', slot, catalyst, ilvl: 1 + forge * 2, quality: craftQuality(state, catalyst, mods), start: now, end: now + dur, cost });
+  const job = { id: uid('c'), kind: 'item', slot, catalyst, ilvl: 1 + forge * 2, quality: craftQuality(state, catalyst, mods, slot), start: now, end: now + dur, cost };
+  if (plan) Object.assign(job, { plan, variant });
+  state.queues.craft.push(job);
   return { ok: true };
 }
 
@@ -49,7 +62,9 @@ export function startBrew(state, key, n = 1, now = Date.now()) {
 
 export function completeCraft(state, q, t) {
   if (q.kind === 'item') {
-    const it = generateItem({ slot: q.slot, ilvl: q.ilvl, boost: q.quality, min: CATALYSTS[q.catalyst].minRarity || 'common' });
+    const base = q.plan && PLANS[q.plan] ? PLANS[q.plan].base : null;
+    const it = generateItem({ slot: q.slot, ilvl: q.ilvl, boost: q.quality, min: CATALYSTS[q.catalyst]?.minRarity || 'common', baseKey: base });
+    if (base) applyPlan(it, q.plan, q.variant);
     state.inventory.items.push(it);
     state.stats.crafted++;
     state.season.points += SEASON.points.craft;

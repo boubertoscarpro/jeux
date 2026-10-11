@@ -29,6 +29,10 @@ import { sagaTick } from '../systems/sagas.js';
 import { policyTick } from '../systems/policy.js';
 import { projectTick } from '../systems/projects.js';
 import { warTick } from '../systems/warcampaign.js';
+import { archaeoTick } from '../systems/archaeology.js';
+import { recipesTick } from '../systems/recipes.js';
+import { councilTick } from '../systems/council.js';
+import { legacyTick } from '../systems/legacy.js';
 import { inventoryCapTick } from '../systems/crafting.js';
 import { bus } from './bus.js';
 
@@ -94,6 +98,10 @@ function processDue(state, t) {
     policyTick(state, t);
     projectTick(state, t);
     warTick(state, t);
+    archaeoTick(state, t);
+    recipesTick(state, t);
+    councilTick(state, t);
+    legacyTick(state, t);
     inventoryCapTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;

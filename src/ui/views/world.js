@@ -12,6 +12,8 @@ import { armyPower } from '../../systems/army.js';
 import { canClaim, claimTerritory, abandonTerritory, specOf, specCategory, specAffinity } from '../../systems/territory.js';
 import { TERRITORY_SPECS } from '../../data/territories.js';
 import { PROJECTS } from '../../data/projects.js';
+import { MYSTERIES } from '../../data/archaeology.js';
+import { logisticsNetwork } from '../../systems/logistics.js';
 import { stabOf, stabLevel } from '../../systems/stability.js';
 import { openRenameCastle, openRenameOutpost } from '../upgrades.js';
 import { sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots } from '../../systems/market.js';
@@ -169,6 +171,17 @@ export function drawMap(app) {
     const f = Math.max(0, Math.min(1, (now - start) / Math.max(1, r.arrive - start)));
     tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#d62828', icon: '⚔️', angle: Math.atan2(b.y - a.y, b.x - a.x), end: r.arrive, label: `Raid : ${r.name}`, raid: true });
   }
+  // Réseau logistique : routes des avant-postes vers leur relais (couleur selon le niveau, rouge si dangereuse)
+  const net = logisticsNetwork(s, now);
+  for (const [k, r] of Object.entries(net)) {
+    const t = s.territories[k], to = r.via ? s.territories[r.via] : w.capital;
+    if (!t || !to) continue;
+    const a = mark(t.x, t.y), b = mark(to.x, to.y);
+    ctx.strokeStyle = r.danger ? 'rgba(220,90,70,0.8)' : ['rgba(150,120,80,0.55)', 'rgba(190,170,130,0.8)', 'rgba(230,200,120,0.9)', 'rgba(255,225,140,1)'][r.road];
+    ctx.lineWidth = Math.max(1.5, Math.min(6, T / 12)) * (1 + r.road * 0.35);
+    if (!r.road) ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+  }
   // Lieux
   const F = filters(app);
   const labels = [];
@@ -228,6 +241,36 @@ export function drawMap(app) {
     const px = ox + (mx + 0.5) * T, py = oy + (my + 0.5) * T, r = Math.max(8, Math.min(22, T * 0.45));
     drawMedallion(ctx, px, py, r, '#e2b84a', mk.icon, { fill: 'rgba(60,45,15,0.9)' });
     if (T >= 18) labels.push({ x: px, y: py, offset: r + 2, text: PROJECTS[id].name, prio: 65, size: lsize, color: '#ffe9a8', border: '#e2b84a' });
+  }
+  // Mystères archéologiques : zones à explorer (cercle pointillé), sites localisés, lieux retrouvés
+  const arch = s.archaeo;
+  if (arch?.active) for (const site of arch.active.sites) {
+    if (site.found) continue;
+    if (!site.located) {
+      const c = mark(site.cx, site.cy);
+      ctx.strokeStyle = 'rgba(214,160,90,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([4, 5]);
+      ctx.beginPath(); ctx.arc(c.x, c.y, site.r * T, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      if (T >= 10) labels.push({ x: c.x, y: c.y, offset: 4, text: '🏺 Zone de fouilles', prio: 55, size: lsize, color: '#f3d9a8' });
+    } else if (site.x >= x0 && site.x <= x1 && site.y >= y0 && site.y <= y1) {
+      const c = mark(site.x, site.y), r = Math.max(7, Math.min(18, T * 0.4));
+      drawMedallion(ctx, c.x, c.y, r, '#d6a05a', '⛏️', { fill: 'rgba(60,40,20,0.9)' });
+      if (T >= 18) labels.push({ x: c.x, y: c.y, offset: r + 2, text: 'Site de fouilles', prio: 60, size: lsize, color: '#f3d9a8', border: '#d6a05a' });
+    }
+  }
+  for (const [id, p] of Object.entries(arch?.places || {})) {
+    const d = MYSTERIES[id];
+    if (!d || p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
+    const c = mark(p.x, p.y), r = Math.max(8, Math.min(22, T * 0.45));
+    drawMedallion(ctx, c.x, c.y, r, '#c9a0ff', d.place.icon, { fill: 'rgba(40,25,60,0.9)' });
+    if (T >= 16) labels.push({ x: c.x, y: c.y, offset: r + 2, text: d.place.name, prio: 62, size: lsize, color: '#ecdcff', border: '#c9a0ff' });
+  }
+  // Vestiges des dynasties passées (visibles une fois la case explorée)
+  for (const r of s.legacy?.remnants || []) {
+    if (r.done === 'restore' || r.x < x0 || r.x > x1 || r.y < y0 || r.y > y1 || !isRevealed(w, r.x, r.y)) continue;
+    const c = mark(r.x, r.y), rr = Math.max(7, Math.min(20, T * 0.42));
+    const icon = r.kind === 'monument' ? '🗿' : '🏚️';
+    drawMedallion(ctx, c.x, c.y, rr, '#9aa4b8', icon, { fill: 'rgba(30,32,40,0.9)', alpha: r.done || r.restored ? 0.5 : 1 });
+    if (T >= 18) labels.push({ x: c.x, y: c.y, offset: rr + 2, text: r.name, prio: 58, size: lsize, color: '#dfe6f3', border: '#9aa4b8' });
   }
   // Pions d'armée (au-dessus des lieux) et leur chrono
   const tr = Math.max(7, Math.min(15, T * 0.34));
@@ -451,7 +494,8 @@ function tilePanel(app) {
         <div><span class="lg-sw" style="--c:${esc(s.meta.banner || '#e2b84a')}"></span> Vos avant-postes</div>
         ${['war', 'alliance', 'trade', 'truce', 'neutral'].map((k) => `<div><span class="lg-sw ${k === 'neutral' ? 'dashed' : ''}" style="--c:${RELATION_STYLE[k].color || '#9aa0ad'}"></span> ${esc(RELATION_STYLE[k].label)}</div>`).join('')}</div>
       <h4>Lieux</h4><div class="map-legend small">${Object.entries(MAP_FILTERS).map(([k, l]) => `<div><span class="lg-dot" style="--c:${CAT_COLOR[k]}"></span> ${esc(l)}</div>`).join('')}<div><span class="lg-dot" style="--c:#ff3b3b"></span> 🐉 Boss mondial</div></div>
-      <h4>Mouvements</h4><div class="map-legend small"><div>🧭 Bleu : exploration, espionnage</div><div>🧺 Jaune : récolte</div><div>⚔️ Rouge : attaque — trait rouge épais : <b>raid</b> vers votre château</div><div>⛺ Vert : expédition</div></div>`;
+      <h4>Mouvements</h4><div class="map-legend small"><div>🧭 Bleu : exploration, espionnage</div><div>🧺 Jaune : récolte</div><div>⚔️ Rouge : attaque — trait rouge épais : <b>raid</b> vers votre château</div><div>⛺ Vert : expédition</div></div>
+      <h4>Réseau et histoire</h4><div class="map-legend small"><div>🛣️ Routes des avant-postes (pointillé : piste ; rouge : trajet dangereux)</div><div>🏺 Zone de fouilles (cercle) et ⛏️ site localisé</div><div>🏛️ Lieu retrouvé (mystère résolu)</div><div>🏚️ 🗿 Vestiges des dynasties passées</div></div>`;
   }
   const { x, y } = sel;
   const w = s.world;

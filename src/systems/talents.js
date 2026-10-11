@@ -1,3 +1,4 @@
+import { applyLegacy } from './legacy.js';
 import { TALENTS, BUILD_PRESETS, DYNASTY_PERKS } from '../data/talents.js';
 import { RESOURCES } from '../data/resources.js';
 import { thLevel, totalLevels } from './city.js';
@@ -97,6 +98,7 @@ export function prestigePreview(state) {
       'Éclats Anciens, tickets, fragments, garanties de la Roue et exploits accomplis',
       'Cosmétiques, bannière, titres et insignes',
       'Records, chronique de l’histoire et bilans d’événements',
+      'Traditions dynastiques et archives ; vos avant-postes et grands projets deviennent des vestiges à retrouver',
       'Réputation (divisée par deux)',
     ],
     reset: [
@@ -143,6 +145,8 @@ export function foundDynasty(state, now = Date.now()) {
   const bounty = 1 + (d.perks.bounty || 0);
   for (const r of Object.keys(ns.resources)) if (RESOURCES[r].cat === 'base') ns.resources[r] *= bounty;
   ns.automation.level = Math.min(3, d.perks.steward || 0);
+  // Héritage : traditions, archives, vestiges dans le nouveau monde, alliances et rancunes ancestrales
+  applyLegacy(state, ns, now);
   chronicle(ns, `Une nouvelle dynastie est fondée. ${c.gain} points d’héritage s’ajoutent au trésor des ancêtres.`, now);
   return { ok: true, state: ns, gain: c.gain };
 }
