@@ -265,6 +265,7 @@ export class App {
     this.ui.lastTab[group.id] = view.id;
     this.$('#topbar').innerHTML = renderTopbar(this);
     const main = this.$('#view');
+    main.dataset.screen = view.id; // identité visuelle propre à chaque écran (css/theme.css, « Identités des écrans »)
     const locked = view.locked?.(this);
     const helpBtn = helpFor(view.id) ? `<button class="subtab help-btn" data-action="help" title="Aide sur cet écran : mécanismes, coûts, prérequis">❓ Aide</button>` : '';
     const tabs = group.tabs.length > 1 || helpBtn ? `<div class="subnav">${group.tabs.length > 1 ? group.tabs.map((t) => {

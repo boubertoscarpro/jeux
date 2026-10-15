@@ -185,6 +185,11 @@ const DEFS = `
 <symbol id="ov-base" viewBox="0 0 64 64"><path d="M6 55q26 7 52 0v3q-26 7-52 0Z" fill="#9c9486" stroke="${P.ink}" stroke-width=".8"/><path d="M14 57.5v2M24 59v2M34 59.5v2M44 59v2M52 57.5v2" stroke="#6f685d" stroke-width=".8"/></symbol>
 <symbol id="ov-lamp" viewBox="0 0 64 64"><path d="M4 56V46M60 56V46" stroke="${P.ink}" stroke-width="1.2"/><circle cx="4" cy="45" r="2.4" fill="#ffd166" class="anim-glow"/><circle cx="60" cy="45" r="2.4" fill="#ffd166" class="anim-glow"/></symbol>
 <symbol id="ov-annex" viewBox="0 0 64 64"><rect x="2" y="42" width="12" height="12" fill="${P.plaster}" stroke="${P.ink}"/><path d="M0 43L8 35L16 43Z" fill="${P.red}" stroke="${P.ink}" stroke-linejoin="round"/></symbol>
+<symbol id="ov-tower" viewBox="0 0 64 64"><path d="M4 54V17h13v37" fill="${P.stone}" stroke="${P.ink}" stroke-width="1.2"/><path d="M4 27h13M4 37h13" stroke="${P.stoneD}" stroke-width=".8"/><path d="M2 18L10.5 4L19 18Z" fill="${P.slate}" stroke="${P.ink}" stroke-width="1.2" stroke-linejoin="round"/><rect x="9" y="21" width="3" height="5" rx="1.5" fill="${P.ink}"/></symbol>
+<symbol id="ov-curtain" viewBox="0 0 64 64"><path d="M1 59V53h22v6M41 59V53h22v6" fill="${P.stoneL}" stroke="${P.ink}" stroke-width=".9"/>${[1, 7, 13, 19, 41, 47, 53, 59].map((x) => `<rect x="${x}" y="50.5" width="3.5" height="3" fill="${P.stoneL}" stroke="${P.ink}" stroke-width=".7"/>`).join('')}<path d="M23 59V50M41 59V50" stroke="${P.ink}" stroke-width="1.6"/><circle cx="23" cy="49.5" r="1.6" fill="${P.gold}" stroke="${P.ink}" stroke-width=".5"/><circle cx="41" cy="49.5" r="1.6" fill="${P.gold}" stroke="${P.ink}" stroke-width=".5"/></symbol>
+<symbol id="ov-silo" viewBox="0 0 64 64"><rect x="2" y="16" width="10" height="38" rx="2" fill="${P.woodL}" stroke="${P.ink}" stroke-width="1.1"/><path d="M2 24h10M2 32h10M2 40h10" stroke="${P.woodD}" stroke-width=".7"/><path d="M1 17Q7 7 13 17Z" fill="${P.red}" stroke="${P.ink}" stroke-width="1.1"/></symbol>
+<symbol id="ov-crane" viewBox="0 0 64 64"><path d="M9 54V7M9 9H34M9 18L22 9" stroke="${P.woodD}" stroke-width="2.4" stroke-linecap="round"/><path d="M31 9v9" stroke="${P.ink}" stroke-width=".9"/><rect x="28" y="18" width="6" height="4" fill="${P.stone}" stroke="${P.ink}" stroke-width=".8"/></symbol>
+<symbol id="ov-cart" viewBox="0 0 64 64"><path d="M30 60h28" stroke="#6f685d" stroke-width="1.4"/><rect x="38" y="51" width="14" height="7" fill="${P.woodL}" stroke="${P.ink}" stroke-width="1"/><circle cx="41" cy="59" r="2" fill="${P.ink}"/><circle cx="49" cy="59" r="2" fill="${P.ink}"/><path d="M40 51l3-3 4 2 3-2" fill="${P.stoneD}" stroke="${P.ink}" stroke-width=".7"/></symbol>
 <symbol id="ov-gold" viewBox="0 0 64 64"><path d="M6 57h52" stroke="${P.gold}" stroke-width="2.5" stroke-linecap="round"/><circle cx="6" cy="57" r="2.5" fill="${P.gold}"/><circle cx="58" cy="57" r="2.5" fill="${P.gold}"/></symbol>
 <symbol id="ic-up" viewBox="0 0 24 24"><path d="M12 3L21 13H15.5V21H8.5V13H3Z" fill="currentColor" stroke="#1d1812" stroke-width="1.4" stroke-linejoin="round"/></symbol>
 <symbol id="ic-hammer" viewBox="0 0 24 24"><path d="M4 20l9-9" stroke="#5f3d22" stroke-width="3" stroke-linecap="round"/><path d="M10 5l5-2 6 6-2 5-3-3-2 2-4-4 2-2Z" fill="#c9ced6" stroke="#1d1812" stroke-width="1.2" stroke-linejoin="round"/></symbol>
@@ -201,6 +206,9 @@ export function ensureArtDefs() {
 }
 
 // Taille visuelle selon le niveau : le bâtiment grandit et s'orne (drapeau, annexe, liseré doré)
+// Famille architecturale : comment un bâtiment s'agrandit avec les paliers
+const ARCH_FAMILY = { farm: 'field', pasture: 'field', orchard: 'field', fishery: 'field', quarry: 'pit', mine: 'pit', charcoal: 'pit',
+  townhall: 'none', castle: 'none', watchtower: 'none', wall: 'none', moat: 'none', observatory: 'none', monument: 'none', port: 'none', mill: 'none', sanctuary: 'none' };
 export const levelTier = (lvl) => (lvl >= 15 ? 3 : lvl >= 10 ? 2 : lvl >= 5 ? 1 : 0);
 export function buildingSvg(type, level = 1, cls = 'b-art', orientColor = null) {
   if (!BUILDINGS[type]) return '';
@@ -210,8 +218,14 @@ export function buildingSvg(type, level = 1, cls = 'b-art', orientColor = null) 
   const tier = levelTier(level);
   const sign = SIGNED.has(type) ? `<g class="b-sign"><path d="M47 28v4" stroke="#1d1812" stroke-width="1.4"/><rect x="34" y="31" width="26" height="22" rx="4" fill="#f3e6c4" stroke="#1d1812" stroke-width="1.4"/><text x="47" y="47.5" text-anchor="middle" font-size="16">${BUILDINGS[type].icon}</text></g>` : '';
   // Paliers visibles sans ouvrir la fiche : socle pavé (niv. 5), drapeau et annexe (niv. 10), lanternes et liseré doré (niv. 15)
-  const ov = `${tier >= 1 && !['townhall', 'castle', 'watchtower'].includes(type) ? '<use href="#ov-flag"/>' : ''}${tier >= 2 ? '<use href="#ov-annex"/>' : ''}${tier >= 3 ? '<use href="#ov-gold"/><use href="#ov-lamp"/>' : ''}`;
-  return `<svg class="${cls} tier-${tier}" viewBox="0 0 64 64" aria-hidden="true">${tier >= 1 ? '<use href="#ov-base"/>' : ''}<use href="#b-${type}"/>${sign}${ov}</svg>`;
+  const ov = `${tier >= 1 && !['townhall', 'castle', 'watchtower'].includes(type) ? '<use href="#ov-flag"/>' : ''}${tier >= 2 && ARCH_FAMILY[type] === 'none' ? '<use href="#ov-annex"/>' : ''}${tier >= 3 ? '<use href="#ov-gold"/><use href="#ov-lamp"/>' : ''}`;
+  // Évolution architecturale (derrière le bâtiment) : tour de pierre au palier 2, enceinte crénelée au palier 3 ;
+  // pour les exploitations : silo (champs) ou grue (carrières, mines) puis chariot
+  const fam = ARCH_FAMILY[type] || 'hall';
+  const back = fam === 'none' ? '' : fam === 'field' ? (tier >= 2 ? '<use href="#ov-silo"/>' : '') : fam === 'pit' ? (tier >= 2 ? '<use href="#ov-crane"/>' : '')
+    : tier >= 2 ? '<use href="#ov-tower"/>' : '';
+  const front = (fam === 'field' || fam === 'pit') && tier >= 3 ? '<use href="#ov-cart"/>' : fam === 'hall' && tier >= 3 ? '<use href="#ov-curtain"/>' : '';
+  return `<svg class="${cls} tier-${tier}" viewBox="0 0 64 64" aria-hidden="true">${tier >= 1 ? '<use href="#ov-base"/>' : ''}${back}<use href="#b-${type}"/>${front}${sign}${ov}</svg>`;
 }
 // Petite icône de bâtiment (barre de construction, menus, listes)
 export const buildingIcon = (type, size = 30) => `<svg class="b-mini" width="${size}" height="${size}" viewBox="4 6 56 54" aria-hidden="true"><use href="#b-${type}"/>${SIGNED.has(type) ? `<circle cx="45" cy="44" r="13" fill="#f3e6c4" stroke="#1d1812" stroke-width="1.4"/><text x="45" y="51" text-anchor="middle" font-size="19">${BUILDINGS[type].icon}</text>` : ''}</svg>`;

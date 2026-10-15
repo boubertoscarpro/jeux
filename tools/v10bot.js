@@ -3,6 +3,7 @@
 // Le joueur simulé agit comme un joueur raisonnable mais non omniscient : il ne connaît pas la réponse des
 // énigmes (il élimine les mauvaises réponses), il choisit la première option abordable au conseil, etc.
 import { rng } from '../src/core/rng.js';
+import { commissionList, claimCommission, startCommission, stageCheck, launchStage } from '../src/systems/commissions.js';
 import { MOTIONS } from '../src/data/council.js';
 import { MYSTERIES } from '../src/data/archaeology.js';
 import { LEGENDS } from '../src/data/legendary.js';
@@ -118,6 +119,11 @@ export function v10Bot(s, profileKey, t, bestTile, mods) {
       if (sendMarch(s, { type: 'attack', x: p.x, y: p.y, units }, t).ok) { st.breachSent = (st.breachSent || 0) + 1; break; }
     }
   }
+  // Commandes prestigieuses : accepter la première disponible, lancer les étapes, recevoir l'ouvrage
+  const cm = commissionList(s);
+  if (cm.some((c) => c.status === 'ready')) claimCommission(s, t);
+  else if (!cm.some((c) => c.status === 'active')) { const c = cm.find((x) => x.status === 'available'); if (c && rng.chance(0.3)) startCommission(s, c.id, t); }
+  else if (stageCheck(s, t).ok && rng.chance(0.5)) launchStage(s, t);
   // Factions rivales : réparations quand le trésor le permet
   for (const f of s.factions || []) if (rivalryStatus(f, t)?.key === 'rival' && (s.resources.gold || 0) > 5000 && deescalate(s, f.idx, 'reparations', t).ok) st.deesc++;
 }

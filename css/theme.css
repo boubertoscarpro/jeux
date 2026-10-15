@@ -455,3 +455,30 @@ html:not(.reduce-motion) button.speed-ready { animation: speed-glow 2.4s ease-in
 .codex-detail-art .codex-emoji { font-size: 60px; }
 .codex-detail-art svg, .codex-detail-art .b-art { width: 96px; height: auto; }
 @media (max-width: 640px) { .codex-detail { grid-template-columns: 1fr; } }
+
+/* ───────── Identités des écrans de gestion ─────────
+   Même système de design, mais chaque écran a sa matière : registre du conseil (vélin et sceaux), atelier des
+   érudits (planches et laiton), registre marchand (colonnes de comptes), journal de voyage (carte et boussole),
+   chronique (parchemin), salle du trésor (velours et vitrines). Motifs CSS légers, aucune image lourde. */
+#view[data-screen="council"] .card, #view[data-screen="policy"] .card {
+  background: linear-gradient(180deg, rgba(232, 219, 189, .07), transparent 40%), repeating-linear-gradient(0deg, transparent 0 27px, rgba(232, 219, 189, .05) 27px 28px), var(--panel);
+  border-left: 3px solid #8e2a22; }
+#view[data-screen="council"] h2::after { content: ''; display: inline-block; width: 14px; height: 14px; margin-left: 8px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #c4554a, #8e2a22 60%); box-shadow: 0 0 0 1px #1d1812; vertical-align: middle; }
+#view[data-screen="research"] .card, #view[data-screen="talents"] .card {
+  background: linear-gradient(90deg, rgba(176, 124, 62, .08) 1px, transparent 1px) 0 0 / 22px 22px, linear-gradient(rgba(176, 124, 62, .08) 1px, transparent 1px) 0 0 / 22px 22px, var(--panel);
+  border-top: 2px solid var(--bronze); }
+#view[data-screen="market"] .card, #view[data-screen="convoys"] .card {
+  background: linear-gradient(90deg, transparent 0 calc(100% - 90px), rgba(217, 178, 90, .06) calc(100% - 90px)), repeating-linear-gradient(0deg, transparent 0 23px, rgba(217, 178, 90, .07) 23px 24px), var(--panel);
+  border-left: 3px solid var(--gold2); }
+#view[data-screen="expeditions"] .card, #view[data-screen="legendary"] .card, #view[data-screen="archaeology"] .card {
+  background: radial-gradient(circle at 92% 12%, rgba(111, 159, 199, .12), transparent 30%), radial-gradient(circle at 8% 90%, rgba(111, 163, 90, .1), transparent 35%), var(--panel);
+  border-left: 3px solid var(--sky); }
+#view[data-screen="history"] .card, #view[data-screen="journal"] .card {
+  background: linear-gradient(180deg, rgba(232, 219, 189, .1), rgba(232, 219, 189, .03) 30%, rgba(232, 219, 189, .08)), var(--panel);
+  border-radius: 4px 4px 14px 14px / 4px 4px 8px 8px; }
+#view[data-screen="history"] .hist { border-left: 2px solid rgba(217, 178, 90, .35); padding-left: 8px; margin: 3px 0; }
+#view[data-screen="treasury"] .card, #view[data-screen="codex"] .card {
+  background: radial-gradient(ellipse at 50% 0%, rgba(140, 40, 60, .16), transparent 60%), var(--panel);
+  border-top: 2px solid var(--gold); }
+#view[data-screen="treasury"] .artifact { box-shadow: inset 0 0 0 1px rgba(217, 178, 90, .25), 0 2px 8px rgba(0, 0, 0, .35); }
+@media (prefers-reduced-motion: reduce) { #view[data-screen] .card { transition: none; } }

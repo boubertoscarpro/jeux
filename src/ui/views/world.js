@@ -63,13 +63,14 @@ const POI_CAT = (p) => {
   if (!def) return 'other';
   if (def.kind === 'gather') return 'gather';
   if (def.dungeon || p.type === 'lostCity' || p.type === 'ruinSite') return 'dungeon';
-  if (def.kind === 'danger' || def.kind === 'breach') return 'danger';
+  if (def.kind === 'breach') return 'breach';
+  if (def.kind === 'danger') return 'danger';
   if (def.kind === 'town' || def.kind === 'kingdom' || def.kind === 'village') return 'social';
   return 'always';
 };
-export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes' };
-const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', dungeon: '#c99cff', social: '#ffd56b', always: '#ffffff', other: '#cccccc' };
-const filters = (app) => (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true });
+export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes' };
+const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', always: '#ffffff', other: '#cccccc' };
+const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true }); f.breach ??= true; return f; };
 let rafPending = false;
 const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawMap(app); }); };
 
@@ -530,7 +531,8 @@ function tilePanel(app) {
         ${['war', 'alliance', 'trade', 'truce', 'neutral'].map((k) => `<div><span class="lg-sw ${k === 'neutral' ? 'dashed' : ''}" style="--c:${RELATION_STYLE[k].color || '#9aa0ad'}"></span> ${esc(RELATION_STYLE[k].label)}</div>`).join('')}</div>
       <h4>Lieux</h4><div class="map-legend small">${Object.entries(MAP_FILTERS).map(([k, l]) => `<div><span class="lg-dot" style="--c:${CAT_COLOR[k]}"></span> ${esc(l)}</div>`).join('')}<div><span class="lg-dot" style="--c:#ff3b3b"></span> 🐉 Boss mondial</div></div>
       <h4>Mouvements</h4><div class="map-legend small"><div>🧭 Bleu : exploration, espionnage</div><div>🧺 Jaune : récolte</div><div>⚔️ Rouge : attaque — trait rouge épais : <b>raid</b> vers votre château</div><div>⛺ Vert : expédition</div></div>
-      <h4>Réseau et histoire</h4><div class="map-legend small"><div>🛣️ Routes des avant-postes (pointillé : piste ; rouge : trajet dangereux)</div><div>🏺 Zone de fouilles (cercle) et ⛏️ site localisé</div><div>🏛️ Lieu retrouvé (mystère résolu)</div><div>🏚️ 🗿 Vestiges des dynasties passées</div></div>`;
+      <h4>Réseau et histoire</h4><div class="map-legend small"><div>🛣️ Routes des avant-postes (pointillé : piste ; rouge : trajet dangereux)</div><div>🏺 Zone de fouilles (cercle) et ⛏️ site localisé</div><div>🏛️ Lieu retrouvé (mystère résolu)</div><div>🏚️ 🗿 Vestiges des dynasties passées</div></div>
+      <h4>Monde évolutif</h4><div class="map-legend small"><div>🔥 Halo sombre : terres ravagées par la guerre</div><div>🪵 Souches : bois surexploité · 🌳 cercle vert : forêt restaurée</div><div>🏡 Maisons près d’un étendard : hameau · 🚧 route en ruine</div><div>★ après le nom d’une cité : cité marchande</div><div>🏴 Forteresses de la Brèche : leur dessin grandit avec le palier</div></div>`;
   }
   const { x, y } = sel;
   const w = s.world;
