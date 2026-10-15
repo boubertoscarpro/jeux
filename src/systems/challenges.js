@@ -1,5 +1,6 @@
 // Défis de maîtrise (voir data/challenges.js) : une épreuve à la fois, contrainte vérifiée en continu, palier
 // atteint calculé à la fin, récompenses de palier versées une seule fois par défi, historique des résultats.
+import { grantSpeedups } from './speedups.js';
 import { CHALLENGES, TIERS, CHALLENGE_MIN_TH, CHALLENGE_RETRY_H, MASTERY_BANNERS } from '../data/challenges.js';
 import { thLevel } from './city.js';
 import { computeMods } from './modifiers.js';
@@ -104,6 +105,9 @@ function finish(state, failed, now) {
     if (r.insignia) { state.meta.insignia = (state.meta.insignia || 0) + r.insignia; granted.push(`+${r.insignia} insignes`); }
     if (r.title && !(state.meta.titles || []).includes(r.title)) { (state.meta.titles ||= []).push(r.title); granted.push(`titre « ${r.title} »`); }
     if (r.banner) { (state.meta.owned ||= {})[r.banner] = true; granted.push(MASTERY_BANNERS[r.banner].name.toLowerCase()); }
+    // Passe-temps de palier (une seule fois par palier et par défi, comme les insignes)
+    const sp = grantSpeedups(state, CHALLENGE_SPEEDUPS[i], '', now, `challenge:${a.id}:${k}`);
+    if (sp) granted.push(sp);
   }
   if (tier > (C.best[a.id] ?? -1)) C.best[a.id] = tier;
   C.history.unshift({ id: a.id, t: now, tier, failed: failed || null, label: p.label });
@@ -117,6 +121,9 @@ function finish(state, failed, now) {
   } else log(state, 'bad', `${def.icon} Défi « ${def.name} » échoué : ${failed || p.label}.`, now);
   return { tier, granted };
 }
+
+// Bronze : deux sabliers de 15 min ; argent : un sceau d'une heure ; or : un parchemin de 8 h
+export const CHALLENGE_SPEEDUPS = [{ speed15: 2 }, { speed60: 1 }, { speed480: 1 }];
 
 export function abandonChallenge(state, now = Date.now()) {
   const C = challengeState(state);

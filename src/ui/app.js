@@ -1,3 +1,4 @@
+import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
 import { RESOURCES } from '../data/resources.js';
 import { ensureIconDefs, navIcon, gameIcon } from './icons.js';
@@ -72,7 +73,7 @@ export const GROUPS = [
   { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },
   { id: 'g-wheel', title: 'Roue', icon: '🎡', tabs: [wheelView, shardsView] },
   { id: 'g-guild', title: 'Guilde', icon: '🏛️', tabs: [guildView] },
-  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, statsView, treasuryView, kingdomView] },
+  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, codexView, statsView, treasuryView, kingdomView] },
 ];
 export const VIEWS = GROUPS.flatMap((g) => g.tabs);
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
@@ -160,6 +161,11 @@ export class App {
   save(manual = false) {
     if (!this.state) return false;
     const r = saveGame(this.state);
+    // Records des scénarios : copiés hors de la sauvegarde pour survivre à une nouvelle partie
+    try {
+      const rec = this.state.meta.scenarioRecords;
+      if (rec && Object.keys(rec).length) { const old = JSON.parse(localStorage.getItem('cendrelande_records') || '{}') || {}; for (const [k, v] of Object.entries(rec)) if (!(old[k] <= v)) old[k] = v; localStorage.setItem('cendrelande_records', JSON.stringify(old)); }
+    } catch { /* stockage indisponible : les records restent dans la sauvegarde */ }
     if (!r.ok) {
       // Message affiché une fois toutes les 5 minutes au plus (pas de spam toutes les 15 s)
       if (manual || Date.now() - (this._saveErrAt || 0) > 300000) { this.toast(`💾 ${r.error}`, 'bad'); this._saveErrAt = Date.now(); }
@@ -259,6 +265,7 @@ export class App {
     this.ui.lastTab[group.id] = view.id;
     this.$('#topbar').innerHTML = renderTopbar(this);
     const main = this.$('#view');
+    main.dataset.screen = view.id; // identité visuelle propre à chaque écran (css/theme.css, « Identités des écrans »)
     const locked = view.locked?.(this);
     const helpBtn = helpFor(view.id) ? `<button class="subtab help-btn" data-action="help" title="Aide sur cet écran : mécanismes, coûts, prérequis">❓ Aide</button>` : '';
     const tabs = group.tabs.length > 1 || helpBtn ? `<div class="subnav">${group.tabs.length > 1 ? group.tabs.map((t) => {
@@ -326,7 +333,8 @@ export class App {
       if (el.disabled) return;
       // Protection contre les doubles clics : même action sur le même élément en moins de 350 ms ignorée
       if (attr === 'data-action') {
-        const key = `${name}|${el.dataset.id || ''}|${el.dataset.view || ''}|${el.dataset.i || ''}`;
+        // Toutes les données du bouton font partie de la clé : deux boutons différents de la même action restent distincts
+        const key = `${name}|${JSON.stringify(el.dataset)}`;
         const now = performance.now();
         if (key === last.key && now - last.t < 350) return;
         last = { key, t: now };

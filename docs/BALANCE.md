@@ -173,3 +173,8 @@ Mêmes niveaux d'hôtel de ville pour tous les profils (Exploration : 13 au lieu
 simulation : expéditions (repos de 12 h après un échec, gardien affaibli, estimation des chances), mystères espacés
 (10 lieux / 3 donjons, effort doublé à chaque mystère, 36 h de repos), « Terres périlleuses » à 1/3/5, réserve de
 référence de « L'année maigre », monument plus long à bâtir. Tableau complet : `docs/V10.md` §8.
+
+
+## v11 (passe-temps, Brèche, excédents)
+
+Voir [`V11.md`](V11.md), section 7 : comparaison du plan d'excédents sur 7 jours et simulation longue de 21 jours sur 7 profils (dont le nouveau profil Diplomatie). Valeurs retenues : Brèche, puissance 450 × 1,3 par niveau ; passe-temps de combat plafonnés à 8 par jour, accordés seulement si la garnison pèse au moins 30 % de la puissance envoyée ; gemmes, 4 par heure pour la première heure puis 2 par heure.

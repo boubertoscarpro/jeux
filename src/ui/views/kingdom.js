@@ -1,3 +1,6 @@
+import { coatSvg, bannerSvg, sealSvg } from '../heraldry.js';
+import { heraldryOf, tinctures, setHeraldry } from '../../systems/heraldry.js';
+import { FIELDS, CHARGES, BANNER_SHAPES, SEAL_SHAPES, MOTTO_MAX } from '../../data/heraldry.js';
 import { COSMETICS, SEASON } from '../../data/social.js';
 import { TERRAINS } from '../../data/world.js';
 import { fmt, fmtTime } from '../../core/util.js';
@@ -20,6 +23,18 @@ const MOD_NAMES = {
   'explore.speed': 'Exploration', 'build.speed': 'Construction', 'research.speed': 'Recherche', 'train.speed': 'Formation', 'city.def': 'Défense de la ville', upkeep: 'Entretien',
   'craft.quality': 'Qualité de forge', 'market.fee': 'Taxe', carry: 'Transport',
 };
+
+// Armoiries : écu, bannière et sceau, gratuits et purement cosmétiques (affichés en haut de l'écran, sur la carte,
+// dans les rapports, la chronique et les archives dynastiques)
+function heraldryCard(s) {
+  const h = heraldryOf(s), T = tinctures(s);
+  const sel = (k, opts, label) => `<div class="form-row"><label>${label}</label><select data-change="her" data-k="${k}">${Object.entries(opts).map(([v, o]) => `<option value="${v}" ${h[k] === v ? 'selected' : ''}>${esc(typeof o === 'string' ? o : o.name)}</option>`).join('')}</select></div>`;
+  return `<div class="card heraldry-card"><h2>🛡️ Armoiries de la dynastie</h2>
+    <p class="muted small">Gratuites et purement décoratives. Les bannières gagnées (insignes, défis de maîtrise) ajoutent leurs couleurs à la palette.</p>
+    <div class="her-grid"><div class="her-preview">${coatSvg(s, 96)}${bannerSvg(s, 72)}${sealSvg(s, 64)}</div>
+      <div class="her-form">${sel('field', FIELDS, 'Partition')}${sel('t1', T, 'Émail principal')}${sel('t2', T, 'Second émail')}${sel('charge', CHARGES, 'Figure')}${sel('banner', BANNER_SHAPES, 'Bannière')}${sel('seal', SEAL_SHAPES, 'Sceau')}
+        <div class="form-row"><label>Devise</label><input type="text" maxlength="${MOTTO_MAX}" value="${esc(h.motto)}" data-change="her" data-k="motto" placeholder="Ex. : Par la pierre et la cendre"></div></div></div></div>`;
+}
 
 export default {
   id: 'kingdom', title: 'Saison & boutique', icon: '👑',
@@ -69,6 +84,7 @@ export default {
         }).join('')}</div>
       </div>
 
+      ${heraldryCard(s)}
       <div class="cols-2">
         <div class="card"><h2>🎨 Boutique cosmétique</h2>
           <p class="muted small">Aucune puissance à vendre : uniquement de la personnalisation, achetable avec des <b>insignes</b> gagnés en jouant (jalons, saison). Vous avez 🎖️ ${s.meta.insignia || 0}.</p>
@@ -99,6 +115,7 @@ export default {
       </div>`;
   },
   actions: {
+    her: (app, el) => app.act(() => setHeraldry(app.state, { [el.dataset.k]: el.value })),
     rename: (app) => app.act(() => renameKingdom(app.state, document.getElementById('k-name').value), (r) => `👑 Royaume renommé : ${r.name}`),
     'rename-castle': (app) => openRenameCastle(app),
     'rename-outpost': (app, el) => openRenameOutpost(app, el.dataset.k),

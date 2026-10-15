@@ -1,3 +1,4 @@
+import { coatSvg } from './heraldry.js';
 import { RESOURCES, RES_ORDER, isCapped } from '../data/resources.js';
 import { resIcon } from './icons.js';
 import { BUILDINGS } from '../data/buildings.js';
@@ -33,6 +34,7 @@ import { upgradeCount } from './upgrades.js';
 import { missionList, missionState, claimDynMission, missionsUnlocked } from '../systems/missions.js';
 import { rewardText as rwText } from '../systems/rewards.js';
 import { upIcon } from './art.js';
+import { speedupButton, speedupActions } from './speedups.js';
 import { castleName } from '../systems/identity.js';
 import { activePolicy, policyState } from '../systems/policy.js';
 import { POLICIES } from '../data/policies.js';
@@ -64,7 +66,7 @@ export function renderTopbar(app) {
   const buffs = s.buffs.filter((b) => b.until > now).map((b) => `<span class="chip chip-buff">✨ ${esc(b.name || 'Bonus')} · ${countdown(b.until)}</span>`).join('');
   return `
     <div class="brand" data-action="nav" data-view="kingdom" title="Royaume">
-      <span class="banner" style="--banner:${s.meta.banner}"></span>
+      <span class="brand-coat">${coatSvg(s, 26)}</span>
       <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-castle" title="Château principal">🏰 ${esc(castleName(s))}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))} ${kingdomBadge(s)}</div></div>
     </div>
     <div class="resbar">${res}<button class="res-more" data-action="toggle-res" title="Toutes les ressources">${app.ui.showAllRes ? '−' : '+'}</button>
@@ -88,8 +90,8 @@ export function renderTopbar(app) {
     </div>`;
 }
 
-function queueRow(icon, label, q, cancelAction) {
-  return `<div class="q-row"><div class="q-top"><span>${icon} ${label}</span>${countdown(q.end)}${cancelAction ? `<button class="mini ghost" data-action="${cancelAction}" data-id="${q.id}" title="Annuler (80% remboursé)">✕</button>` : ''}</div>${progress(q.start, q.end)}</div>`;
+function queueRow(icon, label, q, cancelAction, extra = '') {
+  return `<div class="q-row"><div class="q-top"><span>${icon} ${label}</span>${countdown(q.end)}${extra}${cancelAction ? `<button class="mini ghost" data-action="${cancelAction}" data-id="${q.id}" title="Annuler (80% remboursé)">✕</button>` : ''}</div>${progress(q.start, q.end)}</div>`;
 }
 
 export function renderSide(app) {
@@ -109,7 +111,7 @@ export function renderSide(app) {
 
   const bq = s.queues.build;
   parts.push(`<section class="side-box"><h3>🏗️ Chantiers <span class="muted">${bq.length}/${buildSlots(mods)}</span></h3>
-    ${bq.map((q) => queueRow(q.kind === 'clear' ? '🧹' : BUILDINGS[q.type].icon, q.kind === 'clear' ? 'Déblaiement' : `${esc(BUILDINGS[q.type].name)} → ${q.level}`, q, 'cancel-build')).join('') || '<div class="muted small">Aucun chantier — vos ouvriers attendent !</div>'}
+    ${bq.map((q) => queueRow(q.kind === 'clear' ? '🧹' : BUILDINGS[q.type].icon, q.kind === 'clear' ? 'Déblaiement' : `${esc(BUILDINGS[q.type].name)} → ${q.level}`, q, 'cancel-build', speedupButton(s, q, now))).join('') || '<div class="muted small">Aucun chantier — vos ouvriers attendent !</div>'}
     ${(s.queues.planned || []).map((p) => { const type = p.type || s.city.buildings[p.bid]?.type || (p.bid || '').slice(5); return `<div class="q-row planned"><div class="q-top"><span>🗓️ ${esc(BUILDINGS[type]?.name || type)} ${p.kind === 'build' ? '(nouveau)' : '(amélioration)'}</span><button class="mini ghost" data-action="cancel-plan" data-id="${p.id}" title="Retirer du plan">✕</button></div>${p.waiting ? `<div class="muted small">En attente : ${esc(p.waiting)}</div>` : ''}</div>`; }).join('')}</section>`);
 
   const rq = s.queues.research;
@@ -169,6 +171,7 @@ export function openPending(app, id) {
 }
 
 export const sideActions = {
+  ...speedupActions,
   'cancel-build': (app, el) => app.act(() => cancelBuild(app.state, el.dataset.id)),
   'cancel-plan': (app, el) => app.act(() => cancelPlanned(app.state, el.dataset.id), 'Chantier retiré du plan'),
   'cancel-research': (app, el) => app.act(() => cancelResearch(app.state, el.dataset.id)),

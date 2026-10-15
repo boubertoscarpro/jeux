@@ -1,3 +1,4 @@
+import { speedupText } from '../../systems/speedups.js';
 import { LIVE_EVENTS } from '../../data/liveEvents.js';
 import { TERRAINS } from '../../data/world.js';
 import { ALL_UNITS, UNITS, FORMATIONS } from '../../data/units.js';
@@ -30,6 +31,7 @@ const giveText = (g, cur) => {
     if (k === 'buff') return `✨ ${esc(v.name)} (${v.h} h)`;
     if (k === 'exclusiveFromShop') return '🎁 objet exclusif de la boutique';
     if (k === 'deco') return '🗿 décoration';
+    if (k === 'speedups') return speedupText(v);
     return '';
   }).filter(Boolean).join(' · ');
 };

@@ -52,6 +52,7 @@ const blade = (x1, y1, x2, y2, c = '#d5dbe2') => `<path d="M${x1} ${y1}L${x2} ${
 const shield = (fill = '#a8432f') => `<path d="M12 3l7 3v6c0 5-3 8-7 10-4-2-7-5-7-10V6Z" fill="${fill}" ${S}/><path d="M12 6v13M7.5 10.5h9" stroke="#e2b84a" stroke-width="1.4"/>`;
 const horse = (fill = '#8a5a33') => `<path d="M6 21c0-6 2-10 6-13l1-4 2 3c3 1 5 3 5 6l-2 1-2-2-2 3v6Z" fill="${fill}" ${S}/><circle cx="15" cy="8.5" r=".9" fill="${K}"/><path d="M12 8c-1 2-2 3-4 4" stroke="#3a2416" stroke-width="1.2" fill="none"/>`;
 const bow = `<path d="M7 3c8 3 8 15 0 18" fill="none" stroke="${K}" stroke-width="3.2"/><path d="M7 3c8 3 8 15 0 18" fill="none" stroke="#b07a45" stroke-width="1.8"/><path d="M7 3v18" stroke="#efe3c8" stroke-width=".9"/>`;
+const hourglass = (frame, sand) => `<path d="M6 3h12M6 21h12" stroke="${K}" stroke-width="3.4" stroke-linecap="round"/><path d="M6 3h12M6 21h12" stroke="${frame}" stroke-width="2" stroke-linecap="round"/><path d="M7.5 4.5c0 4 4 5.5 4.5 7.5.5-2 4.5-3.5 4.5-7.5ZM7.5 19.5c0-4 4-5.5 4.5-7.5.5 2 4.5 3.5 4.5 7.5Z" fill="#dfe7ee" fill-opacity=".55" ${S}/><path d="M9.5 6h5c-.6 1.6-1.8 2.6-2.5 4-.7-1.4-1.9-2.4-2.5-4ZM8.6 19c.8-2 2.4-3 3.4-4.4 1 1.4 2.6 2.4 3.4 4.4Z" fill="${sand}"/>`;
 const GAME = {
   // Unités du joueur
   spearman: `${blade(5, 21, 18, 4, '#b07a45')}<path d="M16 3l5-1-1 5-3-1Z" fill="#d5dbe2" ${S}/><path d="M3 15l5 1v4" fill="none" stroke="#a8432f" stroke-width="2.4"/>`,
@@ -98,6 +99,11 @@ const GAME = {
   b_craft: `<path d="M3 17h13l2-3H6Z" fill="#5a5f66" ${S}/><path d="M8 17v4h7v-4" fill="#5a5f66" ${S}/><path d="M14 4l6 6" stroke="#8a5a33" stroke-width="2.4"/>`,
   b_defense: `<rect x="3" y="9" width="18" height="12" fill="#a9a196" ${S}/><path d="M3 9V6h3v3M8 9V6h3v3M13 9V6h3v3M18 9V6h3v3" fill="#a9a196" ${S}/><path d="M3 15h18M9 9v6M15 15v6" stroke="#7d766b" stroke-width="1"/>`,
   b_magic: RES.crystals,
+  // Passe-temps : sablier de bronze (5 min), sablier d'argent (15 min), sceau d'or (1 h), parchemin royal scellé (8 h)
+  speed5: hourglass('#a8743a', '#e9cf8f'),
+  speed15: hourglass('#9aa3ad', '#f1dc9c'),
+  speed60: `<circle cx="12" cy="12" r="9" fill="#c99a2e" ${S}/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#7a5512" stroke-width="1.2"/><path d="M12 7.5v4.8l3 2" fill="none" stroke="#3a2416" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2" stroke="#7a5512" stroke-width="1.2"/>`,
+  speed480: `<path d="M5 4h12a2 2 0 0 1 2 2v12H7a2 2 0 0 1-2-2Z" fill="#efe3c8" ${S}/><path d="M8 8h8M8 11h8M8 14h5" stroke="#8a6a3a" stroke-width="1.1"/><circle cx="16.5" cy="17.5" r="3.6" fill="#a8432f" ${S}/><path d="M16.5 15.6v2l1.3.9" fill="none" stroke="#f1dc9c" stroke-width="1.1" stroke-linecap="round"/>`,
 };
 
 const symbol = (id, body) => `<symbol id="${id}" viewBox="0 0 24 24">${body}</symbol>`;

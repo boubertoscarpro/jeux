@@ -166,4 +166,23 @@ export const QUESTLINES = [
   },
 ];
 
+// Les Seigneurs de la Brèche (forteresses évolutives) : une grande quête militaire qui pousse à varier ses armées
+QUESTLINES.push({
+  id: 'mil_breach', cat: 'military', icon: '🏴', title: 'Les Seigneurs de la Brèche',
+  intro: 'Des seigneurs de guerre ont relevé des forteresses dans les Terres Brisées. Chaque assaut les rend plus fortes : il faudra plus que la force brute pour faire tomber leurs citadelles.',
+  unlock: (s) => (s.stats?.battlesWon || 0) >= 2 && (Object.values(s.city.buildings).find((b) => b.type === 'townhall')?.level || 0) >= 3, unlockText: 'Hôtel de ville 3 et deux victoires sur la carte.',
+  steps: [
+    { title: 'Connaître l’ennemi', desc: 'Espionnez une forteresse de la Brèche.', check: (s) => [Object.values(s.world.pois).some((p) => p.type === 'breachFort' && p.scouted) ? 1 : 0, 1], reward: { res: { gold: 300 } }, view: 'world' },
+    { title: 'Trois bannières abattues', desc: 'Remportez une victoire méritée contre 3 forteresses différentes.', check: (s) => [Object.keys(s.breach?.defeated || {}).length, 3], reward: { res: { iron: 600, steel: 40 }, speedups: { speed15: 2 } }, view: 'world' },
+    { title: 'Économiser le sang', desc: 'Remportez 3 victoires méritées en perdant au plus 10 % de vos troupes.', check: (s, h) => [h.d('breachCleanWins'), 3], reward: { res: { gold: 1500 }, xp: 200 }, view: 'world' },
+    { title: 'Les murs de pierre', desc: 'Battez une forteresse renforcée (palier 2).', check: (s) => [Math.min(1, Math.floor((s.stats?.breachTierMax || 0) / 2)), 1], reward: { item: 'rare', speedups: { speed60: 1 } }, view: 'world' },
+    { title: 'Une armée spécialisée', desc: 'Gagnez avec une armée composée à 70 % ou plus d’une seule classe (fantassins, tireurs ou cavaliers).', check: (s, h) => [h.d('breachSpecialWins'), 1], reward: { res: { steel: 150, leather: 150 } }, view: 'army' },
+    { title: 'Le bastion tombe', desc: 'Battez un bastion d’élite (palier 3).', check: (s) => [Math.min(1, Math.floor((s.stats?.breachTierMax || 0) / 3)), 1], reward: { item: 'epic', relic: 1 }, view: 'world' },
+    { title: 'Face au Seigneur', desc: 'Battez une citadelle légendaire (palier 4) et son seigneur.', check: (s) => [Math.min(1, Math.floor((s.stats?.breachTierMax || 0) / 4)), 1], reward: { res: { gold: 10000, rareOre: 15 }, speedups: { speed480: 1 } }, view: 'world' },
+  ],
+  final: { item: 'legendary', rep: { warrior: 30 } },
+});
+
+// Chaque grande quête achevée rapporte un sceau d'une heure (une seule fois : la récompense finale ne se réclame qu'une fois)
+for (const q of QUESTLINES) if (q.final) q.final.speedups ||= { speed60: 1 };
 export const QUESTLINE_BY_ID = Object.fromEntries(QUESTLINES.map((q) => [q.id, q]));

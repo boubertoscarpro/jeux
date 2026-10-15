@@ -7,7 +7,8 @@ import { computeMods } from '../../systems/modifiers.js';
 import { levelOf } from '../../systems/city.js';
 import { startCraft, craftCost, craftQuality, startBrew, usePotion, upgradeItem, salvageItem, toggleLock, INVENTORY_CAP } from '../../systems/crafting.js';
 import { upgradeCost, salvageYield, MAX_PLUS, rarityOdds, itemScore } from '../../systems/items.js';
-import { esc, costList, resChips, itemCard, empty, rarityTag } from '../components.js';
+import { esc, costList, resChips, itemCard, empty, rarityTag, countdown, progress } from '../components.js';
+import { commissionList, commissionState, stageCheck, startCommission, launchStage, claimCommission, abandonCommission } from '../../systems/commissions.js';
 import { PLANS, PLAN_SOURCES, WORKSHOPS, WORKSHOP_FX, EXPERIMENT } from '../../data/recipes.js';
 import { AFFIXES } from '../../data/items.js';
 import { recipesState, knowsPlan, heroPlans, learnFromHero, planSellers, buyFactionPlan, experiment, setWorkshop, workshopOf } from '../../systems/recipes.js';
@@ -53,6 +54,35 @@ function itemDetail(app, it, mods) {
     <div class="panel-sub"><h4>Recycler</h4>${resChips(salvageYield(it, mods['salvage.bonus'] || 0))} <button class="mini ghost danger" data-action="salvage" data-id="${it.id}" ${it.equippedBy || it.locked ? 'disabled' : ''}>Recycler</button>
       <button class="mini ghost" data-action="lock" data-id="${it.id}">${it.locked ? '🔓 Déverrouiller' : '🔒 Verrouiller'}</button></div>
     <button class="btn small" data-action="goto" data-view="heroes">Équiper un héros →</button></div>`;
+}
+
+// Commandes prestigieuses : registre des ouvrages, étapes, conditions et récompenses (une fois par dynastie)
+function commissionsPanel(app) {
+  const s = app.state, now = Date.now(), list = commissionList(s);
+  const a = commissionState(s).active;
+  const chk = a ? stageCheck(s, now) : null;
+  const row = (c) => {
+    const st = c.status;
+    const stages = c.stages.map((g, i) => {
+      const done = st === 'done' || (a?.id === c.id && (i < a.stage || a.ready));
+      const cur = a?.id === c.id && !a.ready && i === a.stage;
+      return `<li class="${done ? 'ok' : cur ? 'cur' : ''}">${done ? '✔' : cur ? '▶' : '·'} <b>${esc(g.name)}</b> — ${costList(g.cost, s)}${g.relic ? ` + ${g.relic} fragment de relique` : ''} · ${g.hours} h${g.cond ? ` · <span class="${g.cond(s) ? 'warn-text' : 'ok'}">${esc(g.cond(s) || 'exploit accompli')}</span>` : ''}</li>`;
+    }).join('');
+    let foot = '';
+    if (st === 'available') foot = `<button class="mini primary" data-action="cm-start" data-id="${c.id}">Accepter la commande</button>`;
+    else if (st === 'locked' || st === 'busy') foot = `<span class="req small">${esc(c.reason)}</span>`;
+    else if (st === 'done') foot = '<span class="ok small">✔ Réalisée pour cette dynastie</span>';
+    else if (st === 'ready') foot = '<button class="mini good" data-action="cm-claim">Recevoir l’ouvrage</button>';
+    else if (a.stageEnd > now) foot = `<span class="small">Aux ateliers : ${countdown(a.stageEnd)}</span>${progress(a.stageEnd - c.stages[a.stage].hours * 3600000, a.stageEnd)}`;
+    else foot = `${chk.ok ? '<button class="mini primary" data-action="cm-stage">Lancer l’étape</button>' : `<span class="req small">${esc(chk.reason)}</span>`} <button class="mini ghost" data-action="cm-abandon">Abandonner</button>`;
+    return `<div class="commission ${st}"><div class="row between wrap"><b>${c.icon} ${esc(c.name)}</b><span class="small muted">${esc(c.client)}</span></div>
+      <div class="small">${esc(c.desc)}</div><ul class="small cm-stages">${stages}</ul>
+      <div class="small">🎁 ${esc(c.rewardText)}</div><div class="row gap wrap">${foot}</div></div>`;
+  };
+  const done = list.filter((c) => c.status === 'done').length;
+  return `<div class="card"><h2>📜 Commandes prestigieuses <span class="muted small">${done}/${list.length} réalisées</span></h2>
+    <p class="small muted">Des ouvrages d’exception, en plusieurs étapes, qui emploient vos ressources avancées et rares. Une seule commande à la fois, chacune une seule fois par dynastie ; certaines étapes exigent un exploit.</p>
+    <div class="commission-list">${[...list].sort((x, y) => ['ready', 'active', 'available', 'busy', 'locked', 'done'].indexOf(x.status) - ['ready', 'active', 'available', 'busy', 'locked', 'done'].indexOf(y.status)).map(row).join('')}</div></div>`;
 }
 
 export default {
@@ -114,10 +144,15 @@ export default {
       </div>
 
       ${forge ? plansPanel(app) : ''}
+      ${commissionsPanel(app)}
       <div class="card"><h2>📦 Ressources</h2><div class="res-table">${RES_ORDER.map((r) => `<div class="res-row"><span class="res-icon">${resIcon(r, 16, RESOURCES[r]?.icon)}</span><b>${esc(RESOURCES[r].name)}</b><span class="num">${fmt(s.resources[r] || 0)}</span><span class="muted small">${esc(RESOURCES[r].uses)}</span></div>`).join('')}</div></div>
     </div>`;
   },
   actions: {
+    'cm-start': (app, el) => app.act(() => startCommission(app.state, el.dataset.id), 'Commande acceptée'),
+    'cm-stage': (app) => app.act(() => launchStage(app.state), 'Étape lancée dans les ateliers'),
+    'cm-claim': (app) => app.act(() => claimCommission(app.state), (r) => `Ouvrage livré : ${r.text}`),
+    'cm-abandon': (app) => app.confirm('<h2>Abandonner la commande ?</h2><p>Les ressources déjà engagées dans les étapes payées sont perdues. Vous pourrez la reprendre plus tard depuis le début.</p>', 'Abandonner', () => app.act(() => abandonCommission(app.state), 'Commande abandonnée')),
     'inv-filter': (app, el) => { app.ui.invFilter = el.dataset.slot; app.render(); },
     'item-sel': (app, el) => { app.ui.itemSel = el.dataset.id; app.render(); },
     'craft-slot': (app, el) => { app.ui.craftSlot = el.dataset.slot; app.ui.craftPlan = ''; app.render(); },

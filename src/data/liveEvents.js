@@ -17,10 +17,10 @@
 export const rewardsPass = (cur) => ({
   per: 600, // points par niveau
   levels: {
-    1: { res: { food: 3000 } }, 2: { res: { wood: 3000 } }, 3: { units: { spearman: 30 } }, 4: { [cur]: 150 },
-    5: { chest: 'rare' }, 6: { res: { iron: 2500 } }, 7: { relicFragments: 0, mythicFragments: 3 }, 8: { units: { archer: 40 } },
-    9: { res: { steel: 150, leather: 150 } }, 10: { item: { min: 'epic' } }, 12: { chest: 'epic' }, 14: { mythicFragments: 5 },
-    16: { res: { crystals: 10, rareOre: 8 } }, 18: { legendaryFragments: 5 }, 20: { exclusiveFromShop: true },
+    1: { res: { food: 3000 } }, 2: { res: { wood: 3000 } }, 3: { units: { spearman: 30 }, speedups: { speed5: 3 } }, 4: { [cur]: 150 },
+    5: { chest: 'rare' }, 6: { res: { iron: 2500 }, speedups: { speed15: 2 } }, 7: { relicFragments: 0, mythicFragments: 3 }, 8: { units: { archer: 40 } },
+    9: { res: { steel: 150, leather: 150 } }, 10: { item: { min: 'epic' } }, 11: { speedups: { speed60: 1 } }, 12: { chest: 'epic' }, 14: { mythicFragments: 5 },
+    15: { speedups: { speed60: 2 } }, 16: { res: { crystals: 10, rareOre: 8 } }, 18: { legendaryFragments: 5 }, 20: { exclusiveFromShop: true, speedups: { speed480: 1 } },
   },
 });
 
@@ -396,6 +396,12 @@ export const LIVE_EVENTS = {
 };
 
 // Événements surprises (hors rotation)
+// Passe-temps des objectifs d'événement (affichés à côté de la récompense) : le premier objectif donne deux sabliers
+// de 15 min, les suivants un sceau d'une heure, le dernier (le plus difficile) deux sceaux.
+for (const def of Object.values(LIVE_EVENTS)) {
+  def.objectives.forEach((o, i, all) => { o.reward.speedups ||= i === 0 ? { speed15: 2 } : i === all.length - 1 ? { speed60: 2 } : { speed60: 1 }; });
+}
+
 export const SURPRISE_EVENTS = {
   meteor: { name: 'La Pluie de Météores', icon: '☄️', hours: 6, chancePerDay: 0.25, incompatible: [], desc: 'Une météorite s’écrase sur la carte du monde : minerai rare, Éclats Anciens, artefacts… Des seigneurs rivaux viennent aussi l’exploiter — faites vite !' },
   wanderingDragon: { name: 'Le Dragon Errant', icon: '🐲', hours: 2, chancePerDay: 0.18, incompatible: ['dragon'], desc: 'Un dragon erre sur une région aléatoire. Tous les seigneurs peuvent tenter de l’abattre (boss mondial).' },

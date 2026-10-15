@@ -1,3 +1,4 @@
+import { speedupPanel } from '../speedups.js';
 import { ARTIFACTS, ARTIFACT_CATS } from '../../data/artifacts.js';
 import { BOSSES } from '../../data/world.js';
 import { REPUTATIONS, repTier } from '../../systems/reputation.js';
@@ -17,6 +18,7 @@ export default {
       ${Object.entries(ARTIFACT_CATS).map(([ck, cat]) => `<h3>${cat.icon} ${esc(cat.name)}</h3><div class="artifact-grid">${Object.entries(ARTIFACTS).filter(([, a]) => a.cat === ck).map(([k, a]) => owned[k]
         ? `<div class="artifact owned"><div class="a-icon">${a.icon}</div><b>${esc(a.name)}</b><div class="small">${esc(a.desc)}</div><div class="muted small">Obtenu : ${esc(owned[k].source || '')}</div></div>`
         : `<div class="artifact"><div class="a-icon">❔</div><b>???</b><div class="muted small">Indice : ${esc(a.source)}</div></div>`).join('')}</div>`).join('')}</div>
+      ${speedupPanel(s)}
       <div class="cols-2"><div class="card"><h2>🗃️ Collections</h2>${sets.map((c) => `<div class="objective ${c.done ? 'done' : ''}"><div class="q-top"><b>${esc(c.name)}</b><span>${c.cur}/${c.max}</span></div><div class="small muted">${esc(c.desc)}</div>${bar(c.cur, c.max)}<div class="small">${c.done ? '✔ ' : ''}Bonus : ${Object.entries(c.mods).map(([k, v]) => `${k} ${v < 1 ? '+' + Math.round(v * 100) + '%' : '+' + v}`).join(', ')}</div></div>`).join('')}
         <h3>🏆 Trophées de boss</h3><div class="chips">${Object.entries(BOSSES).map(([k, b]) => `<span class="chip ${s.bossTrophies?.[k] ? 'chip-buff' : ''}">${s.bossTrophies?.[k] ? '🏆' : '·'} ${esc(b.name)}</span>`).join('')}</div>
         <h3>🎖️ Titres</h3><div class="chips">${(s.meta.titles || []).map((t) => `<span class="chip">${esc(t)}</span>`).join('') || '<span class="muted small">Aucun titre.</span>'}</div></div>

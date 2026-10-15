@@ -46,7 +46,7 @@ export default {
       }).join('')}</tbody></table></div></div>
 
       <div class="card"><h2>🐪 Caravanes & routes commerciales</h2>
-        <p class="muted small">Les cités libres paient plus cher (★ +60% pour les ressources demandées). Sélectionnez une cité 🏘️ sur la Carte pour y envoyer une caravane. Caravanes : ${s.caravans.length}/${caravanSlots(mods)}.</p>
+        <p class="muted small">Les cités libres paient plus cher que le prix de référence : +12 % en temps normal, ★ +50 % pour les ressources qu’elles demandent. Sélectionnez une cité 🏘️ sur la Carte pour y envoyer une caravane. Caravanes : ${s.caravans.length}/${caravanSlots(mods)}.</p>
         ${s.caravans.map((c) => `<div class="q-row"><div class="q-top"><span>🐪 ${esc(c.town)} — ${fmt(c.qty)} ${RESOURCES[c.res].icon} → ${fmt(c.gold)} 🪙 ${c.repeat ? '🔁' : ''}</span>${countdown(c.end)}${c.repeat ? `<button class="mini ghost" data-action="stop-route" data-id="${c.id}">Arrêter la route</button>` : ''}</div>${progress(c.start, c.end)}</div>`).join('') || '<div class="muted small">Aucune caravane en route.</div>'}
         <div class="town-list">${Object.values(s.world.pois).filter((p) => p.type === 'town' && s.world.revealed[p.y * s.world.size + p.x]).map((t) => `<button class="btn ghost small" data-action="goto-town" data-x="${t.x}" data-y="${t.y}">🏘️ ${esc(t.name)} — ★ ${t.wants.map((r) => resIcon(r, 16, RESOURCES[r]?.icon)).join('')}</button>`).join('') || '<div class="muted small">Explorez pour découvrir des cités libres.</div>'}</div>
       </div>

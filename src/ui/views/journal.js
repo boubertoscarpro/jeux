@@ -1,3 +1,4 @@
+import { sealLine } from '../heraldry.js';
 import { ALL_UNITS, TERRAIN_COMBAT, WEATHER } from '../../data/units.js';
 import { fmt } from '../../core/util.js';
 import { esc, resChips } from '../components.js';
@@ -17,7 +18,7 @@ export function reportModal(app, rep) {
   const def = rep.defense;
   const myLoss = r ? (def ? r.defLosses : r.attLosses) : null;
   const theirLoss = r ? (def ? r.attLosses : r.defLosses) : null;
-  app.modal(`<h2>${rep.win ? '🏆' : '💀'} ${esc(rep.title)}</h2>
+  app.modal(`<div class="report-head"><h2>${rep.win ? '🏆' : '💀'} ${esc(rep.title)}</h2>${sealLine(app.state)}</div>
     <div class="muted small">${new Date(rep.t).toLocaleString('fr-FR')}${rep.x !== undefined ? ` · (${rep.x}, ${rep.y})` : ''}${rep.terrain ? ` · ${esc(TERRAIN_COMBAT[rep.terrain]?.name || rep.terrain)}` : ''}${rep.weather ? ` · ${WEATHER[rep.weather]?.icon} ${esc(WEATHER[rep.weather]?.name)}` : ''}</div>
     ${rep.text ? `<p class="story">${esc(rep.text)}</p>` : ''}
     ${r ? `<div class="cols-2"><div class="card-sub"><h4>Vos pertes</h4>${unitsLine(myLoss)}</div><div class="card-sub"><h4>Pertes ennemies</h4>${unitsLine(theirLoss)}${r.bossDamage ? `<div>Dégâts au boss : <b>${fmt(r.bossDamage)}</b></div>` : ''}</div></div>

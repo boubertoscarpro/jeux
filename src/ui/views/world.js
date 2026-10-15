@@ -3,6 +3,10 @@ import { resIcon } from '../icons.js';
 import { UNITS, ALL_UNITS, FORMATIONS, TERRAIN_COMBAT } from '../../data/units.js';
 import { RESOURCES } from '../../data/resources.js';
 import { CONSUMABLES } from '../../data/items.js';
+import { breachPanel, drawBreachFort } from '../breach.js';
+import { drawWorldMarks, drawHamlet, marksPanel } from '../worldmarks.js';
+import { breachDefense } from '../../systems/breach.js';
+import { BREACH_MIN_MERIT } from '../../data/breach.js';
 import { HERO_CLASSES } from '../../data/heroes.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
@@ -59,13 +63,14 @@ const POI_CAT = (p) => {
   if (!def) return 'other';
   if (def.kind === 'gather') return 'gather';
   if (def.dungeon || p.type === 'lostCity' || p.type === 'ruinSite') return 'dungeon';
+  if (def.kind === 'breach') return 'breach';
   if (def.kind === 'danger') return 'danger';
   if (def.kind === 'town' || def.kind === 'kingdom' || def.kind === 'village') return 'social';
   return 'always';
 };
-export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes' };
-const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', dungeon: '#c99cff', social: '#ffd56b', always: '#ffffff', other: '#cccccc' };
-const filters = (app) => (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true });
+export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes' };
+const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', always: '#ffffff', other: '#cccccc' };
+const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true }); f.breach ??= true; return f; };
 let rafPending = false;
 const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawMap(app); }); };
 
@@ -207,6 +212,8 @@ export function drawMap(app) {
   }
   // Lieux
   const F = filters(app);
+  // Monde évolutif : traces des événements (sous les lieux, au-dessus du terrain)
+  drawWorldMarks(ctx, s, { ox, oy, T, x0, x1, y0, y1, now });
   const labels = [];
   const blocked = [];
   const lsize = Math.round(Math.max(10, Math.min(14, T * 0.34)));
@@ -235,19 +242,21 @@ export function drawMap(app) {
     const pulse = reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(now / 420);
     const glow = def.kind === 'boss' ? `rgba(255,60,60,${0.5 + 0.4 * Math.sin(now / 300)})` : def.kind === 'capital' ? 'rgba(255,220,120,0.7)'
       : !cleared && (def.dungeon || p.type === 'lostCity') ? `rgba(190,150,255,${0.35 + 0.35 * pulse})` : !cleared && p.danger >= 4 ? `rgba(255,90,70,${0.25 + 0.3 * pulse})` : null;
-    drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
+    const rb = def.kind === 'breach' && p.breach ? Math.max(8, Math.min(30, T * 0.46)) * (1 + 0.08 * (Math.floor((p.breach.level - 1) / 5))) : 0;
+    if (rb) drawBreachFort(ctx, px, py, rb, p.breach, { cleared });
+    else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
-    if (p.danger > 0 && def.kind !== 'boss' && T > 16) {
+    if (p.danger > 0 && def.kind !== 'boss' && def.kind !== 'breach' && T > 16) {
       const n = Math.min(5, p.danger), pw = Math.max(3, r * 0.28);
       ctx.fillStyle = p.danger >= 4 ? '#ff4f4f' : p.danger >= 2 ? '#ffb03a' : '#ffe58a';
       for (let i = 0; i < n; i++) ctx.fillRect(px - (n * pw * 1.3) / 2 + i * pw * 1.3, py + r + 1, pw, pw * 0.8);
     }
     if (p.infested && T > 16) { ctx.font = `${Math.round(r * 0.8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🕷️', px + r * 0.85, py - r * 0.85); }
     // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
-    const name = def.kind === 'capital' ? castleName(s) : p.name || def.name;
-    const prio = { capital: 100, kingdom: 80, boss: 75, town: 60 }[def.kind] ?? (def.dungeon ? 40 : 10);
-    const minT = { capital: 6, kingdom: 14, boss: 14, town: 16 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
-    if (T >= minT) labels.push({ x: px, y: py, offset: r + (p.danger > 0 && T > 16 ? 6 : 2), text: name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
+    const name = def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.name || def.name;
+    const prio = { capital: 100, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
+    const minT = { capital: 6, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
+    if (T >= minT) labels.push({ x: px, y: py, offset: rb ? rb * 0.95 + 3 : r + (p.danger > 0 && T > 16 ? 6 : 2), text: rb ? `${name} · ${p.breach.level}` : name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
   }
   // Avant-postes du joueur : étendard + nom
   for (const t of Object.values(s.territories || {})) {
@@ -256,6 +265,7 @@ export function drawMap(app) {
     const sz = Math.max(8, Math.min(26, T * 0.55));
     const hasPoi = !!w.pois[key(t.x, t.y)];
     drawBanner(ctx, hasPoi ? px + T * 0.3 : px, hasPoi ? py - T * 0.3 : py, sz, banner);
+    if (t.hamlet && T >= 14) drawHamlet(ctx, px - T * 0.32, py + T * 0.18, T, t.hamlet);
     if (T >= 12) labels.push({ x: px, y: py, offset: sz * 0.6 + 2, text: `🚩 ${outpostLabel(t)}`, prio: 70, size: lsize, color: '#ffe9a8', border: banner });
   }
   // Grands projets achevés : repères près de la capitale
@@ -368,8 +378,8 @@ export function notablePlaces(state) {
     if (!isRevealed(w, p.x, p.y)) continue;
     const def = POI_TYPES[p.type];
     if (!def) continue;
-    if (['town', 'kingdom', 'boss'].includes(def.kind) || def.dungeon || p.type === 'lostCity') {
-      const label = def.kind === 'kingdom' ? `${RIVALS[p.rival]?.icon || def.icon} ${p.name}` : def.kind === 'town' ? `${def.icon} ${p.name}` : `${def.icon} ${def.name}`;
+    if (['town', 'kingdom', 'boss', 'breach'].includes(def.kind) || def.dungeon || p.type === 'lostCity') {
+      const label = def.kind === 'breach' ? `🏴 ${p.name} (niv. ${p.breach?.level || '?'})` : def.kind === 'kingdom' ? `${RIVALS[p.rival]?.icon || def.icon} ${p.name}` : def.kind === 'town' ? `${def.icon} ${p.name}` : `${def.icon} ${def.name}`;
       out.push({ x: p.x, y: p.y, label, d: distCap(w, p.x, p.y) });
     }
   }
@@ -521,7 +531,8 @@ function tilePanel(app) {
         ${['war', 'alliance', 'trade', 'truce', 'neutral'].map((k) => `<div><span class="lg-sw ${k === 'neutral' ? 'dashed' : ''}" style="--c:${RELATION_STYLE[k].color || '#9aa0ad'}"></span> ${esc(RELATION_STYLE[k].label)}</div>`).join('')}</div>
       <h4>Lieux</h4><div class="map-legend small">${Object.entries(MAP_FILTERS).map(([k, l]) => `<div><span class="lg-dot" style="--c:${CAT_COLOR[k]}"></span> ${esc(l)}</div>`).join('')}<div><span class="lg-dot" style="--c:#ff3b3b"></span> 🐉 Boss mondial</div></div>
       <h4>Mouvements</h4><div class="map-legend small"><div>🧭 Bleu : exploration, espionnage</div><div>🧺 Jaune : récolte</div><div>⚔️ Rouge : attaque — trait rouge épais : <b>raid</b> vers votre château</div><div>⛺ Vert : expédition</div></div>
-      <h4>Réseau et histoire</h4><div class="map-legend small"><div>🛣️ Routes des avant-postes (pointillé : piste ; rouge : trajet dangereux)</div><div>🏺 Zone de fouilles (cercle) et ⛏️ site localisé</div><div>🏛️ Lieu retrouvé (mystère résolu)</div><div>🏚️ 🗿 Vestiges des dynasties passées</div></div>`;
+      <h4>Réseau et histoire</h4><div class="map-legend small"><div>🛣️ Routes des avant-postes (pointillé : piste ; rouge : trajet dangereux)</div><div>🏺 Zone de fouilles (cercle) et ⛏️ site localisé</div><div>🏛️ Lieu retrouvé (mystère résolu)</div><div>🏚️ 🗿 Vestiges des dynasties passées</div></div>
+      <h4>Monde évolutif</h4><div class="map-legend small"><div>🔥 Halo sombre : terres ravagées par la guerre</div><div>🪵 Souches : bois surexploité · 🌳 cercle vert : forêt restaurée</div><div>🏡 Maisons près d’un étendard : hameau · 🚧 route en ruine</div><div>★ après le nom d’une cité : cité marchande</div><div>🏴 Forteresses de la Brèche : leur dessin grandit avec le palier</div></div>`;
   }
   const { x, y } = sel;
   const w = s.world;
@@ -541,10 +552,11 @@ function tilePanel(app) {
   const terr = s.territories[key(x, y)];
   const poi = poiAt(w, x, y);
   const own = ownerText(s, x, y);
+  html += marksPanel(s, x, y, terr, poi);
   if (own && !terr) html += `<div class="small">${own}</div>`;
   if (poi) {
     const def = POI_TYPES[poi.type];
-    html += `<div class="poi-head"><span class="poi-icon">${poi.type === 'kingdom' ? RIVALS[poi.rival].icon : def.icon}</span><div><b>${esc(poi.name || def.name)}</b><div class="small">Danger : ${dangerStars(poi.danger)}${poi.infested ? ' · 🕷️ infesté' : ''}${poi.temp ? ' · ⏳ temporaire' : ''}</div></div></div>`;
+    html += `<div class="poi-head"><span class="poi-icon">${poi.type === 'kingdom' ? RIVALS[poi.rival].icon : def.icon}</span><div><b>${esc(poi.name || def.name)}</b><div class="small">${def.kind === 'breach' ? 'Seigneurs de la Brèche · ' : ''}Danger : ${dangerStars(poi.danger)}${poi.infested ? ' · 🕷️ infesté' : ''}${poi.temp ? ' · ⏳ temporaire' : ''}</div></div></div>`;
     if (def.kind === 'capital') html += `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle">✎ Renommer</button></div><p class="small">Capitale de ${esc(s.meta.kingdomName)}. Toutes les marches partent d’ici.</p>`;
     if (def.kind === 'gather') {
       const r = RESOURCES[def.res];
@@ -553,6 +565,7 @@ function tilePanel(app) {
       if (poi.danger > 0) html += `<div class="panel-sub"><h4>Menace</h4>${enemyBlock(app, poi, poi.enemies)}</div>`;
       html += `<div class="row gap"><button class="btn primary" data-action="march" data-type="gather">🧺 Récolter</button>${poi.danger ? '<button class="btn" data-action="march" data-type="scout">👁️ Espionner</button>' : ''}</div>`;
     }
+    if (def.kind === 'breach' && poi.breach) html += breachPanel(app, poi);
     if (def.dungeon) {
       const d = ensureDungeon(poi);
       html += `<div class="panel-sub"><h4>${esc(DUNGEON_THEMES[d.theme].name)} — niveau ${d.level}</h4>
@@ -619,7 +632,7 @@ function townPanel(app, town, mods) {
   const dur = caravanTime(s, town, mods) * 2;
   const opts = Object.keys(RESOURCES).filter((r) => RESOURCES[r].price > 0).map((r) => `<option value="${r}" ${app.ui.cvRes === r ? 'selected' : ''}>${RESOURCES[r].icon} ${esc(RESOURCES[r].name)} — ${townPrice(s, town, r, mods).toFixed(2)} or/u${town.wants.includes(r) ? ' ★' : ''}</option>`).join('');
   return `<p>Cité libre de <b>${esc(town.name)}</b> · relation ${town.relation || 0} (+${Math.min(20, town.relation || 0)}% prix)</p>
-    <div class="small">Demande forte (★ +60%) : ${town.wants.map((r) => resIcon(r, 16, RESOURCES[r]?.icon) + ' ' + RESOURCES[r].name).join(', ')}</div>
+    <div class="small">Demande forte (★ +50 % du prix de référence) : ${town.wants.map((r) => resIcon(r, 16, RESOURCES[r]?.icon) + ' ' + RESOURCES[r].name).join(', ')}</div>
     <div class="panel-sub"><h4>🐪 Envoyer une caravane</h4>
       <div class="form-row"><select id="cv-res" data-change="cv-res">${opts}</select></div>
       <div class="form-row"><input id="cv-qty" type="number" min="1" max="${caravanCargo(s)}" value="${Math.min(caravanCargo(s), 500)}"> <span class="muted small">max ${fmt(caravanCargo(s))}</span></div>
@@ -642,7 +655,7 @@ function marchDialog(app, type) {
   if (best && type !== 'explore') md.heroId = best.id;
   if (type === 'explore') md.heroId = idle.find((h) => h.cls === 'explorer')?.id || null;
   const unitsAvail = Object.entries(s.army).filter(([, n]) => n > 0);
-  const potions = Object.entries(s.inventory.consumables).filter(([k, n]) => n > 0 && CONSUMABLES[k].march);
+  const potions = Object.entries(s.inventory.consumables).filter(([k, n]) => n > 0 && CONSUMABLES[k]?.march);
   const fights = ['attack', 'boss', 'gather', 'dungeon'].includes(type);
   const title = `${MARCH_TYPES[type].icon} ${MARCH_TYPES[type].name} — ${esc(poi ? poi.name || POI_TYPES[poi.type].name : `(${x}, ${y})`)}`;
   app.modal(`<h2>${title}</h2>
@@ -687,7 +700,9 @@ function updateMarchPreview(app) {
     html += `<div>🧺 Rendement : <b>${fmt(take * mult)}</b> ${RESOURCES[def.res].icon} (bonus ${Math.round((mult - 1) * 100)}%)</div><div>⏳ Récolte : ${rate ? fmtTime((take / rate) * 60000) : '—'}</div>`;
   }
   let enemies = null, fort = 0, bossHp = null;
+  let enemyMods = null, enemyFormation;
   if (poi && md.type === 'attack') { enemies = poi.type === 'kingdom' ? poi.garrison : poi.enemies; fort = poi.wall || 0; }
+  if (poi?.breach && md.type === 'attack') { const D = breachDefense(s, poi); enemies = D.enemies; fort = D.fort; enemyMods = D.enemyMods; enemyFormation = D.formation; }
   if (poi && md.type === 'gather' && poi.danger > 0) enemies = poi.enemies;
   if (md.type === 'boss' && s.boss) { enemies = { [BOSSES[s.boss.key].unit]: 1 }; bossHp = s.boss.hp; }
   if (enemies && Object.keys(units).length) {
@@ -695,7 +710,7 @@ function updateMarchPreview(app) {
       const ter = s.world && wTerrain(s.world, md.x, md.y);
       const pv = previewBattle(
         { units, mods, formation: md.formation, supply: md.supply, famine: s.famine },
-        { units: enemies, mods: { 'combat.atk': 0.05 * (poi.danger || 0), 'combat.def': 0.05 * (poi.danger || 0) }, fort },
+        { units: enemies, mods: enemyMods || { 'combat.atk': 0.05 * (poi.danger || 0), 'combat.def': 0.05 * (poi.danger || 0) }, fort, formation: enemyFormation },
         { terrain: poi.type === 'kingdom' ? 'city' : ter === 'ash' ? 'ruins' : ter, weather: s.weather.type, bossHp },
       );
       const lost = Object.entries(pv.attLosses).filter(([, n]) => n > 0);
@@ -705,6 +720,12 @@ function updateMarchPreview(app) {
       html += `<div class="small">Pertes estimées : ${lost.map(([u, n]) => `${n} ${esc(UNITS[u].name)}`).join(', ') || 'aucune'}</div>
         <ul class="notes small">${pv.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
     } else html += '<div class="small muted">Ennemis non espionnés : impossible d’estimer l’issue. ' + (md.type === 'gather' ? 'Une embuscade est possible.' : 'Espionnez d’abord !') + '</div>';
+  }
+  if (poi?.breach && md.type === 'attack' && enemies && Object.keys(units).length) {
+    const merit = (armyPower(enemies) * (1 + fort)) / Math.max(1, armyPower(units));
+    html += merit >= BREACH_MIN_MERIT
+      ? `<div class="small ok">Attaque méritante (garnison = ${Math.round(merit * 100)} % de votre puissance) : la victoire fait évoluer la forteresse et donne butin complet, objets et passe-temps.</div>`
+      : `<div class="small warn-text">Armée écrasante (garnison = ${Math.round(merit * 100)} % de votre puissance, ${Math.round(BREACH_MIN_MERIT * 100)} % requis) : victoire sans gloire, butin réduit, ni évolution ni passe-temps. Envoyez moins de troupes.</div>`;
   }
   if (md.type === 'dungeon' && poi) {
     const d = ensureDungeon(poi);

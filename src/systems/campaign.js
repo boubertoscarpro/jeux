@@ -4,7 +4,7 @@ import { CHAPTERS, LONG_TERM, DAILY_POOL } from '../data/campaign.js';
 import { RESOURCES } from '../data/resources.js';
 import { UNITS } from '../data/units.js';
 import { mulberry32 } from '../core/rng.js';
-import { countOf, levelOf, thLevel } from './city.js';
+import { builtCountOf, levelOf, thLevel } from './city.js';
 import { combatUnitCount } from './army.js';
 import { computeMods } from './modifiers.js';
 import { gain, netRates } from './economy.js';
@@ -16,7 +16,7 @@ const DAY = 86400000;
 export const MISSIONS = Object.fromEntries([...CHAPTERS.flatMap((c) => c.missions.map((m) => [m.id, { ...m, chapter: c.n }])), ...LONG_TERM.map((m) => [m.id, { ...m, chapter: 0, long: true }])]);
 
 const H = {
-  count: countOf,
+  count: builtCountOf, // bâtiments achevés : lancer puis annuler un chantier ne valide plus la mission
   level: levelOf,
   combatUnits: (s) => combatUnitCount(s.army),
   foodNet: (s) => netRates(s, computeMods(s)).food || 0,

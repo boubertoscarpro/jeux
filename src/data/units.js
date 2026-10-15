@@ -178,6 +178,12 @@ export const ENEMY_UNITS = {
   magmaling:   { name: 'Élémentaire de magma', icon: '🔥', class: 'beast', atk: 28, def: 22, hp: 90, rangedResist: 0.3 },
   prospector:  { name: 'Prospecteur armé', icon: '⛏️', class: 'infantry', atk: 12, def: 12, hp: 34 },
   ancientSoldier: { name: 'Soldat des Anciens', icon: '⚔️', class: 'infantry', atk: 18, def: 20, hp: 48, vs: { cavalry: 1.3 } },
+  // Seigneurs de la Brèche (forteresses évolutives)
+  breachRaider:   { name: 'Écorcheur de la Brèche', icon: '🪓', class: 'infantry', atk: 12, def: 10, hp: 32, vs: { ranged: 1.15 } },
+  breachArbalist: { name: 'Arbalétrier de la Brèche', icon: '🏹', class: 'ranged', atk: 17, def: 6, hp: 22, pierce: 0.2, vs: { infantry: 1.3 } },
+  breachLancer:   { name: 'Lancier monté de la Brèche', icon: '🐎', class: 'cavalry', atk: 20, def: 12, hp: 44, vs: { ranged: 1.5 } },
+  breachWarden:   { name: 'Gardien cuirassé', icon: '🛡️', class: 'infantry', atk: 16, def: 30, hp: 70, vs: { cavalry: 1.5 } },
+  breachLord:     { name: 'Seigneur de la Brèche', icon: '👹', class: 'infantry', atk: 70, def: 55, hp: 420, vs: { cavalry: 1.2, infantry: 1.2 } },
   // Boss
   khan:        { name: 'Khan des Steppes', icon: '👑', class: 'boss', atk: 420, def: 55, hp: 1, vs: { infantry: 1.3 } },
   seaCaptain:  { name: 'Capitaine Barbe-Noire', icon: '🦜', class: 'boss', atk: 380, def: 50, hp: 1, vs: { ranged: 1.3 } },

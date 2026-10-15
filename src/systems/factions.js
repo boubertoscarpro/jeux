@@ -202,8 +202,9 @@ export function diplomacy(state, i, action, now = Date.now()) {
     }
     case 'peace': {
       if (f.stance !== 'war') return { ok: false, reason: 'Vous n’êtes pas en guerre' };
+      if (f.peaceRetryAt > now) return { ok: false, reason: `${name} ne recevra pas de nouveaux émissaires avant ${Math.ceil((f.peaceRetryAt - now) / 60000)} min` };
       const chance = 0.25 + (f.relation + 60) / 250 + f.weariness / 200 + Math.max(0, ratio - 1) * 0.25;
-      if (!rng.chance(Math.min(0.95, chance))) { f.relation = Math.max(-100, f.relation - 3); return { ok: false, reason: `${name} rejette votre proposition (chance ${Math.round(Math.min(0.95, chance) * 100)}%)` }; }
+      if (!rng.chance(Math.min(0.95, chance))) { f.relation = Math.max(-100, f.relation - 3); f.peaceRetryAt = now + DIPLO_RETRY_MS; return { ok: false, reason: `${name} rejette votre proposition (chance ${Math.round(Math.min(0.95, chance) * 100)}%)` }; }
       f.stance = 'truce'; f.treatyAt = now; f.relation = Math.max(f.relation, -10);
       remember(state, i, 'peace', 6, 'Paix signée', now);
       bumpRep(state, 'diplomat', 15);
@@ -223,6 +224,8 @@ export function diplomacy(state, i, action, now = Date.now()) {
     }
     case 'tribute': {
       if (f.stance === 'tributary') return { ok: false, reason: 'Déjà tributaire' };
+      // Un ultimatum refusé ne peut être renouvelé qu'après un délai (sinon on cliquerait jusqu'au succès)
+      if (f.tributeRetryAt > now) return { ok: false, reason: `${name} a déjà rejeté votre ultimatum : nouvel essai dans ${Math.ceil((f.tributeRetryAt - now) / 60000)} min` };
       if (ratio < 1.3) return { ok: false, reason: `Votre armée n’impressionne pas ${name} (puissance ×${ratio.toFixed(2)}, 1,3 requis)` };
       const resist = { isolationist: 0.6, military: 0.5, aggressive: 0.35, commercial: 0.2, technological: 0.4 }[per];
       bumpRep(state, 'tyrant', 10);
@@ -233,6 +236,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
         return { ok: true, msg: `${name} vous versera un tribut régulier.` };
       }
       f.relation = Math.max(-100, f.relation - 15);
+      f.tributeRetryAt = now + DIPLO_RETRY_MS;
       remember(state, i, 'threat', -8, 'Ultimatum insultant', now);
       if (per === 'aggressive' || per === 'military') { f.stance = 'war'; chronicle(state, `${name} répond à votre ultimatum par la guerre !`, now); }
       return { ok: false, reason: `${name} refuse avec mépris.` };
@@ -240,6 +244,9 @@ export function diplomacy(state, i, action, now = Date.now()) {
     default: return { ok: false };
   }
 }
+
+// Délai avant de renouveler une demande de paix ou un ultimatum rejeté
+export const DIPLO_RETRY_MS = 6 * 3600000;
 
 // Les traités temporaires expirent (trêve 6 h)
 export function treatiesTick(state, now) {

@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>Planche</title>
+<style>body{background:#6f8f4a;margin:0;font:12px sans-serif}.row{display:flex;gap:6px;align-items:end;padding:4px}.cell{width:110px;text-align:center;color:#fff}.cell svg{width:104px;height:104px;overflow:visible}</style>
+<div id="root"></div>
+<script type="module">
+import { buildingSvg, ensureArtDefs } from '../src/ui/art.js';
+ensureArtDefs();
+const types = new URLSearchParams(location.search).get('t').split(',');
+document.getElementById('root').innerHTML = types.map((t) => `<div class="row">${[1, 5, 10, 15].map((l) => `<div class="cell">${buildingSvg(t, l, 'x')}<div>${t} ${l}</div></div>`).join('')}</div>`).join('');
+</script>

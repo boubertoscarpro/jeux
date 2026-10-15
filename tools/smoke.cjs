@@ -190,6 +190,39 @@ const path = require('path');
     if (!document.querySelector('[data-action="monument-orient"]')) out.push('v10 : choix d’orientation du monument absent');
     a.go('accomplish'); await wait(60);
     if (!document.querySelectorAll('.axis').length) out.push('v10 : accomplissements absents');
+    // v11 : passe-temps, Seigneurs de la Brèche, armoiries, commandes prestigieuses, codex, scénario
+    const thb = Object.values(s.city.buildings).find((b) => b.type === 'townhall');
+    s.queues.build = [{ id: 'qsp', kind: 'upgrade', bid: thb.id, type: 'townhall', level: thb.level + 1, start: Date.now(), end: Date.now() + 2 * 3600000, cost: {} }];
+    s.inventory.consumables.speed60 = 1;
+    a.go('city'); await wait(60);
+    click('[data-action="speedup-open"]'); await wait(60);
+    if (!document.querySelector('.sp-row')) out.push('v11 : fenêtre des passe-temps absente');
+    const end0 = s.queues.build[0]?.end;
+    click('[data-action="speedup-item"][data-key="speed60"]'); await wait(60);
+    if (!(s.queues.build[0]?.end < end0) || s.inventory.consumables.speed60 !== 0) out.push('v11 : passe-temps non appliqué');
+    a.closeModal();
+    const fort = Object.values(s.world.pois).find((p) => p.type === 'breachFort');
+    if (!fort) out.push('v11 : aucune forteresse de la Brèche');
+    else {
+      s.world.revealed[fort.y * s.world.size + fort.x] = 1; fort.scouted = true; fort.clearedUntil = 0;
+      a.ui.worldSel = { x: fort.x, y: fort.y }; a.go('world'); await wait(80);
+      if (!document.querySelector('.br-sheet')) out.push('v11 : fiche de forteresse absente');
+      click('#view [data-action="march"][data-type="attack"]'); await wait(80);
+      if (!document.querySelector('#march-preview')) out.push('v11 : fenêtre d’attaque de la Brèche absente');
+      a.closeModal();
+    }
+    a.go('kingdom'); await wait(60);
+    const sel = document.querySelector('[data-change="her"][data-k="charge"]');
+    if (!sel) out.push('v11 : armoiries absentes'); else { sel.value = 'wolf'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(60); if (s.meta.heraldry.charge !== 'wolf') out.push('v11 : armoiries non enregistrées'); }
+    if (!document.querySelector('.brand-coat svg')) out.push('v11 : blason absent de la barre du haut');
+    for (const r of Object.keys(s.resources)) s.resources[r] = Math.max(s.resources[r], 50000);
+    s.stats.explored = 80;
+    a.go('craft'); await wait(60);
+    click('[data-action="cm-start"]'); await wait(60);
+    if (!s.commissions.active) out.push('v11 : commande prestigieuse non acceptée');
+    a.go('codex'); await wait(60);
+    click('.codex-item:not(.locked)'); await wait(60);
+    if (!document.querySelector('.codex-detail')) out.push('v11 : fiche du codex absente');
     a.go('world'); await wait(80);
     out.push(`PERF royaume ${ms.toFixed(0)} ms, monde ${wms.toFixed(0)} ms`);
     return out;

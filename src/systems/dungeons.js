@@ -57,6 +57,21 @@ function ourMods(base, d) {
   return m;
 }
 
+// Butin limité par la capacité de transport des survivants (comme une attaque sur la carte) ; les ressources rares
+// (cristaux, minerai rare…) ne pèsent rien et passent toujours
+function carryLoot(m, loot, mods) {
+  let cap = 0;
+  for (const [t, n] of Object.entries(m.units)) cap += (ALL_UNITS[t]?.carry || 0) * n;
+  cap = Math.floor(cap * (1 + (mods.carry || 0)));
+  const used = Object.entries(m.loot).reduce((s, [r, v]) => s + (RESOURCES[r]?.cat === 'rare' ? 0 : v), 0);
+  const commons = Object.entries(loot).filter(([r]) => RESOURCES[r]?.cat !== 'rare').reduce((s, [, v]) => s + v, 0);
+  const k = commons > 0 ? Math.min(1, Math.max(0, cap - used) / commons) : 1;
+  const got = {};
+  for (const [r, v] of Object.entries(loot)) { const n = Math.floor(RESOURCES[r]?.cat === 'rare' ? v : v * k); if (n > 0) got[r] = n; }
+  addInto(m.loot, got);
+  return { got, limited: k < 1 };
+}
+
 /**
  * Parcourt le donjon salle par salle jusqu'au boss ou jusqu'au seuil de retraite.
  * m : marche (units, heroId, formation, loot, items, retreat) ; renvoie un rapport.
@@ -67,7 +82,7 @@ export function runDungeon(state, m, poi, mods, now) {
   const start = Object.values(m.units).reduce((a, b) => a + b, 0) || 1;
   const lootMult = (1 + d.level * 0.15) * (d.affixes.includes('rich') ? 1.6 : 1);
   const lines = [];
-  let killed = 0;
+  let killed = 0, clearedNow = 0;
   let moraleBonus = 0;
   for (const room of d.rooms) {
     if (room.done) continue;
@@ -87,8 +102,8 @@ export function runDungeon(state, m, poi, mods, now) {
       const loot = {};
       for (const [r, k] of Object.entries(th.loot)) { const v = Math.round(k * 300 * lootMult * rng.float(0.7, 1.3)); if (v > 0) loot[r] = v; }
       loot.gold = (loot.gold || 0) + Math.round(200 * lootMult);
-      addInto(m.loot, loot);
-      lines.push(`${rt.icon} Trésor : ${Object.entries(loot).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ')}.`);
+      const { got, limited } = carryLoot(m, loot, mods);
+      lines.push(`${rt.icon} Trésor : ${Object.entries(got).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien d’emportable'}${limited ? ' (limité par la capacité de transport)' : ''}.`);
     } else if (room.type === 'shrine') {
       moraleBonus += 15;
       lines.push(`${rt.icon} Un autel ancien ravive le courage de vos troupes (+15 moral).`);
@@ -105,13 +120,13 @@ export function runDungeon(state, m, poi, mods, now) {
       killed += Object.values(res.defLosses).reduce((a, b) => a + b, 0);
       if (res.winner !== 'attacker') { lines.push(`${rt.icon} ${rt.name} : défaite, vos troupes se replient.`); break; }
       lines.push(`${rt.icon} ${rt.name} : victoire (${Object.entries(res.attLosses).filter(([, n]) => n).map(([u, n]) => `−${n} ${ALL_UNITS[u].name}`).join(', ') || 'sans pertes'}).`);
-      if (room.type === 'miniboss') { addInto(m.loot, { gold: Math.round(500 * lootMult), crystals: rng.int(1, 3) }); if (rng.chance(0.5)) m.items.push(generateItem({ ilvl: 4 + d.level, boost: 0.8, min: 'rare' })); }
+      if (room.type === 'miniboss') { carryLoot(m, { gold: Math.round(500 * lootMult), crystals: rng.int(1, 3) }, mods); if (rng.chance(0.5)) m.items.push(generateItem({ ilvl: 4 + d.level, boost: 0.8, min: 'rare' })); }
       if (room.type === 'boss') {
         state.stats.maxDungeonLevel = Math.max(state.stats.maxDungeonLevel || 0, d.level);
         if (d.level >= 6) { const n = rollShards(state, 'dungeon', now, { chance: Math.min(0.3, (d.level - 5) * 0.03), amount: [1, 1 + Math.floor(d.level / 10)] }); if (n) lines.push(`💠 ${n} Éclat(s) Ancien(s) dans le trésor du boss !`); }
         // Le trésor du trône (5 Éclats) n'existe qu'une fois : les purges suivantes ne le renouvellent pas
         if (poi.type === 'lostCity' && !poi.throneLooted) { poi.throneLooted = true; addShards(state, 5, 'event', now, 'Ruines de l’ancien roi'); lines.push('💠 5 Éclats Anciens reposaient sur le trône de l’ancien roi.'); }
-        addInto(m.loot, { gold: Math.round(2000 * lootMult), rareOre: rng.int(2, 4 + Math.floor(d.level / 3)), crystals: rng.int(2, 6) });
+        carryLoot(m, { gold: Math.round(2000 * lootMult), rareOre: rng.int(2, 4 + Math.floor(d.level / 3)), crystals: rng.int(2, 6) }, mods);
         m.items.push(generateItem({ ilvl: 8 + d.level, boost: 1.2 + d.level * 0.05, min: d.level >= 10 ? 'epic' : 'rare' }));
         // Artefacts de donjon : liste fermée (pas d'exclusivités de la Roue ni d'artefacts d'autres sources)
         const firstChalice = poi.type === 'lostCity' && !state.artifacts?.dawnChalice;
@@ -127,6 +142,7 @@ export function runDungeon(state, m, poi, mods, now) {
     }
     room.done = true;
     d.cleared++;
+    clearedNow++;
   }
   const allDone = d.rooms.every((r) => r.done);
   if (allDone) {
@@ -139,7 +155,8 @@ export function runDungeon(state, m, poi, mods, now) {
     if (d.level >= 10) chronicle(state, `Les armées du royaume purgent un donjon de niveau ${d.level}.`, now);
   }
   recordMax(state, 'biggestVictory', killed, `${fmt(killed)} ennemis dans un donjon`, now);
-  return { lines, cleared: d.cleared, total: d.rooms.length, done: allDone, level: d.level };
+  // cleared : salles franchies au total ; clearedNow : salles franchies par CETTE expédition (expérience des héros)
+  return { lines, cleared: d.cleared, clearedNow, total: d.rooms.length, done: allDone, level: d.level };
 }
 
 export const dungeonTerrain = (state, poi) => wTerrain(state.world, poi.x, poi.y);

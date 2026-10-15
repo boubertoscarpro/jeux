@@ -73,7 +73,7 @@ export function stabilityTick(state, t, h, now = Date.now(), route = null) {
   t.stability = cur < target ? Math.min(target, cur + step) : Math.max(target, cur - step);
   if (t.revolt && t.stability >= 45) { t.revolt = false; log(state, 'good', `🕊️ Le calme revient dans la province « ${t.name} ».`, now); }
   // Impôts : prélevés seulement si la province fonctionne
-  const gold = TAXES[taxOf(t)].gold * (t.level || 1) * h;
+  const gold = TAXES[taxOf(t)].gold * (t.level || 1) * h * (1 + 0.05 * (t.hamlet || 0)); // un hameau paie aussi l'impôt
   if (gold > 0 && !t.revolt && !(t.pillagedUntil > now)) { state.resources.gold = (state.resources.gold || 0) + gold; state.stats.taxes = (state.stats.taxes || 0) + gold; }
 }
 

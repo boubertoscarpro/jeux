@@ -4,7 +4,7 @@
 import { LIVE_EVENTS, SURPRISE_EVENTS, FAIR_OFFERS, MYSTERY_POOL, RIDDLES, rewardsPass, LB_REWARDS, EVENT_STANCES, DAILY_TEMPLATES } from '../data/liveEvents.js';
 import { LIVE_CONFIG } from '../data/liveConfig.js';
 import { ALL_UNITS, UNITS } from '../data/units.js';
-import { RESOURCES } from '../data/resources.js';
+import { RESOURCES, isCapped } from '../data/resources.js';
 import { COSMETICS } from '../data/social.js';
 import { UNIQUE_ITEMS } from '../data/items.js';
 import { SPECIAL_HEROES } from '../data/shards.js';
@@ -12,12 +12,13 @@ import { mulberry32, rng } from '../core/rng.js';
 import { uid, fmt, fmtTime } from '../core/util.js';
 import { deepMerge } from './config.js';
 import { computeMods } from './modifiers.js';
-import { gain, pay, canAfford } from './economy.js';
+import { gain, pay, canAfford, storageCap } from './economy.js';
 import { thLevel } from './city.js';
 import { simulateBattle } from './combat.js';
 import { marchMods } from './marches.js';
 import { giveXp } from './heroes.js';
 import { generateItem, createUniqueItem } from './items.js';
+import { grantSpeedups } from './speedups.js';
 import { shardState, addShards, rollShards, createSpecialHero, dayKey } from './shards.js';
 import { spawnBoss } from './events.js';
 import { findFreeTile, spawnPoi, reveal } from './world.js';
@@ -304,6 +305,7 @@ export function grantGive(state, g, now = Date.now(), source = '') {
         if (ex?.length) parts.push(grantGive(state, ex[0].give, now, source)); else { s.legendaryFragments += 10; parts.push('10 fragments légendaires'); }
         break;
       }
+      case 'speedups': { const t = grantSpeedups(state, v, '', now); if (t) parts.push(t); break; }
       case 'title': state.meta.titles = [...new Set([...(state.meta.titles || []), v])]; parts.push(`titre « ${v} »`); break;
       case 'insignia': state.meta.insignia = (state.meta.insignia || 0) + v; parts.push(`${v} insignes`); break;
       default: break;
@@ -369,7 +371,7 @@ export function actionsFor(state, t, now = Date.now()) {
   switch (t.type) {
     case 'caravan': return ['attack', 'escort', 'trade', 'spy'];
     case 'ship': return ['attack', 'spy'];
-    case 'port': return def.special?.portTrade ? ['attack', 'trade'] : ['attack'];
+    case 'port': return def.special?.portTrade && !(t.tradeCd > now) ? ['attack', 'trade'] : ['attack'];
     case 'treasure': return ['dig'];
     case 'village': return ['deliver'];
     case 'hearth': return t.cooldown > now ? [] : ['deliver'];
@@ -453,7 +455,7 @@ export function sendLive(state, opts, now = Date.now()) {
 export function recallLive(state, mid, now = Date.now()) {
   const m = liveState(state).marches.find((z) => z.id === mid);
   if (!m || m.phase === 'back') return { ok: false };
-  if (m.phase === 'out') { m.phase = 'back'; m.returnAt = now + (now - m.start); }
+  if (m.phase === 'out') { m.phase = 'back'; m.returnAt = now + (now - m.start); m.refund = true; } // rappelée avant d'agir : ce qui a été payé revient
   else { m.phase = 'back'; m.returnAt = now + m.travel; }
   const t = liveTarget(state, m.targetId);
   if (t?.type === 'zone' && t.owned) { t.owned = false; t.enemies = scaleEnemies(state, LIVE_EVENTS[liveState(state).current.key], 'zone', t.tier); }
@@ -530,7 +532,7 @@ function arriveLive(state, m, t) {
     return goBack(m, t);
   }
   const tg = liveTarget(state, m.targetId);
-  if (!tg || tg.done || tg.gone) { addLiveReport(state, '↩️ La cible a disparu avant votre arrivée.', t, false); return goBack(m, t); }
+  if (!tg || tg.done || tg.gone) { m.refund = true; addLiveReport(state, '↩️ La cible a disparu avant votre arrivée : ce qui avait été payé est rapporté.', t, false); return goBack(m, t); }
   const name = targetName(cur, tg);
   switch (m.action) {
     case 'attack': return attackTarget(state, m, tg, t, def, name);
@@ -541,6 +543,8 @@ function arriveLive(state, m, t) {
       return goBack(m, t);
     }
     case 'trade': {
+      // Port en délai de reprise (plusieurs marches envoyées à la fois) : pas d'échange, retour
+      if (tg.type === 'port' && tg.tradeCd > t) { m.refund = true; addLiveReport(state, `⏳ ${name} vient déjà de commercer : revenez dans ${Math.ceil((tg.tradeCd - t) / MIN)} min.`, t, false); return goBack(m, t); }
       const v = tg.type === 'port' ? 300 : 150 + 60 * tg.tier;
       const got = earn(state, v, t, 'commerce', 'peace');
       bump(cur, 'trades');
@@ -741,6 +745,8 @@ function homeLive(state, m, t) {
   for (const [u, n] of Object.entries(m.units)) state.army[u] = (state.army[u] || 0) + n;
   const mods = computeMods(state, t);
   if (Object.keys(m.loot).length) gain(state, m.loot, mods);
+  // Action jamais réalisée (rappel avant l'arrivée, cible disparue, fin de l'événement en chemin) : remboursement intégral
+  if (m.paid && (m.refund || m.phase === 'out')) { for (const [r, v] of Object.entries(m.paid)) state.resources[r] = (state.resources[r] || 0) + v; m.paid = null; }
   for (const it of m.items) state.inventory.items.push(it);
   const hero = state.heroes.find((h) => h.id === m.heroId);
   if (hero) hero.marchId = null;
@@ -1083,7 +1089,6 @@ export function endEvent(state, now = Date.now()) {
   state.pending = state.pending.filter((p) => p.kind !== 'riddle');
   // Récompenses non réclamées : objectifs et passe sont versés automatiquement
   for (const o of objectives(state)) if (o.done && !o.claimed) rewards.push(claimObjective(state, o.id, now).text);
-  for (const l of passInfo(state).levels) if (l.ready && !l.claimed) rewards.push(claimPass(state, l.level, now).text);
   dailyMissions(state).forEach((d, i) => { if (d.done && !d.claimed) rewards.push(claimDaily(state, i, now).text); });
   const ch = challengeInfo(state);
   if (ch?.done && !ch.claimed) rewards.push(claimChallenge(state, now).text);
@@ -1092,6 +1097,12 @@ export function endEvent(state, now = Date.now()) {
   if (def.special?.siege && cur.citadel > 0 && (cur.stats.assaults || 0) > 0) {
     rewards.push(grantGive(state, { [def.currency.key]: 1500 + 200 * cur.stats.assaults, chest: 'epic' }, now, 'Citadelle tenue'));
     if (cur.stats.assaults >= 6) { addShards(state, 2, 'event', now, 'Défenseur de la Citadelle'); rewards.push('💠 2 Éclats Anciens'); }
+  }
+  // Passe : versé EN DERNIER et jusqu'à stabilité (les récompenses ci-dessus peuvent ajouter de la monnaie et
+  // débloquer de nouveaux paliers, eux-mêmes porteurs de monnaie)
+  for (let guard = 0, more = true; more && guard < 25; guard++) {
+    more = false;
+    for (const l of passInfo(state).levels) if (l.ready && !l.claimed) { rewards.push(claimPass(state, l.level, now).text); more = true; }
   }
   // Classement
   const lb = leaderboard(state, now);
@@ -1165,6 +1176,8 @@ export function startSurprise(state, k, now = Date.now()) {
     const w = state.world;
     let pos = null;
     for (let i = 0; i < 20 && !pos; i++) { const a = rng.float(0, Math.PI * 2), d = rng.float(5, 11); pos = findFreeTile(w, Math.round(w.capital.x + Math.cos(a) * d), Math.round(w.capital.y + Math.sin(a) * d), null, 2); }
+    // Repli : environs de la capitale très encombrés → recherche plus large (la météorite ne doit jamais manquer)
+    pos ||= findFreeTile(w, w.capital.x + 7, w.capital.y, null, 12);
     if (pos) {
       const p = spawnPoi(w, 'rareVein', pos.x, pos.y, { danger: 3 });
       p.expires = sp.end; p.temp = true; p.event = 'meteor'; p.meteor = true; p.amount = p.max = Math.round(p.max * 1.5);
@@ -1191,6 +1204,9 @@ export function buyFair(state, id, now = Date.now()) {
   const o = FAIR_OFFERS.find((x) => x.id === id);
   if (!sp || !o) return { ok: false, reason: 'La foire est terminée' };
   if ((sp.used ||= {})[id]) return { ok: false, reason: 'Déjà échangé' };
+  // Entrepôt plein : on refuse AVANT de payer (sinon la marchandise serait perdue)
+  const mods0 = computeMods(state, now);
+  for (const [r, v] of Object.entries(o.get)) if (RESOURCES[r] && isCapped(r) && (state.resources[r] || 0) + v > storageCap(state, mods0, r) * 1.5) return { ok: false, reason: `Entrepôt plein pour ${RESOURCES[r].name.toLowerCase()} : faites de la place avant l’échange` };
   if (!pay(state, o.pay)) return { ok: false, reason: 'Ressources insuffisantes' };
   sp.used[id] = true;
   const get = { ...o.get };

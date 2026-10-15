@@ -3,6 +3,7 @@
 // (la faction perd des territoires et des troupes, défenses suivantes −20 %), puis une opération finale au choix :
 // assiéger sa capitale (tribut imposé) ou protéger une cité libre (trêve imposée, cité reconnaissante).
 // Les troupes engagées quittent le château pendant l'opération ; le combat utilise le moteur de combat existant.
+import { scar } from './worldmarks.js';
 import { remember } from './rivalry.js';
 import { SEASON_WAR } from '../data/seasons.js';
 import { calendar } from './chronicle.js';
@@ -16,7 +17,7 @@ import { simulateBattle, previewBattle } from './combat.js';
 import { factionPower, diplomacy, changeRelation } from './factions.js';
 import { gain } from './economy.js';
 import { bumpRep } from './reputation.js';
-import { giveXp } from './heroes.js';
+import { giveXp, heroMods } from './heroes.js';
 import { chronicle } from './chronicle.js';
 import { log, toast, feat } from './log.js';
 import { isRevealed, distCap } from './world.js';
@@ -93,18 +94,22 @@ export function opEnemies(state, opKey) {
   return out;
 }
 
-const opSides = (state, units, opKey, enemies, now) => {
+// Le héros engagé commande réellement l'opération : ses bonus de commandant s'ajoutent (comme pour une marche)
+export const bestFreeHero = (state) => [...state.heroes].filter((h) => !h.marchId && !h.assignment).sort((x, y) => y.level - x.level)[0] || null;
+const opSides = (state, units, opKey, enemies, now, heroId = null) => {
   const a = warState(state).active, op = OPS[opKey];
   const mods = { ...computeMods(state, now) };
+  const hero = heroId && state.heroes.find((h) => h.id === heroId);
+  if (hero) for (const [k, v] of Object.entries(heroMods(state, hero, 'commander'))) mods[k] = (mods[k] || 0) + v;
   mods['combat.atk'] = (mods['combat.atk'] || 0) + a.bonus + seasonWar(state, now).atk;
   return [{ units, mods, formation: 'assault', label: state.meta.kingdomName }, { units: enemies, mods: {}, fort: op.fort || 0, formation: 'shieldwall', label: RIVALS[a.faction].name }, { terrain: op.terrain, weather: state.weather?.type || 'clear' }];
 };
 
-export function previewOp(state, units, now = Date.now()) {
+export function previewOp(state, units, now = Date.now(), heroId = bestFreeHero(state)?.id) {
   const key = currentOpKey(state);
   if (!key) return null;
   const en = opEnemies(state, key);
-  return { key, enemies: en, pv: previewBattle(...opSides(state, units, key, en, now)) };
+  return { key, enemies: en, pv: previewBattle(...opSides(state, units, key, en, now, heroId)) };
 }
 
 export function chooseFinal(state, key) {
@@ -125,6 +130,8 @@ export function launchOp(state, units, heroId = null, now = Date.now()) {
   if (a.op) return { ok: false, reason: 'Une opération est déjà en cours' };
   const key = currentOpKey(state);
   if (!key) return { ok: false, reason: 'Choisissez d’abord l’objectif final' };
+  const fac = (state.factions || []).find((x) => x.idx === a.faction);
+  if (fac && fac.stance !== 'war') return { ok: false, reason: 'La paix est signée avec cette faction : la campagne ne peut plus continuer (abandonnez-la ou déclarez de nouveau la guerre)' };
   const sel = {};
   for (const [u, n] of Object.entries(units || {})) {
     const k = Math.min(Math.max(0, Math.floor(n) || 0), state.army[u] || 0);
@@ -162,7 +169,7 @@ export function warTick(state, now = Date.now()) {
   const W = warState(state), a = W.active;
   if (!a?.op || a.op.end > now) return false;
   const op = a.op, def = OPS[op.key];
-  const res = simulateBattle(...opSides(state, op.units, op.key, op.enemies, op.end));
+  const res = simulateBattle(...opSides(state, op.units, op.key, op.enemies, op.end, op.heroId));
   for (const [u, n] of Object.entries(op.units)) state.army[u] = (state.army[u] || 0) + Math.max(0, n - (res.attLosses[u] || 0));
   const hero = op.heroId && state.heroes.find((h) => h.id === op.heroId);
   if (hero) { hero.marchId = null; giveXp(state, hero, res.winner === 'attacker' ? 200 : 60, computeMods(state, now)); }
@@ -182,6 +189,8 @@ export function warTick(state, now = Date.now()) {
       const loot = { gold: Math.round(1500 * k), steel: Math.round(30 * k), weapons: Math.round(10 * k) };
       gain(state, loot, computeMods(state, now));
       if (f) { f.stance = 'tributary'; f.treatyAt = now; f.army = Math.max(0.5, Math.round(f.army * 0.8 * 100) / 100); }
+      const cap = Object.values(state.world.pois).find((p) => p.type === 'kingdom' && p.rival === a.faction);
+      if (cap) scar(state, cap.x, cap.y, now, 48, 'siège'); // les abords de la capitale assiégée restent ravagés
       parts.push(`butin ${Object.entries(loot).map(([r, v]) => `${fmt(v)} ${r}`).join(', ')}, la faction devient tributaire`);
     }
     if (op.key === 'protect') {

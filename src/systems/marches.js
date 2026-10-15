@@ -1,3 +1,4 @@
+import { scar } from './worldmarks.js';
 import { remember } from './rivalry.js';
 import { UNITS } from '../data/units.js';
 import { POI_TYPES } from '../data/world.js';
@@ -21,9 +22,14 @@ import { maxHeroes } from './tavern.js';
 import { guildProgress } from './guild.js';
 import { rivalGarrison, onRivalDefeated } from './rivals.js';
 import { runDungeon } from './dungeons.js';
-import { rollShards } from './shards.js';
+import { rollShards, shardState } from './shards.js';
 import { recordMax, bumpRep } from './reputation.js';
 import { changeRelation, diplomacy } from './factions.js';
+import { armyPower } from './army.js';
+import { breachDefense, onBreachBattle, breachTier } from './breach.js';
+import { grantReward } from './rewards.js';
+import { rollCombatSpeedup, combatMerit, speedupText } from './speedups.js';
+import { COMBAT_SPEEDUPS } from '../data/speedups.js';
 
 export const MARCH_TYPES = {
   gather: { name: 'Récolte', icon: '🧺' },
@@ -85,14 +91,15 @@ export function planMarch(state, opts, now = Date.now()) {
     if (!units.scout) return fail('Il faut au moins un éclaireur');
   } else if (type === 'scout') {
     if (!units.scout) return fail('Il faut au moins un éclaireur');
-    if (!poi || !['danger', 'kingdom', 'gather', 'boss'].includes(def.kind)) return fail('Rien à espionner ici');
+    if (!poi || !['danger', 'kingdom', 'gather', 'boss', 'breach'].includes(def.kind)) return fail('Rien à espionner ici');
   } else if (type === 'gather') {
     if (!poi || def.kind !== 'gather') return fail('Pas de site de récolte');
     if (poi.amount < 1) return fail('Site épuisé');
     if (state.marches.some((m) => m.type === 'gather' && m.x === x && m.y === y)) return fail('Déjà une récolte en cours sur ce site');
     if (!gatherRate(units, mods, def.res)) return fail('Ces unités ne peuvent pas récolter');
   } else if (type === 'attack') {
-    if (!poi || !['danger', 'kingdom'].includes(def.kind)) return fail('Rien à attaquer ici');
+    if (!poi || !['danger', 'kingdom', 'breach'].includes(def.kind)) return fail('Rien à attaquer ici');
+    if (def.kind === 'breach' && poi.clearedUntil > now) return fail('Forteresse en ruine : sa garnison se reforme (voir la fiche)');
     if (def.dungeon) return fail('Un donjon se parcourt salle par salle : lancez une « Expédition de donjon »');
     if (poi.clearedUntil > now) return fail('Site déjà nettoyé (réapparition plus tard)');
   } else if (type === 'dungeon') {
@@ -172,7 +179,7 @@ function marchBattle(state, m, enemies, t, opts = {}) {
   const danger = opts.danger ?? 1;
   const res = simulateBattle(
     { units: m.units, mods, formation: m.formation, supply: m.supply, famine: state.famine, label: 'Vous' },
-    { units: enemies, mods: { 'combat.atk': 0.05 * danger, 'combat.def': 0.05 * danger, ...(opts.enemyMods || {}) }, fort: opts.fort || 0, label: opts.enemyLabel || 'Ennemi' },
+    { units: enemies, mods: { 'combat.atk': 0.05 * danger, 'combat.def': 0.05 * danger, ...(opts.enemyMods || {}) }, fort: opts.fort || 0, formation: opts.enemyFormation, label: opts.enemyLabel || 'Ennemi' },
     { terrain: terrain === 'ash' ? 'ruins' : terrain, weather: state.weather.type, bossHp: opts.bossHp },
   );
   m.potion = null; // la potion est consommée au premier combat
@@ -241,7 +248,8 @@ function arrive(state, m, t) {
   if (m.type === 'dungeon') {
     const rep = runDungeon(state, m, poi, mods, t);
     const hero = heroOf(state, m);
-    if (hero) giveXp(state, hero, 60 + rep.cleared * 25, mods);
+    if (hero) giveXp(state, hero, (rep.clearedNow ? 60 : 20) + rep.clearedNow * 25, mods);
+    if (rep.done) { const sp = rollCombatSpeedup(state, { win: true, merit: 1, table: COMBAT_SPEEDUPS.dungeonCleared, source: 'donjon purgé' }, t); if (Object.keys(sp.items).length) rep.lines.push(`Passe-temps : ${speedupText(sp.items)}.`); }
     addReport(state, { t, kind: 'battle', title: `Donjon niv. ${rep.level} — ${rep.done ? 'purgé' : `${rep.cleared}/${rep.total} salles`}`, x: m.x, y: m.y, win: rep.done, text: rep.lines.join(' '), loot: { ...m.loot } });
     log(state, rep.done ? 'good' : 'combat', `🏚️ Donjon (${m.x}, ${m.y}) : ${rep.cleared}/${rep.total} salles franchies.${rep.done ? ' Donjon purgé !' : ''}`, t);
     if (!unitCount(m.units)) return homecoming(state, m, t, true);
@@ -309,6 +317,7 @@ function finishGather(state, m, frac, t) {
 
 function arriveAttack(state, m, t, mods, poi) {
   const def = poi && POI_TYPES[poi.type];
+  if (def?.kind === 'breach' && poi.breach) return arriveBreach(state, m, t, mods, poi);
   if (!poi || (poi.clearedUntil > t)) {
     log(state, 'info', '⚔️ La cible a déjà été nettoyée. Vos troupes rentrent.', t);
     return goBack(m, t);
@@ -322,6 +331,9 @@ function arriveAttack(state, m, t, mods, poi) {
     enemies = poi.garrison;
     fort = poi.wall || 0;
   }
+  // Mérite du combat (puissance ennemie / puissance engagée), mesuré AVANT la bataille : une cible écrasée d'avance
+  // ne rapporte pas de passe-temps
+  const merit = combatMerit(armyPower(m.units), armyPower(enemies) * (1 + 0.1 * fort));
   const res = marchBattle(state, m, enemies, t, { danger: poi.danger, fort, enemyLabel: def.kind === 'kingdom' ? poi.name : def.name, terrain: def.kind === 'kingdom' ? 'city' : undefined });
   const win = res.winner === 'attacker';
   let lootText = '';
@@ -355,10 +367,12 @@ function arriveAttack(state, m, t, mods, poi) {
     }
     const { got, limited } = lootWithCarry(state, m, baseLoot, mods);
     bumpRep(state, 'warrior', def.kind === 'kingdom' ? 6 : 1 + Math.floor(poi.danger / 2));
-    if (def.kind === 'kingdom') { bumpRep(state, 'tyrant', 3); changeRelation(state, poi.rival, -10); remember(state, poi.rival, 'sack', -18, 'Capitale pillée par vos armées', t); }
+    if (def.kind === 'kingdom') { scar(state, poi.x, poi.y, t, 48, 'sac'); bumpRep(state, 'tyrant', 3); changeRelation(state, poi.rival, -10); remember(state, poi.rival, 'sack', -18, 'Capitale pillée par vos armées', t); }
     recordMax(state, 'biggestLoot', Object.values(got).reduce((a, b) => a + b, 0), `${def.kind === 'kingdom' ? poi.name : def.name} (${Object.values(got).reduce((a, b) => a + b, 0)} ressources)`, t);
     recordMax(state, 'biggestVictory', Object.values(res.defLosses).reduce((a, b) => a + b, 0), `${Object.values(res.defLosses).reduce((a, b) => a + b, 0)} ennemis — ${def.kind === 'kingdom' ? poi.name : def.name}`, t);
     state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + Object.values(res.defLosses).reduce((a, b) => a + b, 0);
+    const sp = rollCombatSpeedup(state, { win, merit, table: def.kind === 'kingdom' ? COMBAT_SPEEDUPS.rivalCapital : COMBAT_SPEEDUPS.byDanger[Math.max(1, Math.min(6, poi.danger || 1))], source: def.kind === 'kingdom' ? poi.name : def.name }, t);
+    if (Object.keys(sp.items).length) lootText += ` Passe-temps : ${speedupText(sp.items)}.`;
     lootText = `Butin : ${Object.entries(got).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien'}${limited ? ' (limité par la capacité de transport)' : ''}.` + lootText;
     log(state, 'good', `⚔️ Victoire contre ${def.kind === 'kingdom' ? poi.name : def.name} ! ${lootText}`, t);
   } else {
@@ -369,6 +383,48 @@ function arriveAttack(state, m, t, mods, poi) {
   }
   poi.scouted = true;
   addReport(state, { t, kind: 'battle', title: `${win ? 'Victoire' : 'Défaite'} — ${def.kind === 'kingdom' ? poi.name : def.name}`, x: m.x, y: m.y, win, result: res, enemies, loot: { ...m.loot }, text: lootText, terrain: wTerrain(state.world, m.x, m.y), weather: state.weather.type });
+  if (!unitCount(m.units)) return homecoming(state, m, t, true);
+  goBack(m, t);
+}
+
+// Seigneurs de la Brèche : forteresse évolutive. Mérite mesuré avant la bataille ; évolution et récompenses
+// calculées par systems/breach.js ; butin courant limité par le transport, objets et passe-temps à la victoire.
+function arriveBreach(state, m, t, mods, poi) {
+  if (poi.clearedUntil > t) {
+    log(state, 'info', `🏴 ${poi.name} est en ruine : vos troupes rentrent sans combattre.`, t);
+    return goBack(m, t);
+  }
+  const D = breachDefense(state, poi, t);
+  const sent = { ...m.units };
+  const sentCount = unitCount(sent);
+  const merit = combatMerit(armyPower(sent), armyPower(D.enemies) * (1 + D.fort));
+  const res = marchBattle(state, m, D.enemies, t, { danger: 0, fort: D.fort, enemyMods: D.enemyMods, enemyFormation: D.formation, enemyLabel: poi.name });
+  const lost = Object.values(res.attLosses).reduce((a, b) => a + b, 0);
+  const out = onBreachBattle(state, poi, res, { merit, units: sent, sentCount, lost, lostRatio: lost / Math.max(1, sentCount), formation: m.formation }, t);
+  const parts = [];
+  if (out.win) {
+    const r = out.rewards;
+    const { got, limited } = lootWithCarry(state, m, r.res, mods);
+    parts.push(`Butin : ${Object.entries(got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k].icon}`).join(' ') || 'rien'}${limited ? ' (limité par la capacité de transport)' : ''}`);
+    const th = Math.max(1, state.city?.buildings ? Object.values(state.city.buildings).find((b) => b.type === 'townhall')?.level || 1 : 1);
+    for (const rar of r.items) { const it = generateItem({ ilvl: 2 + th * 2, rarity: rar, boost: 0.6 }); m.items.push(it); parts.push(`objet : ${it.name}`); }
+    if (r.relic) { shardState(state).relicFragments += r.relic; parts.push('🧩 un fragment de relique'); }
+    const hero = heroOf(state, m);
+    if (hero && r.xp) giveXp(state, hero, r.xp, mods);
+    if (out.worthy) {
+      const sp = rollCombatSpeedup(state, { win: true, merit, table: r.speedTable, rare: r.rareSpeedup, source: poi.name }, t);
+      if (Object.keys(sp.items).length) parts.push(`passe-temps : ${speedupText(sp.items)}`);
+      else if (sp.reason === 'plafond quotidien atteint') parts.push('passe-temps : plafond du jour atteint');
+      if (r.first) parts.push(`première victoire contre ce palier : ${grantReward(state, r.first, t, `breachFirst:${breachTier(poi.breach).n}`)}`);
+      bumpRep(state, 'warrior', 1 + breachTier(poi.breach).n);
+    } else parts.push('victoire sans gloire : la garnison était bien trop faible pour votre armée (butin réduit, aucune évolution ni passe-temps)');
+    state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + Object.values(res.defLosses).reduce((a, b) => a + b, 0);
+  } else if (!out.worthy) parts.push('assaut jugé insignifiant : la garnison n’en tire aucune leçon');
+  if (out.evolved.length) parts.push(`la forteresse évolue : ${out.evolved.join(' ; ')}`);
+  const text = parts.join('. ') + '.';
+  log(state, out.win ? 'good' : 'bad', `🏴 ${out.win ? 'Victoire' : 'Défaite'} contre ${poi.name}. ${text}`, t);
+  poi.scouted = true;
+  addReport(state, { t, kind: 'battle', title: `${out.win ? 'Victoire' : 'Défaite'} — ${poi.name}`, x: m.x, y: m.y, win: out.win, result: res, enemies: D.enemies, loot: { ...m.loot }, text, terrain: wTerrain(state.world, m.x, m.y), weather: state.weather.type });
   if (!unitCount(m.units)) return homecoming(state, m, t, true);
   goBack(m, t);
 }
@@ -406,10 +462,14 @@ function arriveExplore(state, m, t, mods, hero) {
     addReport(state, { t, kind: 'explore', title: 'Exploration', x: m.x, y: m.y, text: head0, win: true });
     return goBack(m, t);
   }
-  state.stats.explored++;
-  bumpRep(state, 'explorer', 1);
-  rollShards(state, 'exploration', t, { label: 'Fragment d’un ancien artefact découvert' });
-  state.season.points += SEASON.points.explore;
+  // Seules les cases réellement sorties du brouillard comptent pour les objectifs « explorer N cases » (missions,
+  // quêtes, indices de fouilles, événements) : retourner autour de la capitale ne fait plus monter le compteur
+  if (found.newTiles > 0) {
+    state.stats.explored++;
+    bumpRep(state, 'explorer', 1);
+    rollShards(state, 'exploration', t, { label: 'Fragment d’un ancien artefact découvert' });
+    state.season.points += SEASON.points.explore;
+  }
   if (hero) giveXp(state, hero, 30, mods);
   const discoveries = found.filter((p) => p.type !== 'capital').map((p) => POI_TYPES[p.type].name);
   if (discoveries.length) m.log.push(`Découvertes : ${discoveries.join(', ')}`);

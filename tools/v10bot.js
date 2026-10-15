@@ -3,6 +3,7 @@
 // Le joueur simulé agit comme un joueur raisonnable mais non omniscient : il ne connaît pas la réponse des
 // énigmes (il élimine les mauvaises réponses), il choisit la première option abordable au conseil, etc.
 import { rng } from '../src/core/rng.js';
+import { commissionList, claimCommission, startCommission, stageCheck, launchStage, abandonCommission } from '../src/systems/commissions.js';
 import { MOTIONS } from '../src/data/council.js';
 import { MYSTERIES } from '../src/data/archaeology.js';
 import { LEGENDS } from '../src/data/legendary.js';
@@ -16,10 +17,19 @@ import { startBuild } from '../src/systems/construction.js';
 import { sendMarch } from '../src/systems/marches.js';
 import { thLevel } from '../src/systems/city.js';
 import { missionList, claimDynMission, missionsTick } from '../src/systems/missions.js';
+import { breachForts, breachDefense } from '../src/systems/breach.js';
+import { armyPower } from '../src/systems/army.js';
+import { previewBattle } from '../src/systems/combat.js';
+import { maxMarches } from '../src/systems/marches.js';
+import { isRevealed } from '../src/systems/world.js';
+import { applySpeedup, previewSpeedup } from '../src/systems/speedups.js';
+import { SPEEDUP_ORDER, SPEEDUPS } from '../src/data/speedups.js';
 
 // Défi préféré selon le style de jeu (les autres sont tentés à tour de rôle ensuite)
 const CHALLENGE_PREF = { active: ['steadfast', 'peril', 'scarcity'], optimized: ['steadfast', 'scarcity', 'peril', 'lightHand'], economy: ['autarky', 'scarcity'], military: ['discipline', 'peril'], explorer: ['peril', 'steadfast'], casual: ['scarcity'] };
 const ORIENT_PREF = { active: 'garden', optimized: 'archives', economy: 'garden', military: 'memorial', explorer: 'archives', casual: 'garden' };
+// Seigneurs de la Brèche : appétit selon le style, et marge de puissance visée (armée envoyée / garnison)
+const BREACH_PREF = { casual: [0.2, 2.4], active: [0.35, 2], optimized: [0.5, 1.7], economy: [0.1, 2.6], military: [0.7, 1.6], explorer: [0.2, 2.2], diplomat: [0.1, 2.6] };
 const affordable = (s, cost) => Object.entries(cost).every(([r, v]) => (s.resources[r] || 0) >= v * 1.5);
 
 export function v10Bot(s, profileKey, t, bestTile, mods) {
@@ -80,6 +90,45 @@ export function v10Bot(s, profileKey, t, bestTile, mods) {
       if (canDepart(s, id, opts, t).ok && affordable(s, { food: 1600 }) && depart(s, id, opts, t).ok) { st.legends++; break; }
     }
   }
+  // Passe-temps : le plus petit qui ne gaspille pas plus de la moitié de sa durée ; le joueur très optimisé
+  // dépense aussi des gemmes quand il en a beaucoup (les gemmes ne sont jamais indispensables)
+  for (const q of [...s.queues.build]) {
+    const left = (q.end - t) / 60000;
+    if (left < 8) continue;
+    const k = SPEEDUP_ORDER.filter((x) => (s.inventory.consumables[x] || 0) > 0 && SPEEDUPS[x].min <= left * 2).pop();
+    if (k) { if (applySpeedup(s, q.id, { item: k }, t).ok) st.speedUsed = (st.speedUsed || 0) + 1; }
+    else if (profileKey === 'optimized' && (s.resources.gems || 0) > 60 && previewSpeedup(s, q.id, { gems: 'hour' }, t).ok) applySpeedup(s, q.id, { gems: 'hour' }, t);
+  }
+  // Seigneurs de la Brèche : espionner, puis attaquer avec une armée à la mesure de la garnison (jamais écrasante :
+  // le joueur voit le seuil de mérite dans la fenêtre d'attaque) si l'estimation annonce une victoire
+  const [appetite, margin] = BREACH_PREF[profileKey] || [0.3, 2];
+  if (s.marches.length < maxMarches(mods) && rng.chance(appetite)) {
+    const forts = breachForts(s).filter((p) => isRevealed(s.world, p.x, p.y) && !(p.clearedUntil > t)).sort((a, b) => b.breach.level - a.breach.level);
+    for (const p of forts) {
+      if (!p.scouted && (s.army.scout || 0) > 0) { sendMarch(s, { type: 'scout', x: p.x, y: p.y, units: { scout: 1 } }, t); break; }
+      if (!p.scouted) continue;
+      const D = breachDefense(s, p, t);
+      const want = armyPower(D.enemies) * (1 + D.fort) * margin;
+      const avail = Object.fromEntries(Object.entries(s.army).filter(([u, n]) => n > 0 && u !== 'scout' && u !== 'spy'));
+      const have = armyPower(avail);
+      if (have < want * 0.95) continue;
+      const f = want / have;
+      const units = Object.fromEntries(Object.entries(avail).map(([u, n]) => [u, Math.floor(n * f)]).filter(([, n]) => n > 0));
+      const pv = previewBattle({ units, mods, formation: 'balanced' }, { units: D.enemies, mods: D.enemyMods, fort: D.fort, formation: D.formation }, { terrain: 'plain', weather: 'clear', deterministic: true });
+      if (pv.winner !== 'attacker' || pv.lossRatio > 0.35) continue;
+      if (sendMarch(s, { type: 'attack', x: p.x, y: p.y, units }, t).ok) { st.breachSent = (st.breachSent || 0) + 1; break; }
+    }
+  }
+  // Commandes prestigieuses : accepter la première disponible, lancer les étapes, recevoir l'ouvrage
+  const cm = commissionList(s);
+  if (cm.some((c) => c.status === 'ready')) claimCommission(s, t);
+  else if (!cm.some((c) => c.status === 'active')) {
+    // Comme un joueur qui lit les coûts : seulement une commande dont il a déjà les matériaux rares
+    const RARE = ['silver', 'gems', 'crystals', 'rareOre', 'ancientWood'];
+    const c = cm.find((x) => x.status === 'available' && x.stages.every((g) => Object.entries(g.cost).every(([r, v]) => !RARE.includes(r) || (s.resources[r] || 0) >= v)));
+    if (c && rng.chance(0.3)) startCommission(s, c.id, t);
+  } else if (stageCheck(s, t).ok && rng.chance(0.5)) launchStage(s, t);
+  else if (s.commissions.active && t - s.commissions.active.started > 48 * 3600000 && !(s.commissions.active.stageEnd > t)) abandonCommission(s, t);
   // Factions rivales : réparations quand le trésor le permet
   for (const f of s.factions || []) if (rivalryStatus(f, t)?.key === 'rival' && (s.resources.gold || 0) > 5000 && deescalate(s, f.idx, 'reparations', t).ok) st.deesc++;
 }

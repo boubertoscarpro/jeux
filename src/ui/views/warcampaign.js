@@ -4,7 +4,7 @@ import { UNITS, ALL_UNITS } from '../../data/units.js';
 import { fmt } from '../../core/util.js';
 import { thLevel } from '../../systems/city.js';
 import { armyPower } from '../../systems/army.js';
-import { OPS, SEQUENCE, WAR_MIN_TH, warState, campaignTargets, canStartCampaign, startCampaign, currentOpKey, opEnemies, previewOp, chooseFinal, launchOp, abandonCampaign, seasonWar } from '../../systems/warcampaign.js';
+import { OPS, SEQUENCE, WAR_MIN_TH, warState, campaignTargets, canStartCampaign, startCampaign, currentOpKey, opEnemies, previewOp, bestFreeHero, chooseFinal, launchOp, abandonCampaign, seasonWar } from '../../systems/warcampaign.js';
 import { esc, countdown, progress } from '../components.js';
 
 const SHARES = { all: ['Toute l’armée', 1], two: ['Les deux tiers', 2 / 3], half: ['La moitié (garder une garnison)', 0.5] };
@@ -45,6 +45,7 @@ export default {
           <div class="row gap wrap small">Engager : ${Object.entries(SHARES).map(([k, [l]]) => `<button class="mini ${share === k ? 'primary' : ''}" data-action="war-share" data-k="${k}">${esc(l)}</button>`).join('')}</div>
           <div class="small">${Object.keys(sel).length ? unitsText(sel) : '<span class="req">Aucune troupe disponible au château</span>'}</div>
           ${pv ? `<div class="verdict ${pv.pv.winner === 'attacker' ? 'good' : 'bad'}">${pv.pv.winner === 'attacker' ? '✔' : '✖'} ${esc(pv.pv.verdict)} · pertes estimées ${Math.round(pv.pv.lossRatio * 100)} %</div><ul class="notes small">${pv.pv.notes.slice(0, 4).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+          <div class="small">Commandant : ${bestFreeHero(s) ? `${esc(bestFreeHero(s).name)} (niv. ${bestFreeHero(s).level}) — ses bonus comptent dans l’estimation` : '<span class="muted">aucun héros libre</span>'}</div>
           <div class="small muted">Durée : ${OPS[key].minutes} min. Les troupes engagées quittent le château (moins de défenseurs en cas de raid).${a.bonus ? ` Bonus de campagne : attaque +${Math.round(a.bonus * 100)} %.` : ''}</div>
           <button class="btn primary" data-action="war-launch" ${Object.keys(sel).length ? '' : 'disabled'}>⚔️ Lancer l’opération</button></div>`;
       }
@@ -58,7 +59,7 @@ export default {
     'war-start': (app, el) => { const i = +el.dataset.i; const c = canStartCampaign(app.state, i); const go = () => app.act(() => startCampaign(app.state, i), 'Campagne lancée'); if (c.declares) app.confirm(`<h2>Déclarer la guerre à ${esc(RIVALS[i].name)} ?</h2><p>La relation chute et la faction peut lancer des raids plus fréquents tant que dure la guerre.</p>`, 'Déclarer la guerre', go); else go(); },
     'war-share': (app, el) => { app.ui.warShare = el.dataset.k; app.render(); },
     'war-final': (app, el) => app.act(() => chooseFinal(app.state, el.dataset.k), 'Objectif final choisi'),
-    'war-launch': (app) => app.act(() => launchOp(app.state, pick(app.state, SHARES[app.ui.warShare || 'two'][1]), [...app.state.heroes].filter((h) => !h.marchId && !h.assignment).sort((x, y) => y.level - x.level)[0]?.id), 'Opération lancée'),
+    'war-launch': (app) => app.act(() => launchOp(app.state, pick(app.state, SHARES[app.ui.warShare || 'two'][1]), bestFreeHero(app.state)?.id), 'Opération lancée'),
     'war-abandon': (app) => app.confirm('<h2>Abandonner la campagne ?</h2><p>La relation avec la faction baisse et vos troupes devront se reposer 12 h avant une nouvelle campagne.</p>', 'Abandonner', () => app.act(() => abandonCampaign(app.state), 'Campagne abandonnée')),
   },
 };

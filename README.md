@@ -21,6 +21,11 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v11** : passe-temps pour accélérer les chantiers (gagnés en jouant ou payés en gemmes), Seigneurs de la Brèche
+> (forteresses PNJ qui évoluent avec vos attaques), armoiries de la dynastie, commandes prestigieuses d’artisans,
+> monde évolutif, codex illustré, scénarios rejouables, épreuves de tradition, conseiller des excédents, audit et
+> correction de 22 bugs — voir [`docs/V11.md`](docs/V11.md).
+>
 > **v10** : refonte visuelle « pierre, ivoire et bronze », icônes SVG, tableau de bord stratégique, chroniques du
 > monde, mémoire des factions, défis de maîtrise, monument dynastique, expéditions légendaires, saisons plus
 > marquantes, fin de partie sur trois axes — voir [`docs/V10.md`](docs/V10.md) et l’audit [`docs/AUDIT_V10.md`](docs/AUDIT_V10.md).
@@ -54,7 +59,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # 166 tests (moteur, bot, événements, Roue, sauvegarde, non-régressions, mécaniques, spécialisations, parcours, cartes, v9)
+npm test        # tests du moteur, des systèmes, de la sauvegarde et non-régressions (dont passe-temps, Brèche, audit v11)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/profileSim.js --policies 7 3   # comparaison des priorités royales
@@ -62,7 +67,7 @@ node tools/profileSim.js --projects 7 3   # effet des grands projets sur l’éc
 node tools/economySim.js 90 40   # simulation de l'économie des Éclats (occasionnel / actif / hardcore)
 npm install && npm run build   # régénère dist/cendrelande.html (esbuild)
 npm run smoke   # test de fumée de la version compilée dans Chromium (nécessite Playwright)
-npm run layout  # tests de rendu : les 39 écrans à 4 tailles (téléphone → grand écran), nécessite Playwright
+npm run layout  # tests de rendu : les 40 écrans à 4 tailles (téléphone → grand écran), nécessite Playwright
 ```
 
 - `src/core` : état, moteur temporel, sauvegarde

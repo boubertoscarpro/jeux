@@ -1,5 +1,5 @@
 // Héritage dynastique (voir data/legacy.js) : traditions, archives, vestiges et défis ancestraux.
-import { TRADITIONS, MAX_TRADITIONS, MILESTONES, REMNANTS, ANCESTRAL } from '../data/legacy.js';
+import { TRADITIONS, MAX_TRADITIONS, MILESTONES, REMNANTS, ANCESTRAL , TRADITION_TRIALS, TRIAL_POINTS } from '../data/legacy.js';
 import { PROJECTS } from '../data/projects.js';
 import { ORIENTS } from '../data/monument.js';
 import { RIVALS } from '../data/world.js';
@@ -192,6 +192,19 @@ export function legacyTick(state, now = Date.now()) {
       toast('👑 Une tradition dynastique peut être choisie', 'good');
       break;
     }
+  }
+  // Épreuves des traditions adoptées (une fois par dynastie : stockées dans la partie, pas dans l'héritage)
+  const T = (state.traditionTrials ||= {});
+  for (const id of l.traditions) {
+    const tr = TRADITION_TRIALS[id];
+    if (!tr || T[id]) continue;
+    const [cur, target] = tr.check(state);
+    if (cur < target) continue;
+    T[id] = now;
+    if (state.dynasty) state.dynasty.points = (state.dynasty.points || 0) + TRIAL_POINTS;
+    state.meta.titles = [...new Set([...(state.meta.titles || []), tr.title])];
+    chronicle(state, `${TRADITIONS[id].icon} Épreuve de la tradition « ${TRADITIONS[id].name} » réussie : ${tr.text.toLowerCase()}. +${TRIAL_POINTS} points d’héritage.`, now);
+    toast(`${TRADITIONS[id].icon} Épreuve de tradition réussie (+${TRIAL_POINTS} points d’héritage)`, 'good');
   }
   for (const ch of l.challenges) {
     if (ch.done) continue;

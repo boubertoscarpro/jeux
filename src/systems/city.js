@@ -7,6 +7,11 @@ export const countOf = (s, type) => {
   if (BUILDINGS[type]?.grid === false) return s.city.fort[type] > 0 ? 1 : 0;
   return allBuildings(s).filter((b) => b.type === type).length;
 };
+// Bâtiments ACHEVÉS (niveau ≥ 1) : un chantier qui vient de commencer ne compte pas pour les objectifs
+export const builtCountOf = (s, type) => {
+  if (BUILDINGS[type]?.grid === false) return s.city.fort[type] > 0 ? 1 : 0;
+  return buildingsOf(s, type).length;
+};
 export function levelOf(s, type) {
   if (BUILDINGS[type]?.grid === false) return s.city.fort[type] || 0;
   return buildingsOf(s, type).reduce((m, b) => Math.max(m, b.level), 0);

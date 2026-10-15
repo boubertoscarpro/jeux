@@ -1,3 +1,4 @@
+import { regionEffect, scar } from './worldmarks.js';
 import { POI_TYPES } from '../data/world.js';
 import { costMult } from './kingdom.js';
 import { computeMods } from './modifiers.js';
@@ -12,7 +13,8 @@ import { defaultOutpostName, outpostLabel } from './identity.js';
 import { TERRAINS } from '../data/world.js';
 import { UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
-import { gain } from './economy.js';
+import { gain, addResource, storageCap } from './economy.js';
+import { isCapped } from '../data/resources.js';
 import { simulateBattle } from './combat.js';
 import { thLevel } from './city.js';
 import { recordLoss } from './losses.js';
@@ -112,6 +114,10 @@ export function outpostStatus(state, t, now = Date.now()) {
   const se = stabilityEffect(t);
   if (eff > 0) eff *= se.mult;
   if (se.reason) reasons.push(se.reason);
+  // Région : terres ravagées par la guerre, hameau voisin (monde évolutif)
+  const re = regionEffect(state, t, now);
+  if (eff > 0) eff *= re.mult;
+  reasons.push(...re.reasons);
   return { eff, reasons, garrison: g, need: garrisonNeed(t), stability: stabOf(t) };
 }
 
@@ -242,7 +248,8 @@ export function territoryTick(state, dtSec, now) {
     const st = outpostStatus(state, t, now);
     const sp = specOf(t);
     const aff = sp ? specAffinity(state, t).mult : 1;
-    if (sp?.prod && st.eff > 0) gain(state, deliveredProd(Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), net[k] && { ...net[k], cap: net[k].cap * h }), mods);
+    // Production d'avant-poste : plafonnée par l'entrepôt comme la production de la ville (pas la marge de 150 % des récompenses)
+    if (sp?.prod && st.eff > 0) for (const [r, v] of Object.entries(deliveredProd(Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), net[k] && { ...net[k], cap: net[k].cap * h }))) addResource(state, r, v, mods, isCapped(r) ? storageCap(state, mods, r) : null);
     if (sp?.relicChance && st.eff > 0 && rng.chance(sp.relicChance * (1 + (mods['relic.find'] || 0)) * (t.level || 1) * h * st.eff)) {
       shardState(state).relicFragments++;
       log(state, 'good', `🏺 Les fouilles de ${outpostLabel(t)} mettent au jour un fragment de relique !`, now);
@@ -271,6 +278,7 @@ export function outpostThreat(state, k, t, now = Date.now()) {
     t.defended = (t.defended || 0) + 1;
   } else {
     t.pillagedUntil = now + 3 * 3600000;
+    scar(state, t.x, t.y, now, 36, 'pillage');
     const stolen = { gold: t.evacUntil > now ? 0 : Math.min(state.resources.gold || 0, Math.round(150 * (t.level || 1))) };
     state.resources.gold -= stolen.gold;
     recordLoss(state, 'outpost', stolen, now);

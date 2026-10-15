@@ -67,7 +67,7 @@ export default {
         <table class="prio"><thead><tr><th>#</th><th>Secteur</th><th>Stock</th><th>Min</th><th>Max</th><th></th></tr></thead><tbody>
         ${p.order.map((sec, i) => { const r = SECTOR_RES[sec]; const th = p.thresholds[sec] || {}; return `<tr><td>${i + 1}</td><td>${WORK_SECTORS[sec].icon} ${WORK_SECTORS[sec].name}</td><td class="num">${RESOURCES[r].icon} ${fmt(s.resources[r] || 0)}</td>
           <td><input class="qty" type="number" min="0" value="${th.min || 0}" data-change="prio-th" data-sec="${sec}" data-k="min"></td><td><input class="qty" type="number" min="0" value="${th.max || 0}" data-change="prio-th" data-sec="${sec}" data-k="max"></td>
-          <td><button class="mini ghost" data-action="prio-move" data-i="${i}" data-d="-1">▲</button><button class="mini ghost" data-action="prio-move" data-i="${i}" data-d="1">▼</button></td></tr>`; }).join('')}</tbody></table>
+          <td><button class="mini ghost" data-action="prio-move" data-i="${i}" data-d="-1" ${i ? '' : 'disabled'} aria-label="Monter">▲</button><button class="mini ghost" data-action="prio-move" data-i="${i}" data-d="1" ${i < p.order.length - 1 ? '' : 'disabled'} aria-label="Descendre">▼</button></td></tr>`; }).join('')}</tbody></table>
         ${p.lastMoves ? `<div class="small muted">Dernières réaffectations : ${esc(p.lastMoves.moves.join(' ; '))}</div>` : ''}` : '<p class="req">Débloquez le palier « Gestionnaire ».</p>'}
       </div>
       <div class="card"><h2>🔬 Recherche automatique ${lvl < 5 ? '<span class="muted small">🔒 palier 5</span>' : ''}</h2>
@@ -75,7 +75,8 @@ export default {
         ${lvl >= 5 ? `<label class="small"><input type="checkbox" data-change="ar-toggle" ${s.autoResearch.enabled ? 'checked' : ''}> Activer</label>
           <div class="form-row"><label>Mission</label><select data-change="ar-focus">${opt(Object.entries(RESEARCH_FOCUS).map(([k, f]) => [k, f.name]), s.autoResearch.focus)}</select></div>` : '<p class="req">Débloquez le palier « Intendant ».</p>'}
         <h2>🛠️ Réparations & défense ${lvl < 7 ? '<span class="muted small">🔒 palier 7</span>' : ''}</h2>
-        ${hasUnlock(s, 'autoRepair') ? `<label class="small"><input type="checkbox" data-change="auto-repair" ${s.automation.autoRepair ? 'checked' : ''}> Réparer automatiquement les bâtiments endommagés</label>` : '<p class="muted small">Au palier 7, vos conseillers réparent les bâtiments et rappellent les troupes en cas de raid.</p>'}
+        ${hasUnlock(s, 'autoRepair') ? `<label class="small"><input type="checkbox" data-change="auto-repair" ${s.automation.autoRepair ? 'checked' : ''}> Réparer automatiquement les bâtiments endommagés</label>
+          <label class="small"><input type="checkbox" data-change="auto-defense" ${s.automation.autoDefense !== false ? 'checked' : ''}> Rappeler les marches qui peuvent rentrer avant un raid annoncé</label>` : '<p class="muted small">Au palier 7, vos conseillers réparent les bâtiments et rappellent les troupes en cas de raid.</p>'}
       </div></div>
 
       <div class="card"><h2>📜 Ordres du royaume <span class="muted small">${s.orders.length}/${slots} ordres</span></h2>
@@ -98,6 +99,7 @@ export default {
     'ar-toggle': (app, el) => { app.state.autoResearch.enabled = el.checked; app.render(); },
     'ar-focus': (app, el) => { app.state.autoResearch.focus = el.value; },
     'auto-repair': (app, el) => { app.state.automation.autoRepair = el.checked; },
+    'auto-defense': (app, el) => { app.state.automation.autoDefense = el.checked; },
     'od-ctype': (app, el) => { app.ui.orderDraft.cond = { type: el.value }; app.render(); },
     'od-atype': (app, el) => { app.ui.orderDraft.action = { type: el.value }; app.render(); },
     'od-field': (app, el) => {

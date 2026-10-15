@@ -5,6 +5,8 @@
 //         node tools/profileSim.js --policies [jours] [graines]   (comparaison des priorités royales)
 //         node tools/profileSim.js --projects [jours] [graines]   (effet des grands projets)
 if (process.argv.includes('--no-v10')) globalThis.__noV10 = true;
+if (process.argv.includes('--no-surplus')) globalThis.__noSurplus = true;
+import { surplusPlan, cappedResources } from '../src/systems/surplus.js';
 import { createNewState } from '../src/core/state.js';
 import { advance } from '../src/core/engine.js';
 import { serialize } from '../src/core/save.js';
@@ -56,7 +58,10 @@ export const PROFILES = {
   optimized:{ name: 'Très optimisé', sessions: null, from: 7, to: 24, every: 10, build: [...ECO, ...MIL], army: 0.3, explore: 0.3, attack: 0.4, territories: 1, contracts: 1, smart: true },
   economy:  { name: 'Économie', sessions: null, from: 8, to: 23, every: 30, build: [...ECO, 'barracks', 'castle'], army: 0.08, explore: 0.2, attack: 0.1, territories: 1, contracts: 1, sellSurplus: true },
   military: { name: 'Armée', sessions: null, from: 8, to: 23, every: 30, build: [...MIL, ...ECO], army: 0.7, explore: 0.15, attack: 0.8, territories: 0.5, contracts: 0.3 },
-  explorer: { name: 'Exploration', sessions: null, from: 8, to: 23, every: 30, build: [...ECO.slice(0, 8), 'barracks', 'stable', 'library'], army: 0.2, explore: 0.8, attack: 0.2, territories: 1, contracts: 0.5 },
+  // L'explorateur construit désormais le marché (prérequis de la campagne) : il le plaçait trop tard et restait bloqué
+  explorer: { name: 'Exploration', sessions: null, from: 8, to: 23, every: 30, build: [...ECO.slice(0, 7), 'market', 'barracks', 'stable', 'library', ...ECO.slice(9)], army: 0.2, explore: 0.8, attack: 0.2, territories: 1, contracts: 0.5 },
+  // Diplomate : économie et commerce, ambassades, pactes et alliances, petite armée
+  diplomat: { name: 'Diplomatie', sessions: null, from: 8, to: 23, every: 30, build: ['farm', 'sawmill', 'quarry', 'house', 'market', 'warehouse', ...ECO], army: 0.1, explore: 0.3, attack: 0.05, territories: 1, contracts: 1, diplomacy: true },
 };
 
 function bestTile(s, type, mods) {
@@ -128,6 +133,28 @@ function session(s, p, now) {
     if (have < need && (s.army.spearman || 0) >= need - have) setGarrison(s, k, { ...t.garrison, spearman: (t.garrison?.spearman || 0) + need - have });
     if (p.territories >= 1 && rng.chance(0.1)) upgradeOutpost(s, k);
   }
+  // Diplomatie : ambassades vers la faction la plus proche d'un traité, puis pacte et alliance
+  if (p.diplomacy && s.factions?.length) {
+    const fs = [...s.factions].filter((f) => f.stance !== 'war').sort((a, b) => b.relation - a.relation);
+    for (const f of fs.slice(0, 2)) {
+      if (f.stance === 'trade' && diplomacy(s, f.idx, 'alliance', now).ok) break;
+      if (['neutral', 'truce'].includes(f.stance) && diplomacy(s, f.idx, 'trade', now).ok) break;
+      if (diplomacy(s, f.idx, 'envoy', now).ok) break;
+    }
+  }
+  // Excédents : le joueur suit le conseil (première action réalisable du plan), une ressource par session
+  if (!globalThis.__noSurplus) {
+    const capped = cappedResources(s, mods)[0];
+    const act = capped && surplusPlan(s, capped.r, now, mods).find((a) => a.feasible);
+    if (act) {
+      if (act.kind === 'chain' && act.bid && s.city.buildings[act.bid]) { s.city.buildings[act.bid].paused = false; if (s.city.buildings[act.bid].reserve >= capped.cap * 0.5) s.city.buildings[act.bid].reserve = 0; }
+      else if (act.kind === 'invest' || act.kind === 'storage') startUpgrade(s, act.bid, now);
+      else if (act.kind === 'convert') { const t = bestTile(s, act.type, mods); if (t) startBuild(s, act.type, t.x, t.y, now); }
+      else if (act.kind === 'prepare' && act.unit) train(s, act.unit, act.n, now);
+      else if (act.kind === 'sell') sell(s, capped.r, act.qty, now);
+      s.botSurplus = (s.botSurplus || 0) + 1;
+    }
+  }
   if (p.sellSurplus) { const cap = storageCap(s, mods); for (const r of ['wood', 'stone', 'food']) if (s.resources[r] > cap * 0.9) sell(s, r, Math.floor(cap * 0.2), now); }
 }
 
@@ -175,6 +202,12 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     chTiers: Object.values(challengeState(s).claimed).reduce((a, x) => a + Object.keys(x).length, 0), chTries: challengeState(s).history.length,
     legends: Object.keys(legendState(s).done).length, legendFails: legendState(s).history.filter((h) => !h.won && !h.abandoned).length,
     monument: monumentOf(s)?.level || 0, chronicles: s.sagas?.count || 0, rivals: (s.factions || []).filter((f) => rivalryStatus(f, t)?.key === 'rival').length,
+    spEarnedMin: Object.entries(s.speedups?.earned || {}).reduce((a, [k, n]) => a + n * ({ speed5: 5, speed15: 15, speed60: 60, speed480: 480 }[k] || 0), 0),
+    spSavedMin: s.speedups?.minutesSaved || 0, gemsSpent: s.speedups?.gemsSpent || 0, gemsLeft: Math.floor(s.resources.gems || 0),
+    brWins: s.stats.breachWins || 0, brTier: s.stats.breachTierMax || 0, brLosses: Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.losses, 0),
+    brLevel: Math.round(Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.level, 0) / Math.max(1, Object.values(s.world.pois).filter((p) => p.breach).length) * 10) / 10,
+    allies: (s.factions || []).filter((f) => ['trade', 'alliance'].includes(f.stance)).length, commissions: Object.keys(s.commissions?.done || {}).length,
+    hamlets: Object.values(s.territories || {}).reduce((a, t) => a + (t.hamlet || 0), 0), codex: Object.values(s.codex?.seen || {}).reduce((a, x) => a + Object.keys(x).length, 0),
     memory: Math.round((s.factions || []).reduce((a, f) => a + memoryScore(f, t), 0)), insignia: s.meta.insignia || 0,
     chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
     blocked: objectives(s, t).main.filter((m) => !m.done).map((m) => m.id).join(' '),
@@ -248,7 +281,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'shards', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');

@@ -1,3 +1,4 @@
+import { speedupLine } from '../speedups.js';
 import { BUILDINGS, BUILDING_CATEGORIES, levelProdFactor } from '../../data/buildings.js';
 import { ORIENTS, MONUMENT_STAGES } from '../../data/monument.js';
 import { setOrientation } from '../../systems/monument.js';
@@ -200,7 +201,7 @@ function buildingPanel(app, b, mods) {
     ${def.recipes && b.level > 0 ? `<div class="panel-sub"><h4>Recette</h4><select data-change="recipe" data-id="${b.id}">${def.recipes.map((r, i) => `<option value="${i}" ${(b.recipe || 0) === i ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : ''}
     ${b.level > 0 && sectorOfBuilding(b.type) && s.workers?.length ? `<div class="small muted">👷 Secteur ${esc(WORK_SECTORS[sectorOfBuilding(b.type)].name)} : ${s.workers.filter((w) => w.job?.sector === sectorOfBuilding(b.type)).length} ouvrier(s) (+${Math.round((mods['work.' + sectorOfBuilding(b.type)] || 0) * 100)}%)</div>` : ''}
     ${b.level > 0 && b.type !== 'road' ? `<div class="small ${roadConnected(s).has(b.id) ? 'ok' : 'muted'}">${roadConnected(s).has(b.id) ? '✔ Relié au réseau de routes (+5%)' : '🟫 Non relié aux routes : une route pavée jusqu’à l’hôtel de ville donne +5%'}</div>` : ''}
-    ${q ? `<div class="panel-sub"><b>${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours</b> → niv. ${q.level} · ${countdown(q.end)}${progress(q.start, q.end)}</div>` : ''}
+    ${q ? `<div class="panel-sub"><b>${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours</b> → niv. ${q.level} · ${countdown(q.end)}${progress(q.start, q.end)}${speedupLine(s, q)}</div>` : ''}
     ${b.level > 0 ? prodBlock(s, b, mods) : ''}
     ${effects ? `<div class="panel-sub"><h4>Effets</h4>${Object.entries(effects).map(([k, v]) => `<div class="small">${esc(effectName(k))} : <b>${k === 'storage' || k === 'marches' || k === 'heroSlots' || k === 'vision' || k === 'caravans' ? fmt(v) : pct(v)}</b></div>`).join('')}
       ${Object.keys(prox).length ? `<div class="small ok">✔ Bonus de proximité : ${Object.entries(prox).map(([k, v]) => `${esc(effectName(k))} ${pct(v)}`).join(', ')}</div>` : def.near || def.adjFx ? '<div class="small off">✗ Bonus de proximité inactif</div>' : ''}</div>` : ''}
@@ -270,7 +271,7 @@ function fortPanel(app, mods) {
     const ready = u.status === 'ready';
     return `<div class="fort-card ${ready && showUpgrades(s) ? 'st-ready' : ''}"><div class="b-opt-head"><span class="b-icon">${def.icon}</span><b>${esc(def.name)}</b> <span class="lvl">niv. ${lvl}</span>${ready && showUpgrades(s) ? `<span class="up-tag" title="Amélioration possible">${upIcon('ready')} améliorable</span>` : ''}</div>
       <div class="muted small">${esc(def.desc)}${lvl ? ` Actuel : ${pct(def.effects(lvl)['wall.bonus'])} muraille.` : ''}</div>
-      ${q ? `<div>${countdown(q.end)}${progress(q.start, q.end)}</div>` : req ? `<div class="req">${esc(req)}</div>` : u.cost ? `<div class="b-opt-foot">${costList(u.cost, s)} <span class="muted small">⏱ ${fmtTime(u.time)}</span> ${u.status === 'locked' ? `<span class="req">${esc(u.reasons[0])}</span>` : `<button class="mini ${ready ? 'primary' : ''}" data-action="upgrade" data-id="fort:${type}" ${u.status === 'lack' ? `disabled title="${esc(u.reasons[0] || '')}"` : ''}>${lvl ? 'Améliorer' : 'Construire'}</button>`}</div>${u.status === 'lack' ? `<div class="req small">${esc(u.reasons[0])}</div>` : ''}` : u.status === 'max' ? '<div class="small muted">Niveau maximum</div>' : ''}
+      ${q ? `<div>${countdown(q.end)}${progress(q.start, q.end)}${speedupLine(s, q)}</div>` : req ? `<div class="req">${esc(req)}</div>` : u.cost ? `<div class="b-opt-foot">${costList(u.cost, s)} <span class="muted small">⏱ ${fmtTime(u.time)}</span> ${u.status === 'locked' ? `<span class="req">${esc(u.reasons[0])}</span>` : `<button class="mini ${ready ? 'primary' : ''}" data-action="upgrade" data-id="fort:${type}" ${u.status === 'lack' ? `disabled title="${esc(u.reasons[0] || '')}"` : ''}>${lvl ? 'Améliorer' : 'Construire'}</button>`}</div>${u.status === 'lack' ? `<div class="req small">${esc(u.reasons[0])}</div>` : ''}` : u.status === 'max' ? '<div class="small muted">Niveau maximum</div>' : ''}
     </div>`;
   }).join('');
 }
@@ -351,7 +352,7 @@ export default {
       else if (t === 'rubble') {
         const q = s.queues.build.find((qq) => qq.kind === 'clear' && qq.x === sel.x && qq.y === sel.y);
         panel = `<h3>🧱 Décombres</h3><p class="muted">Les ruines de la Fracture encombrent cette case. Déblayer libère de la place et rapporte des matériaux… et parfois une trouvaille.</p>
-          ${q ? `${countdown(q.end)}${progress(q.start, q.end)}` : `<div class="b-opt-foot">${costList(CLEAR_COST, s)} <span class="muted small">⏱ 8s</span> <button class="btn primary" data-action="clear" data-x="${sel.x}" data-y="${sel.y}">Déblayer</button></div>`}`;
+          ${q ? `${countdown(q.end)}${progress(q.start, q.end)}${speedupLine(s, q)}` : `<div class="b-opt-foot">${costList(CLEAR_COST, s)} <span class="muted small">⏱ 8s</span> <button class="btn primary" data-action="clear" data-x="${sel.x}" data-y="${sel.y}">Déblayer</button></div>`}`;
       } else if (t === 'plain') panel = buildMenu(app, sel.x, sel.y, mods);
       else panel = `<h3>${TERRAIN_NAME[t]}</h3><p class="muted">${t === 'river' ? 'La rivière irrigue les fermes, moulins, vergers et tanneries voisins. Pêcherie et port doivent la toucher.' : t === 'forest' ? 'La forêt profite aux scieries, chasseurs, herboristes et charbonnières voisins.' : 'La montagne profite aux carrières et mines voisines.'}</p>`;
     } else {
