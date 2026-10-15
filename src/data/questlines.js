@@ -166,4 +166,6 @@ export const QUESTLINES = [
   },
 ];
 
+// Chaque grande quête achevée rapporte un sceau d'une heure (une seule fois : la récompense finale ne se réclame qu'une fois)
+for (const q of QUESTLINES) if (q.final) q.final.speedups ||= { speed60: 1 };
 export const QUESTLINE_BY_ID = Object.fromEntries(QUESTLINES.map((q) => [q.id, q]));

@@ -330,7 +330,9 @@ export function claimDynMission(state, id, now = Date.now()) {
   M.recent.unshift(m.tpl); M.recent.length = Math.min(M.recent.length, 8);
   M.done = (M.done || 0) + 1;
   state.stats.missions = (state.stats.missions || 0) + 1;
-  const text = grantReward(state, m.reward, now);
+  // Une mission sur trois accomplie (série) apporte en plus un sablier de 15 min
+  const reward = M.done % 3 === 0 ? { ...m.reward, speedups: { ...(m.reward.speedups || {}), speed15: (m.reward.speedups?.speed15 || 0) + 1 } } : m.reward;
+  const text = grantReward(state, reward, now, 'mission:' + m.id);
   log(state, 'good', `${m.icon} Mission « ${m.title} » accomplie : ${text}.`, now);
   M.nextAt = Math.min(M.nextAt || now, now + 2 * 60000);
   return { ok: true, text };

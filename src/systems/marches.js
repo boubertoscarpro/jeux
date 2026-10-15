@@ -24,6 +24,9 @@ import { runDungeon } from './dungeons.js';
 import { rollShards } from './shards.js';
 import { recordMax, bumpRep } from './reputation.js';
 import { changeRelation, diplomacy } from './factions.js';
+import { armyPower } from './army.js';
+import { rollCombatSpeedup, combatMerit, speedupText } from './speedups.js';
+import { COMBAT_SPEEDUPS } from '../data/speedups.js';
 
 export const MARCH_TYPES = {
   gather: { name: 'Récolte', icon: '🧺' },
@@ -242,6 +245,7 @@ function arrive(state, m, t) {
     const rep = runDungeon(state, m, poi, mods, t);
     const hero = heroOf(state, m);
     if (hero) giveXp(state, hero, 60 + rep.cleared * 25, mods);
+    if (rep.done) { const sp = rollCombatSpeedup(state, { win: true, merit: 1, table: COMBAT_SPEEDUPS.dungeonCleared, source: 'donjon purgé' }, t); if (Object.keys(sp.items).length) rep.lines.push(`Passe-temps : ${speedupText(sp.items)}.`); }
     addReport(state, { t, kind: 'battle', title: `Donjon niv. ${rep.level} — ${rep.done ? 'purgé' : `${rep.cleared}/${rep.total} salles`}`, x: m.x, y: m.y, win: rep.done, text: rep.lines.join(' '), loot: { ...m.loot } });
     log(state, rep.done ? 'good' : 'combat', `🏚️ Donjon (${m.x}, ${m.y}) : ${rep.cleared}/${rep.total} salles franchies.${rep.done ? ' Donjon purgé !' : ''}`, t);
     if (!unitCount(m.units)) return homecoming(state, m, t, true);
@@ -322,6 +326,9 @@ function arriveAttack(state, m, t, mods, poi) {
     enemies = poi.garrison;
     fort = poi.wall || 0;
   }
+  // Mérite du combat (puissance ennemie / puissance engagée), mesuré AVANT la bataille : une cible écrasée d'avance
+  // ne rapporte pas de passe-temps
+  const merit = combatMerit(armyPower(m.units), armyPower(enemies) * (1 + 0.1 * fort));
   const res = marchBattle(state, m, enemies, t, { danger: poi.danger, fort, enemyLabel: def.kind === 'kingdom' ? poi.name : def.name, terrain: def.kind === 'kingdom' ? 'city' : undefined });
   const win = res.winner === 'attacker';
   let lootText = '';
@@ -359,6 +366,8 @@ function arriveAttack(state, m, t, mods, poi) {
     recordMax(state, 'biggestLoot', Object.values(got).reduce((a, b) => a + b, 0), `${def.kind === 'kingdom' ? poi.name : def.name} (${Object.values(got).reduce((a, b) => a + b, 0)} ressources)`, t);
     recordMax(state, 'biggestVictory', Object.values(res.defLosses).reduce((a, b) => a + b, 0), `${Object.values(res.defLosses).reduce((a, b) => a + b, 0)} ennemis — ${def.kind === 'kingdom' ? poi.name : def.name}`, t);
     state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + Object.values(res.defLosses).reduce((a, b) => a + b, 0);
+    const sp = rollCombatSpeedup(state, { win, merit, table: def.kind === 'kingdom' ? COMBAT_SPEEDUPS.rivalCapital : COMBAT_SPEEDUPS.byDanger[Math.max(1, Math.min(6, poi.danger || 1))], source: def.kind === 'kingdom' ? poi.name : def.name }, t);
+    if (Object.keys(sp.items).length) lootText += ` Passe-temps : ${speedupText(sp.items)}.`;
     lootText = `Butin : ${Object.entries(got).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien'}${limited ? ' (limité par la capacité de transport)' : ''}.` + lootText;
     log(state, 'good', `⚔️ Victoire contre ${def.kind === 'kingdom' ? poi.name : def.name} ! ${lootText}`, t);
   } else {

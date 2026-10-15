@@ -92,7 +92,9 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     queues: { build: [], train: [], research: [], craft: [], planned: [] },
     army: {},
     heroes: [],
-    inventory: { items: [], consumables: {} },
+    // Quelques passe-temps de départ pour découvrir l'accélération des chantiers
+    inventory: { items: [], consumables: { speed5: 3, speed15: 1 } },
+    speedups: { earned: {}, used: {}, gemsSpent: 0, minutesSaved: 0, combatDay: 0, combatToday: 0, granted: {} },
     techs: {},
     world: null,
     marches: [],

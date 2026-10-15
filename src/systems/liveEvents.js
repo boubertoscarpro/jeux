@@ -18,6 +18,7 @@ import { simulateBattle } from './combat.js';
 import { marchMods } from './marches.js';
 import { giveXp } from './heroes.js';
 import { generateItem, createUniqueItem } from './items.js';
+import { grantSpeedups } from './speedups.js';
 import { shardState, addShards, rollShards, createSpecialHero, dayKey } from './shards.js';
 import { spawnBoss } from './events.js';
 import { findFreeTile, spawnPoi, reveal } from './world.js';
@@ -304,6 +305,7 @@ export function grantGive(state, g, now = Date.now(), source = '') {
         if (ex?.length) parts.push(grantGive(state, ex[0].give, now, source)); else { s.legendaryFragments += 10; parts.push('10 fragments légendaires'); }
         break;
       }
+      case 'speedups': { const t = grantSpeedups(state, v, '', now); if (t) parts.push(t); break; }
       case 'title': state.meta.titles = [...new Set([...(state.meta.titles || []), v])]; parts.push(`titre « ${v} »`); break;
       case 'insignia': state.meta.insignia = (state.meta.insignia || 0) + v; parts.push(`${v} insignes`); break;
       default: break;

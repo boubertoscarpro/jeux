@@ -1,6 +1,7 @@
 // Mystères archéologiques persistants (voir data/archaeology.js).
 // Cycle : indice → 3 sites à localiser (zone indiquée, il faut explorer) → fouilles → étude de chaque fragment →
 // énigme → lieu unique, bonus permanent, plan de forge. Un seul mystère actif à la fois.
+import { grantSpeedups } from './speedups.js';
 import { MYSTERIES, MYSTERY_ORDER, ARCHAEO_MIN_TH, CLUE_EVERY, CLUE_REST_H, DIG, STUDY, RETRY_H } from '../data/archaeology.js';
 import { POI_TYPES } from '../data/world.js';
 import { rng } from '../core/rng.js';
@@ -176,6 +177,7 @@ export function answerRiddle(state, k, now = Date.now()) {
   gain(state, def.reward.res, computeMods(state, now));
   const plan = def.reward.plan ? learnPlan(state, def.reward.plan, `mystère « ${def.name} »`, now) : null;
   bumpRep(state, 'explorer', 10);
+  grantSpeedups(state, { speed60: 1 }, `mystère « ${def.name} »`, now, `mystery:${m.id}`);
   chronicle(state, `Le mystère « ${def.name} » est résolu : ${def.place.name} est retrouvé. ${def.reward.text}.`, now);
   feat(def.place.icon, `${def.place.name} retrouvé`, def.reward.text);
   return { ok: true, correct: true, text: `${def.reward.text}${plan ? ` · plan « ${plan} »` : ''}` };

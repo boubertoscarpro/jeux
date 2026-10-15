@@ -113,7 +113,7 @@ export function claimQuestStep(state, lineId, i, now = Date.now()) {
   if (!a.done[i]) return { ok: false, reason: 'Étape pas encore accomplie' };
   if (a.claimed[i]) return { ok: false, reason: 'Récompense déjà réclamée' };
   a.claimed[i] = now;
-  const text = grantReward(state, step.reward, now);
+  const text = grantReward(state, step.reward, now, `quest:${lineId}:${i}`);
   log(state, 'good', `✅ ${line.title} — ${step.title} : ${text}.`, now);
   return { ok: true, text };
 }
@@ -125,7 +125,7 @@ export function claimQuestFinal(state, lineId, now = Date.now()) {
   if (!Q.done[lineId]) return { ok: false, reason: 'Quête pas encore terminée' };
   if (Q.claimed[lineId]) return { ok: false, reason: 'Récompense déjà réclamée' };
   Q.claimed[lineId] = now;
-  const text = grantReward(state, line.final || {}, now);
+  const text = grantReward(state, line.final || {}, now, `questFinal:${lineId}`);
   log(state, 'good', `🏆 Quête « ${line.title} » terminée : ${text}.`, now);
   return { ok: true, text };
 }

@@ -10,9 +10,11 @@ import { generateItem } from './items.js';
 import { giveXp } from './heroes.js';
 import { shardState } from './shards.js';
 import { fmt } from '../core/util.js';
+import { grantSpeedups, speedupText } from './speedups.js';
 
-// reward : { res: {r: n}, item: 'rare'|'epic'|…, rep: {axe: n}, relic: n, xp: n, buff: { name, mods, hours } }
-export function grantReward(state, reward, now = Date.now()) {
+// reward : { res: {r: n}, item: 'rare'|'epic'|…, rep: {axe: n}, relic: n, xp: n, buff: { name, mods, hours }, speedups: {clé: n} }
+// key (facultatif) : identifiant unique de la récompense ; les passe-temps d'une même clé ne sont jamais payés deux fois
+export function grantReward(state, reward, now = Date.now(), key = null) {
   const mods = computeMods(state, now);
   const parts = [];
   if (reward.res && Object.keys(reward.res).length) { gain(state, reward.res, mods); parts.push(Object.entries(reward.res).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || r}`).join(' ')); }
@@ -29,6 +31,7 @@ export function grantReward(state, reward, now = Date.now()) {
     if (h) { giveXp(state, h, reward.xp, mods); parts.push(`+${reward.xp} XP pour ${h.name}`); }
   }
   if (reward.buff) { state.buffs.push({ name: reward.buff.name, mods: reward.buff.mods, until: now + reward.buff.hours * 3600000 }); parts.push(`bonus « ${reward.buff.name} » (${reward.buff.hours} h)`); }
+  if (reward.speedups) { const t = grantSpeedups(state, reward.speedups, '', now, key); if (t) parts.push(t); }
   return parts.join(', ');
 }
 
@@ -40,6 +43,7 @@ export function rewardText(reward = {}) {
   if (reward.rep) parts.push(Object.entries(reward.rep).map(([a, n]) => `${REPUTATIONS[a]?.icon || ''} +${n} ${REPUTATIONS[a]?.name.toLowerCase() || a}`).join(' '));
   if (reward.relic) parts.push(`🏺 ${reward.relic} fragment(s) de relique`);
   if (reward.xp) parts.push(`✨ ${reward.xp} XP (héros)`);
-  if (reward.buff) parts.push(`⏳ ${reward.buff.name} (${reward.buff.hours} h)`);
+  if (reward.buff) parts.push(`✨ ${reward.buff.name} (${reward.buff.hours} h)`);
+  if (reward.speedups) parts.push(speedupText(reward.speedups));
   return parts.join(' · ');
 }

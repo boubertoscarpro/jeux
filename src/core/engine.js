@@ -56,7 +56,7 @@ function nextEventTime(state) {
   return t;
 }
 
-function processDue(state, t) {
+export function processDue(state, t) {
   let changed = false;
   for (const [k, fn] of [['build', completeBuild], ['research', completeResearch], ['train', completeTrain], ['craft', completeCraft]]) {
     const due = state.queues[k].filter((q) => q.end <= t).sort((a, b) => a.end - b.end);

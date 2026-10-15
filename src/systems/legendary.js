@@ -1,5 +1,6 @@
 // Expéditions légendaires (voir data/legendary.js) : déblocage par d'autres systèmes, préparation, itinéraire,
 // événements avec décisions, épreuve finale (moteur de combat existant), sort de la découverte.
+import { grantSpeedups } from './speedups.js';
 import { LEGENDS, LEGEND_EVENTS, PROVISIONS, ESCORTS, FATES, LEGEND_MIN_TH } from '../data/legendary.js';
 import { UNITS } from '../data/units.js';
 import { RIVALS } from '../data/world.js';
@@ -188,6 +189,7 @@ export function legendTick(state, now = Date.now()) {
   }
   gain(state, def.reward.res, computeMods(state, now));
   if (def.reward.relic) shardState(state).relicFragments += def.reward.relic;
+  grantSpeedups(state, { speed60: 2 }, def.name, now, `legend:${a.id}`);
   a.awaitingFate = true;
   feat(def.icon, `${def.name} : victoire !`, 'Décidez du sort de la découverte (onglet Fouilles).');
 }

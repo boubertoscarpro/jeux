@@ -642,7 +642,7 @@ function marchDialog(app, type) {
   if (best && type !== 'explore') md.heroId = best.id;
   if (type === 'explore') md.heroId = idle.find((h) => h.cls === 'explorer')?.id || null;
   const unitsAvail = Object.entries(s.army).filter(([, n]) => n > 0);
-  const potions = Object.entries(s.inventory.consumables).filter(([k, n]) => n > 0 && CONSUMABLES[k].march);
+  const potions = Object.entries(s.inventory.consumables).filter(([k, n]) => n > 0 && CONSUMABLES[k]?.march);
   const fights = ['attack', 'boss', 'gather', 'dungeon'].includes(type);
   const title = `${MARCH_TYPES[type].icon} ${MARCH_TYPES[type].name} — ${esc(poi ? poi.name || POI_TYPES[poi.type].name : `(${x}, ${y})`)}`;
   app.modal(`<h2>${title}</h2>

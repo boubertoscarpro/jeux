@@ -94,6 +94,10 @@ function sanitize(d, fresh) {
   const fixes = [];
   conform(d, fresh, '', fixes);
   for (const [r, v] of Object.entries(d.resources || {})) { const n = Number(v); if (!finite(n) || n < 0) { fixes.push(r); d.resources[r] = 0; } else d.resources[r] = n; }
+  // Consommables et passe-temps : nombres entiers positifs uniquement (jamais de stock négatif ou fractionnaire)
+  const inv = d.inventory?.consumables;
+  if (inv) for (const [k, v] of Object.entries(inv)) { const n = Math.floor(Number(v)); if (!finite(n) || n < 0) { fixes.push(k); inv[k] = 0; } else inv[k] = n; }
+  if (d.speedups) { if (!(d.speedups.combatToday >= 0)) d.speedups.combatToday = 0; if (!(d.speedups.combatDay >= 0)) d.speedups.combatDay = 0; }
   for (const [u, n] of Object.entries(d.army || {})) if (!Number.isFinite(n) || n < 0) { fixes.push(u); d.army[u] = 0; }
   for (const q of ['build', 'train', 'research', 'craft']) d.queues[q] = (Array.isArray(d.queues[q]) ? d.queues[q] : []).filter((x) => x && finite(x.end));
   // Échéances absentes ou invalides : l'entrée est retirée (ou remise au repos) plutôt que de figer le temps

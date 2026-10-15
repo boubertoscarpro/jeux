@@ -10,6 +10,8 @@ import { gain } from './economy.js';
 import { createUniqueItem, generateItem } from './items.js';
 import { grantArtifact } from './collection.js';
 import { rollShards } from './shards.js';
+import { rollCombatSpeedup } from './speedups.js';
+import { COMBAT_SPEEDUPS } from '../data/speedups.js';
 import { spawnPoi, findFreeTile, reveal, poiAt, key, distCap, aroundCapital, worldScale } from './world.js';
 import { spawnMerchant } from './market.js';
 import { log, toast, feat } from './log.js';
@@ -123,6 +125,8 @@ function bossTick(state, dtSec, now) {
       if (share >= 0.1 && rng.chance(0.25)) grantArtifact(state, 'emberHorn', now, def.name);
       if (share >= 0.03) rollShards(state, 'boss', now, { label: `combat contre ${def.name}` });
       if (share >= 0.15) rollShards(state, 'boss', now, { chance: 0.25, amount: [1, 1], label: 'meilleur contributeur' });
+      // Passe-temps : réservés aux seigneurs ayant réellement combattu (au moins 3 % des dégâts)
+      if (share >= 0.03) rollCombatSpeedup(state, { win: true, merit: 1, table: { speed60: COMBAT_SPEEDUPS.bossKill.speed60 }, rare: COMBAT_SPEEDUPS.bossKill.rare, source: def.name }, now);
       state.season.points += SEASON.points.boss;
       let extra = '';
       if (share >= 0.08 || rng.chance(share * 5)) {
