@@ -84,3 +84,38 @@ test('Blocages : l’étape « Marché » explique le prérequis manquant et pro
   for (const r of Object.keys(s.resources)) s.resources[r] = 99999;
   assert.equal(nextBlocker(s, m, T0).kind, 'ready');
 });
+
+// ───────── Conseil appliqué en un clic, trêve après défaites ─────────
+import { applySurplus } from '../src/systems/surplus.js';
+import { resolveRaid, RAID_TRUCE_H, RAID_LOST_GRACE_H } from '../src/systems/rivals.js';
+
+test('Excédents : « Appliquer » exécute la meilleure action réalisable (et rien si aucune ne l’est)', () => {
+  const s = full('ap1');
+  s.city.buildings.ch = { id: 'ch', type: 'charcoal', level: 2, x: 3, y: 3, paused: true };
+  const r = applySurplus(s, 'wood', T0);
+  assert.ok(r.ok, r.reason);
+  assert.equal(s.city.buildings.ch.paused, false);
+  const rec = analyze(s, T0).recs.find((x) => x.apply === 'wood');
+  assert.ok(!rec || rec.applyLabel, 'bouton nommé selon l’action');
+  const empty = createNewState({ seed: 'ap2', now: T0 });
+  for (const k of Object.keys(empty.resources)) empty.resources[k] = 0;
+  assert.equal(applySurplus(empty, 'wood', T0).ok, false);
+});
+
+test('Raids : défaites d’affilée → trêve plus longue ; une victoire remet le compteur à zéro', () => {
+  const s = createNewState({ seed: 'rd', now: T0 });
+  s.army = {};
+  const raid = (t) => ({ id: 'r' + t, rival: 0, name: 'Pillards', army: { royalKnight: 200, guard: 200 }, arrive: t });
+  resolveRaid(s, raid(T0), T0);
+  const c1 = s.raidCooldown - T0;
+  resolveRaid(s, raid(T0 + 1), T0 + 1);
+  const c2 = s.raidCooldown - (T0 + 1);
+  resolveRaid(s, raid(T0 + 2), T0 + 2);
+  const c3 = s.raidCooldown - (T0 + 2);
+  assert.equal(c1, (RAID_TRUCE_H + RAID_LOST_GRACE_H) * 3600000);
+  assert.ok(c2 > c1 && c3 > c2);
+  assert.ok(!Object.values(s.world.pois).some((p) => p.type === 'kingdom' && p.anger > 0), 'un pillage réussi n’attise plus la colère du pillard');
+  s.army = { knight: 3000 };
+  resolveRaid(s, { id: 'w', rival: 0, name: 'P', army: { militia: 5 }, arrive: T0 + 3 }, T0 + 3);
+  assert.equal(s.raidLossStreak, 0);
+});

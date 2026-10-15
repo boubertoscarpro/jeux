@@ -6,7 +6,7 @@
 //         node tools/profileSim.js --projects [jours] [graines]   (effet des grands projets)
 if (process.argv.includes('--no-v10')) globalThis.__noV10 = true;
 if (process.argv.includes('--no-surplus')) globalThis.__noSurplus = true;
-import { surplusPlan, cappedResources } from '../src/systems/surplus.js';
+import { cappedResources, applySurplus } from '../src/systems/surplus.js';
 import { createNewState } from '../src/core/state.js';
 import { advance } from '../src/core/engine.js';
 import { serialize } from '../src/core/save.js';
@@ -142,17 +142,12 @@ function session(s, p, now) {
       if (diplomacy(s, f.idx, 'envoy', now).ok) break;
     }
   }
-  // Excédents : le joueur suit le conseil (première action réalisable du plan), une ressource par session
+  // Excédents : le joueur clique « Appliquer » sur le conseil de chaque ressource pleine (au plus 3 par session)
   if (!globalThis.__noSurplus) {
-    const capped = cappedResources(s, mods)[0];
-    const act = capped && surplusPlan(s, capped.r, now, mods).find((a) => a.feasible);
-    if (act) {
-      if (act.kind === 'chain' && act.bid && s.city.buildings[act.bid]) { s.city.buildings[act.bid].paused = false; if (s.city.buildings[act.bid].reserve >= capped.cap * 0.5) s.city.buildings[act.bid].reserve = 0; }
-      else if (act.kind === 'invest' || act.kind === 'storage') startUpgrade(s, act.bid, now);
-      else if (act.kind === 'convert') { const t = bestTile(s, act.type, mods); if (t) startBuild(s, act.type, t.x, t.y, now); }
-      else if (act.kind === 'prepare' && act.unit) train(s, act.unit, act.n, now);
-      else if (act.kind === 'sell') sell(s, capped.r, act.qty, now);
-      s.botSurplus = (s.botSurplus || 0) + 1;
+    for (const capped of cappedResources(s, mods).slice(0, 3)) {
+      const r = applySurplus(s, capped.r, now, computeMods(s, now));
+      if (r.ok && r.place) { const t = bestTile(s, r.place, mods); if (t) startBuild(s, r.place, t.x, t.y, now); }
+      if (r.ok) s.botSurplus = (s.botSurplus || 0) + 1;
     }
   }
   if (p.sellSurplus) { const cap = storageCap(s, mods); for (const r of ['wood', 'stone', 'food']) if (s.resources[r] > cap * 0.9) sell(s, r, Math.floor(cap * 0.2), now); }

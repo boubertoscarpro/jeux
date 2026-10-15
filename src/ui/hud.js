@@ -1,3 +1,4 @@
+import { applySurplus } from '../systems/surplus.js';
 import { coatSvg } from './heraldry.js';
 import { RESOURCES, RES_ORDER, isCapped } from '../data/resources.js';
 import { resIcon } from './icons.js';
@@ -171,6 +172,13 @@ export function openPending(app, id) {
 }
 
 export const sideActions = {
+  // Conseil d'excédent appliqué en un clic (recalculé au moment du clic)
+  'adv-apply': (app, el) => {
+    const r = applySurplus(app.state, el.dataset.r);
+    if (r.ok && r.place) { app.ui.placeType = r.place; app.go('city'); app.toast('Choisissez une case pour l’atelier (bonus affichés)', 'good'); return; }
+    if (r.ok && r.goto) { app.go(r.goto); return; }
+    app.act(() => r, (x) => `✔ ${x.text}`);
+  },
   ...speedupActions,
   'cancel-build': (app, el) => app.act(() => cancelBuild(app.state, el.dataset.id)),
   'cancel-plan': (app, el) => app.act(() => cancelPlanned(app.state, el.dataset.id), 'Chantier retiré du plan'),
@@ -206,7 +214,7 @@ export function adviceBox(s, now = Date.now()) {
   const shown = list.slice(0, level === 'reduced' ? 2 : 3);
   return `<section class="side-box advice-box"><h3>🧙‍♂️ Conseiller${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
     ${shown.map((r) => `<div class="advice sev-${r.sev}"><div class="small">${SEV_ICON[r.sev] || ''} ${esc(r.text)}</div>
-      <div class="advice-foot">${r.action ? `<button class="mini" data-action="${r.action}">${r.action === 'up-list' ? 'Voir' : 'Lancer'}</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
+      <div class="advice-foot">${r.apply ? `<button class="mini primary" data-action="adv-apply" data-r="${esc(r.apply)}" title="Appliquer ce conseil maintenant">${esc(r.applyLabel || 'Appliquer')}</button>` : ''}${r.action ? `<button class="mini" data-action="${r.action}">${r.action === 'up-list' ? 'Voir' : 'Lancer'}</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
       <button class="mini ghost" data-action="adv-snooze" data-id="${esc(r.id)}" title="Masquer 4 h">⏰</button>${r.sev !== 'bad' ? `<button class="mini ghost" data-action="adv-dismiss" data-id="${esc(r.id)}" title="Ne plus afficher ce conseil">✕</button>` : ''}</div></div>`).join('') || '<div class="muted small">Rien d’urgent. Votre royaume tourne bien.</div>'}
     <button class="btn block ghost small" data-action="advisor">Analyse détaillée →</button></section>`;
 }

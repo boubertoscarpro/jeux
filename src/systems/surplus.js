@@ -14,10 +14,10 @@ import { COMMISSIONS } from '../data/commissions.js';
 import { computeMods } from './modifiers.js';
 import { storageCap, netRates, buildingRates, canAfford } from './economy.js';
 import { levelOf, thLevel, allBuildings } from './city.js';
-import { upgradeSummary, buildRequirement, getUpgradeInfo } from './construction.js';
-import { quote } from './market.js';
-import { commissionState } from './commissions.js';
-import { unitStatus, unitCost } from './army.js';
+import { upgradeSummary, buildRequirement, getUpgradeInfo, startUpgrade } from './construction.js';
+import { quote, sell } from './market.js';
+import { commissionState, launchStage } from './commissions.js';
+import { unitStatus, unitCost, train } from './army.js';
 
 export const SELL_MIN_RATIO = 0.85; // en dessous, vendre détruit de la valeur : on ne le conseille pas
 const val = (r) => RESOURCES[r]?.price || 0;
@@ -94,6 +94,24 @@ export function surplusPlan(state, r, now = Date.now(), mods = computeMods(state
   // l'excédent (valeur créée), la vente et l'agrandissement de l'entrepôt en dernier recours
   const tier = { chain: 3, invest: 2, convert: 2, prepare: 2, storage: 1, sell: 0 };
   return out.sort((x, y) => (y.feasible - x.feasible) || (tier[y.kind] - tier[x.kind]) || (y.gain - x.gain));
+}
+
+// Applique en un clic la meilleure action réalisable pour une ressource pleine (recalculée au moment du clic).
+// Renvoie { ok, text } ; pour un atelier à construire, { ok: true, place: type } : l'interface ouvre le mode de
+// placement (le joueur choisit la case) ; pour une expédition, { ok: true, goto }.
+export function applySurplus(state, r, now = Date.now(), mods = computeMods(state, now)) {
+  const act = surplusPlan(state, r, now, mods).find((a) => a.feasible);
+  if (!act) return { ok: false, reason: 'Aucune action réalisable pour l’instant' };
+  let res = { ok: true };
+  switch (act.kind) {
+    case 'chain': { const b = state.city.buildings[act.bid]; if (!b) return { ok: false, reason: 'Bâtiment introuvable' }; b.paused = false; if (b.reserve >= storageCap(state, mods, r) * 0.5) b.reserve = 0; break; }
+    case 'invest': case 'storage': res = startUpgrade(state, act.bid, now); break;
+    case 'prepare': res = act.unit ? train(state, act.unit, act.n, now) : act.view === 'craft' ? launchStage(state, now) : { ok: true, goto: act.view }; break;
+    case 'convert': res = { ok: true, place: act.type }; break;
+    case 'sell': res = sell(state, r, act.qty, now); break;
+    default: return { ok: false, reason: 'Action inconnue' };
+  }
+  return res.ok === false ? res : { ...res, ok: true, text: act.label };
 }
 
 export { buildingCost };
