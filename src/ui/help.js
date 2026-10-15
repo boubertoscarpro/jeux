@@ -10,6 +10,8 @@ const H = {
     ['Coûts et file', 'Chaque niveau coûte environ 55 % de plus que le précédent ; à partir du niveau 6, du fer, puis de l’acier et du minerai rare sont demandés. La file de construction est limitée : si elle est pleine, l’amélioration peut être planifiée et démarrera seule.'],
     ['Navigation', 'Glisser pour déplacer, molette ou pincement pour zoomer (centré sur le curseur), ⤢ pour la vue d’ensemble, 🏛️ pour revenir au château. Les noms apparaissent en vue rapprochée.'],
     ['Château principal', 'Le nom du château se change depuis la fiche de l’hôtel de ville (✎ Renommer). Il apparaît sur les deux cartes et dans les rapports.'],
+    ['Passe-temps', 'Le bouton sablier, à côté de chaque chantier (colonne des files ou fiche du bâtiment), ouvre la fenêtre d’accélération : choisissez un passe-temps (5 min, 15 min, 1 h, 8 h) ou payez en gemmes. Le temps retiré et le temps restant sont affichés avant l’action ; rien n’est consommé si le chantier est déjà terminé. Les passe-temps se gagnent en jouant : combats à votre mesure, Brèche, événements, quêtes, défis, expéditions.'],
+    ['Évolution des bâtiments', 'Un bâtiment change d’aspect avec son niveau : socle pavé et drapeau (niv. 5), tour de pierre, silo ou grue (niv. 10), muret crénelé, lanternes et chariot (niv. 15).'],
   ] },
   goals: { title: '🎯 Objectifs', sections: [
     ['Tableau de bord', 'En haut : la prochaine mission du parcours, les quêtes en cours, les missions du royaume et toutes les récompenses à récupérer.'],
@@ -23,6 +25,8 @@ const H = {
     ['Territoires', 'Teinte et contour aux couleurs de votre bannière : vos avant-postes. Contour rouge : faction ennemie (en guerre). Vert : alliée ou pacte. Pointillés : neutre. Le cercle doré pointillé marque la portée où vous pouvez établir un avant-poste.'],
     ['Armées', 'Chaque marche est un pion orienté vers sa destination, avec son chrono en vue rapprochée. Un trait rouge épais est un <b>raid</b> qui vient vers votre château.'],
     ['Navigation', 'Molette ou pincement pour zoomer, mini-carte et « Aller à… » pour se rendre à un lieu, survol pour une fiche rapide.'],
+    ['Seigneurs de la Brèche', 'Des forteresses ennemies qui évoluent avec vos attaques : camp de pillards, forteresse renforcée, bastion d’élite, citadelle légendaire (4 paliers, 20 niveaux). Chaque attaque « méritante » (garnison ≥ 30 % de la puissance envoyée) les fait progresser vers le niveau suivant, et elles s’adaptent aux armes qui les battent. Une armée écrasante ne rapporte ni évolution, ni objet, ni passe-temps. Après une victoire, la forteresse reste en ruine un moment ; au niveau 20, elle se réorganise.'],
+    ['Monde évolutif', 'Les régions gardent la trace des événements : terres ravagées après un pillage ou un siège (production −25 % pendant 1 à 2 jours), hameaux qui naissent près des avant-postes stables, bois surexploités puis restaurés, routes impayées qui se dégradent, cités qui deviennent des comptoirs grâce à vos caravanes.'],
   ] },
   territories: { title: '🚩 Avant-postes', sections: [
     ['Établir', 'Sur la carte, une case explorée, nettoyée et à portée peut accueillir un avant-poste (coût croissant). Il reçoit un nom médiéval, modifiable à tout moment.'],

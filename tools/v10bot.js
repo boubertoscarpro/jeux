@@ -3,7 +3,7 @@
 // Le joueur simulé agit comme un joueur raisonnable mais non omniscient : il ne connaît pas la réponse des
 // énigmes (il élimine les mauvaises réponses), il choisit la première option abordable au conseil, etc.
 import { rng } from '../src/core/rng.js';
-import { commissionList, claimCommission, startCommission, stageCheck, launchStage } from '../src/systems/commissions.js';
+import { commissionList, claimCommission, startCommission, stageCheck, launchStage, abandonCommission } from '../src/systems/commissions.js';
 import { MOTIONS } from '../src/data/council.js';
 import { MYSTERIES } from '../src/data/archaeology.js';
 import { LEGENDS } from '../src/data/legendary.js';
@@ -122,8 +122,13 @@ export function v10Bot(s, profileKey, t, bestTile, mods) {
   // Commandes prestigieuses : accepter la première disponible, lancer les étapes, recevoir l'ouvrage
   const cm = commissionList(s);
   if (cm.some((c) => c.status === 'ready')) claimCommission(s, t);
-  else if (!cm.some((c) => c.status === 'active')) { const c = cm.find((x) => x.status === 'available'); if (c && rng.chance(0.3)) startCommission(s, c.id, t); }
-  else if (stageCheck(s, t).ok && rng.chance(0.5)) launchStage(s, t);
+  else if (!cm.some((c) => c.status === 'active')) {
+    // Comme un joueur qui lit les coûts : seulement une commande dont il a déjà les matériaux rares
+    const RARE = ['silver', 'gems', 'crystals', 'rareOre', 'ancientWood'];
+    const c = cm.find((x) => x.status === 'available' && x.stages.every((g) => Object.entries(g.cost).every(([r, v]) => !RARE.includes(r) || (s.resources[r] || 0) >= v)));
+    if (c && rng.chance(0.3)) startCommission(s, c.id, t);
+  } else if (stageCheck(s, t).ok && rng.chance(0.5)) launchStage(s, t);
+  else if (s.commissions.active && t - s.commissions.active.started > 48 * 3600000 && !(s.commissions.active.stageEnd > t)) abandonCommission(s, t);
   // Factions rivales : réparations quand le trésor le permet
   for (const f of s.factions || []) if (rivalryStatus(f, t)?.key === 'rival' && (s.resources.gold || 0) > 5000 && deescalate(s, f.idx, 'reparations', t).ok) st.deesc++;
 }
