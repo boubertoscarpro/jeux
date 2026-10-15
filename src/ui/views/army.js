@@ -6,7 +6,8 @@ import { fmt, fmtTime, scaleObj } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { unitStatus, unitCost, train, trainTime, dismiss, armyPower } from '../../systems/army.js';
 import { upkeepPerHour, armyTotals } from '../../systems/economy.js';
-import { esc, costList } from '../components.js';
+import { esc, costList, countdown, progress } from '../components.js';
+import { speedupButton } from '../speedups.js';
 
 const pctTxt = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`;
 
@@ -39,6 +40,7 @@ export default {
       <div><span class="muted">Attaque / Défense</span><b>${pctTxt(mods['combat.atk'] || 0)} / ${pctTxt(mods['combat.def'] || 0)}</b></div></div>
       ${s.famine ? '<div class="req">⚠️ Famine : vos réserves de nourriture sont vides. Formation impossible et moral −30.</div>' : ''}
       </div>
+      ${s.queues.train.length ? `<div class="card"><h3>⏳ Formations en cours</h3>${s.queues.train.map((q) => `<div class="q-row"><div class="q-top"><span>${unitIcon(q.unit, 18, UNITS[q.unit].icon)} ${q.count} × ${esc(UNITS[q.unit].name)} <span class="muted small">(${esc(BUILDINGS[q.building]?.name || '')}${q.start > Date.now() ? ', en attente' : ''})</span></span>${countdown(q.end)}${speedupButton(s, q)}</div>${progress(q.start, q.end)}</div>`).join('')}</div>` : ''}
       ${Object.entries(byBuilding).map(([b, types]) => `<div class="card"><h3>${buildingIcon(b, 26)} ${esc(BUILDINGS[b].name)}</h3>
         <div class="table-wrap"><table class="units"><thead><tr><th>Unité</th><th title="Attaque">${gameIcon('s_atk', 16)}</th><th title="Défense">${gameIcon('s_def', 16)}</th><th title="Points de vie">${gameIcon('s_hp', 16)}</th><th title="Vitesse">${gameIcon('s_speed', 16)}</th><th title="Transport">${gameIcon('s_carry', 16)}</th><th title="Entretien nourriture/h">${gameIcon('s_upkeep', 16)}</th><th>Contres</th><th>En ville</th><th>Formation</th></tr></thead>
         <tbody>${types.map((t) => unitRow(app, t, mods)).join('')}</tbody></table></div></div>`).join('')}

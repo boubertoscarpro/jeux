@@ -18,9 +18,9 @@ export const rewardsPass = (cur) => ({
   per: 600, // points par niveau
   levels: {
     1: { res: { food: 3000 } }, 2: { res: { wood: 3000 } }, 3: { units: { spearman: 30 }, speedups: { speed5: 3 } }, 4: { [cur]: 150 },
-    5: { chest: 'rare' }, 6: { res: { iron: 2500 }, speedups: { speed15: 2 } }, 7: { relicFragments: 0, mythicFragments: 3 }, 8: { units: { archer: 40 } },
-    9: { res: { steel: 150, leather: 150 } }, 10: { item: { min: 'epic' } }, 11: { speedups: { speed60: 1 } }, 12: { chest: 'epic' }, 14: { mythicFragments: 5 },
-    15: { speedups: { speed60: 2 } }, 16: { res: { crystals: 10, rareOre: 8 } }, 18: { legendaryFragments: 5 }, 20: { exclusiveFromShop: true, speedups: { speed480: 1 } },
+    5: { chest: 'rare' }, 6: { res: { iron: 2500 }, speedups: { speed15: 2 } }, 7: { relicFragments: 0, mythicFragments: 3 }, 8: { units: { archer: 40 }, speedups: { rspeed15: 2 } },
+    9: { res: { steel: 150, leather: 150 } }, 10: { item: { min: 'epic' } }, 11: { speedups: { speed60: 1 } }, 12: { chest: 'epic' }, 13: { speedups: { rspeed60: 1 } }, 14: { mythicFragments: 5 },
+    15: { speedups: { speed60: 2 } }, 16: { res: { crystals: 10, rareOre: 8 } }, 18: { legendaryFragments: 5 }, 19: { speedups: { rspeed480: 1 } }, 20: { exclusiveFromShop: true, speedups: { speed480: 1 } },
   },
 });
 
@@ -44,6 +44,7 @@ function shop(merchant, specific, rotating) {
       { id: 'chestRare', label: 'Coffre rare', icon: '🧰', price: 1000, give: { chest: 'rare' } },
       { id: 'epicGear', label: 'Équipement épique', icon: '⚔️', price: 3000, give: { item: { min: 'epic' } } },
       { id: 'legFrag', label: 'Fragments légendaires ×10', icon: '🧩', price: 5000, give: { legendaryFragments: 10 }, stock: 2 },
+      { id: 'rspeed', label: 'Sabliers du capitaine ×3 (recrutement 15 min)', icon: '⏳', price: 900, give: { speedups: { rspeed15: 3 } }, stock: 2 },
       { id: 'shard', label: '1 Éclat Ancien', icon: '💠', price: 12000, give: { shards: 1 }, stock: 3, global: 5 },
       ...specific,
     ],
@@ -399,7 +400,12 @@ export const LIVE_EVENTS = {
 // Passe-temps des objectifs d'événement (affichés à côté de la récompense) : le premier objectif donne deux sabliers
 // de 15 min, les suivants un sceau d'une heure, le dernier (le plus difficile) deux sceaux.
 for (const def of Object.values(LIVE_EVENTS)) {
-  def.objectives.forEach((o, i, all) => { o.reward.speedups ||= i === 0 ? { speed15: 2 } : i === all.length - 1 ? { speed60: 2 } : { speed60: 1 }; });
+  def.objectives.forEach((o, i, all) => {
+    const sp = i === 0 ? { speed15: 2 } : i === all.length - 1 ? { speed60: 2 } : { speed60: 1 };
+    // Objectifs militaires (camps, boss, assauts…) : passe-temps de recrutement à la place
+    const mil = /camp|boss|kill|tier|assault|siege|ship|defend|wave|coop/i.test(o.stat);
+    o.reward.speedups ||= mil ? Object.fromEntries(Object.entries(sp).map(([k, n]) => ['r' + k, n])) : sp;
+  });
 }
 
 export const SURPRISE_EVENTS = {
