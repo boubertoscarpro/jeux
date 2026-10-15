@@ -21,6 +21,11 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v12** : passe-temps de recrutement (Sablier du sergent → Décret royal de mobilisation), Grands Projets du
+> Royaume (infrastructures, préparation militaire, économie, prestige ; projets d’événement et rares), hôtel de ville
+> jusqu’au niveau 30 et bâtiments emblématiques jusqu’au niveau 25, six ères, paliers et prérequis affichés —
+> voir [`docs/V12.md`](docs/V12.md).
+>
 > **v11** : passe-temps pour accélérer les chantiers (gagnés en jouant ou payés en gemmes), Seigneurs de la Brèche
 > (forteresses PNJ qui évoluent avec vos attaques), armoiries de la dynastie, commandes prestigieuses d’artisans,
 > monde évolutif, codex illustré, scénarios rejouables, épreuves de tradition, conseiller des excédents, audit et
@@ -59,7 +64,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # tests du moteur, des systèmes, de la sauvegarde et non-régressions (dont passe-temps, Brèche, audit v11)
+npm test        # tests du moteur, des systèmes, de la sauvegarde et non-régressions (dont passe-temps, Brèche, audit v11, recrutement, Grands Projets, niveaux étendus)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/profileSim.js --policies 7 3   # comparaison des priorités royales

@@ -191,6 +191,8 @@ const DEFS = `
 <symbol id="ov-crane" viewBox="0 0 64 64"><path d="M9 54V7M9 9H34M9 18L22 9" stroke="${P.woodD}" stroke-width="2.4" stroke-linecap="round"/><path d="M31 9v9" stroke="${P.ink}" stroke-width=".9"/><rect x="28" y="18" width="6" height="4" fill="${P.stone}" stroke="${P.ink}" stroke-width=".8"/></symbol>
 <symbol id="ov-cart" viewBox="0 0 64 64"><path d="M30 60h28" stroke="#6f685d" stroke-width="1.4"/><rect x="38" y="51" width="14" height="7" fill="${P.woodL}" stroke="${P.ink}" stroke-width="1"/><circle cx="41" cy="59" r="2" fill="${P.ink}"/><circle cx="49" cy="59" r="2" fill="${P.ink}"/><path d="M40 51l3-3 4 2 3-2" fill="${P.stoneD}" stroke="${P.ink}" stroke-width=".7"/></symbol>
 <symbol id="ov-gold" viewBox="0 0 64 64"><path d="M6 57h52" stroke="${P.gold}" stroke-width="2.5" stroke-linecap="round"/><circle cx="6" cy="57" r="2.5" fill="${P.gold}"/><circle cx="58" cy="57" r="2.5" fill="${P.gold}"/></symbol>
+<symbol id="ov-pennants" viewBox="0 0 64 64"><path d="M3 54V20M61 54V20" stroke="${P.ink}" stroke-width="1.3"/><path d="M3.6 21h9l-2.5 5 2.5 5h-9Z" fill="${P.red}" stroke="${P.ink}" stroke-width=".8" stroke-linejoin="round"/><path d="M60.4 21h-9l2.5 5-2.5 5h9Z" fill="${P.red}" stroke="${P.ink}" stroke-width=".8" stroke-linejoin="round"/><circle cx="3" cy="19" r="1.5" fill="${P.gold}"/><circle cx="61" cy="19" r="1.5" fill="${P.gold}"/><circle cx="7.5" cy="26" r="1.3" fill="${P.gold}"/><circle cx="56.5" cy="26" r="1.3" fill="${P.gold}"/></symbol>
+<symbol id="ov-crown" viewBox="0 0 64 64"><ellipse cx="32" cy="58" rx="27" ry="4" fill="none" stroke="${P.gold}" stroke-width="1" opacity=".55" class="anim-glow"/><path d="M25 7l2.5 5 4.5-5 4.5 5L39 7l-1 7H26Z" fill="${P.gold}" stroke="${P.ink}" stroke-width=".9" stroke-linejoin="round"/><circle cx="32" cy="10.5" r="1.1" fill="${P.red}"/></symbol>
 <symbol id="ic-up" viewBox="0 0 24 24"><path d="M12 3L21 13H15.5V21H8.5V13H3Z" fill="currentColor" stroke="#1d1812" stroke-width="1.4" stroke-linejoin="round"/></symbol>
 <symbol id="ic-hammer" viewBox="0 0 24 24"><path d="M4 20l9-9" stroke="#5f3d22" stroke-width="3" stroke-linecap="round"/><path d="M10 5l5-2 6 6-2 5-3-3-2 2-4-4 2-2Z" fill="#c9ced6" stroke="#1d1812" stroke-width="1.2" stroke-linejoin="round"/></symbol>
 <symbol id="ic-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="#1d1812"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/></symbol>
@@ -209,7 +211,8 @@ export function ensureArtDefs() {
 // Famille architecturale : comment un bâtiment s'agrandit avec les paliers
 const ARCH_FAMILY = { farm: 'field', pasture: 'field', orchard: 'field', fishery: 'field', quarry: 'pit', mine: 'pit', charcoal: 'pit',
   townhall: 'none', castle: 'none', watchtower: 'none', wall: 'none', moat: 'none', observatory: 'none', monument: 'none', port: 'none', mill: 'none', sanctuary: 'none' };
-export const levelTier = (lvl) => (lvl >= 15 ? 3 : lvl >= 10 ? 2 : lvl >= 5 ? 1 : 0);
+// Paliers visuels : 5, 10, 15, puis 20 (bannières royales) et 25 (couronne dorée, halo) pour les niveaux étendus
+export const levelTier = (lvl) => (lvl >= 25 ? 5 : lvl >= 20 ? 4 : lvl >= 15 ? 3 : lvl >= 10 ? 2 : lvl >= 5 ? 1 : 0);
 export function buildingSvg(type, level = 1, cls = 'b-art', orientColor = null) {
   if (!BUILDINGS[type]) return '';
   // Monument dynastique : le dessin change à chaque étape, l'accent suit l'orientation choisie
@@ -218,7 +221,7 @@ export function buildingSvg(type, level = 1, cls = 'b-art', orientColor = null) 
   const tier = levelTier(level);
   const sign = SIGNED.has(type) ? `<g class="b-sign"><path d="M47 28v4" stroke="#1d1812" stroke-width="1.4"/><rect x="34" y="31" width="26" height="22" rx="4" fill="#f3e6c4" stroke="#1d1812" stroke-width="1.4"/><text x="47" y="47.5" text-anchor="middle" font-size="16">${BUILDINGS[type].icon}</text></g>` : '';
   // Paliers visibles sans ouvrir la fiche : socle pavé (niv. 5), drapeau et annexe (niv. 10), lanternes et liseré doré (niv. 15)
-  const ov = `${tier >= 1 && !['townhall', 'castle', 'watchtower'].includes(type) ? '<use href="#ov-flag"/>' : ''}${tier >= 2 && ARCH_FAMILY[type] === 'none' ? '<use href="#ov-annex"/>' : ''}${tier >= 3 ? '<use href="#ov-gold"/><use href="#ov-lamp"/>' : ''}`;
+  const ov = `${tier >= 1 && !['townhall', 'castle', 'watchtower'].includes(type) ? '<use href="#ov-flag"/>' : ''}${tier >= 2 && ARCH_FAMILY[type] === 'none' ? '<use href="#ov-annex"/>' : ''}${tier >= 3 ? '<use href="#ov-gold"/><use href="#ov-lamp"/>' : ''}${tier >= 4 ? '<use href="#ov-pennants"/>' : ''}${tier >= 5 ? '<use href="#ov-crown"/>' : ''}`;
   // Évolution architecturale (derrière le bâtiment) : tour de pierre au palier 2, enceinte crénelée au palier 3 ;
   // pour les exploitations : silo (champs) ou grue (carrières, mines) puis chariot
   const fam = ARCH_FAMILY[type] || 'hall';

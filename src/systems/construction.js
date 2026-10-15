@@ -8,6 +8,7 @@ import { computeMods } from './modifiers.js';
 import { canAfford, pay, gain, missing } from './economy.js';
 import { generateItem } from './items.js';
 import { feat, log } from './log.js';
+import { thRequirements, TH_MILESTONES, eraOf } from '../data/eras.js';
 
 export const buildSlots = (mods) => 1 + (mods.buildQueue || 0);
 
@@ -93,6 +94,8 @@ export function upgradeCheck(state, bid, mods = computeMods(state)) {
   const reasons = [];
   if (fort && level === 0) { const req = buildRequirement(state, type); if (req) reasons.push(req); }
   if (type !== 'townhall' && level + 1 > thLevel(state)) reasons.push(`Hôtel de ville niv. ${level + 1} requis`);
+  // Hôtel de ville 16 à 30 : prérequis affichés avant d'investir (entrepôt, donjon, bibliothèque)
+  if (type === 'townhall') for (const r of thRequirements(level + 1)) if (levelOf(state, r.type) < r.level) reasons.push(`${BUILDINGS[r.type].name} niv. ${r.level} requis`);
   const { cost, time } = getUpgradeInfo(state, type, level + 1, mods);
   const miss = missing(state, cost);
   const queueFull = queueFull_(state, mods);
@@ -247,7 +250,14 @@ export function completeBuild(state, q, now) {
   state.season.points += SEASON.points.build;
   log(state, 'good', `${BUILDINGS[q.type].icon} ${BUILDINGS[q.type].name} ${q.level === 1 ? 'construit' : `amélioré au niveau ${q.level}`}.`, now);
   // Hôtel de ville : bandeau ; autres bâtiments : la case s'illumine (sans bandeau, pour ne pas lasser)
-  if (q.type === 'townhall') feat('🏛️', `Hôtel de ville niveau ${q.level}`, 'De nouveaux bâtiments et systèmes peuvent se débloquer.', 'good', at);
+  if (q.type === 'townhall') {
+    const ms = TH_MILESTONES[q.level];
+    if (ms?.title) state.meta.titles = [...new Set([...(state.meta.titles || []), ms.title])];
+    if (ms) log(state, 'good', `🏛️ Palier de l’hôtel de ville ${q.level} : ${ms.text}.`, now);
+    const era = eraOf(q.level);
+    if (era.from === q.level && q.level > 1) log(state, 'good', `${era.icon} Nouvelle ère : ${era.name}. ${era.desc}`, now);
+    feat('🏛️', `Hôtel de ville niveau ${q.level}`, ms ? ms.text : era.from === q.level ? `Nouvelle ère : ${era.name}` : 'De nouveaux bâtiments et systèmes peuvent se débloquer.', 'good', at);
+  }
   else feat(null, null, null, 'tile', at);
 }
 
