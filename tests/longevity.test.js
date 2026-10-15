@@ -170,3 +170,25 @@ test('Monde : une cité souvent visitée par vos caravanes gagne en importance (
   assert.equal(townRankMult(town), 1.08);
   assert.ok(Math.abs(townPrice(s, town, 'wood', mods, T0) / before - 1.08) < 1e-9);
 });
+
+// ───────── Codex ─────────
+import { codexTick, codexProgress, codexState } from '../src/systems/codex.js';
+
+test('Codex : les entrées s’ouvrent avec ce que le royaume a construit, formé, affronté et découvert', () => {
+  const s = createNewState({ seed: 'cx', now: T0 });
+  codexTick(s, T0);
+  const C = codexState(s);
+  assert.ok(C.seen.building.townhall, 'hôtel de ville connu');
+  assert.ok(!C.seen.enemy.troll);
+  s.reports.push({ t: T0, enemies: { troll: 1, bandit: 3 } });
+  s.techs.eco_tools = true;
+  codexTick(s, T0 + 1);
+  assert.ok(C.seen.enemy.troll && C.seen.enemy.bandit);
+  assert.ok(C.seen.tech.eco_tools);
+  const p = codexProgress(s);
+  assert.ok(p.have > 0 && p.have < p.total);
+  // Le savoir ne se perd pas
+  s.reports = [];
+  codexTick(s, T0 + 2);
+  assert.ok(C.seen.enemy.troll);
+});

@@ -1,3 +1,4 @@
+import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
 import { RESOURCES } from '../data/resources.js';
 import { ensureIconDefs, navIcon, gameIcon } from './icons.js';
@@ -72,7 +73,7 @@ export const GROUPS = [
   { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },
   { id: 'g-wheel', title: 'Roue', icon: '🎡', tabs: [wheelView, shardsView] },
   { id: 'g-guild', title: 'Guilde', icon: '🏛️', tabs: [guildView] },
-  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, statsView, treasuryView, kingdomView] },
+  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, codexView, statsView, treasuryView, kingdomView] },
 ];
 export const VIEWS = GROUPS.flatMap((g) => g.tabs);
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));

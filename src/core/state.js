@@ -96,6 +96,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     // Quelques passe-temps de départ pour découvrir l'accélération des chantiers
     inventory: { items: [], consumables: { speed5: 3, speed15: 1 } },
     commissions: { active: null, done: {} },
+    codex: { seen: {} },
     breach: { placed: false, firstTier: {}, defeated: {}, stats: {} },
     speedups: { earned: {}, used: {}, gemsSpent: 0, minutesSaved: 0, combatDay: 0, combatToday: 0, granted: {} },
     techs: {},

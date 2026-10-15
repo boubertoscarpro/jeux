@@ -208,7 +208,8 @@ test('Modificateurs : l’Hiver des Géants alourdit l’entretien ; la Grande F
   startSurprise(s, 'meteor', T0);
   assert.ok(Object.values(s.world.pois).some((p) => p.meteor));
   liveTick(s, T0 + 7 * H);
-  assert.ok(!liveState(s).surprises.some((x) => x.key === 'meteor'), 'la météorite expire après 6 h');
+  // (une NOUVELLE météorite peut tomber au hasard au même instant : on vérifie que celle de T0 a expiré)
+  assert.ok(!liveState(s).surprises.some((x) => x.key === 'meteor' && x.start === T0), 'la météorite expire après 6 h');
 });
 
 test('Automatisation : un petit revenu passif, plafonné par jour', () => {
