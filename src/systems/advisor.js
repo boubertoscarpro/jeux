@@ -1,3 +1,4 @@
+import { surplusPlan, cappedResources } from './surplus.js';
 import { RESOURCES, isCapped } from '../data/resources.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { POI_TYPES, TERRAINS, RIVALS } from '../data/world.js';
@@ -64,10 +65,13 @@ export function analyze(state, now = Date.now()) {
   const army = armyUpkeep(state, mods);
   if (food.prod > 0 && army / food.prod > 0.6) push('warn', `Votre armée consomme ${Math.round((army / food.prod) * 100)}% de votre production de nourriture.`, 'army');
   // Stockage plein
-  const full = Object.keys(state.resources).filter((r) => isCapped(r) && (state.resources[r] || 0) >= storageCap(state, mods, r) * 0.95 && net[r] > 0);
-  if (full.length) {
-    const best = full.map((r) => ({ r, gold: quote(state, r, Math.min(2000, state.resources[r]), -1, mods).total })).sort((a, b) => b.gold - a.gold)[0];
-    push('warn', `Entrepôt plein pour ${full.map(R).join(', ')} : la production est perdue. Améliorez l’entrepôt ou vendez (ex. 2 000 ${RESOURCES[best.r].name} ≈ ${fmt(best.gold)} or).`, 'market');
+  const full = cappedResources(state, mods).filter((x) => x.have >= x.cap * 0.95).map((x) => x.r);
+  // Pour chaque ressource pleine : la meilleure action réalisable (transformer, investir, relancer une chaîne,
+  // préparer une expédition…) ; la vente n'est proposée que si le cours est correct
+  for (const r of full.slice(0, 3)) {
+    const plan = surplusPlan(state, r, now, mods).filter((a) => a.feasible);
+    if (plan.length) push('warn', `Entrepôt plein pour ${R(r)} : ${plan[0].label.toLowerCase()} — ${plan[0].detail}${plan[1] ? ` Sinon : ${plan[1].label.toLowerCase()}.` : ''}`, plan[0].view);
+    else push('warn', `Entrepôt plein pour ${R(r)} : la production est perdue. Améliorez l’entrepôt ou réduisez cette production (ouvriers, priorités).`, 'city');
   }
   // Chaînes
   for (const b of allBuildings(state)) {

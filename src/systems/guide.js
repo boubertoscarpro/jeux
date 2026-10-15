@@ -1,5 +1,6 @@
 // Conseiller du tableau de bord : recommandations déterministes, calculées depuis l'état réel, priorisées,
 // regroupées, sans doublon. Le joueur peut les reporter (4 h), les ignorer, ou réduire / couper le conseiller.
+import { nextBlocker } from './blockers.js';
 import { rivalryStatus, mainGrievance } from './rivalry.js';
 import { RIVALS } from '../data/world.js';
 import { TECHS } from '../data/techs.js';
@@ -35,6 +36,9 @@ export function adviceList(state, now = Date.now()) {
   if (ready.length) out.push({ id: 'claim', sev: 'next', text: `${ready.length} mission(s) accomplie(s) : réclamez la récompense dans Objectifs.`, goto: 'goals' });
   if (o.chapter.complete && !o.chapter.rewardClaimed) out.push({ id: 'chapter', sev: 'next', text: `Chapitre ${o.chapter.n} terminé : réclamez sa récompense.`, goto: 'goals' });
   if (next) out.push({ id: 'next:' + next.id, sev: 'next', text: `Prochaine étape — ${next.title} : ${next.desc}`, goto: next.view || 'goals', action: next.action });
+  // Étape bloquée : pourquoi, ce qui manque, solutions et action conseillée selon votre style
+  const blk = nextBlocker(state, next, now);
+  if (blk?.kind === 'blocked') out.push({ id: 'blocked:' + next.id, sev: 'warn', text: `${blk.text} ${blk.solutions.join(' ')} Conseil pour votre style : ${blk.best}`, goto: 'city' });
 
   // Économie stable : orienter vers la spécialisation
   const th = thLevel(state);
