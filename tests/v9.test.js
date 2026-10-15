@@ -1,6 +1,7 @@
 // Version 9 : noms du château et des avant-postes (validation, persistance, migration), identité stable,
 // indicateurs d'amélioration, quêtes du royaume, missions dynamiques, événements de situation, conseiller,
 // affinité des spécialités d'avant-poste.
+import { BUILDINGS } from '../src/data/buildings.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createNewState, SAVE_VERSION } from '../src/core/state.js';
@@ -128,7 +129,7 @@ test('Améliorations : l’icône « prête » correspond exactement à ce que s
   advance(s, T0 + 3 * H);
   assert.equal(house.level, 2);
   for (const u of upgradeSummary(s).ready) assert.equal(startUpgrade(createLike(s), u.bid, T0 + 3 * H).ok, true, u.name);
-  th(s).level = 25;
+  th(s).level = BUILDINGS.townhall.maxLevel;
   assert.equal(upgradeCheck(s, th(s).id).status, 'max');
 });
 // Copie indépendante pour vérifier chaque amélioration « prête » isolément

@@ -6,13 +6,23 @@
 //  - niv. 1 à 6 : quelques secondes à quelques minutes → le sablier de 5 min suffit souvent ;
 //  - niv. 8 à 12 : 10 min à 2 h → sabliers de 15 min et sceaux d'une heure ;
 //  - niv. 13 et plus, hôtel de ville, monument : plusieurs heures → le parchemin de 8 h, rare.
+// target : file visée — 'build' (chantiers) ou 'train' (formations militaires). Un objet ne sert QUE sur sa file.
 export const SPEEDUPS = {
-  speed5:   { name: 'Sablier de l’apprenti',        short: '5 min', min: 5,   rarity: 'common',    desc: 'Retire 5 minutes à un chantier.' },
-  speed15:  { name: 'Sablier du maçon',             short: '15 min', min: 15, rarity: 'rare',      desc: 'Retire 15 minutes à un chantier.' },
-  speed60:  { name: 'Sceau du maître d’œuvre',       short: '1 h', min: 60,    rarity: 'epic',      desc: 'Retire 1 heure à un chantier.' },
-  speed480: { name: 'Parchemin de l’architecte royal', short: '8 h', min: 480, rarity: 'legendary', desc: 'Retire 8 heures à un chantier. Très rare.' },
+  speed5:   { target: 'build', name: 'Sablier de l’apprenti',        short: '5 min', min: 5,   rarity: 'common',    desc: 'Retire 5 minutes à un chantier.' },
+  speed15:  { target: 'build', name: 'Sablier du maçon',             short: '15 min', min: 15, rarity: 'rare',      desc: 'Retire 15 minutes à un chantier.' },
+  speed60:  { target: 'build', name: 'Sceau du maître d’œuvre',       short: '1 h', min: 60,    rarity: 'epic',      desc: 'Retire 1 heure à un chantier.' },
+  speed480: { target: 'build', name: 'Parchemin de l’architecte royal', short: '8 h', min: 480, rarity: 'legendary', desc: 'Retire 8 heures à un chantier. Très rare.' },
+  // Passe-temps de recrutement : ils raccourcissent la formation en cours, sans créer de soldat
+  rspeed5:   { target: 'train', name: 'Sablier du sergent',            short: '5 min', min: 5,   rarity: 'common',    desc: 'Retire 5 minutes à une formation militaire.' },
+  rspeed15:  { target: 'train', name: 'Sablier du capitaine',          short: '15 min', min: 15, rarity: 'rare',      desc: 'Retire 15 minutes à une formation militaire.' },
+  rspeed60:  { target: 'train', name: 'Ordre du maréchal',             short: '1 h', min: 60,    rarity: 'epic',      desc: 'Retire 1 heure à une formation militaire.' },
+  rspeed480: { target: 'train', name: 'Décret royal de mobilisation',  short: '8 h', min: 480,   rarity: 'legendary', desc: 'Retire 8 heures à une formation militaire. Très rare.' },
 };
 export const SPEEDUP_ORDER = ['speed5', 'speed15', 'speed60', 'speed480'];
+export const RECRUIT_ORDER = ['rspeed5', 'rspeed15', 'rspeed60', 'rspeed480'];
+export const ORDER_OF = { build: SPEEDUP_ORDER, train: RECRUIT_ORDER };
+// Équivalent de recrutement d'un passe-temps de construction (et inversement)
+export const RECRUIT_OF = { speed5: 'rspeed5', speed15: 'rspeed15', speed60: 'rspeed60', speed480: 'rspeed480' };
 export const isSpeedup = (k) => !!SPEEDUPS[k];
 
 // En dessous de ce temps restant, un passe-temps est refusé (il serait gaspillé : le chantier finit tout seul)
@@ -38,4 +48,6 @@ export const COMBAT_SPEEDUPS = {
   rivalCapital: [0.6, 'speed15'],
   dungeonCleared: [1, 'speed60'],
   bossKill: { speed60: 2, rare: [0.25, 'speed480'] },
+  // Part des gains de combat versés en passe-temps de recrutement (même plafond quotidien)
+  recruitShare: 0.5,
 };

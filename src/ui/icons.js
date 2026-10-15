@@ -104,6 +104,11 @@ const GAME = {
   speed15: hourglass('#9aa3ad', '#f1dc9c'),
   speed60: `<circle cx="12" cy="12" r="9" fill="#c99a2e" ${S}/><circle cx="12" cy="12" r="6.2" fill="none" stroke="#7a5512" stroke-width="1.2"/><path d="M12 7.5v4.8l3 2" fill="none" stroke="#3a2416" stroke-width="1.8" stroke-linecap="round"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2" stroke="#7a5512" stroke-width="1.2"/>`,
   speed480: `<path d="M5 4h12a2 2 0 0 1 2 2v12H7a2 2 0 0 1-2-2Z" fill="#efe3c8" ${S}/><path d="M8 8h8M8 11h8M8 14h5" stroke="#8a6a3a" stroke-width="1.1"/><circle cx="16.5" cy="17.5" r="3.6" fill="#a8432f" ${S}/><path d="M16.5 15.6v2l1.3.9" fill="none" stroke="#f1dc9c" stroke-width="1.1" stroke-linecap="round"/>`,
+  // Passe-temps de recrutement : sablier à ruban écarlate (sergent, capitaine), ordre scellé du maréchal, décret royal
+  rspeed5: `${hourglass('#7a4a2a', '#e9cf8f')}<path d="M4 20l4-3M20 20l-4-3" stroke="#a8432f" stroke-width="2"/>`,
+  rspeed15: `${hourglass('#8a3a2f', '#f1dc9c')}<path d="M4 20l4-3M20 20l-4-3" stroke="#c99a2e" stroke-width="2"/>`,
+  rspeed60: `<path d="M5 3h14v14l-7 4-7-4Z" fill="#a8432f" ${S}/>${'<path d="M8 8l8 8M16 8l-8 8" stroke="#f1dc9c" stroke-width="1.8"/>'}<circle cx="12" cy="12" r="2.2" fill="#c99a2e" ${S}/>`,
+  rspeed480: `<path d="M5 4h12a2 2 0 0 1 2 2v12H7a2 2 0 0 1-2-2Z" fill="#efe3c8" ${S}/><path d="M8 8h8M8 11h8M8 14h5" stroke="#8a6a3a" stroke-width="1.1"/><path d="M13 21l3.5-6 3.5 6Z" fill="#c99a2e" ${S}/><circle cx="16.5" cy="15.5" r="3" fill="#a8432f" ${S}/>`,
 };
 
 const symbol = (id, body) => `<symbol id="${id}" viewBox="0 0 24 24">${body}</symbol>`;

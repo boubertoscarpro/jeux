@@ -71,4 +71,9 @@ export const COSMETICS = {
   deco_tower:    { type: 'deco', name: 'Tour des Anciens', icon: '🏯', cost: 0, exclusive: true },
   deco_caravan:  { type: 'deco', name: 'Caravane des Sept', icon: '🐫', cost: 0, exclusive: true },
   deco_bonfire:  { type: 'deco', name: 'Feu de joie', icon: '🔥', cost: 4 },
+  // Grands Projets du Royaume (prestige) : obtenues seulement en achevant le projet correspondant
+  deco_restored: { type: 'deco', name: 'Monument restauré', icon: '🏛️', cost: 0, exclusive: true },
+  deco_dynasty:  { type: 'deco', name: 'Statue dynastique', icon: '👑', cost: 0, exclusive: true },
+  deco_trophies: { type: 'deco', name: 'Salle des trophées', icon: '🏆', cost: 0, exclusive: true },
+  deco_triumph:  { type: 'deco', name: 'Arc de la victoire', icon: '🎌', cost: 0, exclusive: true },
 };

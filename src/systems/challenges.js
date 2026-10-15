@@ -106,7 +106,10 @@ function finish(state, failed, now) {
     if (r.title && !(state.meta.titles || []).includes(r.title)) { (state.meta.titles ||= []).push(r.title); granted.push(`titre « ${r.title} »`); }
     if (r.banner) { (state.meta.owned ||= {})[r.banner] = true; granted.push(MASTERY_BANNERS[r.banner].name.toLowerCase()); }
     // Passe-temps de palier (une seule fois par palier et par défi, comme les insignes)
-    const sp = grantSpeedups(state, CHALLENGE_SPEEDUPS[i], '', now, `challenge:${a.id}:${k}`);
+    const base = CHALLENGE_SPEEDUPS[i];
+    // Défis militaires (discipline, terres périlleuses) : passe-temps de recrutement
+    const items = ['discipline', 'peril'].includes(a.id) ? Object.fromEntries(Object.entries(base).map(([x, n]) => ['r' + x, n])) : base;
+    const sp = grantSpeedups(state, items, '', now, `challenge:${a.id}:${k}`);
     if (sp) granted.push(sp);
   }
   if (tier > (C.best[a.id] ?? -1)) C.best[a.id] = tier;

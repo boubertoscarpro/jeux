@@ -6,6 +6,7 @@ import { TERRAINS } from '../../data/world.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { thLevel, totalLevels } from '../../systems/city.js';
+import { eraOf } from '../../data/eras.js';
 import { armyPower } from '../../systems/army.js';
 import { armyTotals } from '../../systems/economy.js';
 import { revealedCount, territoryLimit } from '../../systems/world.js';
@@ -51,7 +52,7 @@ export default {
         <div class="form-row"><label>Nom du royaume</label><input id="k-name" value="${esc(s.meta.kingdomName)}" maxlength="28" aria-label="Nom du royaume"><button class="mini" data-action="rename">OK</button></div>
         ${s.meta.titles?.length ? `<div class="form-row"><label>Titre</label><select data-change="title" id="k-title"><option value="">— Aucun —</option>${s.meta.titles.map((t) => `<option ${s.meta.title === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
         <div class="stats-grid">
-          <div><span>Hôtel de ville</span><b>${thLevel(s)}</b></div><div><span>Niveaux de bâtiments</span><b>${totalLevels(s)}</b></div>
+          <div><span>Hôtel de ville</span><b>${thLevel(s)}</b></div><div><span>Ère</span><b>${eraOf(thLevel(s)).icon} ${esc(eraOf(thLevel(s)).name)}</b></div><div><span>Niveaux de bâtiments</span><b>${totalLevels(s)}</b></div>
           <div><span>Puissance militaire</span><b>${fmt(armyPower(armyTotals(s)))}</b></div><div><span>Héros</span><b>${s.heroes.length}</b></div>
           <div><span>Technologies</span><b>${Object.keys(s.techs).length}</b></div><div><span>Cases explorées</span><b>${fmt(revealedCount(s.world))}</b></div>
           <div><span>Victoires / défaites</span><b>${st.battlesWon} / ${st.battlesLost}</b></div><div><span>Raids repoussés</span><b>${st.raidsRepelled}</b></div>

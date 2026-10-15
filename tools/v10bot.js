@@ -23,7 +23,10 @@ import { previewBattle } from '../src/systems/combat.js';
 import { maxMarches } from '../src/systems/marches.js';
 import { isRevealed } from '../src/systems/world.js';
 import { applySpeedup, previewSpeedup } from '../src/systems/speedups.js';
-import { SPEEDUP_ORDER, SPEEDUPS } from '../src/data/speedups.js';
+import { SPEEDUP_ORDER, RECRUIT_ORDER, SPEEDUPS } from '../src/data/speedups.js';
+import { crownList, startCrown, claimCrown, crownRunning } from '../src/systems/crown.js';
+import { crownSlots } from '../src/data/crown.js';
+import { thLevel as thLvl } from '../src/systems/city.js';
 
 // Défi préféré selon le style de jeu (les autres sont tentés à tour de rôle ensuite)
 const CHALLENGE_PREF = { active: ['steadfast', 'peril', 'scarcity'], optimized: ['steadfast', 'scarcity', 'peril', 'lightHand'], economy: ['autarky', 'scarcity'], military: ['discipline', 'peril'], explorer: ['peril', 'steadfast'], casual: ['scarcity'] };
@@ -98,6 +101,20 @@ export function v10Bot(s, profileKey, t, bestTile, mods) {
     const k = SPEEDUP_ORDER.filter((x) => (s.inventory.consumables[x] || 0) > 0 && SPEEDUPS[x].min <= left * 2).pop();
     if (k) { if (applySpeedup(s, q.id, { item: k }, t).ok) st.speedUsed = (st.speedUsed || 0) + 1; }
     else if (profileKey === 'optimized' && (s.resources.gems || 0) > 60 && previewSpeedup(s, q.id, { gems: 'hour' }, t).ok) applySpeedup(s, q.id, { gems: 'hour' }, t);
+  }
+  // Passe-temps de recrutement : même règle, seulement sur la formation EN COURS de chaque bâtiment
+  for (const q of [...s.queues.train]) {
+    const left = (q.end - t) / 60000;
+    if (left < 8 || q.start > t) continue;
+    const k = RECRUIT_ORDER.filter((x) => (s.inventory.consumables[x] || 0) > 0 && SPEEDUPS[x].min <= left * 2).pop();
+    if (k && applySpeedup(s, q.id, { item: k }, t).ok) st.rspeedUsed = (st.rspeedUsed || 0) + 1;
+  }
+  // Grands Projets du Royaume : récupérer ce qui est fini ; lancer un projet seulement s'il laisse au moins la
+  // moitié de chaque stock (dépense facultative d'excédent, jamais au détriment des chantiers)
+  for (const i of crownList(s, t)) if (i.status === 'claimable' && claimCrown(s, i.id, t).ok) st.crown = (st.crown || 0) + 1;
+  if (!globalThis.__noCrown && crownRunning(s) < crownSlots(thLvl(s)) && rng.chance(0.3)) {
+    const c = crownList(s, t).find((i) => i.status === 'available' && Object.entries(i.cost).every(([r, v]) => (s.resources[r] || 0) >= 2 * v));
+    if (c) startCrown(s, c.id, t);
   }
   // Seigneurs de la Brèche : espionner, puis attaquer avec une armée à la mesure de la garnison (jamais écrasante :
   // le joueur voit le seuil de mérite dans la fenêtre d'attaque) si l'estimation annonce une victoire

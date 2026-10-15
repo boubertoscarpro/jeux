@@ -17,20 +17,24 @@ export const BUILDING_CATEGORIES = {
 };
 
 const N = (n) => () => n;
+import { thMilestoneEffects } from './eras.js';
+// Niveaux 21 à 25 des bâtiments emblématiques : les effets linéaires progressent à moitié (aucune victoire
+// automatique, aucune inflation) ; jusqu'au niveau 20, rien ne change.
+export const ext = (lvl) => Math.min(lvl, 20) + 0.5 * Math.max(0, lvl - 20);
 
 export const BUILDINGS = {
   townhall: {
-    name: 'Hôtel de ville', icon: '🏛️', cat: 'core', unique: true, maxLevel: 25,
+    name: 'Hôtel de ville', icon: '🏛️', cat: 'core', unique: true, maxLevel: 30,
     desc: 'Cœur du royaume. Son niveau limite celui des autres bâtiments et débloque de nouvelles constructions.',
     cost: { wood: 200, stone: 200, gold: 50 }, time: 30, prod: { gold: 30 },
-    effects: (lvl) => ({ storage: lvl * 250 }),
+    effects: (lvl) => ({ storage: lvl * 250, ...thMilestoneEffects(lvl) }),
     maxCount: N(1),
   },
   castle: {
-    name: 'Donjon', icon: '🏰', cat: 'core', unique: true, maxLevel: 20, req: { townhall: 3 },
+    name: 'Donjon', icon: '🏰', cat: 'core', unique: true, maxLevel: 25, req: { townhall: 3 },
     desc: 'Siège du pouvoir militaire. Augmente le nombre de marches simultanées et la défense de la ville.',
     cost: { wood: 400, stone: 600, iron: 100 }, time: 90,
-    effects: (lvl) => ({ 'city.def': lvl * 0.04, marches: Math.floor(lvl / 3) + 1, heroSlots: Math.floor(lvl / 4) }),
+    effects: (lvl) => ({ 'city.def': ext(lvl) * 0.04, marches: Math.floor(ext(lvl) / 3) + 1, heroSlots: Math.floor(ext(lvl) / 4) }),
     maxCount: N(1),
   },
 
@@ -202,26 +206,26 @@ export const BUILDINGS = {
     maxCount: (th) => 1 + Math.floor(th / 4),
   },
   barracks: {
-    name: 'Caserne', icon: '⚔️', cat: 'military', maxLevel: 20, req: { townhall: 2 },
+    name: 'Caserne', icon: '⚔️', cat: 'military', maxLevel: 25, req: { townhall: 2 },
     desc: 'Forme l’infanterie et les archers. Près du donjon ou de l’hôtel de ville (≤2 cases) : +10% vitesse et +3% défense.',
     cost: { wood: 150, stone: 100 }, time: 30,
-    effects: (lvl) => ({ 'train.speed': 0.04 * (lvl - 1) }),
+    effects: (lvl) => ({ 'train.speed': 0.04 * (ext(lvl) - 1) }),
     near: { targets: ['castle', 'townhall'], range: 2, effects: { 'train.speed': 0.1, 'city.def': 0.03 } },
     maxCount: N(1),
   },
   stable: {
-    name: 'Écurie', icon: '🐎', cat: 'military', maxLevel: 20, req: { townhall: 4 },
+    name: 'Écurie', icon: '🐎', cat: 'military', maxLevel: 25, req: { townhall: 4 },
     desc: 'Forme la cavalerie. +10% vitesse de formation près d’un élevage.',
     cost: { wood: 250, stone: 150, food: 200 }, time: 60,
-    effects: (lvl) => ({ 'train.speed': 0.03 * (lvl - 1) }),
+    effects: (lvl) => ({ 'train.speed': 0.03 * (ext(lvl) - 1) }),
     adjFx: { near: 'pasture', effects: { 'train.speed': 0.1 } },
     maxCount: N(1),
   },
   workshop: {
-    name: 'Atelier', icon: '🛠️', cat: 'military', maxLevel: 20, req: { townhall: 5 },
+    name: 'Atelier', icon: '🛠️', cat: 'military', maxLevel: 25, req: { townhall: 5 },
     desc: 'Construit les machines de siège et forme les ingénieurs.',
     cost: { wood: 400, stone: 200, iron: 150 }, time: 90,
-    effects: (lvl) => ({ 'train.speed': 0.03 * (lvl - 1) }),
+    effects: (lvl) => ({ 'train.speed': 0.03 * (ext(lvl) - 1) }),
     maxCount: N(1),
   },
   forge: {
@@ -237,10 +241,10 @@ export const BUILDINGS = {
     maxCount: N(1),
   },
   market: {
-    name: 'Marché', icon: '⚖️', cat: 'civic', maxLevel: 20, req: { townhall: 2 },
+    name: 'Marché', icon: '⚖️', cat: 'civic', maxLevel: 25, req: { townhall: 2 },
     desc: 'Achat/vente de ressources et caravanes. Chaque niveau réduit la taxe.',
     cost: { wood: 150, stone: 80, gold: 40 }, time: 30, prod: { gold: 10 },
-    effects: (lvl) => ({ 'market.fee': -0.005 * lvl, caravans: 1 + Math.floor(lvl / 4) }),
+    effects: (lvl) => ({ 'market.fee': -0.005 * ext(lvl), caravans: 1 + Math.floor(ext(lvl) / 4) }),
     maxCount: N(1),
   },
   tavern: {
@@ -251,10 +255,10 @@ export const BUILDINGS = {
     maxCount: N(1),
   },
   library: {
-    name: 'Bibliothèque', icon: '📚', cat: 'civic', maxLevel: 20, req: { townhall: 2 },
+    name: 'Bibliothèque', icon: '📚', cat: 'civic', maxLevel: 25, req: { townhall: 2 },
     desc: 'Permet la recherche. Chaque niveau accélère les recherches de 5%.',
     cost: { wood: 160, stone: 140, gold: 60 }, time: 35,
-    effects: (lvl) => ({ 'research.speed': 0.05 * lvl }),
+    effects: (lvl) => ({ 'research.speed': 0.05 * ext(lvl) }),
     maxCount: N(1),
   },
   watchtower: {
@@ -281,10 +285,10 @@ export const BUILDINGS = {
 
   // Fortifications (hors grille)
   wall: {
-    name: 'Muraille', icon: '🧱', cat: 'military', grid: false, unique: true, maxLevel: 20, req: { townhall: 2 },
+    name: 'Muraille', icon: '🧱', cat: 'military', grid: false, unique: true, maxLevel: 25, req: { townhall: 2 },
     desc: 'Bonus de défense des troupes en ville contre les raids.',
     cost: { stone: 300, wood: 100 }, time: 40,
-    effects: (lvl) => ({ 'wall.bonus': 0.08 * lvl }),
+    effects: (lvl) => ({ 'wall.bonus': 0.08 * ext(lvl) }),
     maxCount: N(1),
   },
   moat: {
@@ -321,24 +325,44 @@ export const COST_GROWTH = 1.55;
 export const TIME_GROWTH = 1.5;
 export const PROD_GROWTH = 1.16;
 
+// Au-delà du niveau 15, la croissance ralentit (×1,25 par niveau, puis ×1,15 au-delà de 25) et le coût se diversifie
+// (planches dès 16, cristaux dès 21) : sans cela, les niveaux 20+ dépasseraient la capacité de l'entrepôt.
+// Garantie testée : chaque coût reste sous 80 % du stockage d'un entrepôt du même niveau.
+export const LATE_COST_FROM = 15, LATE_COST_GROWTH = 1.25, LEGACY_COST_GROWTH = 1.15;
+export function costMult(level) {
+  const a = Math.min(level, LATE_COST_FROM) - 1;
+  const b = Math.max(0, Math.min(level, 25) - LATE_COST_FROM);
+  const c = Math.max(0, level - 25);
+  return Math.pow(COST_GROWTH, a) * Math.pow(LATE_COST_GROWTH, b) * Math.pow(LEGACY_COST_GROWTH, c);
+}
 export function buildingCost(type, level) {
   const def = BUILDINGS[type];
-  const mult = Math.pow(COST_GROWTH, level - 1);
+  const mult = costMult(level);
   const out = {};
   for (const [r, v] of Object.entries(def.cost)) out[r] = Math.ceil(v * mult);
   // Coûts avancés à partir du niveau 6/10 (pour pousser vers les chaînes de production)
   if (level >= 6 && def.cat !== 'unique') out.iron = (out.iron || 0) + Math.ceil(20 * Math.pow(1.45, level - 6));
   if (level >= 10 && def.cat !== 'unique') out.steel = (out.steel || 0) + Math.ceil(10 * Math.pow(1.4, level - 10));
   if (level >= 15 && def.cat !== 'unique') out.rareOre = (out.rareOre || 0) + Math.ceil(2 * Math.pow(1.35, level - 15));
+  if (level >= 16 && def.cat !== 'unique') out.planks = (out.planks || 0) + Math.ceil(60 * Math.pow(1.3, level - 16));
+  if (level >= 21 && def.cat !== 'unique') out.crystals = (out.crystals || 0) + Math.ceil(5 * Math.pow(1.3, level - 21));
   return out;
 }
 
 // Hôtel de ville : à partir du niveau 9, chaque niveau demande nettement plus de temps (×1,5 cumulés), pour que la
 // fin de partie et la fondation d'une dynastie (niveau 15) restent des objectifs de plusieurs semaines.
 export const TH_LATE_FROM = 9, TH_LATE_GROWTH = 1.5;
-export function buildingTime(type, level) {
+// Au-delà de 15, l'HdV gagne +30 % du temps du niveau 15 par niveau (≈ 4,4 j au niveau 20, 7 j au 25, 9,6 j au 30) ;
+// les autres bâtiments au-delà de 20 : ×1,15 par niveau, sans jamais dépasser 80 % de l'HdV du même niveau.
+export const TH_LINEAR_FROM = 15, TH_LINEAR_STEP = 0.3, LATE_TIME_FROM = 20, LATE_TIME_GROWTH = 1.15;
+function baseTime(type, level) {
   const late = type === 'townhall' && level >= TH_LATE_FROM ? Math.pow(TH_LATE_GROWTH, level - TH_LATE_FROM + 1) : 1;
   return BUILDINGS[type].time * Math.pow(TIME_GROWTH, level - 1) * 1000 * late;
+}
+export function buildingTime(type, level) {
+  if (type === 'townhall' && level > TH_LINEAR_FROM) return baseTime(type, TH_LINEAR_FROM) * (1 + TH_LINEAR_STEP * (level - TH_LINEAR_FROM));
+  if (type !== 'townhall' && level > LATE_TIME_FROM) return Math.min(baseTime(type, LATE_TIME_FROM) * Math.pow(LATE_TIME_GROWTH, level - LATE_TIME_FROM), 0.8 * buildingTime('townhall', level));
+  return baseTime(type, level);
 }
 
 export function levelProdFactor(level) {

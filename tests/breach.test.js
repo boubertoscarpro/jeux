@@ -161,11 +161,11 @@ test('Récompenses : passe-temps du palier 4 et bonus de premier palier versés 
   const p = fortAt(s, 16);
   const D = breachDefense(s, p, T0);
   const units = knights(armyPower(D.enemies) * (1 + D.fort) * 2.2);
-  const n480 = speedupCount(s, 'speed480'), n60 = speedupCount(s, 'speed60');
+  const n480 = speedupCount(s, 'speed480'), n60 = speedupCount(s, 'speed60') + speedupCount(s, 'rspeed60');
   attack(s, p, units, T0);
   assert.equal(p.breach.wins, 1, 'armée à la mesure du palier 4 : victoire');
   {
-    assert.ok(speedupCount(s, 'speed60') >= n60 + 1, 'sceau garanti au palier 4');
+    assert.ok(speedupCount(s, 'speed60') + speedupCount(s, 'rspeed60') >= n60 + 1, 'sceau (chantier ou recrutement) garanti au palier 4');
     assert.ok(speedupCount(s, 'speed480') >= n480 + 1, 'parchemin du premier palier 4');
     const after = speedupCount(s, 'speed480');
     p.clearedUntil = 0; p.breach.level = 16;

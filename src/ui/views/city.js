@@ -11,9 +11,10 @@ import { buildingRates, netRates, storageCap, protectedAmount, recipeOf, roadCon
 import { repairBuilding, repairCost } from '../../systems/automation.js';
 import { nextDomainStep, expandDomain, DOMAIN_GROW } from '../../systems/domain.js';
 import { WORK_SECTORS } from '../../data/workers.js';
-import { allBuildings, buildingAt, terrainAt, adjacencyBonus, placementCheck, thLevel, proximityEffects } from '../../systems/city.js';
+import { allBuildings, buildingAt, terrainAt, adjacencyBonus, placementCheck, thLevel, levelOf, proximityEffects } from '../../systems/city.js';
 import { startBuild, startUpgrade, startClear, buildRequirement, getUpgradeInfo, moveBuilding, demolish, moveCost, CLEAR_COST, placeDeco, planConstruction, upgradeCheck, upgradeSummary } from '../../systems/construction.js';
 import { castleName } from '../../systems/identity.js';
+import { ERAS, eraOf, TH_MILESTONES, thRequirements } from '../../data/eras.js';
 import { ensureArtDefs, buildingSvg, buildingIcon, terrainSvg, plainVariant, roadSvg, upIcon } from '../art.js';
 import { openUpgradeList, openRenameCastle } from '../upgrades.js';
 
@@ -197,13 +198,14 @@ function buildingPanel(app, b, mods) {
     ${b.type === 'townhall' ? `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle" title="Renommer le château principal">✎ Renommer</button></div><div class="small muted">Château principal de ${esc(s.meta.kingdomName)}</div>` : ''}</div></div>
     <p class="muted">${esc(def.desc)}</p>
     ${b.type === 'monument' ? monumentBlock(s, b) : ''}
+    ${b.type === 'townhall' ? eraBlock(s, b) : ''}
     ${b.damaged ? `<div class="panel-sub damaged"><b>🔥 Endommagé</b> : production réduite de moitié. ${costList(repairCost(b, mods), s)} <button class="mini primary" data-action="repair" data-id="${b.id}">Réparer</button></div>` : ''}
     ${def.recipes && b.level > 0 ? `<div class="panel-sub"><h4>Recette</h4><select data-change="recipe" data-id="${b.id}">${def.recipes.map((r, i) => `<option value="${i}" ${(b.recipe || 0) === i ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : ''}
     ${b.level > 0 && sectorOfBuilding(b.type) && s.workers?.length ? `<div class="small muted">👷 Secteur ${esc(WORK_SECTORS[sectorOfBuilding(b.type)].name)} : ${s.workers.filter((w) => w.job?.sector === sectorOfBuilding(b.type)).length} ouvrier(s) (+${Math.round((mods['work.' + sectorOfBuilding(b.type)] || 0) * 100)}%)</div>` : ''}
     ${b.level > 0 && b.type !== 'road' ? `<div class="small ${roadConnected(s).has(b.id) ? 'ok' : 'muted'}">${roadConnected(s).has(b.id) ? '✔ Relié au réseau de routes (+5%)' : '🟫 Non relié aux routes : une route pavée jusqu’à l’hôtel de ville donne +5%'}</div>` : ''}
     ${q ? `<div class="panel-sub"><b>${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours</b> → niv. ${q.level} · ${countdown(q.end)}${progress(q.start, q.end)}${speedupLine(s, q)}</div>` : ''}
     ${b.level > 0 ? prodBlock(s, b, mods) : ''}
-    ${effects ? `<div class="panel-sub"><h4>Effets</h4>${Object.entries(effects).map(([k, v]) => `<div class="small">${esc(effectName(k))} : <b>${k === 'storage' || k === 'marches' || k === 'heroSlots' || k === 'vision' || k === 'caravans' ? fmt(v) : pct(v)}</b></div>`).join('')}
+    ${effects ? `<div class="panel-sub"><h4>Effets</h4>${Object.entries(effects).map(([k, v]) => `<div class="small">${esc(effectName(k))} : <b>${fmtEffect(k, v)}</b></div>`).join('')}
       ${Object.keys(prox).length ? `<div class="small ok">✔ Bonus de proximité : ${Object.entries(prox).map(([k, v]) => `${esc(effectName(k))} ${pct(v)}`).join(', ')}</div>` : def.near || def.adjFx ? '<div class="small off">✗ Bonus de proximité inactif</div>' : ''}</div>` : ''}
     ${info && !q ? upgradeBlock(app, b, def, next, info, mods) : ''}
     ${!info ? '<div class="panel-sub">Niveau maximum atteint.</div>' : ''}
@@ -255,9 +257,21 @@ function upgradeBlock(app, b, def, next, info, mods) {
     ${u.status === 'locked' && /Hôtel de ville/.test(u.reasons[0] || '') ? '<div class="small muted">Améliorez d’abord l’hôtel de ville : son niveau limite celui des autres bâtiments.</div>' : ''}
     ${btn}</div>`;
 }
-const fmtEffect = (k, v) => (['storage', 'marches', 'heroSlots', 'vision', 'caravans'].includes(k) ? fmt(v) : pct(v));
+const fmtEffect = (k, v) => (['storage', 'marches', 'heroSlots', 'vision', 'caravans', 'buildQueue', 'territories'].includes(k) ? fmt(v) : pct(v));
 
-const EFFECT_NAMES = { storage: 'Capacité de stockage', 'city.def': 'Défense de la ville', marches: 'Marches simultanées', heroSlots: 'Places de héros', 'train.speed': 'Vitesse de formation', 'research.speed': 'Vitesse de recherche', 'market.fee': 'Taxe du marché', caravans: 'Caravanes', 'wall.bonus': 'Bonus de muraille', vision: 'Vision', protect: 'Ressources protégées', 'prod.all': 'Toute production', 'explore.speed': 'Vitesse d’exploration', 'loot.rare': 'Butin rare', 'caravan.speed': 'Vitesse des caravanes' };
+// Hôtel de ville : ère actuelle, prochains paliers et prérequis du niveau suivant (affichés avant d'investir)
+function eraBlock(s, b) {
+  const era = eraOf(b.level);
+  const nextMs = Object.entries(TH_MILESTONES).filter(([l]) => +l > b.level).slice(0, 2);
+  const reqs = b.level < BUILDINGS.townhall.maxLevel ? thRequirements(b.level + 1) : [];
+  return `<div class="panel-sub era-block"><h4>${era.icon} ${esc(era.name)} <span class="muted small">(HdV ${era.from}–${era.to})</span></h4>
+    <div class="era-track">${ERAS.map((e) => `<span class="${e === era ? 'cur' : b.level > e.to ? 'done' : ''}" title="${esc(e.name)} (HdV ${e.from}–${e.to})">${e.icon}</span>`).join('')}</div>
+    <div class="small muted">${esc(era.desc)}</div>
+    ${nextMs.length ? `<div class="small">Prochains paliers : ${nextMs.map(([l, m]) => `<b>HdV ${l}</b> — ${esc(m.text)}`).join(' · ')}</div>` : '<div class="small ok">Tous les paliers sont atteints.</div>'}
+    ${reqs.length ? `<div class="small">Prérequis du niveau ${b.level + 1} : ${reqs.map((r) => { const ok = levelOf(s, r.type) >= r.level; return `<span class="${ok ? 'ok' : 'req'}">${ok ? '✔' : '✗'} ${esc(BUILDINGS[r.type].name)} niv. ${r.level}</span>`; }).join(' ')}</div>` : ''}</div>`;
+}
+
+const EFFECT_NAMES = { buildQueue: 'Files de construction en plus', territories: 'Avant-postes en plus', storage: 'Capacité de stockage', 'storage.pct': 'Stockage', 'city.def': 'Défense de la ville', marches: 'Marches simultanées', heroSlots: 'Places de héros', 'train.speed': 'Vitesse de formation', 'research.speed': 'Vitesse de recherche', 'market.fee': 'Taxe du marché', caravans: 'Caravanes', 'wall.bonus': 'Bonus de muraille', vision: 'Vision', protect: 'Ressources protégées', 'prod.all': 'Toute production', 'explore.speed': 'Vitesse d’exploration', 'loot.rare': 'Butin rare', 'caravan.speed': 'Vitesse des caravanes' };
 const effectName = (k) => EFFECT_NAMES[k] || k;
 
 function fortPanel(app, mods) {

@@ -15,6 +15,8 @@ import { LIVE_EVENTS } from '../src/data/liveEvents.js';
 import { grantReward } from '../src/systems/rewards.js';
 
 const T0 = Date.UTC(2026, 6, 1, 8);
+// Les gains de combat peuvent être versés en passe-temps de chantier OU de recrutement (même durée)
+const both = (s, k) => speedupCount(s, k) + speedupCount(s, 'r' + k);
 const MIN = 60000, H = 3600000;
 const th = (s) => Object.values(s.city.buildings).find((b) => b.type === 'townhall');
 const rich = (s) => { for (const r of Object.keys(s.resources)) s.resources[r] = 500000; };
@@ -30,13 +32,13 @@ function longJob(seed = 'sp') {
 
 test('1. Combat éligible : un passe-temps est gagné ; 3. une cible trop faible ou une défaite ne donnent rien', () => {
   const s = createNewState({ seed: 'c1', now: T0 });
-  const before = speedupCount(s, 'speed15');
+  const before = both(s, 'speed15');
   const ok = rollCombatSpeedup(s, { win: true, merit: 0.8, table: [1, 'speed15'], source: 'test' }, T0);
-  assert.deepEqual(ok.items, { speed15: 1 });
-  assert.equal(speedupCount(s, 'speed15'), before + 1);
+  assert.equal((ok.items.speed15 || 0) + (ok.items.rspeed15 || 0), 1);
+  assert.equal(both(s, 'speed15'), before + 1);
   assert.equal(rollCombatSpeedup(s, { win: true, merit: 0.1, table: [1, 'speed15'] }, T0).reason, 'cible trop faible pour votre armée');
   assert.equal(rollCombatSpeedup(s, { win: false, merit: 2, table: [1, 'speed15'] }, T0).reason, 'défaite');
-  assert.equal(speedupCount(s, 'speed15'), before + 1);
+  assert.equal(both(s, 'speed15'), before + 1);
   // Plafond quotidien : au-delà, plus rien jusqu'au lendemain ; reculer l'horloge ne le rouvre pas
   for (let i = 0; i < 20; i++) rollCombatSpeedup(s, { win: true, merit: 1, table: [1, 'speed5'] }, T0);
   assert.equal(speedupState(s).combatToday, COMBAT_SPEEDUPS.dailyCap);
@@ -56,10 +58,10 @@ test('1 bis. Attaque réelle sur la carte : victoire méritée → passe-temps, 
       s.army = { knight: n };
       const r = sendMarch(s, { type: 'attack', x: p.x, y: p.y, units: { knight: n } }, T0);
       assert.ok(r.ok, r.reason);
-      const before = speedupCount(s, 'speed15');
+      const before = both(s, 'speed15');
       const merit = armyPower(p.enemies) / armyPower({ knight: n });
       advance(s, T0 + 6 * H);
-      return { gained: speedupCount(s, 'speed15') - before, merit, won: s.stats.battlesWon };
+      return { gained: both(s, 'speed15') - before, merit, won: s.stats.battlesWon };
     };
     const fair = run(12);
     assert.equal(fair.won, 1);
@@ -78,15 +80,17 @@ test('2. Objectif d’événement : passe-temps affichés et versés une seule f
   startEvent(s, key, T0);
   const cur = liveState(s).current;
   const o = LIVE_EVENTS[key].objectives[0];
-  assert.deepEqual(o.reward.speedups, { speed15: 2 });
+  // Premier objectif : deux sabliers de 15 min (de recrutement si l'objectif est militaire, comme « vaincre des camps »)
+  const [[k, n]] = Object.entries(o.reward.speedups);
+  assert.ok(['speed15', 'rspeed15'].includes(k) && n === 2);
   cur.stats[o.stat] = o.target;
-  const before = speedupCount(s, 'speed15');
+  const before = speedupCount(s, k);
   const r = claimObjective(s, o.id, T0);
   assert.ok(r.ok);
   assert.match(r.text, /15 min/);
-  assert.equal(speedupCount(s, 'speed15'), before + 2);
+  assert.equal(speedupCount(s, k), before + 2);
   assert.equal(claimObjective(s, o.id, T0).ok, false);
-  assert.equal(speedupCount(s, 'speed15'), before + 2);
+  assert.equal(speedupCount(s, k), before + 2);
 });
 
 test('4 et 5. Un passe-temps réduit exactement le temps restant d’un chantier en cours', () => {
