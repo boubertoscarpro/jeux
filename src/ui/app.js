@@ -161,6 +161,11 @@ export class App {
   save(manual = false) {
     if (!this.state) return false;
     const r = saveGame(this.state);
+    // Records des scénarios : copiés hors de la sauvegarde pour survivre à une nouvelle partie
+    try {
+      const rec = this.state.meta.scenarioRecords;
+      if (rec && Object.keys(rec).length) { const old = JSON.parse(localStorage.getItem('cendrelande_records') || '{}') || {}; for (const [k, v] of Object.entries(rec)) if (!(old[k] <= v)) old[k] = v; localStorage.setItem('cendrelande_records', JSON.stringify(old)); }
+    } catch { /* stockage indisponible : les records restent dans la sauvegarde */ }
     if (!r.ok) {
       // Message affiché une fois toutes les 5 minutes au plus (pas de spam toutes les 15 s)
       if (manual || Date.now() - (this._saveErrAt || 0) > 300000) { this.toast(`💾 ${r.error}`, 'bad'); this._saveErrAt = Date.now(); }

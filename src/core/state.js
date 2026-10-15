@@ -77,7 +77,7 @@ export function extendCity(state, nw, nh, rand, rubbleP = 0) {
   return true;
 }
 
-export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdomName = 'Cendrelande', lordName = 'Seigneur', now = Date.now(), kingdomType = null, origin = 'none', difficulty = 'classic' } = {}) {
+export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdomName = 'Cendrelande', lordName = 'Seigneur', now = Date.now(), kingdomType = null, origin = 'none', difficulty = 'classic', scenario = 'none' } = {}) {
   if (typeof seed === 'string') seed = hashString(seed);
   const resources = Object.fromEntries(Object.keys(RESOURCES).map((r) => [r, 0]));
   Object.assign(resources, { wood: 600, stone: 450, iron: 150, food: 500, gold: 250, grain: 50, herbs: 10 });
@@ -196,7 +196,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
   state.heroes.push(createHero({ cls: 'general', rarity: 'rare', rand: r, name: 'Aldric le Hardi' }));
   state.army = { spearman: 10, archer: 6, scout: 2 };
 
-  applyKingdomChoice(state, { type: kingdomType, origin, difficulty }, now);
+  applyKingdomChoice(state, { type: kingdomType, origin, difficulty, scenario }, now);
 
   state.log.push({ t: now, type: 'story', text: `Vous prenez possession du hameau de ${kingdomName}. Les décombres de la Fracture encombrent encore les rues…` });
   return state;

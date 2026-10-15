@@ -1,3 +1,4 @@
+import { SCENARIOS } from '../data/scenarios.js';
 import { sanitizeName, KINGDOM_NAME_MAX } from '../systems/identity.js';
 // Écran de création : nom, spécialisation (8 cartes comparables), origine et difficulté optionnelles, confirmation.
 // Affiché uniquement pour une nouvelle partie (aucune sauvegarde) ou après « Nouvelle partie » explicite.
@@ -54,7 +55,11 @@ function optRadio(name, list, cur) {
 export function creationScreen(onStart, prev = {}) {
   const root = document.getElementById('modal-root');
   root.classList.add('open');
-  const st = { name: prev.name || 'Cendrelande', seed: prev.seed || '', type: prev.type || null, origin: 'none', difficulty: 'classic', step: 'pick' };
+  const st = { name: prev.name || 'Cendrelande', seed: prev.seed || '', type: prev.type || null, origin: 'none', difficulty: 'classic', scenario: 'none', step: 'pick' };
+  // Records des scénarios (meilleur temps), conservés dans le navigateur d'une partie à l'autre
+  let records = {};
+  try { records = JSON.parse(localStorage.getItem('cendrelande_records') || '{}') || {}; } catch { records = {}; }
+  const scenOpts = Object.fromEntries(Object.entries(SCENARIOS).map(([k, sc]) => [k, { icon: sc.icon, name: sc.name, text: `${sc.desc} ${sc.rules}${sc.objectives.length ? ` Objectifs : ${sc.objectives.map((o) => o.label.toLowerCase()).join(', ')}.` : ''}${records[k] ? ` Record : ${records[k]} h.` : ''}` }]));
 
   const render = () => {
     const k = st.type && KINGDOM_TYPES[st.type];
@@ -63,14 +68,14 @@ export function creationScreen(onStart, prev = {}) {
       root.innerHTML = `<div class="modal-backdrop"></div><div class="modal creation confirm" role="dialog" aria-label="Confirmation">
         <h2>Fonder ${esc(st.name)} ?</h2>
         ${detailHtml(k)}
-        <p class="small"><b>Origine :</b> ${o.icon} ${esc(o.name)} — ${esc(o.text)}<br><b>Difficulté :</b> ${d.icon} ${esc(d.name)} — ${esc(d.text)}</p>
+        <p class="small"><b>Origine :</b> ${o.icon} ${esc(o.name)} — ${esc(o.text)}<br><b>Difficulté :</b> ${d.icon} ${esc(d.name)} — ${esc(d.text)}${st.scenario !== 'none' ? `<br><b>Scénario :</b> ${SCENARIOS[st.scenario].icon} ${esc(SCENARIOS[st.scenario].name)} — ${esc(SCENARIOS[st.scenario].rules)}` : ''}</p>
         <p class="small warn-text">⚠️ La spécialisation est définitive pour cette partie. Pour en essayer une autre, il faudra commencer une nouvelle partie (Royaume → Nouvelle partie).</p>
         <div class="row gap wrap center"><button class="btn ghost" id="intro-back">← Revenir aux choix</button><button class="btn primary big" id="intro-start">${k.icon} Prendre possession du hameau</button></div>
       </div>`;
       root.querySelector('#intro-back').onclick = () => { st.step = 'pick'; render(); };
       root.querySelector('#intro-start').onclick = () => {
         root.classList.remove('open'); root.innerHTML = '';
-        onStart(createNewState({ kingdomName: st.name, seed: st.seed || undefined, kingdomType: st.type, origin: st.origin, difficulty: st.difficulty }));
+        onStart(createNewState({ kingdomName: st.name, seed: st.seed || undefined, kingdomType: st.type, origin: st.origin, difficulty: st.difficulty, scenario: st.scenario }));
       };
       return;
     }
@@ -89,9 +94,10 @@ export function creationScreen(onStart, prev = {}) {
       <div class="kt-grid">${Object.entries(KINGDOM_TYPES).map(([key, t]) => card(key, t, key === st.type)).join('')}</div>
       <div id="kt-detail-box">${k ? detailHtml(k) : '<p class="muted small center">Sélectionnez une carte pour voir le détail complet.</p>'}</div>
       <details class="kt-options" ${st.optsOpen ? 'open' : ''}>
-        <summary><b>2. Options (facultatif)</b> : origine et difficulté — ${ORIGINS[st.origin].icon} ${esc(ORIGINS[st.origin].name)} · ${DIFFICULTIES[st.difficulty].icon} ${esc(DIFFICULTIES[st.difficulty].name)}</summary>
+        <summary><b>2. Options (facultatif)</b> : origine, difficulté et scénario — ${SCENARIOS[st.scenario].icon !== '·' ? SCENARIOS[st.scenario].icon + ' ' : ''}${ORIGINS[st.origin].icon} ${esc(ORIGINS[st.origin].name)} · ${DIFFICULTIES[st.difficulty].icon} ${esc(DIFFICULTIES[st.difficulty].name)}</summary>
         <h4>Origine</h4><div class="kt-opts">${optRadio('kt-origin', ORIGINS, st.origin)}</div>
         <h4>Difficulté</h4><div class="kt-opts">${optRadio('kt-diff', DIFFICULTIES, st.difficulty)}</div>
+        <h4>Scénario</h4><p class="small muted">Des conditions de départ et des règles différentes, avec leurs propres objectifs et un record à battre. La campagne reste la même.</p><div class="kt-opts">${optRadio('kt-scen', scenOpts, st.scenario)}</div>
       </details>
       ${supportHtml()}
       <div class="creation-foot"><button class="btn primary big" id="intro-review" ${k ? '' : 'disabled'}>${k ? `Continuer avec ${k.icon} ${esc(k.name)} →` : 'Choisissez une spécialisation'}</button></div>
@@ -100,6 +106,7 @@ export function creationScreen(onStart, prev = {}) {
     root.querySelectorAll('[data-kt]').forEach((b) => { b.onclick = () => { keep(); st.type = b.dataset.kt; render(); root.querySelector('#kt-detail-box')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }; });
     root.querySelectorAll('input[name="kt-origin"]').forEach((i) => { i.onchange = () => { keep(); st.origin = i.value; render(); }; });
     root.querySelectorAll('input[name="kt-diff"]').forEach((i) => { i.onchange = () => { keep(); st.difficulty = i.value; render(); }; });
+    root.querySelectorAll('input[name="kt-scen"]').forEach((i) => { i.onchange = () => { keep(); st.scenario = i.value; render(); }; });
     const det = root.querySelector('.kt-options');
     det.ontoggle = () => { st.optsOpen = det.open; };
     root.querySelector('#intro-review').onclick = () => { keep(); if (st.type) { st.step = 'confirm'; render(); } };

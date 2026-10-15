@@ -1,4 +1,5 @@
 // Spécialisation du royaume : définition, modificateurs, coûts et pack de départ.
+import { applyScenario, scenarioMods } from './scenarios.js';
 import { KINGDOM_TYPES, LEGACY_KINGDOM, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
 
 export const kingdomDef = (state) => KINGDOM_TYPES[state?.kingdom?.type] || LEGACY_KINGDOM;
@@ -8,7 +9,7 @@ export const difficultyDef = (state) => DIFFICULTIES[state?.kingdom?.difficulty]
 // Modificateurs permanents : type + origine + difficulté (additionnés aux autres sources dans computeMods)
 export function kingdomMods(state) {
   const m = {};
-  for (const src of [kingdomDef(state).mods, originDef(state).mods, difficultyDef(state).mods]) {
+  for (const src of [kingdomDef(state).mods, originDef(state).mods, difficultyDef(state).mods, scenarioMods(state)]) {
     for (const [k, v] of Object.entries(src || {})) m[k] = (m[k] || 0) + v;
   }
   return m;
@@ -56,7 +57,7 @@ function applyStart(state, start) {
 }
 
 // Choix à la création : enregistré dans state.kingdom, impossible à changer en cours de partie.
-export function applyKingdomChoice(state, { type, origin = 'none', difficulty = 'classic' } = {}, now = Date.now()) {
+export function applyKingdomChoice(state, { type, origin = 'none', difficulty = 'classic', scenario = 'none' } = {}, now = Date.now()) {
   if (!KINGDOM_TYPES[type]) type = null;
   if (!ORIGINS[origin]) origin = 'none';
   if (!DIFFICULTIES[difficulty]) difficulty = 'classic';
@@ -70,5 +71,6 @@ export function applyKingdomChoice(state, { type, origin = 'none', difficulty = 
   state.meta.advice = diff.advice;
   if (!diff.tips) state.meta.tipsOff = true;
   if (type) state.meta.banner = KINGDOM_TYPES[type].color;
+  applyScenario(state, scenario, now, applyStart);
   return state;
 }

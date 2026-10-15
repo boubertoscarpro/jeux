@@ -192,3 +192,45 @@ test('Codex : les entrées s’ouvrent avec ce que le royaume a construit, form�
   codexTick(s, T0 + 2);
   assert.ok(C.seen.enemy.troll);
 });
+
+// ───────── Scénarios ─────────
+import { scenarioTick, scenarioObjectives, scenarioMods } from '../src/systems/scenarios.js';
+import { SCENARIOS } from '../src/data/scenarios.js';
+
+test('Scénarios : conditions de départ et règles appliquées, partie libre par défaut', () => {
+  const free = createNewState({ seed: 'sc', now: T0 });
+  assert.equal(free.scenario.id, 'none');
+  const fr = createNewState({ seed: 'sc', now: T0, scenario: 'frontier' });
+  assert.equal(fr.city.fort.wall, 1);
+  assert.ok(fr.army.spearman >= 40);
+  assert.ok((computeMods(fr, T0)['city.def'] || 0) >= (computeMods(free, T0)['city.def'] || 0) + 0.1 - 1e-9);
+  assert.ok(Object.values(fr.world.pois).some((p) => p.type === 'kingdom' && p.anger >= 4));
+  const iso = createNewState({ seed: 'sc', now: T0, scenario: 'isolated' });
+  assert.ok(iso.resources.wood < free.resources.wood);
+  assert.ok(Object.values(iso.world.pois).filter((p) => p.type === 'crystalNode').length >= Object.values(free.world.pois).filter((p) => p.type === 'crystalNode').length + 1);
+  const me = createNewState({ seed: 'sc', now: T0, scenario: 'merchant' });
+  assert.ok(me.factions.every((f, i) => f.relation <= free.factions[i].relation - 19));
+});
+
+test('Scénarios : objectifs acquis, record et récompense versés une seule fois ; échec si guerre en « moissons »', () => {
+  const s = createNewState({ seed: 'sc2', now: T0, scenario: 'merchant' });
+  s.stats.caravans = 30; s.stats.contracts = 12;
+  s.factions[0].stance = 'trade'; s.factions[1].stance = 'alliance';
+  Object.values(s.world.pois).find((p) => p.type === 'town').rank = 2;
+  const ins = s.meta.insignia;
+  scenarioTick(s, T0 + 50 * H);
+  assert.ok(s.scenario.completedAt);
+  assert.equal(s.meta.scenarioRecords.merchant, 50);
+  assert.equal(s.meta.insignia, ins + SCENARIOS.merchant.reward.insignia);
+  scenarioTick(s, T0 + 60 * H);
+  assert.equal(s.meta.insignia, ins + SCENARIOS.merchant.reward.insignia, 'pas de double récompense');
+  assert.ok(scenarioObjectives(s).every((o) => o.done));
+  const p = createNewState({ seed: 'sc3', now: T0, scenario: 'poor' });
+  scenarioTick(p, T0 + H);
+  p.stats.wars = (p.stats.wars || 0) + 1;
+  scenarioTick(p, T0 + 2 * H);
+  assert.ok(p.scenario.failed);
+  assert.deepEqual(scenarioMods(p), {}, 'les règles du scénario cessent');
+  const back = deserialize(serialize(p));
+  assert.equal(back.scenario.id, 'poor');
+});

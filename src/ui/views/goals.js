@@ -1,3 +1,4 @@
+import { scenarioDef, scenarioObjectives } from '../../systems/scenarios.js';
 import { fmt } from '../../core/util.js';
 import { strategicSummary } from '../../systems/dashboard.js';
 import { RESOURCES } from '../../data/resources.js';
@@ -129,6 +130,19 @@ function chapterHeader(s, o) {
   </div>`;
 }
 
+// Scénario en cours : règles, objectifs, record
+function scenarioCard(s) {
+  const def = scenarioDef(s), S = s.scenario;
+  if (!S || S.id === 'none' || !def.objectives.length) return '';
+  const obj = scenarioObjectives(s);
+  const rec = s.meta.scenarioRecords?.[S.id];
+  const hours = Math.round((((S.completedAt || Date.now()) - S.started) / 3600000) * 10) / 10;
+  return `<div class="card scenario-card"><div class="row between wrap"><h2>${def.icon} Scénario : ${esc(def.name)}</h2><span class="small ${S.failed ? 'bad' : S.completedAt ? 'ok' : 'muted'}">${S.failed ? 'Échoué' : S.completedAt ? `Accompli en ${hours} h` : `En cours depuis ${hours} h`}${rec ? ` · record ${rec} h` : ''}</span></div>
+    <p class="small muted">${esc(def.rules)}</p>
+    ${obj.map((x) => `<div class="objective ${x.done ? 'done' : ''}"><div class="q-top"><b>${x.done ? '✔' : '·'} ${esc(x.label)}</b><span>${x.cur}/${x.target}</span></div>${bar(x.cur, x.target, x.done ? 'good' : '')}</div>`).join('')}
+    ${def.reward ? `<div class="small">🎁 À la fin : ${def.reward.insignia} insignes et le titre « ${esc(def.reward.title)} » ; votre temps devient un record à battre.</div>` : ''}</div>`;
+}
+
 export default {
   id: 'goals', title: 'Objectifs', icon: '🎯',
   badge: (app) => objectivesBadge(app.state) + questlinesBadge(app.state) + (() => { try { return missionList(app.state).filter((m) => m.done).length; } catch { return 0; } })(),
@@ -167,7 +181,7 @@ export default {
       const claim = { daily: 'claim-royal', event: 'claim-event-daily' }[cat] || 'claim-quest';
       body = `<p class="small muted">${sub}</p><div class="goal-grid">${list.map((m) => mission(m, claim)).join('') || '<p class="muted small">Rien dans cette catégorie pour l’instant.</p>'}</div>`;
     }
-    return `${dashboard(s, o)}${chapterHeader(s, o)}
+    return `${dashboard(s, o)}${scenarioCard(s)}${chapterHeader(s, o)}
       <div class="card"><div class="tabs wrap">${CATS.map(([k, l]) => `<button class="tab ${cat === k ? 'active' : ''}" data-action="goal-cat" data-k="${k}">${l}${count[k] ? ` <span class="muted">${count[k]}</span>` : ''}${ready(k) ? ` <span class="sub-badge">${ready(k)}</span>` : ''}</button>`).join('')}</div>
       ${body}</div>
       <div class="card"><h3>🧙‍♂️ Conseiller et tutoriel</h3>
