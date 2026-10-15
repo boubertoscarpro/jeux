@@ -112,7 +112,7 @@ export function v10Bot(s, profileKey, t, bestTile, mods) {
   // Grands Projets du Royaume : récupérer ce qui est fini ; lancer un projet seulement s'il laisse au moins la
   // moitié de chaque stock (dépense facultative d'excédent, jamais au détriment des chantiers)
   for (const i of crownList(s, t)) if (i.status === 'claimable' && claimCrown(s, i.id, t).ok) st.crown = (st.crown || 0) + 1;
-  if (crownRunning(s) < crownSlots(thLvl(s)) && rng.chance(0.3)) {
+  if (!globalThis.__noCrown && crownRunning(s) < crownSlots(thLvl(s)) && rng.chance(0.3)) {
     const c = crownList(s, t).find((i) => i.status === 'available' && Object.entries(i.cost).every(([r, v]) => (s.resources[r] || 0) >= 2 * v));
     if (c) startCrown(s, c.id, t);
   }
