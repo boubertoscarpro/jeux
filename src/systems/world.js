@@ -1,3 +1,4 @@
+import { regenMult } from './worldmarks.js';
 import { CHAR_TO_TERRAIN, POI_TYPES, SECONDS_PER_TILE, TERRAINS, EVENT_REACH } from '../data/world.js';
 import { UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
@@ -95,7 +96,7 @@ export function worldUpkeep(state, dtSec, now, mods = null) {
     if (def.kind === 'gather') {
       // Épuisement des sols : un site surexploité se régénère moins vite ; la jachère le restaure
       const ex = poi.exhaust || 0;
-      if (poi.amount < poi.max && !poi.depleting) poi.amount = Math.min(poi.max, poi.amount + (def.regen * dtSec * (1 + (mods?.['node.regen'] || 0))) / 3600 / (1 + ex));
+      if (poi.amount < poi.max && !poi.depleting) poi.amount = Math.min(poi.max, poi.amount + (def.regen * dtSec * (1 + (mods?.['node.regen'] || 0)) * regenMult(state, poi, now)) / 3600 / (1 + ex));
       if (ex > 0) poi.exhaust = Math.max(0, ex - (dtSec / 3600) * 0.08);
     }
     if (def.kind === 'danger' && poi.clearedUntil && poi.clearedUntil <= now) {

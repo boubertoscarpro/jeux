@@ -1,3 +1,4 @@
+import { townRankMult } from './worldmarks.js';
 import { recordLoss } from './losses.js';
 import { RESOURCES, TRADABLE, isCapped } from '../data/resources.js';
 import { WORLD_EVENTS } from '../data/events.js';
@@ -125,7 +126,7 @@ export function townPrice(state, town, r, mods, now = Date.now()) {
   const base = (RESOURCES[r].price || 0) * eventMult(state, r, now);
   const wanted = town.wants?.includes(r) ? 1.5 : 1.12;
   const sat = Math.max(0.5, 1 - (town.sat?.[r] || 0));
-  return base * wanted * sat * (1 + (mods['caravan.gain'] || 0) + Math.min(0.2, (town.relation || 0) * 0.01));
+  return base * wanted * sat * townRankMult(town) * (1 + (mods['caravan.gain'] || 0) + Math.min(0.2, (town.relation || 0) * 0.01));
 }
 
 export function caravanTime(state, town, mods) {

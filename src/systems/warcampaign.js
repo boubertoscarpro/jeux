@@ -3,6 +3,7 @@
 // (la faction perd des territoires et des troupes, défenses suivantes −20 %), puis une opération finale au choix :
 // assiéger sa capitale (tribut imposé) ou protéger une cité libre (trêve imposée, cité reconnaissante).
 // Les troupes engagées quittent le château pendant l'opération ; le combat utilise le moteur de combat existant.
+import { scar } from './worldmarks.js';
 import { remember } from './rivalry.js';
 import { SEASON_WAR } from '../data/seasons.js';
 import { calendar } from './chronicle.js';
@@ -188,6 +189,8 @@ export function warTick(state, now = Date.now()) {
       const loot = { gold: Math.round(1500 * k), steel: Math.round(30 * k), weapons: Math.round(10 * k) };
       gain(state, loot, computeMods(state, now));
       if (f) { f.stance = 'tributary'; f.treatyAt = now; f.army = Math.max(0.5, Math.round(f.army * 0.8 * 100) / 100); }
+      const cap = Object.values(state.world.pois).find((p) => p.type === 'kingdom' && p.rival === a.faction);
+      if (cap) scar(state, cap.x, cap.y, now, 48, 'siège'); // les abords de la capitale assiégée restent ravagés
       parts.push(`butin ${Object.entries(loot).map(([r, v]) => `${fmt(v)} ${r}`).join(', ')}, la faction devient tributaire`);
     }
     if (op.key === 'protect') {

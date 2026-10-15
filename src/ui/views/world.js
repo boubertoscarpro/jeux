@@ -4,6 +4,7 @@ import { UNITS, ALL_UNITS, FORMATIONS, TERRAIN_COMBAT } from '../../data/units.j
 import { RESOURCES } from '../../data/resources.js';
 import { CONSUMABLES } from '../../data/items.js';
 import { breachPanel, drawBreachFort } from '../breach.js';
+import { drawWorldMarks, drawHamlet, marksPanel } from '../worldmarks.js';
 import { breachDefense } from '../../systems/breach.js';
 import { BREACH_MIN_MERIT } from '../../data/breach.js';
 import { HERO_CLASSES } from '../../data/heroes.js';
@@ -210,6 +211,8 @@ export function drawMap(app) {
   }
   // Lieux
   const F = filters(app);
+  // Monde évolutif : traces des événements (sous les lieux, au-dessus du terrain)
+  drawWorldMarks(ctx, s, { ox, oy, T, x0, x1, y0, y1, now });
   const labels = [];
   const blocked = [];
   const lsize = Math.round(Math.max(10, Math.min(14, T * 0.34)));
@@ -249,7 +252,7 @@ export function drawMap(app) {
     }
     if (p.infested && T > 16) { ctx.font = `${Math.round(r * 0.8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🕷️', px + r * 0.85, py - r * 0.85); }
     // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
-    const name = def.kind === 'capital' ? castleName(s) : p.name || def.name;
+    const name = def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.name || def.name;
     const prio = { capital: 100, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
     const minT = { capital: 6, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
     if (T >= minT) labels.push({ x: px, y: py, offset: rb ? rb * 0.95 + 3 : r + (p.danger > 0 && T > 16 ? 6 : 2), text: rb ? `${name} · ${p.breach.level}` : name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
@@ -261,6 +264,7 @@ export function drawMap(app) {
     const sz = Math.max(8, Math.min(26, T * 0.55));
     const hasPoi = !!w.pois[key(t.x, t.y)];
     drawBanner(ctx, hasPoi ? px + T * 0.3 : px, hasPoi ? py - T * 0.3 : py, sz, banner);
+    if (t.hamlet && T >= 14) drawHamlet(ctx, px - T * 0.32, py + T * 0.18, T, t.hamlet);
     if (T >= 12) labels.push({ x: px, y: py, offset: sz * 0.6 + 2, text: `🚩 ${outpostLabel(t)}`, prio: 70, size: lsize, color: '#ffe9a8', border: banner });
   }
   // Grands projets achevés : repères près de la capitale
@@ -546,6 +550,7 @@ function tilePanel(app) {
   const terr = s.territories[key(x, y)];
   const poi = poiAt(w, x, y);
   const own = ownerText(s, x, y);
+  html += marksPanel(s, x, y, terr, poi);
   if (own && !terr) html += `<div class="small">${own}</div>`;
   if (poi) {
     const def = POI_TYPES[poi.type];

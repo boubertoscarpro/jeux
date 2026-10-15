@@ -1,3 +1,4 @@
+import { regionEffect, scar } from './worldmarks.js';
 import { POI_TYPES } from '../data/world.js';
 import { costMult } from './kingdom.js';
 import { computeMods } from './modifiers.js';
@@ -113,6 +114,10 @@ export function outpostStatus(state, t, now = Date.now()) {
   const se = stabilityEffect(t);
   if (eff > 0) eff *= se.mult;
   if (se.reason) reasons.push(se.reason);
+  // Région : terres ravagées par la guerre, hameau voisin (monde évolutif)
+  const re = regionEffect(state, t, now);
+  if (eff > 0) eff *= re.mult;
+  reasons.push(...re.reasons);
   return { eff, reasons, garrison: g, need: garrisonNeed(t), stability: stabOf(t) };
 }
 
@@ -273,6 +278,7 @@ export function outpostThreat(state, k, t, now = Date.now()) {
     t.defended = (t.defended || 0) + 1;
   } else {
     t.pillagedUntil = now + 3 * 3600000;
+    scar(state, t.x, t.y, now, 36, 'pillage');
     const stolen = { gold: t.evacUntil > now ? 0 : Math.min(state.resources.gold || 0, Math.round(150 * (t.level || 1))) };
     state.resources.gold -= stolen.gold;
     recordLoss(state, 'outpost', stolen, now);

@@ -97,3 +97,76 @@ test('Armoiries : choix validés, couleur principale reprise par la bannière, s
   assert.equal(back.meta.heraldry.charge, 'wolf');
   assert.equal(typeof back.meta.heraldry.t1, 'string');
 });
+
+// ───────── Monde évolutif ─────────
+import { worldMarksTick, scar, regionEffect, regenMult, markAt, townRankMult } from '../src/systems/worldmarks.js';
+import { townPrice } from '../src/systems/market.js';
+import { computeMods } from '../src/systems/modifiers.js';
+
+function withOutpost(seed) {
+  const s = createNewState({ seed, now: T0 });
+  const c = s.world.capital;
+  s.territories[`${c.x + 2},${c.y}`] = { id: 'op1', x: c.x + 2, y: c.y, terrain: 'plain', level: 1, stability: 80, garrison: {} };
+  return { s, t: s.territories[`${c.x + 2},${c.y}`] };
+}
+
+test('Monde : la guerre ravage une région (production −25 %), puis elle se relève', () => {
+  const { s, t } = withOutpost('w1');
+  assert.equal(regionEffect(s, t, T0).mult, 1);
+  scar(s, t.x, t.y, T0, 36);
+  assert.equal(regionEffect(s, t, T0 + H).mult, 0.75);
+  const node = { x: t.x + 1, y: t.y, type: 'woodNode' };
+  assert.equal(regenMult(s, node, T0 + H), 0.6);
+  worldMarksTick(s, T0 + 37 * H);
+  assert.equal(markAt(s, t.x, t.y), null);
+  assert.equal(regionEffect(s, t, T0 + 37 * H).mult, 1);
+});
+
+test('Monde : un avant-poste stable fait naître un hameau qui grandit ; la révolte le vide', () => {
+  const { s, t } = withOutpost('w2');
+  worldMarksTick(s, T0);
+  worldMarksTick(s, T0 + 25 * H);
+  assert.equal(t.hamlet, 1);
+  assert.ok(regionEffect(s, t, T0 + 25 * H).mult > 1);
+  worldMarksTick(s, T0 + 25 * H + 49 * H);
+  assert.equal(t.hamlet, 2);
+  t.revolt = true;
+  worldMarksTick(s, T0 + 100 * H);
+  assert.equal(t.hamlet, 1);
+});
+
+test('Monde : bois surexploité → coupes rases → forêt restaurée', () => {
+  const s = createNewState({ seed: 'w3', now: T0 });
+  const p = Object.values(s.world.pois).find((x) => x.type === 'woodNode');
+  p.exhaust = 2;
+  worldMarksTick(s, T0);
+  assert.equal(markAt(s, p.x, p.y).kind, 'overcut');
+  p.exhaust = 0.1;
+  worldMarksTick(s, T0 + H);
+  assert.equal(markAt(s, p.x, p.y).kind, 'regrown');
+  assert.equal(regenMult(s, p, T0 + 2 * H), 1.25);
+});
+
+test('Monde : une route impayée 24 h se dégrade ; reconstruite, la ruine disparaît', () => {
+  const { s, t } = withOutpost('w4');
+  t.road = 2; t.roadUnpaid = true;
+  worldMarksTick(s, T0);
+  worldMarksTick(s, T0 + 25 * H);
+  assert.equal(t.road, 1);
+  assert.equal(markAt(s, t.x, t.y).kind, 'ruinedRoad');
+  t.roadUnpaid = false; t.road = 2;
+  worldMarksTick(s, T0 + 26 * H);
+  assert.equal(markAt(s, t.x, t.y), null);
+});
+
+test('Monde : une cité souvent visitée par vos caravanes gagne en importance (prix +4 % par rang)', () => {
+  const s = createNewState({ seed: 'w5', now: T0 });
+  const town = Object.values(s.world.pois).find((p) => p.type === 'town');
+  const mods = computeMods(s, T0);
+  const before = townPrice(s, town, 'wood', mods, T0);
+  (s.routes ||= {})[`${town.x},${town.y}`] = { trips: 16 };
+  worldMarksTick(s, T0);
+  assert.equal(town.rank, 2);
+  assert.equal(townRankMult(town), 1.08);
+  assert.ok(Math.abs(townPrice(s, town, 'wood', mods, T0) / before - 1.08) < 1e-9);
+});

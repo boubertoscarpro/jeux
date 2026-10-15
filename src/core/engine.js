@@ -1,3 +1,4 @@
+import { worldMarksTick } from '../systems/worldmarks.js';
 import { breachTick } from '../systems/breach.js';
 import { commissionsTick } from '../systems/commissions.js';
 import { computeMods } from '../systems/modifiers.js';
@@ -110,6 +111,7 @@ export function processDue(state, t) {
     legendTick(state, t);
     breachTick(state, t);
     commissionsTick(state, t);
+    worldMarksTick(state, t);
     inventoryCapTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;
