@@ -1755,7 +1755,7 @@ Entrep\xF4t plein : la production est perdue (ou vendue en partie si vous avez u
     ${l.length?`<ul class="up-gains small">${l.map(d=>`<li>${d}</li>`).join("")}</ul>`:""}
     ${i.reasons.map(d=>`<div class="req">\u26A0\uFE0F ${p(d)}</div>`).join("")}
     ${i.status==="locked"&&/Hôtel de ville/.test(i.reasons[0]||"")?'<div class="small muted">Am\xE9liorez d\u2019abord l\u2019h\xF4tel de ville : son niveau limite celui des autres b\xE2timents.</div>':""}
-    ${c}</div>`}var bh=(e,t)=>["storage","marches","heroSlots","vision","caravans","buildQueue","territories"].includes(e)?$(t):pi(t);function I3(e,t){let r=so(t.level),n=Object.entries(Ni).filter(([o])=>+o>t.level).slice(0,2),s=t.level<T.townhall.maxLevel?Oc(t.level+1):[];return`<div class="panel-sub era-block"><h4>${r.icon} \xC8re : ${p(r.name)} <span class="muted small">(HdV ${r.from}\u2013${r.to})</span></h4>
+    ${c}</div>`}var bh=(e,t)=>["storage","marches","heroSlots","vision","caravans","buildQueue","territories"].includes(e)?$(t):pi(t);function I3(e,t){let r=so(t.level),n=Object.entries(Ni).filter(([o])=>+o>t.level).slice(0,2),s=t.level<T.townhall.maxLevel?Oc(t.level+1):[];return`<div class="panel-sub era-block"><h4>${r.icon} ${p(r.name)} <span class="muted small">(HdV ${r.from}\u2013${r.to})</span></h4>
     <div class="era-track">${_i.map(o=>`<span class="${o===r?"cur":t.level>o.to?"done":""}" title="${p(o.name)} (HdV ${o.from}\u2013${o.to})">${o.icon}</span>`).join("")}</div>
     <div class="small muted">${p(r.desc)}</div>
     ${n.length?`<div class="small">Prochains paliers : ${n.map(([o,a])=>`<b>HdV ${o}</b> \u2014 ${p(a.text)}`).join(" \xB7 ")}</div>`:'<div class="small ok">Tous les paliers sont atteints.</div>'}
