@@ -1,3 +1,4 @@
+import { coatSvg } from './heraldry.js';
 import { RESOURCES, RES_ORDER, isCapped } from '../data/resources.js';
 import { resIcon } from './icons.js';
 import { BUILDINGS } from '../data/buildings.js';
@@ -65,7 +66,7 @@ export function renderTopbar(app) {
   const buffs = s.buffs.filter((b) => b.until > now).map((b) => `<span class="chip chip-buff">✨ ${esc(b.name || 'Bonus')} · ${countdown(b.until)}</span>`).join('');
   return `
     <div class="brand" data-action="nav" data-view="kingdom" title="Royaume">
-      <span class="banner" style="--banner:${s.meta.banner}"></span>
+      <span class="brand-coat">${coatSvg(s, 26)}</span>
       <div><div class="brand-name">${esc(s.meta.kingdomName)}</div><div class="brand-castle" title="Château principal">🏰 ${esc(castleName(s))}</div><div class="brand-sub">${esc(s.meta.title || (s.meta.titles?.[0]) || 'Hôtel de ville niv. ' + thLevel(s))} ${kingdomBadge(s)}</div></div>
     </div>
     <div class="resbar">${res}<button class="res-more" data-action="toggle-res" title="Toutes les ressources">${app.ui.showAllRes ? '−' : '+'}</button>

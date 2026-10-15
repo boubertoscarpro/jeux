@@ -1,3 +1,4 @@
+import { DEFAULT_HERALDRY } from '../data/heraldry.js';
 import { mulberry32, hashString } from './rng.js';
 import { RESOURCES } from '../data/resources.js';
 import { generateWorld } from '../systems/worldgen.js';
@@ -86,7 +87,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     version: SAVE_VERSION,
     // Identité stable (joueur, royaume, château principal) : voir systems/identity.js et docs/MULTIPLAYER.md
     identity: null,
-    meta: { seed, kingdomName, lordName, created: now, lastTick: now, banner: '#c9a227', title: null, theme: null, insignia: 3, owned: {} },
+    meta: { seed, kingdomName, lordName, created: now, lastTick: now, banner: '#c9a227', heraldry: { ...DEFAULT_HERALDRY }, title: null, theme: null, insignia: 3, owned: {} },
     resources,
     city: { w: CITY_W, h: CITY_H, terrain, buildings: {} , fort: { wall: 0, moat: 0 } },
     queues: { build: [], train: [], research: [], craft: [], planned: [] },
@@ -94,6 +95,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     heroes: [],
     // Quelques passe-temps de départ pour découvrir l'accélération des chantiers
     inventory: { items: [], consumables: { speed5: 3, speed15: 1 } },
+    breach: { placed: false, firstTier: {}, defeated: {}, stats: {} },
     speedups: { earned: {}, used: {}, gemsSpent: 0, minutesSaved: 0, combatDay: 0, combatToday: 0, granted: {} },
     techs: {},
     world: null,

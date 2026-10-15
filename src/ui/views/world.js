@@ -3,6 +3,9 @@ import { resIcon } from '../icons.js';
 import { UNITS, ALL_UNITS, FORMATIONS, TERRAIN_COMBAT } from '../../data/units.js';
 import { RESOURCES } from '../../data/resources.js';
 import { CONSUMABLES } from '../../data/items.js';
+import { breachPanel, drawBreachFort } from '../breach.js';
+import { breachDefense } from '../../systems/breach.js';
+import { BREACH_MIN_MERIT } from '../../data/breach.js';
 import { HERO_CLASSES } from '../../data/heroes.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
@@ -59,7 +62,7 @@ const POI_CAT = (p) => {
   if (!def) return 'other';
   if (def.kind === 'gather') return 'gather';
   if (def.dungeon || p.type === 'lostCity' || p.type === 'ruinSite') return 'dungeon';
-  if (def.kind === 'danger') return 'danger';
+  if (def.kind === 'danger' || def.kind === 'breach') return 'danger';
   if (def.kind === 'town' || def.kind === 'kingdom' || def.kind === 'village') return 'social';
   return 'always';
 };
@@ -235,9 +238,11 @@ export function drawMap(app) {
     const pulse = reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(now / 420);
     const glow = def.kind === 'boss' ? `rgba(255,60,60,${0.5 + 0.4 * Math.sin(now / 300)})` : def.kind === 'capital' ? 'rgba(255,220,120,0.7)'
       : !cleared && (def.dungeon || p.type === 'lostCity') ? `rgba(190,150,255,${0.35 + 0.35 * pulse})` : !cleared && p.danger >= 4 ? `rgba(255,90,70,${0.25 + 0.3 * pulse})` : null;
-    drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
+    const rb = def.kind === 'breach' && p.breach ? Math.max(8, Math.min(30, T * 0.46)) * (1 + 0.08 * (Math.floor((p.breach.level - 1) / 5))) : 0;
+    if (rb) drawBreachFort(ctx, px, py, rb, p.breach, { cleared });
+    else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
-    if (p.danger > 0 && def.kind !== 'boss' && T > 16) {
+    if (p.danger > 0 && def.kind !== 'boss' && def.kind !== 'breach' && T > 16) {
       const n = Math.min(5, p.danger), pw = Math.max(3, r * 0.28);
       ctx.fillStyle = p.danger >= 4 ? '#ff4f4f' : p.danger >= 2 ? '#ffb03a' : '#ffe58a';
       for (let i = 0; i < n; i++) ctx.fillRect(px - (n * pw * 1.3) / 2 + i * pw * 1.3, py + r + 1, pw, pw * 0.8);
@@ -245,9 +250,9 @@ export function drawMap(app) {
     if (p.infested && T > 16) { ctx.font = `${Math.round(r * 0.8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🕷️', px + r * 0.85, py - r * 0.85); }
     // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
     const name = def.kind === 'capital' ? castleName(s) : p.name || def.name;
-    const prio = { capital: 100, kingdom: 80, boss: 75, town: 60 }[def.kind] ?? (def.dungeon ? 40 : 10);
-    const minT = { capital: 6, kingdom: 14, boss: 14, town: 16 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
-    if (T >= minT) labels.push({ x: px, y: py, offset: r + (p.danger > 0 && T > 16 ? 6 : 2), text: name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
+    const prio = { capital: 100, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
+    const minT = { capital: 6, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
+    if (T >= minT) labels.push({ x: px, y: py, offset: rb ? rb * 0.95 + 3 : r + (p.danger > 0 && T > 16 ? 6 : 2), text: rb ? `${name} · ${p.breach.level}` : name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
   }
   // Avant-postes du joueur : étendard + nom
   for (const t of Object.values(s.territories || {})) {
@@ -368,8 +373,8 @@ export function notablePlaces(state) {
     if (!isRevealed(w, p.x, p.y)) continue;
     const def = POI_TYPES[p.type];
     if (!def) continue;
-    if (['town', 'kingdom', 'boss'].includes(def.kind) || def.dungeon || p.type === 'lostCity') {
-      const label = def.kind === 'kingdom' ? `${RIVALS[p.rival]?.icon || def.icon} ${p.name}` : def.kind === 'town' ? `${def.icon} ${p.name}` : `${def.icon} ${def.name}`;
+    if (['town', 'kingdom', 'boss', 'breach'].includes(def.kind) || def.dungeon || p.type === 'lostCity') {
+      const label = def.kind === 'breach' ? `🏴 ${p.name} (niv. ${p.breach?.level || '?'})` : def.kind === 'kingdom' ? `${RIVALS[p.rival]?.icon || def.icon} ${p.name}` : def.kind === 'town' ? `${def.icon} ${p.name}` : `${def.icon} ${def.name}`;
       out.push({ x: p.x, y: p.y, label, d: distCap(w, p.x, p.y) });
     }
   }
@@ -544,7 +549,7 @@ function tilePanel(app) {
   if (own && !terr) html += `<div class="small">${own}</div>`;
   if (poi) {
     const def = POI_TYPES[poi.type];
-    html += `<div class="poi-head"><span class="poi-icon">${poi.type === 'kingdom' ? RIVALS[poi.rival].icon : def.icon}</span><div><b>${esc(poi.name || def.name)}</b><div class="small">Danger : ${dangerStars(poi.danger)}${poi.infested ? ' · 🕷️ infesté' : ''}${poi.temp ? ' · ⏳ temporaire' : ''}</div></div></div>`;
+    html += `<div class="poi-head"><span class="poi-icon">${poi.type === 'kingdom' ? RIVALS[poi.rival].icon : def.icon}</span><div><b>${esc(poi.name || def.name)}</b><div class="small">${def.kind === 'breach' ? 'Seigneurs de la Brèche · ' : ''}Danger : ${dangerStars(poi.danger)}${poi.infested ? ' · 🕷️ infesté' : ''}${poi.temp ? ' · ⏳ temporaire' : ''}</div></div></div>`;
     if (def.kind === 'capital') html += `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle">✎ Renommer</button></div><p class="small">Capitale de ${esc(s.meta.kingdomName)}. Toutes les marches partent d’ici.</p>`;
     if (def.kind === 'gather') {
       const r = RESOURCES[def.res];
@@ -553,6 +558,7 @@ function tilePanel(app) {
       if (poi.danger > 0) html += `<div class="panel-sub"><h4>Menace</h4>${enemyBlock(app, poi, poi.enemies)}</div>`;
       html += `<div class="row gap"><button class="btn primary" data-action="march" data-type="gather">🧺 Récolter</button>${poi.danger ? '<button class="btn" data-action="march" data-type="scout">👁️ Espionner</button>' : ''}</div>`;
     }
+    if (def.kind === 'breach' && poi.breach) html += breachPanel(app, poi);
     if (def.dungeon) {
       const d = ensureDungeon(poi);
       html += `<div class="panel-sub"><h4>${esc(DUNGEON_THEMES[d.theme].name)} — niveau ${d.level}</h4>
@@ -687,7 +693,9 @@ function updateMarchPreview(app) {
     html += `<div>🧺 Rendement : <b>${fmt(take * mult)}</b> ${RESOURCES[def.res].icon} (bonus ${Math.round((mult - 1) * 100)}%)</div><div>⏳ Récolte : ${rate ? fmtTime((take / rate) * 60000) : '—'}</div>`;
   }
   let enemies = null, fort = 0, bossHp = null;
+  let enemyMods = null, enemyFormation;
   if (poi && md.type === 'attack') { enemies = poi.type === 'kingdom' ? poi.garrison : poi.enemies; fort = poi.wall || 0; }
+  if (poi?.breach && md.type === 'attack') { const D = breachDefense(s, poi); enemies = D.enemies; fort = D.fort; enemyMods = D.enemyMods; enemyFormation = D.formation; }
   if (poi && md.type === 'gather' && poi.danger > 0) enemies = poi.enemies;
   if (md.type === 'boss' && s.boss) { enemies = { [BOSSES[s.boss.key].unit]: 1 }; bossHp = s.boss.hp; }
   if (enemies && Object.keys(units).length) {
@@ -695,7 +703,7 @@ function updateMarchPreview(app) {
       const ter = s.world && wTerrain(s.world, md.x, md.y);
       const pv = previewBattle(
         { units, mods, formation: md.formation, supply: md.supply, famine: s.famine },
-        { units: enemies, mods: { 'combat.atk': 0.05 * (poi.danger || 0), 'combat.def': 0.05 * (poi.danger || 0) }, fort },
+        { units: enemies, mods: enemyMods || { 'combat.atk': 0.05 * (poi.danger || 0), 'combat.def': 0.05 * (poi.danger || 0) }, fort, formation: enemyFormation },
         { terrain: poi.type === 'kingdom' ? 'city' : ter === 'ash' ? 'ruins' : ter, weather: s.weather.type, bossHp },
       );
       const lost = Object.entries(pv.attLosses).filter(([, n]) => n > 0);
@@ -705,6 +713,12 @@ function updateMarchPreview(app) {
       html += `<div class="small">Pertes estimées : ${lost.map(([u, n]) => `${n} ${esc(UNITS[u].name)}`).join(', ') || 'aucune'}</div>
         <ul class="notes small">${pv.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
     } else html += '<div class="small muted">Ennemis non espionnés : impossible d’estimer l’issue. ' + (md.type === 'gather' ? 'Une embuscade est possible.' : 'Espionnez d’abord !') + '</div>';
+  }
+  if (poi?.breach && md.type === 'attack' && enemies && Object.keys(units).length) {
+    const merit = (armyPower(enemies) * (1 + fort)) / Math.max(1, armyPower(units));
+    html += merit >= BREACH_MIN_MERIT
+      ? `<div class="small ok">Attaque méritante (garnison = ${Math.round(merit * 100)} % de votre puissance) : la victoire fait évoluer la forteresse et donne butin complet, objets et passe-temps.</div>`
+      : `<div class="small warn-text">Armée écrasante (garnison = ${Math.round(merit * 100)} % de votre puissance, ${Math.round(BREACH_MIN_MERIT * 100)} % requis) : victoire sans gloire, butin réduit, ni évolution ni passe-temps. Envoyez moins de troupes.</div>`;
   }
   if (md.type === 'dungeon' && poi) {
     const d = ensureDungeon(poi);

@@ -405,3 +405,28 @@ html.reduce-motion .fx-banner { animation: none; opacity: 1; }
 button.speed-ready { border-color: var(--gold); color: var(--gold); box-shadow: 0 0 0 1px rgba(217, 178, 90, .35); }
 html:not(.reduce-motion) button.speed-ready { animation: speed-glow 2.4s ease-in-out infinite; }
 @keyframes speed-glow { 50% { box-shadow: 0 0 6px 1px rgba(217, 178, 90, .45); } }
+
+/* ───────── Seigneurs de la Brèche ───────── */
+.br-sheet { border-left: 3px solid var(--c, var(--bronze)); background: linear-gradient(90deg, color-mix(in srgb, var(--c, #b07c3e) 14%, transparent), transparent 70%), var(--panel); }
+.br-tiers { display: inline-flex; gap: 3px; }
+.br-tier { width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 4px; font-size: .75em; font-weight: 700; border: 1px solid var(--c); color: var(--c); opacity: .55; }
+.br-tier.past { opacity: .8; }
+.br-tier.on { background: var(--c); color: #1d1812; opacity: 1; box-shadow: 0 0 0 1px #1d1812 inset; }
+.br-hist { margin: 4px 0 0; padding-left: 18px; }
+.br-hist li { margin: 2px 0; }
+
+/* ───────── Armoiries ───────── */
+.brand-coat { display: inline-flex; flex: none; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .5)); }
+.her-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; align-items: center; }
+.her-preview { display: flex; align-items: flex-end; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 10px; border-radius: 10px;
+  background: radial-gradient(circle at 50% 30%, rgba(217, 178, 90, .16), transparent 70%), var(--stone-850); border: 1px solid var(--line); }
+.her-form .form-row { margin: 4px 0; }
+.her-form select, .her-form input { width: 100%; }
+@media (max-width: 640px) { .her-grid { grid-template-columns: 1fr; } }
+.archive-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.archive-head > div { flex: 1; min-width: 0; }
+.seal-line { display: inline-flex; align-items: center; gap: 6px; font-size: .85em; }
+.report-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.her-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
+.her-form .form-row:last-child { grid-column: 1 / -1; }
+@media (max-width: 640px) { .her-form { grid-template-columns: 1fr; } }

@@ -1,3 +1,4 @@
+import { breachTick } from '../systems/breach.js';
 import { computeMods } from '../systems/modifiers.js';
 import { advanceEconomy } from '../systems/economy.js';
 import { completeBuild } from '../systems/construction.js';
@@ -106,6 +107,7 @@ export function processDue(state, t) {
     legacyTick(state, t);
     challengesTick(state, t);
     legendTick(state, t);
+    breachTick(state, t);
     inventoryCapTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;
@@ -153,6 +155,8 @@ export function advance(state, now = Date.now()) {
     state.nextRivalTick = Math.min(state.nextRivalTick || now, now + RIVAL_STEP);
     return true;
   }
+  // Forteresses de la Brèche : placées dès la première avance (nouvelle partie ou ancienne sauvegarde)
+  if (!state.breach?.placed) breachTick(state, Math.min(now, t));
   if (now <= t) return false;
   if (now - t > MAX_OFFLINE_MS) {
     const skipped = now - t - MAX_OFFLINE_MS;

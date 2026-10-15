@@ -5,6 +5,7 @@ import { extendWorld } from '../systems/worldgen.js';
 import { mulberry32 } from './rng.js';
 import { ensureIdentity } from '../systems/identity.js';
 import { UNITS } from '../data/units.js';
+import { heraldryOf } from '../systems/heraldry.js';
 import { describePending } from '../systems/pending.js';
 
 export const SAVE_KEY = 'cendrelande_save';
@@ -128,6 +129,7 @@ function sanitize(d, fresh) {
   for (const k of ['buildings']) for (const [id, b] of Object.entries(d.city?.[k] || {})) if (!b || typeof b !== 'object' || typeof b.type !== 'string' || !Number.isFinite(+b.level)) { if (b?.type !== 'townhall') { delete d.city[k][id]; fixes.push('bâtiment ' + id); } }
   for (const [id, t] of Object.entries(d.territories || {})) if (!t || typeof t !== 'object') { delete d.territories[id]; fixes.push('avant-poste'); }
   for (const u of Object.keys(d.army || {})) if (!UNITS[u]) { delete d.army[u]; fixes.push('unité inconnue ' + u); }
+  if (d.meta) d.meta.heraldry = heraldryOf(d); // armoiries inconnues ou modifiées à la main → valeurs valides
   if (d.meta) { if (typeof d.meta.kingdomName !== 'string') d.meta.kingdomName = d.meta.kingdomName == null ? '' : String(d.meta.kingdomName); }
   // Spécialisation inconnue (sauvegarde modifiée à la main) → royaume sans spécialisation, jamais de bonus inventé
   if (d.kingdom && d.kingdom.type !== null && !KINGDOM_TYPES[d.kingdom.type]) { fixes.push('spécialisation'); d.kingdom.type = null; }

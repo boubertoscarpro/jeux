@@ -175,6 +175,10 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     chTiers: Object.values(challengeState(s).claimed).reduce((a, x) => a + Object.keys(x).length, 0), chTries: challengeState(s).history.length,
     legends: Object.keys(legendState(s).done).length, legendFails: legendState(s).history.filter((h) => !h.won && !h.abandoned).length,
     monument: monumentOf(s)?.level || 0, chronicles: s.sagas?.count || 0, rivals: (s.factions || []).filter((f) => rivalryStatus(f, t)?.key === 'rival').length,
+    spEarnedMin: Object.entries(s.speedups?.earned || {}).reduce((a, [k, n]) => a + n * ({ speed5: 5, speed15: 15, speed60: 60, speed480: 480 }[k] || 0), 0),
+    spSavedMin: s.speedups?.minutesSaved || 0, gemsSpent: s.speedups?.gemsSpent || 0, gemsLeft: Math.floor(s.resources.gems || 0),
+    brWins: s.stats.breachWins || 0, brTier: s.stats.breachTierMax || 0, brLosses: Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.losses, 0),
+    brLevel: Math.round(Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.level, 0) / Math.max(1, Object.values(s.world.pois).filter((p) => p.breach).length) * 10) / 10,
     memory: Math.round((s.factions || []).reduce((a, f) => a + memoryScore(f, t), 0)), insignia: s.meta.insignia || 0,
     chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
     blocked: objectives(s, t).main.filter((m) => !m.done).map((m) => m.id).join(' '),
@@ -248,7 +252,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'shards', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'shards', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');

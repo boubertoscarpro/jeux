@@ -55,6 +55,7 @@ export const POI_TYPES = {
   // --- Autres ---
   lostCity:    { name: 'Cité perdue de l’Aube', icon: '🏯', kind: 'danger', terrain: [], danger: [6, 6], enemies: { golem: 4, wraith: 8, skeleton: 14 },
                  loot: { gold: 8000, silver: 80, stone: 5000 }, rare: { crystals: [10, 20], rareOre: [10, 20] }, item: 1, itemMin: 'legendary', respawn: 86400, dungeon: true },
+  breachFort:  { name: 'Forteresse de la Brèche', icon: '🏴', kind: 'breach', terrain: [] },
   village:     { name: 'Village abandonné', icon: '🏚️', kind: 'village', terrain: ['plain', 'forest', 'hills'] },
   town:        { name: 'Cité libre', icon: '🏘️', kind: 'town', terrain: ['plain', 'river', 'hills'] },
   kingdom:     { name: 'Royaume rival', icon: '🏯', kind: 'kingdom', terrain: ['plain', 'hills', 'forest'] },

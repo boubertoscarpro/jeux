@@ -1,3 +1,4 @@
+import { coatSvg, bannerSvg } from '../heraldry.js';
 // Héritage dynastique : traditions, vestiges des dynasties passées, défis ancestraux et archives.
 import { TRADITIONS, MAX_TRADITIONS, MILESTONES, REMNANTS } from '../../data/legacy.js';
 import { PROJECTS } from '../../data/projects.js';
@@ -22,7 +23,7 @@ export default {
   badge: (app) => (app.state.legacy?.offer ? 1 : 0),
   render(app) {
     const s = app.state, l = legacyState(s);
-    const trads = `<div class="card"><h2>👑 Traditions dynastiques <span class="muted small">${l.traditions.length}/${MAX_TRADITIONS}</span></h2>
+    const trads = `<div class="card"><div class="archive-head">${coatSvg(s, 40)}<div class="small muted">Armoiries de la lignée : elles traversent les dynasties avec ses traditions et ses archives.</div>${bannerSvg(s, 40)}</div><h2>👑 Traditions dynastiques <span class="muted small">${l.traditions.length}/${MAX_TRADITIONS}</span></h2>
       <p class="small muted">Après chaque grande étape (${Object.values(MILESTONES).map((m) => esc(m.name.split(' :')[0])).join(', ')}), choisissez une tradition. Les traditions sont permanentes et se transmettent d’une dynastie à l’autre.</p>
       ${l.traditions.length ? `<div class="legacy-grid">${l.traditions.map((id) => `<div class="legacy-trad owned"><b>${TRADITIONS[id].icon} ${esc(TRADITIONS[id].name)}</b><div class="small">${esc(TRADITIONS[id].desc)}</div></div>`).join('')}</div>` : '<p class="small muted">Aucune tradition pour l’instant.</p>'}
       <div class="small muted">Étapes de cette dynastie : ${Object.entries(MILESTONES).map(([k, m]) => `${l.milestones[k] ? '✅' : '⬜'} ${esc(m.name.split(' :')[0])}`).join(' · ')}</div></div>`;
