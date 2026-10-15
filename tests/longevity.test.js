@@ -234,3 +234,19 @@ test('Scénarios : objectifs acquis, record et récompense versés une seule foi
   const back = deserialize(serialize(p));
   assert.equal(back.scenario.id, 'poor');
 });
+
+// ───────── Épreuves de tradition ─────────
+import { legacyTick, legacyState } from '../src/systems/legacy.js';
+test('Traditions : chaque tradition adoptée ouvre une épreuve, payée une seule fois par dynastie', () => {
+  const s = createNewState({ seed: 'tr', now: T0 });
+  legacyState(s).traditions = ['keepers'];
+  s.dynasty = { points: 0, count: 0 };
+  legacyTick(s, T0);
+  assert.ok(!s.traditionTrials?.keepers);
+  s.stats.raidsRepelled = 10;
+  legacyTick(s, T0 + 1);
+  legacyTick(s, T0 + 2);
+  assert.ok(s.traditionTrials.keepers);
+  assert.equal(s.dynasty.points, 2);
+  assert.ok(s.meta.titles.includes('Rempart vivant'));
+});
