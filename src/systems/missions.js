@@ -8,7 +8,7 @@ import { POI_TYPES } from '../data/world.js';
 import { OUTPOST_MAX_LEVEL } from '../data/territories.js';
 import { rng } from '../core/rng.js';
 import { uid, fmt } from '../core/util.js';
-import { allBuildings, countOf, levelOf, thLevel } from './city.js';
+import { allBuildings, countOf, builtCountOf, levelOf, thLevel } from './city.js';
 import { computeMods } from './modifiers.js';
 import { netRates, storageCap, buildingRates } from './economy.js';
 import { combatUnitCount } from './army.js';
@@ -91,7 +91,7 @@ const TEMPLATES = [
             desc: `Améliorez ${BUILDINGS[type].name} (${b.x.x}, ${b.x.y}) au niveau ${b.x.level + 1} : environ +${fmt(gainH)} ${RESOURCES[r].name.toLowerCase()}/h.`, view: 'city', sel: { x: b.x.x, y: b.x.y },
             reward: rewardFor(s, { [other]: resAmount(s) }) };
         }
-        if (!buildRequirement(s, type)) return { title, icon, tag, kind: 'count', params: { type }, target: countOf(s, type) + 1, desc: `Construisez une ${BUILDINGS[type].name.toLowerCase()} supplémentaire (bonus d’adjacence : ${BUILDINGS[type].desc.split('. ').slice(1).join('. ') || 'voir la fiche'}).`, view: 'city', reward: rewardFor(s, { [other]: resAmount(s) }) };
+        if (!buildRequirement(s, type)) return { title, icon, tag, kind: 'count', params: { type }, target: builtCountOf(s, type) + 1, desc: `Construisez une ${BUILDINGS[type].name.toLowerCase()} supplémentaire (bonus d’adjacence : ${BUILDINGS[type].desc.split('. ').slice(1).join('. ') || 'voir la fiche'}).`, view: 'city', reward: rewardFor(s, { [other]: resAmount(s) }) };
       }
       return null;
     },
@@ -124,7 +124,8 @@ const TEMPLATES = [
     offer(s, c) {
       if (!countOf(s, 'barracks')) return null;
       const n = Math.max(10, thLevel(s) * 5), cur = combatUnitCount(s.army);
-      return { title: 'Renforcer la garnison', icon: '🛡️', tag: 'mil', kind: 'units', params: {}, target: cur + n, weightMul: c.threat ? 2 : 1,
+      // Progression = soldats réellement formés (rapatrier une garnison d'avant-poste ne compte pas)
+      return { title: 'Renforcer la garnison', icon: '🛡️', tag: 'mil', kind: 'stat', params: { stat: 'trained' }, target: n, weightMul: c.threat ? 2 : 1,
         desc: `Formez ${n} soldats de plus (garnison : ${cur} → ${cur + n}). Les troupes en ville défendent le château contre les raids.`, view: 'army', reward: rewardFor(s, { food: resAmount(s) }, { warrior: 3 }) };
     },
   },
@@ -176,7 +177,7 @@ const TEMPLATES = [
       if (!levelOf(s, 'market')) return null;
       const town = Object.values(s.world.pois).filter((p) => p.type === 'town' && isRevealed(s.world, p.x, p.y)).sort((a, b) => distCap(s.world, a.x, a.y) - distCap(s.world, b.x, b.y))[0];
       if (!town) return null;
-      return { title: `Une caravane pour ${town.name}`, icon: '🐪', tag: 'trade', kind: 'stat', params: { stat: 'caravans' }, target: 1, desc: `Envoyez une caravane vers ${town.name} (${town.x}, ${town.y}) — elle paie +60 % pour : ${(town.wants || []).map((r) => RESOURCES[r]?.name.toLowerCase()).join(', ')}.`, view: 'world', worldSel: { x: town.x, y: town.y }, reward: rewardFor(s, {}, { merchant: 4 }) };
+      return { title: `Une caravane pour ${town.name}`, icon: '🐪', tag: 'trade', kind: 'stat', params: { stat: 'caravans' }, target: 1, desc: `Envoyez une caravane vers ${town.name} (${town.x}, ${town.y}) — elle paie +50 % du prix de référence pour : ${(town.wants || []).map((r) => RESOURCES[r]?.name.toLowerCase()).join(', ')}.`, view: 'world', worldSel: { x: town.x, y: town.y }, reward: rewardFor(s, {}, { merchant: 4 }) };
     },
   },
   {
@@ -247,7 +248,7 @@ export function missionProgress(state, m) {
   let cur = 0;
   switch (m.kind) {
     case 'level': cur = state.city.buildings[p.bid]?.level || 0; break;
-    case 'count': cur = countOf(state, p.type); break;
+    case 'count': cur = builtCountOf(state, p.type); break;
     case 'stock': cur = Math.floor(state.resources[p.res] || 0); break;
     case 'fort': cur = state.city.fort?.[p.type] || 0; break;
     case 'units': cur = combatUnitCount(state.army); break;

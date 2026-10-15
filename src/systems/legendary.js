@@ -9,7 +9,7 @@ import { computeMods } from './modifiers.js';
 import { pay, missing, gain } from './economy.js';
 import { simulateBattle, previewBattle } from './combat.js';
 import { armyPower } from './army.js';
-import { heroStats, giveXp } from './heroes.js';
+import { heroStats, giveXp, heroMods } from './heroes.js';
 import { grantArtifact } from './collection.js';
 import { shardState } from './shards.js';
 import { remember, rivalryStatus } from './rivalry.js';
@@ -27,7 +27,7 @@ export function estimateFinal(state, id, opts, now = Date.now()) {
   const team = {};
   for (const [u, v] of combatUnits(state.army)) { const k = Math.floor(v * ESCORTS[opts.escort].share); if (k > 0) team[u] = k; }
   if (!Object.keys(team).length) return null;
-  const pv = previewBattle({ units: team, mods: computeMods(state, now), formation: 'balanced' }, { units: finalEnemies(state, { id, route: route.id, team }), mods: {} }, { terrain: def.final.terrain, weather: 'clear' });
+  const pv = previewBattle({ units: team, mods: leaderMods(state, opts.heroId, now), formation: 'balanced' }, { units: finalEnemies(state, { id, route: route.id, team }), mods: {} }, { terrain: def.final.terrain, weather: 'clear' });
   return pv;
 }
 
@@ -146,9 +146,17 @@ export function finalEnemies(state, a) {
   return Object.fromEntries(Object.entries(base).map(([u, n]) => [u, Math.max(1, Math.round(n * k))]));
 }
 
+// Le chef de l'expédition commande le combat final : ses bonus de commandant s'ajoutent
+function leaderMods(state, heroId, now) {
+  const mods = { ...computeMods(state, now) };
+  const h = heroId && state.heroes.find((x) => x.id === heroId);
+  if (h) for (const [k, v] of Object.entries(heroMods(state, h, 'commander'))) mods[k] = (mods[k] || 0) + v;
+  return mods;
+}
+
 function finalBattle(state, a, now) {
   const def = LEGENDS[a.id];
-  const mods = computeMods(state, now);
+  const mods = leaderMods(state, a.heroId, now);
   const att = { units: a.team, mods: { ...mods, 'combat.atk': (mods['combat.atk'] || 0) + a.power / 100, 'combat.morale': (mods['combat.morale'] || 0) + a.morale }, formation: 'balanced', label: 'Expédition' };
   const res = simulateBattle(att, { units: finalEnemies(state, a), mods: {}, label: def.final.name }, { terrain: def.final.terrain, weather: state.weather?.type || 'clear' });
   a.team = Object.fromEntries(Object.entries(res.attRemaining || {}).filter(([, n]) => n > 0));

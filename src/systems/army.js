@@ -50,6 +50,8 @@ export function cancelTrain(state, qid, now = Date.now()) {
   const q = state.queues.train[i];
   for (const [r, v] of Object.entries(q.cost)) state.resources[r] += Math.floor(v * 0.8);
   state.queues.train.splice(i, 1);
+  // Une formation annulée ne compte pas comme des soldats formés (missions « formez N soldats »)
+  state.stats.trained = Math.max(0, (state.stats.trained || 0) - q.count);
   // Recaler les files suivantes du même bâtiment
   let t = now;
   for (const o of state.queues.train.filter((x) => x.building === q.building).sort((a, b) => a.start - b.start)) {

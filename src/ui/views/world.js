@@ -619,7 +619,7 @@ function townPanel(app, town, mods) {
   const dur = caravanTime(s, town, mods) * 2;
   const opts = Object.keys(RESOURCES).filter((r) => RESOURCES[r].price > 0).map((r) => `<option value="${r}" ${app.ui.cvRes === r ? 'selected' : ''}>${RESOURCES[r].icon} ${esc(RESOURCES[r].name)} — ${townPrice(s, town, r, mods).toFixed(2)} or/u${town.wants.includes(r) ? ' ★' : ''}</option>`).join('');
   return `<p>Cité libre de <b>${esc(town.name)}</b> · relation ${town.relation || 0} (+${Math.min(20, town.relation || 0)}% prix)</p>
-    <div class="small">Demande forte (★ +60%) : ${town.wants.map((r) => resIcon(r, 16, RESOURCES[r]?.icon) + ' ' + RESOURCES[r].name).join(', ')}</div>
+    <div class="small">Demande forte (★ +50 % du prix de référence) : ${town.wants.map((r) => resIcon(r, 16, RESOURCES[r]?.icon) + ' ' + RESOURCES[r].name).join(', ')}</div>
     <div class="panel-sub"><h4>🐪 Envoyer une caravane</h4>
       <div class="form-row"><select id="cv-res" data-change="cv-res">${opts}</select></div>
       <div class="form-row"><input id="cv-qty" type="number" min="1" max="${caravanCargo(s)}" value="${Math.min(caravanCargo(s), 500)}"> <span class="muted small">max ${fmt(caravanCargo(s))}</span></div>

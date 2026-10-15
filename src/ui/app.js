@@ -326,7 +326,8 @@ export class App {
       if (el.disabled) return;
       // Protection contre les doubles clics : même action sur le même élément en moins de 350 ms ignorée
       if (attr === 'data-action') {
-        const key = `${name}|${el.dataset.id || ''}|${el.dataset.view || ''}|${el.dataset.i || ''}`;
+        // Toutes les données du bouton font partie de la clé : deux boutons différents de la même action restent distincts
+        const key = `${name}|${JSON.stringify(el.dataset)}`;
         const now = performance.now();
         if (key === last.key && now - last.t < 350) return;
         last = { key, t: now };

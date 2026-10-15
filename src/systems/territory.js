@@ -12,7 +12,8 @@ import { defaultOutpostName, outpostLabel } from './identity.js';
 import { TERRAINS } from '../data/world.js';
 import { UNITS } from '../data/units.js';
 import { rng } from '../core/rng.js';
-import { gain } from './economy.js';
+import { gain, addResource, storageCap } from './economy.js';
+import { isCapped } from '../data/resources.js';
 import { simulateBattle } from './combat.js';
 import { thLevel } from './city.js';
 import { recordLoss } from './losses.js';
@@ -242,7 +243,8 @@ export function territoryTick(state, dtSec, now) {
     const st = outpostStatus(state, t, now);
     const sp = specOf(t);
     const aff = sp ? specAffinity(state, t).mult : 1;
-    if (sp?.prod && st.eff > 0) gain(state, deliveredProd(Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), net[k] && { ...net[k], cap: net[k].cap * h }), mods);
+    // Production d'avant-poste : plafonnée par l'entrepôt comme la production de la ville (pas la marge de 150 % des récompenses)
+    if (sp?.prod && st.eff > 0) for (const [r, v] of Object.entries(deliveredProd(Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), net[k] && { ...net[k], cap: net[k].cap * h }))) addResource(state, r, v, mods, isCapped(r) ? storageCap(state, mods, r) : null);
     if (sp?.relicChance && st.eff > 0 && rng.chance(sp.relicChance * (1 + (mods['relic.find'] || 0)) * (t.level || 1) * h * st.eff)) {
       shardState(state).relicFragments++;
       log(state, 'good', `🏺 Les fouilles de ${outpostLabel(t)} mettent au jour un fragment de relique !`, now);

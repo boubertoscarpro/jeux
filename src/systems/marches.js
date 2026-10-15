@@ -244,7 +244,7 @@ function arrive(state, m, t) {
   if (m.type === 'dungeon') {
     const rep = runDungeon(state, m, poi, mods, t);
     const hero = heroOf(state, m);
-    if (hero) giveXp(state, hero, 60 + rep.cleared * 25, mods);
+    if (hero) giveXp(state, hero, (rep.clearedNow ? 60 : 20) + rep.clearedNow * 25, mods);
     if (rep.done) { const sp = rollCombatSpeedup(state, { win: true, merit: 1, table: COMBAT_SPEEDUPS.dungeonCleared, source: 'donjon purgé' }, t); if (Object.keys(sp.items).length) rep.lines.push(`Passe-temps : ${speedupText(sp.items)}.`); }
     addReport(state, { t, kind: 'battle', title: `Donjon niv. ${rep.level} — ${rep.done ? 'purgé' : `${rep.cleared}/${rep.total} salles`}`, x: m.x, y: m.y, win: rep.done, text: rep.lines.join(' '), loot: { ...m.loot } });
     log(state, rep.done ? 'good' : 'combat', `🏚️ Donjon (${m.x}, ${m.y}) : ${rep.cleared}/${rep.total} salles franchies.${rep.done ? ' Donjon purgé !' : ''}`, t);
@@ -415,10 +415,14 @@ function arriveExplore(state, m, t, mods, hero) {
     addReport(state, { t, kind: 'explore', title: 'Exploration', x: m.x, y: m.y, text: head0, win: true });
     return goBack(m, t);
   }
-  state.stats.explored++;
-  bumpRep(state, 'explorer', 1);
-  rollShards(state, 'exploration', t, { label: 'Fragment d’un ancien artefact découvert' });
-  state.season.points += SEASON.points.explore;
+  // Seules les cases réellement sorties du brouillard comptent pour les objectifs « explorer N cases » (missions,
+  // quêtes, indices de fouilles, événements) : retourner autour de la capitale ne fait plus monter le compteur
+  if (found.newTiles > 0) {
+    state.stats.explored++;
+    bumpRep(state, 'explorer', 1);
+    rollShards(state, 'exploration', t, { label: 'Fragment d’un ancien artefact découvert' });
+    state.season.points += SEASON.points.explore;
+  }
   if (hero) giveXp(state, hero, 30, mods);
   const discoveries = found.filter((p) => p.type !== 'capital').map((p) => POI_TYPES[p.type].name);
   if (discoveries.length) m.log.push(`Découvertes : ${discoveries.join(', ')}`);

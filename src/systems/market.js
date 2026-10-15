@@ -52,6 +52,9 @@ export function quote(state, r, qty, dir, mods = computeMods(state)) {
 // pour les contrats et les primes des cités (empêche les boucles achat → revente sans risque)
 export const boughtRecent = (state, r) => state.market?.bought?.[r] || 0;
 
+// Une transaction ne compte (missions, objectifs « échanges ») qu'à partir de 50 or : vendre 1 bois ne suffit plus
+export const MIN_TRADE_GOLD = 50;
+
 export function sell(state, r, qty, now = Date.now()) {
   qty = Math.floor(qty);
   if (!levelOf(state, 'market')) return { ok: false, reason: 'Marché requis' };
@@ -63,7 +66,9 @@ export function sell(state, r, qty, now = Date.now()) {
   state.resources[r] -= qty;
   state.resources.gold += q.total;
   state.market.prices[r] = Math.max(RESOURCES[r].price * 0.25, q.after);
-  state.stats.trades++;
+  // Revendre ce qu'on a acheté efface d'autant l'origine « achetée » (contrats des cités)
+  if (state.market.bought?.[r]) { state.market.bought[r] = Math.max(0, state.market.bought[r] - qty); if (!state.market.bought[r]) delete state.market.bought[r]; }
+  if (q.total >= MIN_TRADE_GOLD) state.stats.trades++;
   return { ok: true, gold: q.total };
 }
 
@@ -87,7 +92,7 @@ export function buy(state, r, qty, now = Date.now()) {
   const b = (state.market.bought ||= {});
   b[r] = (b[r] || 0) + qty;
   state.market.prices[r] = Math.min(RESOURCES[r].price * 4, q.after);
-  state.stats.trades++;
+  if (q.total >= MIN_TRADE_GOLD) state.stats.trades++;
   return { ok: true, gold: q.total, qty };
 }
 

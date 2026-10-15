@@ -227,12 +227,30 @@ export function repairAll(state, now) {
   return n;
 }
 
+// Défense automatique (palier 7) : à l'annonce d'un raid, les marches qui peuvent rentrer AVANT son arrivée sont
+// rappelées (récolte interrompue proprement, ressources déjà ramassées conservées). Les marches trop lointaines
+// poursuivent leur mission : un rappel inutile ne ferait que gaspiller leur trajet.
+export function autoDefense(state, now) {
+  const raid = (state.raids || []).filter((r) => r.arrive > now).sort((a, b) => a.arrive - b.arrive)[0];
+  if (!raid) return 0;
+  let n = 0;
+  for (const m of [...state.marches]) {
+    if (m.phase === 'back' || m.autoRecalled === raid.id) continue;
+    const back = m.phase === 'out' ? now + (now - m.start) : now + m.travel;
+    if (back >= raid.arrive) continue;
+    if (recallMarch(state, m.id, now).ok) { m.autoRecalled = raid.id; n++; }
+  }
+  if (n) log(state, 'info', `🛡️ Raid annoncé : vos conseillers rappellent ${n} marche${n > 1 ? 's' : ''} pour défendre la ville.`, now);
+  return n;
+}
+
 // Tick de l'automatisation (chaque minute de jeu)
 export function automationTick(state, now) {
   priorityTick(state, now);
   ordersTick(state, now);
   autoResearch(state, now);
   if (hasUnlock(state, 'autoRepair') && state.automation.autoRepair) repairAll(state, now);
+  if (hasUnlock(state, 'autoDefense') && state.automation.autoDefense !== false) autoDefense(state, now);
   if (hasUnlock(state, 'repeat')) relaunchIdle(state, now);
   void levelOf; void techCost;
 }

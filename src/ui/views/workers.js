@@ -37,7 +37,7 @@ export default {
         const fm = foremen.find((w) => FOREMAN_TYPES[w.foreman] && Object.keys(FOREMAN_TYPES[w.foreman].mods).some((m) => sec.res.some((r) => m === 'prod.' + r)));
         return `<div class="sector ${n > cap ? 'over' : ''}"><div class="sector-head">${sec.icon} <b>${sec.name}</b><span class="bonus-tag">${pct(bonus['work.' + k] || 0)}</span></div>
           <div class="small">${n} / ${cap} postes utiles${fm ? ` · 🦺 ${esc(fm.name)}` : ''}</div>${bar(n, Math.max(1, cap))}
-          <div class="row gap"><button class="mini" data-action="w-sector" data-sec="${k}" data-n="1">+1</button><button class="mini" data-action="w-sector" data-sec="${k}" data-n="5">+5</button><button class="mini ghost" data-action="w-unsector" data-sec="${k}">−1</button></div></div>`;
+          <div class="row gap"><button class="mini" data-action="w-sector" data-sec="${k}" data-n="1">+1</button><button class="mini" data-action="w-sector" data-sec="${k}" data-n="5">+5</button><button class="mini ghost" data-action="w-unsector" data-sec="${k}" ${n ? '' : 'disabled'}>−1</button></div></div>`;
       }).join('')}</div></div>
 
       <div class="card"><div class="tabs">${[['', 'Tous'], ['idle', '💤 Inactifs'], ['foreman', '🦺 Contremaîtres'], ...Object.entries(WORK_SECTORS).map(([k, s2]) => [k, s2.icon + ' ' + s2.name])].map(([k, l]) => `<button class="tab ${filter === k ? 'active' : ''}" data-action="w-filter" data-k="${k}">${l}</button>`).join('')}</div>

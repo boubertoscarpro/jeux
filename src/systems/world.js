@@ -25,8 +25,10 @@ export function setTerrain(world, x, y, ter) {
 }
 
 // Révèle un rayon ; renvoie la liste des sites nouvellement découverts
+// Renvoie les sites découverts ; found.newTiles = nombre de cases réellement sorties du brouillard
 export function reveal(world, cx, cy, radius) {
   const found = [];
+  let newTiles = 0;
   for (let y = Math.floor(cy - radius); y <= Math.ceil(cy + radius); y++) {
     for (let x = Math.floor(cx - radius); x <= Math.ceil(cx + radius); x++) {
       if (x < 0 || y < 0 || x >= world.size || y >= world.size) continue;
@@ -34,11 +36,13 @@ export function reveal(world, cx, cy, radius) {
       const i = y * world.size + x;
       if (!world.revealed[i]) {
         world.revealed[i] = 1;
+        newTiles++;
         const p = poiAt(world, x, y);
         if (p) found.push(p);
       }
     }
   }
+  found.newTiles = newTiles;
   return found;
 }
 

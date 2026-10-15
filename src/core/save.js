@@ -4,6 +4,8 @@ import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './stat
 import { extendWorld } from '../systems/worldgen.js';
 import { mulberry32 } from './rng.js';
 import { ensureIdentity } from '../systems/identity.js';
+import { UNITS } from '../data/units.js';
+import { describePending } from '../systems/pending.js';
 
 export const SAVE_KEY = 'cendrelande_save';
 export const BACKUP_KEY = 'cendrelande_save_backup';     // dernière sauvegarde saine (rotation toutes les 10 min)
@@ -112,7 +114,21 @@ function sanitize(d, fresh) {
     if (t.status !== 'idle' && !finite(due)) { t.status = 'idle'; fixes.push('expédition ' + (t.name || t.id)); }
   }
   if (d.marches.length + d.caravans.length + d.raids.length < before) fixes.push('trajets invalides');
-  d.pending = d.pending.filter((p) => p && p.id);
+  d.pending = d.pending.filter((p) => { if (!p || !p.id) return false; try { return !!describePending(d, p)?.title; } catch { fixes.push('décision inconnue'); return false; } });
+  // Entrées nulles ou incomplètes (sauvegarde modifiée à la main ou abîmée) : retirées au lieu de faire planter la partie
+  const objs = (a, need = null) => (Array.isArray(a) ? a.filter((x) => x && typeof x === 'object' && !Array.isArray(x) && (!need || x[need] !== undefined)) : []);
+  for (const k of ['buffs', 'events', 'workers', 'reports', 'notifications', 'log']) if (Array.isArray(d[k])) { const n = d[k].length; d[k] = objs(d[k]); if (d[k].length < n) fixes.push(k); }
+  if (d.inventory) { const n = (d.inventory.items || []).length; d.inventory.items = objs(d.inventory.items, 'id'); if (d.inventory.items.length < n) fixes.push('objets'); }
+  if (Array.isArray(d.heroes)) {
+    const n = d.heroes.length;
+    d.heroes = objs(d.heroes, 'id').filter((h) => typeof h.name === 'string' && Number.isFinite(+h.level));
+    for (const h of d.heroes) { h.level = Math.max(1, Math.floor(+h.level)); if (!Number.isFinite(+h.xp)) h.xp = 0; h.equip ||= {}; }
+    if (d.heroes.length < n) fixes.push('héros');
+  }
+  for (const k of ['buildings']) for (const [id, b] of Object.entries(d.city?.[k] || {})) if (!b || typeof b !== 'object' || typeof b.type !== 'string' || !Number.isFinite(+b.level)) { if (b?.type !== 'townhall') { delete d.city[k][id]; fixes.push('bâtiment ' + id); } }
+  for (const [id, t] of Object.entries(d.territories || {})) if (!t || typeof t !== 'object') { delete d.territories[id]; fixes.push('avant-poste'); }
+  for (const u of Object.keys(d.army || {})) if (!UNITS[u]) { delete d.army[u]; fixes.push('unité inconnue ' + u); }
+  if (d.meta) { if (typeof d.meta.kingdomName !== 'string') d.meta.kingdomName = d.meta.kingdomName == null ? '' : String(d.meta.kingdomName); }
   // Spécialisation inconnue (sauvegarde modifiée à la main) → royaume sans spécialisation, jamais de bonus inventé
   if (d.kingdom && d.kingdom.type !== null && !KINGDOM_TYPES[d.kingdom.type]) { fixes.push('spécialisation'); d.kingdom.type = null; }
   if (d.kingdom && !ORIGINS[d.kingdom.origin]) d.kingdom.origin = 'none';
@@ -133,7 +149,9 @@ export function validateShape(data) {
   if (!isObj(data)) throw new Error('le contenu n’est pas une sauvegarde de Cendrelande');
   if (!isObj(data.meta) || !isObj(data.city) || !isObj(data.city.buildings) || !isObj(data.resources)) throw new Error('sauvegarde incomplète (royaume, ville ou ressources manquants)');
   if (!Array.isArray(data.city.terrain)) throw new Error('terrain de la ville manquant');
-  if (data.version !== undefined && (typeof data.version !== 'number' || data.version > SAVE_VERSION)) throw new Error(`version ${data.version} plus récente que ce jeu (${SAVE_VERSION}) : mettez le jeu à jour`);
+  if (typeof data.version === 'string' && /^\d+$/.test(data.version.trim())) data.version = Number(data.version);
+  if (data.version !== undefined && typeof data.version !== 'number') throw new Error(`numéro de version invalide (${String(data.version).slice(0, 20)})`);
+  if (data.version > SAVE_VERSION) throw new Error(`version ${data.version} plus récente que ce jeu (${SAVE_VERSION}) : mettez le jeu à jour`);
   for (const k of ['heroes', 'marches', 'log']) if (data[k] !== undefined && !Array.isArray(data[k])) throw new Error(`champ « ${k} » invalide`);
   if (!Object.values(data.city.buildings).some((b) => b?.type === 'townhall')) throw new Error('aucun hôtel de ville');
 }
@@ -151,6 +169,9 @@ export function migrate(data) {
   const fixes = sanitize(data, createNewState({ seed: 1, now: Date.now() }));
   ensureIdentity(data); // noms invalides (modifiés à la main) → noms par défaut
   data.version = SAVE_VERSION;
+  // Une partie chargée ou importée doit d'abord prouver qu'elle tourne (≈1 s) avant de pouvoir remplacer la copie
+  // de secours : l'indicateur « démarrage réussi » et la date de copie d'une autre partie ne sont pas repris
+  delete data.meta.bootOk; delete data.meta.lastBackup;
   if (from < SAVE_VERSION) data.meta.migratedFrom = from;
   if (fixes.length) data.meta.repaired = fixes;
   return data;

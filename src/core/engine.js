@@ -121,12 +121,32 @@ export function processDue(state, t) {
   return changed;
 }
 
+// Décale tous les horodatages de la partie (millisecondes depuis 1970, entre 2017 et 2096) de `d` ms.
+// Utilisé quand l'horloge de l'appareil recule. Les grands tableaux (terrain, brouillard) sont ignorés.
+const TS_MIN = 1.5e12, TS_MAX = 4e12;
+const NOT_TIME = new Set(['seed', 'resources', 'stats', 'records', 'army', 'revealed', 'terrain', 'prices']);
+export function shiftTimeline(state, d) {
+  const walk = (o, depth) => {
+    if (!o || typeof o !== 'object' || depth > 8) return;
+    if (Array.isArray(o)) { if (o.length > 2000) return; for (let i = 0; i < o.length; i++) { const v = o[i]; if (typeof v === 'number') { if (v > TS_MIN && v < TS_MAX) o[i] = v + d; } else walk(v, depth + 1); } return; }
+    for (const k of Object.keys(o)) {
+      if (NOT_TIME.has(k)) continue;
+      const v = o[k];
+      if (typeof v === 'number') { if (v > TS_MIN && v < TS_MAX) o[k] = v + d; } else walk(v, depth + 1);
+    }
+  };
+  walk(state, 0);
+}
+
 // Fait avancer la simulation jusqu'à `now` (gère aussi la progression hors-ligne)
 export function advance(state, now = Date.now()) {
   let t = state.meta.lastTick || now;
   // Horloge reculée (changement d'heure manuel, sauvegarde venue d'un appareil en avance) :
   // on repart de maintenant au lieu de figer le royaume jusqu'à ce que l'heure rattrape l'ancienne date
   if (t - now > 60000) {
+    // Toute la chronologie (échéances, délais, historique) est décalée du même écart : un chantier à qui il restait
+    // 2 min finit toujours dans 2 min, au lieu d'attendre que l'horloge rattrape l'ancienne date
+    shiftTimeline(state, now - t);
     log(state, 'info', `⏰ L’horloge de l’appareil a reculé de ${Math.round((t - now) / 60000)} min : la simulation reprend à l’heure actuelle.`, now);
     state.meta.lastTick = now;
     state.meta.nextWorldTick = Math.min(state.meta.nextWorldTick || now, now + WORLD_STEP);
@@ -144,7 +164,11 @@ export function advance(state, now = Date.now()) {
     for (const m of [...state.marches, ...(state.live?.marches || [])]) shift(m, 'arrive', 'workEnd', 'returnAt');
     for (const c of state.caravans) shift(c, 'end');
     for (const r of state.raids) shift(r, 'arrive');
-    for (const e of state.expeditions || []) shift(e, 'arrive', 'workEnd', 'returnAt', 'nextEventAt', 'decisionAt');
+    for (const e of state.expeditions || []) {
+      // Expédition au travail : toute sa fenêtre de travail glisse (sinon la période ignorée compterait comme travaillée)
+      if (e.status === 'work' && Number.isFinite(e.workEnd) && e.workEnd < t) { const d = t - e.workEnd; e.lastAcc = (e.lastAcc || 0) + d; e.workStart = (e.workStart || 0) + d; e.workEnd = t; }
+      shift(e, 'arrive', 'workEnd', 'returnAt', 'nextEventAt', 'decisionAt');
+    }
     for (const p of state.pending) shift(p, 'deadline');
     log(state, 'info', `Absence prolongée : seules les 12 dernières heures sont simulées (${Math.round(skipped / 3600000)} h ignorées).`, now);
   }
