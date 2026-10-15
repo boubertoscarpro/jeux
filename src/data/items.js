@@ -99,6 +99,13 @@ export const UNIQUE_ITEMS = {
   boneCrown:    { slot: 'helmet', name: 'Couronne d’os', rarity: 'legendary', affixes: { 'combat.morale': 12, 'city.def': 0.1 } },
   bastionShield:{ slot: 'armor', name: 'Bouclier des Anciens', rarity: 'legendary', affixes: { 'city.def': 0.15, 'combat.def': 0.1 } },
   merchantSignet: { slot: 'ring', name: 'Chevalière des Sept Marchands', rarity: 'legendary', affixes: { 'caravan.gain': 0.12, 'loot.rare': 0.03, 'stat.lore': 8 } },
+  // Chefs-d'œuvre des commandes prestigieuses (une fois par dynastie, voir data/commissions.js)
+  championBlade:{ slot: 'weapon', name: 'Lame d’apparat du champion', rarity: 'legendary', affixes: { 'combat.atk': 0.13, 'combat.morale': 8, 'stat.command': 6 } },
+  dawnAegis:    { slot: 'armor', name: 'Égide restaurée de l’Aube', rarity: 'legendary', affixes: { 'combat.def': 0.13, 'stat.lore': 8, 'research.speed': 0.04 } },
+  breachPlate:  { slot: 'armor', name: 'Harnois du vainqueur de la Brèche', rarity: 'legendary', affixes: { 'combat.def': 0.15, 'combat.losses': -0.06 } },
+  guildSeal:    { slot: 'ring', name: 'Sceau des maîtres artisans', rarity: 'epic', affixes: { 'prod.all': 0.04, 'stat.lore': 5 } },
+  astrolabe:    { slot: 'amulet', name: 'Astrolabe des Terres Brisées', rarity: 'legendary', affixes: { 'explore.speed': 0.2, 'march.speed': 0.08, 'loot.rare': 0.03 } },
+  lineageCrown: { slot: 'helmet', name: 'Couronne de la lignée', rarity: 'legendary', affixes: { 'stat.command': 10, 'combat.morale': 10, 'city.def': 0.06 } },
   emberCompass: { slot: 'amulet', name: 'Boussole des Braises', rarity: 'epic', affixes: { 'explore.speed': 0.25, 'loot.rare': 0.04 } },
 };
 

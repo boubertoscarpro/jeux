@@ -430,3 +430,12 @@ html:not(.reduce-motion) button.speed-ready { animation: speed-glow 2.4s ease-in
 .her-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; }
 .her-form .form-row:last-child { grid-column: 1 / -1; }
 @media (max-width: 640px) { .her-form { grid-template-columns: 1fr; } }
+
+/* ───────── Commandes prestigieuses ───────── */
+.commission-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 10px; }
+.commission { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(180deg, rgba(232, 219, 189, .05), transparent 60%), var(--stone-800); display: grid; gap: 6px; }
+.commission.active, .commission.ready { border-color: var(--bronze-l); box-shadow: inset 0 0 0 1px rgba(210, 155, 85, .25); }
+.commission.locked, .commission.done { opacity: .72; }
+.cm-stages { margin: 0; padding-left: 4px; list-style: none; }
+.cm-stages li { margin: 2px 0; }
+.cm-stages li.cur { color: var(--gold); }
