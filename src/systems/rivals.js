@@ -122,6 +122,7 @@ export function resolveRaid(state, raid, t) {
   let text;
   if (win) {
     state.stats.raidsRepelled++;
+    state.raidLossStreak = 0;
     bumpRep(state, 'warrior', 5);
     changeRelation(state, raid.rival, 3);
     if (allies) chronicle(state, `Avec l’aide de leurs alliés, les défenseurs de ${state.meta.kingdomName} repoussent ${raid.name}.`, t);
@@ -137,12 +138,14 @@ export function resolveRaid(state, raid, t) {
       if (v > 0) { stolen[r] = v; state.resources[r] -= v; }
     }
     recordLoss(state, 'raid', stolen, t);
-    state.raidCooldown = Math.max(state.raidCooldown || 0, t + (RAID_TRUCE_H + RAID_LOST_GRACE_H) * 3600000); // les pillards repus laissent le royaume se relever
+    // Les pillards repus laissent le royaume se relever ; après plusieurs défaites d'affilée, la trêve s'allonge
+    // (+6 h par défaite consécutive, jusqu'à +18 h) pour qu'un royaume faible ne soit pas pillé en boucle
+    state.raidLossStreak = (state.raidLossStreak || 0) + 1;
+    const extra = Math.min(18, 6 * (state.raidLossStreak - 1));
+    state.raidCooldown = Math.max(state.raidCooldown || 0, t + (RAID_TRUCE_H + RAID_LOST_GRACE_H + extra) * 3600000);
     text = `${castleName(state)} est pillé par ${raid.name} : ${Object.entries(stolen).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien (tout était à l’abri)'}.`;
     state.stats.raidsLost = (state.stats.raidsLost || 0) + 1;
     log(state, 'bad', `🔥 ${text}`, t);
-    const k = Object.values(state.world.pois).find((p) => p.type === 'kingdom' && p.rival === raid.rival);
-    if (k) k.anger = (k.anger || 0) + 1;
     // Une fois sur deux, les assaillants incendient un bâtiment (production −50 % jusqu'à réparation)
     const targets = allBuildings(state).filter((b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco', 'warehouse'].includes(b.type));
     const burnt = [];

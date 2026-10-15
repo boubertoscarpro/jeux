@@ -42,6 +42,8 @@ export function resourceBreakdown(state, res, mods) {
   return { sources: sources.sort((a, b) => b.v - a.v), sinks: sinks.sort((a, b) => b.v - a.v), prod: sources.reduce((a, s) => a + s.v, 0), cons: sinks.reduce((a, s) => a + s.v, 0) };
 }
 
+const APPLY_LABEL = { chain: 'Relancer', invest: 'Améliorer', storage: 'Agrandir', convert: 'Placer', prepare: 'Lancer', sell: 'Vendre' };
+
 export function analyze(state, now = Date.now()) {
   const mods = computeMods(state, now);
   const net = netRates(state, mods);
@@ -70,7 +72,7 @@ export function analyze(state, now = Date.now()) {
   // préparer une expédition…) ; la vente n'est proposée que si le cours est correct
   for (const r of full.slice(0, 3)) {
     const plan = surplusPlan(state, r, now, mods).filter((a) => a.feasible);
-    if (plan.length) push('warn', `Entrepôt plein pour ${R(r)} : ${plan[0].label.toLowerCase()} — ${plan[0].detail}${plan[1] ? ` Sinon : ${plan[1].label.toLowerCase()}.` : ''}`, plan[0].view);
+    if (plan.length) push('warn', `Entrepôt plein pour ${R(r)} : ${plan[0].label.toLowerCase()} — ${plan[0].detail}${plan[1] ? ` Sinon : ${plan[1].label.toLowerCase()}.` : ''}`, plan[0].view, { id: 'full:' + r, apply: r, applyLabel: APPLY_LABEL[plan[0].kind] });
     else push('warn', `Entrepôt plein pour ${R(r)} : la production est perdue. Améliorez l’entrepôt ou réduisez cette production (ouvriers, priorités).`, 'city');
   }
   // Chaînes
