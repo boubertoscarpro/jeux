@@ -18,6 +18,8 @@ import { upgradeSummary, buildRequirement, getUpgradeInfo, startUpgrade } from '
 import { quote, sell } from './market.js';
 import { commissionState, launchStage } from './commissions.js';
 import { unitStatus, unitCost, train } from './army.js';
+import { crownList, startCrown, crownRunning, crownRewardText } from './crown.js';
+import { crownSlots } from '../data/crown.js';
 
 export const SELL_MIN_RATIO = 0.85; // en dessous, vendre détruit de la valeur : on ne le conseille pas
 const val = (r) => RESOURCES[r]?.price || 0;
@@ -75,6 +77,11 @@ export function surplusPlan(state, r, now = Date.now(), mods = computeMods(state
     const all = Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v * n]));
     out.push({ kind: 'prepare', label: `Former ${n} ${UNITS[unit].name.toLowerCase()}${n > 1 ? 's' : ''}`, detail: `Pour la garnison, la Brèche ou une campagne : coût ${Object.entries(all).map(([k, v]) => `${Math.round(v)} ${RESOURCES[k].name.toLowerCase()}`).join(', ')}.`, gain: all[r] * val(r) * 0.8, feasible: canAfford(state, all), reason: canAfford(state, all) ? null : 'Autres ressources manquantes', view: 'army', unit, n, cost: all });
   }
+  // Grand Projet du Royaume disponible et abordable qui emploie cette ressource (dépense facultative, récompense connue)
+  if (crownRunning(state) < crownSlots(thLevel(state))) {
+    const cp = crownList(state, now).filter((i) => i.status === 'available' && i.affordable && (i.cost[r] || 0) >= Math.max(100, excess * 0.1)).sort((x, y) => (y.cost[r] || 0) - (x.cost[r] || 0))[0];
+    if (cp) out.push({ kind: 'prepare', label: `Grand Projet : ${cp.def.name}`, detail: `Emploie ${Math.round(cp.cost[r])} ${RESOURCES[r].name.toLowerCase()} ; récompense : ${crownRewardText(cp.id)}.`, gain: cp.cost[r] * val(r) * 0.7, feasible: true, view: 'projects', crown: cp.id, cost: cp.cost });
+  }
   if (r === 'food' && thLevel(state) >= 6 && !state.legendary?.active) out.push({ kind: 'prepare', label: 'Préparer une expédition légendaire', detail: 'Des provisions abondantes (nourriture) améliorent le moral et les chances face au gardien.', gain: Math.min(excess, 3000) * val(r), feasible: true, view: 'legendary' });
   // 5) Vendre, seulement si le cours est correct
   if (TRADABLE.includes(r) && levelOf(state, 'market') && excess > 0) {
@@ -106,7 +113,7 @@ export function applySurplus(state, r, now = Date.now(), mods = computeMods(stat
   switch (act.kind) {
     case 'chain': { const b = state.city.buildings[act.bid]; if (!b) return { ok: false, reason: 'Bâtiment introuvable' }; b.paused = false; if (b.reserve >= storageCap(state, mods, r) * 0.5) b.reserve = 0; break; }
     case 'invest': case 'storage': res = startUpgrade(state, act.bid, now); break;
-    case 'prepare': res = act.unit ? train(state, act.unit, act.n, now) : act.view === 'craft' ? launchStage(state, now) : { ok: true, goto: act.view }; break;
+    case 'prepare': res = act.crown ? startCrown(state, act.crown, now) : act.unit ? train(state, act.unit, act.n, now) : act.view === 'craft' ? launchStage(state, now) : { ok: true, goto: act.view }; break;
     case 'convert': res = { ok: true, place: act.type }; break;
     case 'sell': res = sell(state, r, act.qty, now); break;
     default: return { ok: false, reason: 'Action inconnue' };

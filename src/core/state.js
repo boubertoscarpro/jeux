@@ -161,6 +161,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     policy: { id: 'balanced', pending: null, activeAt: 0, lockUntil: 0, history: [] },
     // --- Grands projets royaux ---
     projects: { active: null, done: {} },
+    crown: { active: {}, done: {}, last: {}, claimed: {} },
     // --- Campagnes militaires et Comptoir du Joaillier ---
     war: { active: null, history: [], cooldownUntil: 0 },
     shop: { day: 0, bought: {}, total: 0 },

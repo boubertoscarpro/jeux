@@ -896,3 +896,11 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .legacy-remnant { border-bottom: 1px solid var(--line); padding: 8px 0; display: flex; flex-direction: column; gap: 4px; }
 .legacy-remnant.done { opacity: 0.7; }
 .legacy-archive { border-left: 3px solid var(--gold2); padding: 4px 10px; margin: 6px 0; }
+/* ---------- Grands Projets du Royaume ---------- */
+.crown-fams { margin-top: 8px; gap: 6px; }
+.crown-runs { display: grid; gap: 6px; margin: 8px 0; }
+.crown-card .crown-cost span { margin-right: 6px; white-space: nowrap; }
+.crown-card.available { border-color: var(--gold); }
+.crown-card.done { opacity: 0.8; }
+.crown-card.hidden-proj { opacity: 0.7; border-style: dashed; }
+.crown-card .btn { margin-top: 6px; }
