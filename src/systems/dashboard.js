@@ -61,7 +61,8 @@ export function strategicSummary(state, now = Date.now()) {
   const la = state.legendary?.active;
   if (la && (la.pending || la.awaitingFate)) alerts.push({ sev: 'warn', icon: LEGENDS[la.id]?.icon || '🗺️', text: la.awaitingFate ? 'Expédition légendaire : décidez du sort de la découverte' : 'Expédition légendaire : une décision vous attend', goto: 'legend' });
   // Réactions des factions (v13) : seulement celles qui demandent une décision
-  for (const r of (state.factionReports || []).filter((x) => now - x.t < 6 * 3600000 && ['counter', 'embargo', 'aid', 'weakened'].includes(x.kind)).slice(0, 2)) alerts.push({ sev: r.kind === 'counter' ? 'bad' : r.kind === 'embargo' ? 'warn' : 'good', icon: { counter: '🔥', embargo: '⛔', aid: '🤝', weakened: '🏳️' }[r.kind], text: r.text, goto: r.kind === 'aid' ? 'convoys' : 'factions' });
+  // Les contre-offensives restent toujours signalées (menace) ; les autres réactions sont informatives et désactivables
+  for (const r of (state.factionReports || []).filter((x) => now - x.t < 6 * 3600000 && ['counter', 'embargo', 'aid', 'weakened'].includes(x.kind) && (x.kind === 'counter' || state.meta.factionAlerts !== false)).slice(0, 2)) alerts.push({ sev: r.kind === 'counter' ? 'bad' : r.kind === 'embargo' ? 'warn' : 'good', icon: { counter: '🔥', embargo: '⛔', aid: '🤝', weakened: '🏳️' }[r.kind], text: r.text, goto: r.kind === 'aid' ? 'convoys' : 'factions' });
   if (state.legacy?.offer) alerts.push({ sev: 'good', icon: '👑', text: 'Une tradition dynastique peut être choisie', goto: 'legacy' });
   if (state.famine) alerts.unshift({ sev: 'bad', icon: '🍞', text: 'Famine : plus de nourriture, le moral s’effondre', goto: 'g-prod' });
   // Aucune production de nourriture alors que l'entretien en consomme : alerte dès maintenant, pas 6 h avant la famine

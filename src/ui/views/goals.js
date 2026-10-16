@@ -196,6 +196,7 @@ export default {
       ${body}</div>
       <div class="card"><h3>🧙‍♂️ Conseiller et tutoriel</h3>
         <div class="row gap wrap"><span class="small">Conseiller du tableau de bord :</span>${Object.entries(ADVICE_LEVELS).map(([k, l]) => `<button class="mini ${(s.meta.advice || 'full') === k ? 'primary' : ''}" data-action="advice-level" data-k="${k}">${esc(l)}</button>`).join('')}</div>
+        <div class="row gap wrap"><span class="small">Alertes des factions (embargo, aide, négociation) :</span><button class="mini" data-action="faction-alerts">${s.meta.factionAlerts === false ? '🔕 Réactiver' : '🔔 Masquer'}</button><span class="muted small">Les contre-offensives restent toujours signalées.</span></div>
         <div class="row gap wrap"><span class="small">Fiches du tutoriel :</span><button class="mini" data-action="tips-toggle">${s.meta.tipsOff ? '📘 Réactiver' : '📘 Désactiver'}</button><button class="mini ghost" data-action="nav" data-view="journal">Revoir les fiches (Journal) →</button>${Object.keys(s.campaign?.dismissed || {}).length ? '<button class="mini ghost" data-action="advice-reset">↺ Réafficher les conseils ignorés</button>' : ''}</div></div>
       ${sagaCard(s)}`;
   },
@@ -210,6 +211,7 @@ export default {
     'claim-event-daily': (app, el) => app.act(() => claimDaily(app.state, +el.dataset.i), 'Mission du jour accomplie !'),
     'advice-level': (app, el) => app.act(() => setAdviceLevel(app.state, el.dataset.k), 'Conseiller réglé'),
     'advice-reset': (app) => app.act(() => { app.state.campaign.dismissed = {}; app.state.campaign.snoozed = {}; return { ok: true }; }, 'Conseils réaffichés'),
+    'faction-alerts': (app) => { app.state.meta.factionAlerts = app.state.meta.factionAlerts === false; app.render(); app.save(); },
     'tips-toggle': (app) => { app.state.meta.tipsOff = !app.state.meta.tipsOff; app.render(); },
   },
 };

@@ -21,6 +21,13 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v13 — Le Royaume en mouvement** : les factions réagissent à vos actes (défenses renforcées, embargo, demandes
+> d’aide, faveurs marchandes, contre-offensives bornées, négociation après affaiblissement), quêtes transversales à
+> embranchements (Les Héritiers de la Fracture, La Route coupée, L’Héritage du royaume), chronique classée sans
+> doublons, conséquences après chaque événement, bilan économique avec relevés et recommandations motivées, objectifs
+> adaptés à la situation, Grands Projets liés à la diplomatie et aux fouilles, famine du début de partie corrigée —
+> voir [`docs/V13.md`](docs/V13.md).
+>
 > **v12** : passe-temps de recrutement (Sablier du sergent → Décret royal de mobilisation), Grands Projets du
 > Royaume (infrastructures, préparation militaire, économie, prestige ; projets d’événement et rares), hôtel de ville
 > jusqu’au niveau 30 et bâtiments emblématiques jusqu’au niveau 25, six ères, paliers et prérequis affichés —
@@ -64,7 +71,7 @@ Et un **🧙‍♂️ Conseiller** qui analyse votre économie et répond à vos
 ## Développement
 
 ```bash
-npm test        # tests du moteur, des systèmes, de la sauvegarde et non-régressions (dont passe-temps, Brèche, audit v11, recrutement, Grands Projets, niveaux étendus)
+npm test        # tests du moteur, des systèmes, de la sauvegarde et non-régressions (dont passe-temps, Brèche, audit v11, recrutement, Grands Projets, niveaux étendus, v13)
 node tools/profileSim.js 7 2     # progression simulée de 6 profils de joueurs sur 7 jours
 node tools/profileSim.js --kingdoms 7 2   # comparaison des 8 spécialisations (début / milieu / fin)
 node tools/profileSim.js --policies 7 3   # comparaison des priorités royales
