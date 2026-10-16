@@ -14,6 +14,7 @@ import { startWorldEvent } from './events.js';
 import { log, toast } from './log.js';
 import { costMult } from './kingdom.js';
 import { remember, memoryScore, rivalryTick } from './rivalry.js';
+import { reactionsTick, noteHostile, negotiationBonus } from './reactions.js';
 
 export { STANCES, PERSONALITIES };
 
@@ -83,6 +84,7 @@ export function factionsTick(state, now) {
     if (poi) poi.power = Math.round(f.army * 100) / 100;
   }
   memoryTick(state, now);
+  reactionsTick(state, now);
   // Guerres entre factions
   if (rng.chance(0.04)) {
     const [a, b] = [rng.pick(state.factions), rng.pick(state.factions)];
@@ -182,7 +184,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
     }
     case 'trade': {
       if (f.stance === 'war') return { ok: false, reason: 'Impossible en temps de guerre' };
-      const need = per === 'commercial' ? 5 : 20;
+      const need = Math.max(0, (per === 'commercial' ? 5 : 20) - (f.negotiableUntil > now ? 15 : 0));
       if (f.relation < need) return { ok: false, reason: `Relation insuffisante (${need} requis)` };
       if (per === 'isolationist' && f.relation < 40) return { ok: false, reason: `${name} refuse d’ouvrir ses marchés (relation 40 requise)` };
       f.stance = 'trade'; f.treatyAt = now;
@@ -203,7 +205,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
     case 'peace': {
       if (f.stance !== 'war') return { ok: false, reason: 'Vous n’êtes pas en guerre' };
       if (f.peaceRetryAt > now) return { ok: false, reason: `${name} ne recevra pas de nouveaux émissaires avant ${Math.ceil((f.peaceRetryAt - now) / 60000)} min` };
-      const chance = 0.25 + (f.relation + 60) / 250 + f.weariness / 200 + Math.max(0, ratio - 1) * 0.25;
+      const chance = 0.25 + (f.relation + 60) / 250 + f.weariness / 200 + Math.max(0, ratio - 1) * 0.25 + negotiationBonus(f, now);
       if (!rng.chance(Math.min(0.95, chance))) { f.relation = Math.max(-100, f.relation - 3); f.peaceRetryAt = now + DIPLO_RETRY_MS; return { ok: false, reason: `${name} rejette votre proposition (chance ${Math.round(Math.min(0.95, chance) * 100)}%)` }; }
       f.stance = 'truce'; f.treatyAt = now; f.relation = Math.max(f.relation, -10);
       remember(state, i, 'peace', 6, 'Paix signée', now);
@@ -215,6 +217,7 @@ export function diplomacy(state, i, action, now = Date.now()) {
       if (f.stance === 'war') return { ok: false, reason: 'Déjà en guerre' };
       const betrayal = ['alliance', 'trade', 'truce'].includes(f.stance);
       f.stance = 'war'; f.treatyAt = now; f.relation = Math.min(f.relation, -50);
+      noteHostile(state, i, 'war', now);
       remember(state, i, betrayal ? 'betrayal' : 'war', betrayal ? -40 : -20, betrayal ? 'Serments trahis : guerre déclarée en plein traité' : 'Guerre déclarée', now);
       bumpRep(state, 'warrior', 10);
       if (betrayal) { bumpRep(state, 'tyrant', 25); bumpRep(state, 'diplomat', -40); for (const o of state.factions) if (o !== f) o.relation = Math.max(-100, o.relation - 10); }
@@ -291,6 +294,8 @@ export function spyMission(state, i, objective, spies = 1, now = Date.now()) {
   const caught = Math.max(1, Math.ceil(spies * 0.6));
   state.army.spy -= caught;
   f.relation = Math.max(-100, f.relation - 12);
+  noteHostile(state, i, 'spy', now);
+  remember(state, i, 'spy', -6, 'Espions démasqués dans ses murs', now);
   bumpRep(state, 'diplomat', -5);
   log(state, 'bad', `🕵️ Vos espions ont été démasqués à ${factionName(i)} (${caught} capturé(s)).`, now);
   return { ok: false, reason: `Démasqués ! ${caught} espion(s) capturé(s), relation −12.` };

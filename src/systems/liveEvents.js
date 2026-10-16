@@ -1,6 +1,7 @@
 // Moteur générique des événements temporaires : calendrier, rotation, cartes, marches,
 // monnaies, boutiques, objectifs, passe, classement, guilde, boss, surprises et notifications.
 // Toutes les règles propres à un événement viennent de data/liveEvents.js.
+import { AFTERMATH, AFTERMATH_MIN_EARNED } from '../data/aftermath.js';
 import { LIVE_EVENTS, SURPRISE_EVENTS, FAIR_OFFERS, MYSTERY_POOL, RIDDLES, rewardsPass, LB_REWARDS, EVENT_STANCES, DAILY_TEMPLATES } from '../data/liveEvents.js';
 import { LIVE_CONFIG } from '../data/liveConfig.js';
 import { ALL_UNITS, UNITS } from '../data/units.js';
@@ -19,6 +20,7 @@ import { marchMods } from './marches.js';
 import { giveXp } from './heroes.js';
 import { generateItem, createUniqueItem } from './items.js';
 import { grantSpeedups } from './speedups.js';
+import { bumpRep } from './reputation.js';
 import { shardState, addShards, rollShards, createSpecialHero, dayKey } from './shards.js';
 import { spawnBoss } from './events.js';
 import { findFreeTile, spawnPoi, reveal } from './world.js';
@@ -1132,8 +1134,9 @@ export function endEvent(state, now = Date.now()) {
   T.events = (T.events || 0) + 1;
   T.bestRank = Math.min(T.bestRank || Infinity, lb.rank);
   T.bestScore = Math.max(T.bestScore || 0, report.earned);
+  report.aftermath = applyAftermath(state, cur, def, now);
   L.current = null;
-  chronicle(state, `Fin de « ${def.name} » : ${state.meta.kingdomName} termine ${lb.rank}e sur ${lb.size} avec ${fmt(report.earned)} ${def.currency.name}.`, now);
+  chronicle(state, `Fin de « ${def.name} » : ${state.meta.kingdomName} termine ${lb.rank}e sur ${lb.size} avec ${fmt(report.earned)} ${def.currency.name}.`, now, 'event', `eventEnd:${cur.key}:${cur.start}`);
   notify(state, '📜', `« ${def.name} » est terminé : vous êtes ${lb.rank}e. ${left ? `${fmt(left)} ${def.currency.icon} convertis en ${report.converted}.` : ''}`, now);
   return report;
 }
@@ -1315,4 +1318,32 @@ export function claimChallenge(state, now = Date.now()) {
   if (!c || !c.done || c.claimed) return { ok: false, reason: 'Défi non relevé' };
   liveState(state).current.challengeClaimed = true;
   return { ok: true, text: grantGive(state, c.reward, now, 'Défi héroïque') };
+}
+
+// Conséquences après la fin d'un événement (data/aftermath.js) : appliquées une seule fois par occurrence
+// (clé « clé:début » mémorisée), même si endEvent était rappelé après un rechargement ou un changement de date.
+export function applyAftermath(state, cur, def, now = Date.now()) {
+  const L = liveState(state);
+  const done = (L.aftermathDone ||= {});
+  const k = `${cur.key}:${cur.start}`;
+  if (done[k]) return [];
+  done[k] = now;
+  const keys = Object.keys(done);
+  if (keys.length > 40) for (const old of keys.slice(0, keys.length - 40)) delete done[old];
+  const A = AFTERMATH[cur.key];
+  if (!A) return [];
+  const out = [];
+  const took = (cur.earned || 0) >= AFTERMATH_MIN_EARNED;
+  const buff = (b, why) => { state.buffs.push({ name: b.name, mods: b.mods, until: now + b.hours * H, aftermath: k }); out.push(`${why} : ${b.name} (${b.hours} h)`); };
+  if (A.all) buff(A.all, 'Le monde change');
+  if (took && A.won) buff(A.won, 'Votre participation');
+  if (took && A.lasting) {
+    const x = A.lasting;
+    if (x.rep) for (const [r, n] of Object.entries(x.rep)) bumpRep(state, r, n);
+    if (x.relic) { shardState(state).relicFragments += x.relic; out.push(`${x.relic} fragment de relique`); }
+    if (x.factionRelation) for (const f of state.factions || []) f.relation = Math.max(-100, Math.min(100, f.relation + x.factionRelation));
+    if (x.chronicle) chronicle(state, x.chronicle.replace('{kingdom}', state.meta.kingdomName), now, 'event', `aftermath:${k}`);
+  }
+  if (A.all?.text) notify(state, def.icon, A.all.text, now, 'good');
+  return out;
 }

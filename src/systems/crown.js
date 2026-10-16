@@ -30,6 +30,11 @@ const helpers = (s) => ({
   count: (t) => countOf(s, t),
   outposts: () => Object.keys(s.territories || {}).length,
   breachDefeated: () => Object.keys(breachState(s).defeated || {}).length,
+  // v13 : liens avec la diplomatie, l'archéologie et les campagnes
+  pact: () => (s.factions || []).some((f) => f.stance === 'trade' || f.stance === 'alliance'),
+  alliance: () => (s.factions || []).some((f) => f.stance === 'alliance'),
+  mysteries: () => Object.keys(s.archaeo?.solved || {}).length,
+  campaignsWon: () => s.stats?.campaignsWon || 0,
 });
 const check = (s, list) => (list || []).map(([text, fn]) => { let ok = false; try { ok = !!fn(s, helpers(s)); } catch { ok = false; } return { text, ok }; });
 

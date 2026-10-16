@@ -3,6 +3,7 @@
 // (la faction perd des territoires et des troupes, défenses suivantes −20 %), puis une opération finale au choix :
 // assiéger sa capitale (tribut imposé) ou protéger une cité libre (trêve imposée, cité reconnaissante).
 // Les troupes engagées quittent le château pendant l'opération ; le combat utilise le moteur de combat existant.
+import { noteHostile } from './reactions.js';
 import { scar } from './worldmarks.js';
 import { remember } from './rivalry.js';
 import { SEASON_WAR } from '../data/seasons.js';
@@ -66,7 +67,8 @@ export function startCampaign(state, idx, now = Date.now()) {
   if (c.declares) { const r = diplomacy(state, idx, 'war', now); if (r && r.ok === false) return { ok: false, reason: r.reason || 'Déclaration de guerre impossible' }; }
   const W = warState(state);
   W.active = { faction: idx, stage: 0, final: null, fails: 0, bonus: 0, weaken: 0, op: null, startedAt: now, results: [] };
-  chronicle(state, `⚔️ ${state.meta.kingdomName} lance une campagne contre ${RIVALS[idx].name}.`, now);
+  chronicle(state, `⚔️ ${state.meta.kingdomName} lance une campagne contre ${RIVALS[idx].name}.`, now, 'war');
+  noteHostile(state, idx, 'campaign', now);
   return { ok: true, declared: c.declares };
 }
 
@@ -157,10 +159,10 @@ function finishCampaign(state, won, now) {
   if (won) {
     state.stats.campaignsWon = (state.stats.campaignsWon || 0) + 1;
     bumpRep(state, 'warrior', 20);
-    chronicle(state, `🏆 La campagne contre ${RIVALS[a.faction].name} est un triomphe.`, now);
+    chronicle(state, `🏆 La campagne contre ${RIVALS[a.faction].name} est un triomphe.`, now, 'war', `war:won:${a.faction}:${a.startedAt}`);
   } else {
     if (f) changeRelation(state, a.faction, -10);
-    chronicle(state, `🩸 La campagne contre ${RIVALS[a.faction].name} échoue après deux revers.`, now);
+    chronicle(state, `🩸 La campagne contre ${RIVALS[a.faction].name} échoue après deux revers.`, now, 'war', `war:lost:${a.faction}:${a.startedAt}`);
   }
 }
 

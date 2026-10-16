@@ -25,6 +25,12 @@ export function drawWorldMarks(ctx, s, { ox, oy, T, x0, x1, y0, y1, now }) {
       // Souches sur la case
       ctx.fillStyle = '#6b4a2e'; ctx.strokeStyle = '#2b1d12'; ctx.lineWidth = 1;
       for (const [dx, dy] of [[0.25, 0.65], [0.55, 0.45], [0.7, 0.75], [0.35, 0.3]]) { ctx.beginPath(); ctx.ellipse(px + dx * T, py + dy * T, T * 0.08, T * 0.05, 0, 0, 7); ctx.fill(); ctx.stroke(); }
+    } else if (m.kind === 'fortified') {
+      // Capitale renforcée : double anneau de pierre autour de la case (effet réel : garnison +20 %)
+      ctx.strokeStyle = 'rgba(200,190,170,0.9)'; ctx.lineWidth = Math.max(2, T * 0.08);
+      ctx.strokeRect(px - T * 0.12, py - T * 0.12, T * 1.24, T * 1.24);
+      ctx.strokeStyle = 'rgba(60,50,40,0.9)'; ctx.lineWidth = Math.max(1, T * 0.03);
+      ctx.strokeRect(px - T * 0.2, py - T * 0.2, T * 1.4, T * 1.4);
     } else if (m.kind === 'regrown') {
       ctx.strokeStyle = 'rgba(140,230,120,0.75)'; ctx.lineWidth = Math.max(1.5, T * 0.05);
       ctx.beginPath(); ctx.arc(px + T / 2, py + T / 2, T * 0.62, 0, 7); ctx.stroke();

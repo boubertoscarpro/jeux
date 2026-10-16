@@ -6,7 +6,8 @@ import { fmt, fmtTime } from '../../core/util.js';
 import { diplomacy, spyMission, spyChance, SPY_OBJECTIVES, ENVOY_COST, factionPower, playerPower, raidWillingness } from '../../systems/factions.js';
 import { REPUTATIONS, repTier } from '../../systems/reputation.js';
 import { levelOf } from '../../systems/city.js';
-import { esc, costList, bar } from '../components.js';
+import { esc, costList, bar, countdown } from '../components.js';
+import { factionStatus, REACTION_TEXT } from '../../systems/reactions.js';
 
 const ago = (t) => fmtTime(Date.now() - t);
 
@@ -50,7 +51,8 @@ export default {
       <p class="muted small">Cinq royaumes IA vivent leur vie : ils s’enrichissent, s’arment, s’étendent sur la carte et se font la guerre, même sans vous. Leur attitude dépend de leur personnalité et de votre réputation. Votre puissance : <b>${fmt(pp)}</b>.</p>
       <div class="rep-strip">${Object.entries(REPUTATIONS).map(([k, r]) => `<span class="chip" title="${esc(r.desc)}">${r.icon} ${esc(r.name)} : ${repTier(rep[k] || 0)} (${Math.round(rep[k] || 0)})</span>`).join('')}</div>
       ${rumor ? `<div class="rumor">🍺 À la taverne, on murmure : « ${esc(rumor.text)} »</div>` : ''}
-      <div class="small muted">Contre-espionnage : tour de garde niv. ${levelOf(s, 'watchtower')} + ${s.army.spy || 0} espion(s) en ville.</div></div>
+      <div class="small muted">Contre-espionnage : tour de garde niv. ${levelOf(s, 'watchtower')} + ${s.army.spy || 0} espion(s) en ville.</div>
+      ${(s.factionReports || []).length ? `<h4>Réactions récentes</h4><div class="react-list">${s.factionReports.slice(0, 5).map((r) => `<div class="small">${REACTION_TEXT[r.kind]?.icon || '•'} ${esc(r.text)} <span class="muted">(il y a ${ago(r.t)})</span></div>`).join('')}</div>` : ''}</div>
       <div class="faction-grid">${(s.factions || []).map((f) => {
         const rv = RIVALS[f.idx];
         const per = PERSONALITIES[rv.personality];
@@ -63,6 +65,7 @@ export default {
           <div class="small">Relation</div>${relationBar(f.relation)}
           <div class="small">Territoire : ${f.territory.length} régions · Puissance : ${known ? fmt(known.power) : `≈ ${fmt(factionPower(s, f) * 0.7)}–${fmt(factionPower(s, f) * 1.3)}`}${f.wars.length ? ` · ⚔️ en guerre contre ${f.wars.map((w) => esc(RIVALS[w].name)).join(', ')}` : ''}</div>
           ${willing > 0.08 ? '<div class="req small">⚠ Hostile : risque de raid</div>' : ''}
+          ${factionStatus(s, f).map((x) => `<div class="small ${x.kind === 'weakened' ? 'ok' : 'warn-text'}">${x.icon} ${esc(x.name)} · ${countdown(x.until)}</div>`).join('')}
           ${memoryBlock(s, f)}
           <h4>Renseignements</h4>${intelBlock(f)}
           <h4>Diplomatie</h4><div class="row gap wrap">

@@ -12,6 +12,7 @@ export const QUEST_CATS = {
   trade: { name: 'Commerce', icon: '⚖️', desc: 'Contrats, caravanes et échanges.' },
   diplo: { name: 'Diplomatie', icon: '🕊️', desc: 'Relations avec les factions et les cités.' },
   outpost: { name: 'Avant-postes', icon: '🚩', desc: 'Fonder, développer et défendre vos positions.' },
+  legacy: { name: 'Héritage', icon: '🌟', desc: 'Objectifs de maîtrise et de prestige de fin de partie (facultatifs).' },
 };
 
 const DANGER_SITES = ['ruinSite', 'crypt', 'dungeon', 'lostCity', 'abandonedMine'];
@@ -183,6 +184,107 @@ QUESTLINES.push({
   final: { item: 'legendary', rep: { warrior: 30 } },
 });
 
+// ───────── v13 : quêtes transversales à embranchements ─────────
+// Étapes « choice » : le joueur choisit une voie (setsPath) ; les étapes marquées path:'x' ne concernent que cette
+// voie (les autres sont ignorées). Coûts des choix : costPerTh × niveau d'HdV. Aucune voie n'est gratuite ni
+// systématiquement meilleure : la diplomatie coûte de l'or, le commerce du temps et des livraisons, la guerre des
+// troupes, de la nourriture et la relation avec la faction.
+const thOf = (s) => Object.values(s.city.buildings).find((b) => b.type === 'townhall')?.level || 1;
+const facs = (s) => (s.factions || []);
+const hasLegendaryItem = (s) => (s.inventory?.items || []).some((i) => ['legendary', 'mythic'].includes(i.rarity));
+const borderConflict = (s) => {
+  const f = facs(s).filter((x) => x.wars?.length && x.stance !== 'alliance').sort((a, b) => a.relation - b.relation)[0]
+    || facs(s).filter((x) => x.stance !== 'alliance' && x.stance !== 'tributary').sort((a, b) => a.relation - b.relation)[0];
+  return f ? { faction: f.idx } : null;
+};
+const blockader = (s) => {
+  const f = facs(s).filter((x) => (x.relation <= -10 || x.stance === 'war') && x.stance !== 'tributary').sort((a, b) => a.relation - b.relation)[0];
+  return f ? { faction: f.idx } : null;
+};
+
+QUESTLINES.push({
+  id: 'saga_heirs', cat: 'story', icon: '🔱', title: 'Les Héritiers de la Fracture', chronicleKind: 'dynasty',
+  intro: 'Les héritiers des maisons brisées réclament leur part des Terres Brisées. {faction} est déjà mêlée à un conflit frontalier : le royaume doit être prêt, puis choisir sa manière de peser sur l’avenir.',
+  unlock: (s, h) => h.level(s, 'townhall') >= 7 && !!s.questlines?.done?.story_echoes, unlockText: 'Terminez « Les Échos de la Fracture » et atteignez l’hôtel de ville 7.',
+  ctx: borderConflict,
+  steps: [
+    { title: 'Reconstruire l’essentiel', desc: 'Reliez 8 bâtiments au réseau de routes pavées (les routes donnent +5 %).', check: (s, h) => [h.roadLinked(), 8], reward: { res: { stone: 800, wood: 800 } }, view: 'city' },
+    { title: 'Des greniers sûrs', desc: 'Bilan de nourriture positif et 5 000 nourriture en réserve.', check: (s, h) => [h.foodNet() > 0 ? Math.min(5000, Math.floor(s.resources.food || 0)) : 0, 5000], reward: { res: { gold: 600 }, speedups: { speed15: 2 } }, view: 'ecoReport' },
+    { title: 'Les terres inconnues', desc: 'Explorez 10 nouvelles cases.', check: (s, h) => [h.d('explored'), 10], reward: { res: { crystals: 4 }, rep: { explorer: 10 } }, view: 'world' },
+    { title: 'Le conflit de {faction}', desc: 'Obtenez un renseignement sur {faction} (mission d’espionnage réussie) ou envoyez-lui un ambassadeur.', check: (s, h) => [Math.min(1, h.intelSince() + h.d('envoys')), 1], reward: { res: { gold: 500 } }, view: 'factions' },
+    { title: 'Le choix du souverain', desc: 'Comment le royaume pèsera-t-il sur le conflit de {faction} ?', choice: true, setsPath: true, chronicle: true, view: 'goals',
+      options: [
+        { key: 'diplo', label: 'La voie des traités', hint: 'Ambassades puis accord avec {faction}. Coûte de l’or ; relation +10.', costPerTh: { gold: 120 }, fx: { relation: 10, rep: { diplomat: 10 }, memory: 'Le souverain choisit la négociation' }, chronicle: '🕊️ Face aux héritiers de la Fracture, le souverain choisit la voie des traités avec {faction}.' },
+        { key: 'trade', label: 'La voie des marchands', hint: 'Contrats et caravanes : la prospérité comme arme. Coûte de l’or ; caravanes +10 % pendant 24 h.', costPerTh: { gold: 80, food: 60 }, fx: { rep: { merchant: 10 }, buff: { name: 'Routes des héritiers', mods: { 'caravan.gain': 0.1 }, hours: 24 } }, chronicle: '⚖️ Face aux héritiers de la Fracture, le souverain mise sur le commerce.' },
+        { key: 'war', label: 'L’intervention armée', hint: 'Préparer et mener une campagne. Coûte de la nourriture ; relation −15 avec {faction} ; formation +10 % pendant 12 h.', costPerTh: { food: 250 }, fx: { relation: -15, rep: { warrior: 10 }, buff: { name: 'Levée des héritiers', mods: { 'train.speed': 0.1 }, hours: 12 }, memory: 'Le souverain prépare la guerre' }, chronicle: '⚔️ Face aux héritiers de la Fracture, le souverain choisit les armes contre {faction}.' },
+      ] },
+    { path: 'diplo', title: 'Les ambassades', desc: 'Envoyez 2 ambassadeurs (à n’importe quelle faction).', check: (s, h) => [h.d('envoys'), 2], reward: { res: { gold: 800 }, rep: { diplomat: 8 } }, view: 'factions' },
+    { path: 'diplo', title: 'Un accord avec {faction}', desc: 'Atteignez une relation de 40 avec {faction}, ou signez un pacte avec elle.', check: (s, h) => [['trade', 'alliance'].includes(h.stance()) ? 40 : Math.max(0, Math.round(h.rel())), 40], reward: { res: { gold: 1500 }, insignia: 3 }, view: 'factions' },
+    { path: 'trade', title: 'Les contrats des héritiers', desc: 'Honorez 3 contrats.', check: (s, h) => [h.d('contracts'), 3], reward: { res: { gold: 900 } }, view: 'convoys' },
+    { path: 'trade', title: 'Les routes de l’or', desc: 'Menez 5 caravanes à bon port.', check: (s, h) => [h.d('caravans'), 5], reward: { res: { gold: 1500 }, insignia: 3 }, view: 'convoys' },
+    { path: 'war', title: 'Préparer la campagne', desc: 'Ayez 60 unités de combat et 100 rations en réserve (ravitaillement).', check: (s, h) => [Math.min(60, h.combatUnits()) / 60 * 50 + Math.min(100, Math.floor(s.resources.rations || 0)) / 100 * 50 | 0, 100], reward: { res: { iron: 800 }, speedups: { rspeed60: 1 } }, view: 'army' },
+    { path: 'war', title: 'Vaincre un adversaire majeur', desc: 'Remportez une campagne militaire ou abattez un boss mondial.', check: (s, h) => [Math.min(1, h.d('campaignsWon') + h.d('bossKills')), 1], reward: { res: { gold: 1500 }, insignia: 3 }, view: 'warcampaign' },
+    { title: 'Investir la paix', desc: 'Achevez un Grand Projet du Royaume ou une étape de grand projet royal.', check: (s, h) => [Math.min(1, h.d('crownProjects') + h.d('projectStages')), 1], reward: { res: { stone: 1500 }, speedups: { speed60: 1 } }, view: 'projects' },
+    { title: 'Ce que retiendra la chronique', desc: 'Choisissez comment cet épisode sera inscrit dans l’histoire du royaume.', choice: true, view: 'goals',
+      options: [
+        { key: 'humble', label: '« Un royaume qui a tenu bon »', hint: 'Sobre : la gratitude du peuple (réputation de bienfaiteur).', fx: { rep: { benefactor: 15 } }, chronicle: '📜 Les chroniqueurs retiennent des héritiers de la Fracture un royaume qui a tenu bon.' },
+        { key: 'glory', label: '« L’âge des héritiers »', hint: 'Titre « Héritier de la Fracture ».', fx: { title: 'Héritier de la Fracture' }, chronicle: '👑 Les chroniqueurs nomment cette époque « l’âge des héritiers ».' },
+        { key: 'legend', label: '« La paix forgée »', hint: 'Prestige : réputation de seigneur.', fx: { rep: { lord: 15 } }, chronicle: '🔱 Les chroniqueurs célèbrent « la paix forgée » au sortir de la Fracture.' },
+      ] },
+  ],
+  finalByPath: {
+    diplo: { relic: 2, rep: { diplomat: 20 }, res: { gold: 2000 } },
+    trade: { relic: 2, rep: { merchant: 20 }, res: { gold: 3000 } },
+    war: { relic: 2, rep: { warrior: 20 }, item: 'epic' },
+  },
+  final: { relic: 2 },
+});
+
+QUESTLINES.push({
+  id: 'tr_blockade', cat: 'trade', icon: '🚧', title: 'La Route coupée', chronicleKind: 'faction',
+  intro: '{faction} a dressé un péage armé sur la grande route marchande : tant qu’il tient, vos caravanes rapportent 8 % de moins.',
+  unlock: (s, h) => h.level(s, 'market') >= 3 && (s.stats.caravans || 0) >= 2 && h.level(s, 'townhall') >= 5, unlockText: 'Marché niveau 3, deux caravanes menées et une faction hostile (relation ≤ −10).',
+  ctx: blockader,
+  whileActive: { 'caravan.gain': -0.08 },
+  chronicleText: (a) => ({ treaty: '🕊️ La route marchande rouvre après un traité avec {faction}.', spy: '🕵️ Les espions du royaume font tomber le péage de {faction}.', convoys: '🐂 Escortes et route nouvelle : le péage de {faction} est contourné.', war: '⚔️ Le péage de {faction} est balayé par les armes.' }[a?.path] || '🚧 La route marchande est rouverte.'),
+  steps: [
+    { title: 'Le péage de {faction}', desc: 'Quatre voies possibles, chacune avec ses coûts et ses risques.', choice: true, setsPath: true, view: 'goals',
+      options: [
+        { key: 'treaty', label: 'Négocier un traité coûteux', hint: 'Or ; relation +12. Il faudra ensuite atteindre une relation de 20 avec {faction}.', costPerTh: { gold: 200 }, fx: { relation: 12, rep: { diplomat: 6 }, memory: 'Un traité de passage négocié' } },
+        { key: 'spy', label: 'Mission d’espionnage', hint: 'Il faut 2 espions. Réussir une mission sur {faction} (échec : espions capturés, relation −12).', need: (s) => ((s.army.spy || 0) >= 2 ? null : 'Il faut au moins 2 espions (Caserne)'), fx: {} },
+        { key: 'convoys', label: 'Protéger les convois et ouvrir une route alternative', hint: 'Bois et pierre ; risque des convois −10 % pendant 24 h. Il faudra ensuite mener 4 caravanes.', costPerTh: { wood: 150, stone: 150 }, fx: { buff: { name: 'Escortes de la route', mods: { 'convoy.risk': -0.1 }, hours: 24 } } },
+        { key: 'war', label: 'Préparer une campagne militaire', hint: 'Nourriture ; relation −20 avec {faction}. Il faudra ensuite remporter une campagne ou 3 batailles difficiles.', costPerTh: { food: 200 }, fx: { relation: -20, rep: { warrior: 8 }, memory: 'Menaces de guerre pour un péage' } },
+      ] },
+    { path: 'treaty', title: 'Le traité signé', desc: 'Atteignez une relation de 20 avec {faction} (ou un pacte).', check: (s, h) => [['trade', 'alliance'].includes(h.stance()) ? 20 : Math.max(0, Math.round(h.rel())), 20], reward: { res: { gold: 700 } }, view: 'factions' },
+    { path: 'spy', title: 'Les secrets du péage', desc: 'Réussissez une mission d’espionnage sur {faction}.', check: (s, h) => [Math.min(1, h.intelSince()), 1], reward: { res: { gold: 700 }, rep: { diplomat: 4 } }, view: 'factions' },
+    { path: 'convoys', title: 'La route alternative', desc: 'Menez 4 caravanes à bon port.', check: (s, h) => [h.d('caravans'), 4], reward: { res: { gold: 700 } }, view: 'convoys' },
+    { path: 'war', title: 'Briser le péage', desc: 'Remportez une campagne, ou 3 combats difficiles (danger 3 ou plus).', check: (s, h) => [h.d('campaignsWon') ? 3 : Math.min(3, h.d('hardClears')), 3], reward: { res: { iron: 700 } }, view: 'world' },
+    { title: 'La route rouverte', desc: 'Menez 2 caravanes sur la route rouverte.', check: (s, h) => [h.d('caravans'), 2], reward: { res: { gold: 500 } }, view: 'convoys' },
+  ],
+  finalByPath: {
+    treaty: { res: { gold: 1500 }, rep: { diplomat: 12 } },
+    spy: { res: { gold: 1200 }, buff: { name: 'Réseau d’informateurs', mods: { 'convoy.risk': -0.1 }, hours: 48 } },
+    convoys: { res: { gold: 1200, planks: 150 }, rep: { merchant: 12 } },
+    war: { res: { gold: 1000, iron: 600 }, rep: { warrior: 12 } },
+  },
+  final: { res: { gold: 1000 } },
+});
+
+QUESTLINES.push({
+  id: 'legacy_mastery', cat: 'legacy', icon: '🌟', title: 'L’Héritage du royaume', chronicleKind: 'dynasty',
+  intro: 'Le royaume est devenu une grande puissance. Ce qui reste à accomplir ne se mesure plus en niveaux, mais en exploits que la dynastie racontera.',
+  unlock: (s, h) => h.level(s, 'townhall') >= 16, unlockText: 'Hôtel de ville niveau 16 (ère de la Grande puissance).',
+  chronicleText: () => '🌟 L’Héritage du royaume est accompli : sa légende traversera les dynasties.',
+  steps: [
+    { title: 'L’arme des ancêtres', desc: 'Possédez un équipement légendaire ou mythique (forge, boss, événements).', check: (s) => [hasLegendaryItem(s) ? 1 : 0, 1], reward: { relic: 1, title: 'Maître de la forge' }, view: 'craft' },
+    { title: 'Au-delà des cartes', desc: 'Réussissez une expédition légendaire.', check: (s) => [Math.min(1, Object.keys(s.legendary?.done || {}).length), 1], reward: { relic: 1, title: 'Explorateur légendaire' }, view: 'legendary' },
+    { title: 'Les trophées du monde', desc: 'Abattez 5 boss mondiaux au total.', check: (s) => [Math.min(5, s.stats.bossKills || 0), 5], reward: { deco: 'deco_trophies', speedups: { rspeed480: 1 } }, view: 'world' },
+    { title: 'Une œuvre pour les siècles', desc: 'Achevez 3 Grands Projets du Royaume.', check: (s) => [Math.min(3, s.stats.crownProjects || 0), 3], reward: { insignia: 10, speedups: { speed480: 1 } }, view: 'projects' },
+    { title: 'La mémoire du royaume', desc: 'Complétez une collection (reliques, trophées, artefacts…).', check: (s, h) => [Math.min(1, h.collectionsDone()), 1], reward: { relic: 2 }, view: 'treasury' },
+  ],
+  final: { title: 'Bâtisseur d’héritage', deco: 'deco_dynasty', insignia: 15 },
+});
+
 // Chaque grande quête achevée rapporte un sceau d'une heure (une seule fois : la récompense finale ne se réclame qu'une fois)
-for (const q of QUESTLINES) if (q.final) q.final.speedups ||= q.cat === 'military' ? { rspeed60: 1 } : { speed60: 1 }; // militaires : ordre du maréchal
+for (const q of QUESTLINES) for (const f of [q.final, ...Object.values(q.finalByPath || {})]) if (f) f.speedups ||= q.cat === 'military' ? { rspeed60: 1 } : { speed60: 1 }; // militaires : ordre du maréchal
 export const QUESTLINE_BY_ID = Object.fromEntries(QUESTLINES.map((q) => [q.id, q]));

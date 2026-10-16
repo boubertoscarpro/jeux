@@ -16,6 +16,9 @@ export const CHAPTERS = [
     reward: { wood: 400, stone: 400, gold: 150 },
     missions: [
       { id: 'q_clear', title: 'Déblayer le hameau', desc: 'Cliquez sur une case de décombres dans le royaume et déblayez-la.', check: (s) => [s.stats.cleared || 0, 1], reward: { wood: 150, stone: 100 }, view: 'city' },
+      // v13 : le hameau démarre sans aucune production de nourriture alors que sa garde en consomme ; la ferme vient
+      // donc au chapitre 1 (sinon un joueur qui suit le parcours deux fois par jour connaissait la famine dès le jour 1)
+      { id: 'c1_farm', title: 'Les premières récoltes', desc: 'Construisez une Ferme : votre garde mange chaque heure et le hameau ne produit encore aucune nourriture.', check: (s, h) => [h.count(s, 'farm'), 1], reward: { wood: 100, stone: 60 }, view: 'city' },
       { id: 'q_saw', title: 'Le bruit des haches', desc: 'Construisez une Scierie à côté d’une forêt (+15 %).', check: (s, h) => [h.count(s, 'sawmill'), 1], reward: { wood: 200, stone: 100 }, view: 'city' },
       { id: 'q_quarry', title: 'Pierre sur pierre', desc: 'Construisez une Carrière à côté d’une montagne (+15 %).', check: (s, h) => [h.count(s, 'quarry'), 1], reward: { stone: 200, gold: 50 }, view: 'city' },
       { id: 'q_th2', title: 'Un vrai village', desc: 'Améliorez l’Hôtel de ville au niveau 2.', check: (s, h) => [h.level(s, 'townhall'), 2], reward: { wood: 300, stone: 300, gold: 100 }, view: 'city' },
@@ -28,7 +31,7 @@ export const CHAPTERS = [
     tip: 'Ferme au bord de la rivière (+10 %), moulin près de l’eau (+20 %). L’onglet Production → Bilan montre ce que vous produisez et consommez.',
     reward: { food: 600, wood: 300, gold: 200 },
     missions: [
-      { id: 'q_farm', title: 'Nourrir le peuple', desc: 'Construisez une Ferme (idéalement au bord de la rivière : +10 %).', check: (s, h) => [h.count(s, 'farm'), 1], reward: { food: 200, wood: 100 }, view: 'city' },
+      { id: 'q_farm', title: 'Nourrir le peuple', desc: 'Améliorez une Ferme au niveau 2 (une ferme au bord de la rivière produit +10 %).', check: (s, h) => [h.level(s, 'farm'), 2], reward: { food: 200, wood: 100 }, view: 'city' },
       { id: 'c2_farm2', title: 'Des champs à perte de vue', desc: 'Ayez 2 fermes, ou une ferme de niveau 3.', check: (s, h) => [Math.max(h.count(s, 'farm'), h.level(s, 'farm') >= 3 ? 2 : 0), 2], reward: { food: 250, wood: 150 }, view: 'city' },
       { id: 'c2_report', title: 'Les comptes du royaume', desc: 'Consultez le Bilan économique (Production → Bilan) pour voir production, consommation et pertes.', check: (s) => [flag(s, 'view:ecoReport'), 1], reward: { gold: 100 }, view: 'ecoReport' },
       { id: 'c2_surplus', title: 'Greniers pleins', desc: 'Atteignez un bilan de nourriture positif et 1 000 nourriture en réserve.', check: (s, h) => [h.foodNet(s) > 0 ? Math.min(1000, Math.floor(s.resources.food || 0)) : 0, 1000], reward: { gold: 150, grain: 100 }, view: 'ecoReport' },

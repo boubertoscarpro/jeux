@@ -173,6 +173,8 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     if (policy && thLevel(s) >= 3 && policyState(s).id !== policy && policyState(s).pending !== policy) setPolicy(s, policy, t);
     if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); }
     if (s.famine) famineMin += 10;
+    if (globalThis.__trace) globalThis.__trace(s, t, i);
+    if (globalThis.__trace) globalThis.__trace(s, t, i);
     if (i % 6 === 0) {
       const cap = storageCap(s, computeMods(s, t));
       samples++;
@@ -199,6 +201,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     monument: monumentOf(s)?.level || 0, chronicles: s.sagas?.count || 0, rivals: (s.factions || []).filter((f) => rivalryStatus(f, t)?.key === 'rival').length,
     spEarnedMin: Object.entries(s.speedups?.earned || {}).reduce((a, [k, n]) => a + n * ({ speed5: 5, speed15: 15, speed60: 60, speed480: 480 }[k] || 0), 0),
     rspSavedMin: s.speedups?.trainMinutesSaved || 0, crownDone: s.stats.crownProjects || 0,
+    qlDone: Object.keys(s.questlines?.done || {}).length, reactions: (s.factionReports || []).length, chronicleN: (s.history || []).length,
     spSavedMin: s.speedups?.minutesSaved || 0, gemsSpent: s.speedups?.gemsSpent || 0, gemsLeft: Math.floor(s.resources.gems || 0),
     brWins: s.stats.breachWins || 0, brTier: s.stats.breachTierMax || 0, brLosses: Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.losses, 0),
     brLevel: Math.round(Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.level, 0) / Math.max(1, Object.values(s.world.pois).filter((p) => p.breach).length) * 10) / 10,
@@ -277,7 +280,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');
@@ -292,8 +295,10 @@ function claimCampaign(s, now) {
   markVisited(s, 'ecoReport'); markVisited(s, 'army');
   // Missions de construction du chapitre en cours : le joueur guidé construit ce qui est demandé
   const pend = new Set(objectives(s, now).main.filter((m) => !m.done).map((m) => m.id));
+  // Le joueur suit l'alerte « aucune ferme » du tableau de bord avant le reste
+  if (pend.has('c1_farm') && !allBuildings(s).some((b) => b.type === 'farm')) { const tl = bestTile(s, 'farm', computeMods(s, now)); if (tl) startBuild(s, 'farm', tl.x, tl.y, now); }
   if (pend.has('q_clear')) { for (let y = 0; y < s.city.h; y++) for (let x = 0; x < s.city.w; x++) if (terrainAt(s, x, y) === 'rubble' && startClear(s, x, y, now).ok) { y = 1e9; break; } }
-  const want = { q_saw: 'sawmill', q_quarry: 'quarry', q_farm: 'farm', q_barracks: 'barracks', q_library: 'library', q_market: 'market' };
+  const want = { c1_farm: 'farm', q_saw: 'sawmill', q_quarry: 'quarry', q_farm: 'farm', q_barracks: 'barracks', q_library: 'library', q_market: 'market' };
   for (const [id, type] of Object.entries(want)) if (pend.has(id) && !allBuildings(s).some((b) => b.type === type) && !buildRequirement(s, type)) { const tl = bestTile(s, type, computeMods(s, now)); if (tl && startBuild(s, type, tl.x, tl.y, now).ok) break; }
   if (c.chapter >= 4 && !c.flags.training) trainingBattle(s, now);
   if (c.chapter >= 6 && !(s.stats.envoys > 0)) for (const f of s.factions || []) if (diplomacy(s, f.idx, 'envoy', now).ok) break;

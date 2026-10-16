@@ -198,7 +198,7 @@ test('Quêtes du royaume : ouverture, étapes mesurées après ouverture, récom
   s.stats.explored = 60; questTick(s, T0 + 4);
   assert.ok(questlineList(s).find((x) => x.id === 'ex_frontier').steps[0].done);
   // Toutes les quêtes ont des étapes et des récompenses valides
-  for (const q of questlineList(s)) { assert.ok(q.steps.length >= 3, q.id); for (const st of q.steps) assert.ok(st.reward && st.title, q.id); }
+  for (const q of questlineList(s)) { assert.ok(q.steps.length >= 3, q.id); for (const st of q.steps) assert.ok(st.title && (st.choice ? st.options?.length >= 2 : st.reward), q.id); }
 });
 
 test('Missions dynamiques : réalisables, au plus 3, sans répétition, impossibles expliquées', () => {

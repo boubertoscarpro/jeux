@@ -17,6 +17,8 @@ import { kingdomMods } from './kingdom.js';
 import { policyMods } from './policy.js';
 import { projectMods } from './projects.js';
 import { crownMods } from './crown.js';
+import { reactionMods } from './reactions.js';
+import { questMods } from './questlines.js';
 import { archaeoMods } from './archaeology.js';
 import { councilMods } from './council.js';
 import { legacyMods } from './legacy.js';
@@ -37,6 +39,8 @@ export function computeMods(state, now = Date.now()) {
   // Grands projets royaux achevés (bonus permanents)
   merge(m, projectMods(state));
   merge(m, crownMods(state));
+  merge(m, reactionMods(state, now));
+  merge(m, questMods(state));
   // Mystères archéologiques résolus (bonus permanents)
   merge(m, archaeoMods(state));
   // Conseil royal : groupes loyaux (bonus) ou hostiles (malus)

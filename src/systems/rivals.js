@@ -1,3 +1,4 @@
+import { fortifyFactor, noteHostile } from './reactions.js';
 import { recordLoss } from './losses.js';
 import { castleName } from './identity.js';
 import { raidPenalty } from './warcampaign.js';
@@ -32,7 +33,7 @@ function warWeakness(state, now) {
 }
 
 export function rivalGarrison(state, poi, now = Date.now()) {
-  const k = poi.power * (0.5 + 0.45 * thLevel(state)) * warWeakness(state, now);
+  const k = poi.power * (0.5 + 0.45 * thLevel(state)) * warWeakness(state, now) * fortifyFactor(state, poi.rival, now);
   const style = RIVALS[poi.rival]?.style;
   const mix = style === 'defensive' ? { militia: 26, guard: 10, royalArcher: 14, royalKnight: 2 }
     : style === 'raider' ? { militia: 14, guard: 4, royalArcher: 10, royalKnight: 8 }
@@ -46,9 +47,15 @@ export function onRivalDefeated(state, poi, now) {
   if (poi.power > 2) loot.steel = Math.round(20 * k);
   poi.garrison = null;
   poi.power = Math.round((poi.power + 0.15) * 100) / 100;
-  // La faction se renforce réellement (sinon le tick des factions écrasait ce gain) …
+  // La faction se renforce réellement (sinon le tick des factions écrasait ce gain), mais en puisant dans sa
+  // richesse (bornée) : des défaites répétées l'épuisent au lieu de la rendre plus riche
   const f = (state.factions || []).find((x) => x.idx === poi.rival);
-  if (f) f.army = Math.min(20, Math.round((f.army + 0.15) * 100) / 100);
+  if (f) {
+    const paid = f.wealth >= 600;
+    if (paid) f.wealth -= 600;
+    f.army = Math.min(20, Math.round((f.army + (paid ? 0.15 : 0.05)) * 100) / 100);
+    noteHostile(state, poi.rival, 'sack', now);
+  }
   // … et une cité mise à sac n'a plus rien à piller pendant 6 h
   poi.clearedUntil = now + 6 * 3600000;
   poi.anger = (poi.anger || 0) + 1;
