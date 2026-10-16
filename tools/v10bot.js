@@ -25,6 +25,7 @@ import { isRevealed } from '../src/systems/world.js';
 import { applySpeedup, previewSpeedup } from '../src/systems/speedups.js';
 import { SPEEDUP_ORDER, RECRUIT_ORDER, SPEEDUPS } from '../src/data/speedups.js';
 import { crownList, startCrown, claimCrown, crownRunning } from '../src/systems/crown.js';
+import { questlineList, chooseQuestPath, questTick, claimQuestStep, claimQuestFinal } from '../src/systems/questlines.js';
 import { crownSlots } from '../src/data/crown.js';
 import { thLevel as thLvl } from '../src/systems/city.js';
 
@@ -108,6 +109,16 @@ export function v10Bot(s, profileKey, t, bestTile, mods) {
     if (left < 8 || q.start > t) continue;
     const k = RECRUIT_ORDER.filter((x) => (s.inventory.consumables[x] || 0) > 0 && SPEEDUPS[x].min <= left * 2).pop();
     if (k && applySpeedup(s, q.id, { item: k }, t).ok) st.rspeedUsed = (st.rspeedUsed || 0) + 1;
+  }
+  // Quêtes du royaume : comme l'interface (qui les met à jour en continu), puis réclamation des étapes accomplies
+  questTick(s, t);
+  for (const l of questlineList(s)) { for (const stp of l.steps) if (stp.done && !stp.claimed && !stp.skipped) claimQuestStep(s, l.id, stp.i, t); if (l.finished && !l.finalClaimed) claimQuestFinal(s, l.id, t); }
+  // Quêtes à embranchements (v13) : chaque profil choisit la voie qui lui ressemble, sinon la première payable
+  const PATH_PREF = { military: ['war', 'convoys', 'glory'], diplomat: ['diplo', 'treaty', 'humble'], economy: ['trade', 'convoys', 'humble'], explorer: ['spy', 'trade', 'legend'] };
+  for (const l of questlineList(s).filter((x) => x.active && !x.finished && x.current?.choice)) {
+    const opts = l.current.options.filter((o) => !Object.keys(o.missing).length && !o.unmet);
+    const pick = opts.find((o) => (PATH_PREF[profileKey] || []).includes(o.key)) || opts[0];
+    if (pick && chooseQuestPath(s, l.id, l.current.i, pick.key, t).ok) st.questChoices = (st.questChoices || 0) + 1;
   }
   // Grands Projets du Royaume : récupérer ce qui est fini ; lancer un projet seulement s'il laisse au moins la
   // moitié de chaque stock (dépense facultative d'excédent, jamais au détriment des chantiers)

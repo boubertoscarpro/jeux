@@ -1,3 +1,5 @@
+import { chronicle } from './chronicle.js';
+import { remember } from './rivalry.js';
 import { townRankMult } from './worldmarks.js';
 import { recordLoss } from './losses.js';
 import { RESOURCES, TRADABLE, isCapped } from '../data/resources.js';
@@ -246,6 +248,7 @@ export const CONTRACT_KINDS = {
   military: { name: 'Contrat militaire', icon: '⚔️' },
   diplomacy: { name: 'Mission diplomatique', icon: '🕊️' },
   guild: { name: 'Objectif de guilde', icon: '🏛️' },
+  aid: { name: 'Aide à un allié', icon: '🤝' },
 };
 const BASIC_GOODS = ['wood', 'stone', 'iron', 'food', 'herbs', 'coal', 'leather', 'cloth'];
 const CRAFT_GOODS = ['planks', 'steel', 'weapons', 'bread', 'rations', 'frames'];
@@ -321,7 +324,14 @@ export function fulfillContract(state, id, now = Date.now()) {
   if (c.insignia) state.meta.insignia = (state.meta.insignia || 0) + c.insignia;
   state.contracts = state.contracts.filter((x) => x.id !== id);
   const town = poiAt(state.world, c.tx, c.ty);
-  if (town) town.relation = (town.relation || 0) + 3;
+  if (town && c.kind !== 'aid') town.relation = (town.relation || 0) + 3;
+  // Aide à un allié : la faction s'en souvient (relation et mémoire durable)
+  if (c.kind === 'aid' && state.factions?.[c.faction]) {
+    const f = state.factions[c.faction];
+    f.relation = Math.min(100, f.relation + (c.relation || 0));
+    remember(state, c.faction, 'aid', 8, 'Aide logistique en pleine guerre', now);
+    chronicle(state, `${state.meta.kingdomName} ravitaille son allié ${RIVALS[c.faction]?.name} en pleine guerre.`, now, 'treaty', `aid:${c.id}`);
+  }
   bumpRep(state, c.rep || 'merchant', 6);
   state.stats.contracts = (state.stats.contracts || 0) + 1;
   if (state.stats.contracts === 25) grantArtifact(state, 'merchantCrown', now, 'Contrats');

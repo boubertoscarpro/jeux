@@ -60,8 +60,16 @@ export function strategicSummary(state, now = Date.now()) {
   if (state.council?.motion && MOTIONS[state.council.motion.id]) alerts.push({ sev: 'warn', icon: '🏛️', text: `Motion au conseil : ${MOTIONS[state.council.motion.id].title}`, until: state.council.motion.deadline, goto: 'council' });
   const la = state.legendary?.active;
   if (la && (la.pending || la.awaitingFate)) alerts.push({ sev: 'warn', icon: LEGENDS[la.id]?.icon || '🗺️', text: la.awaitingFate ? 'Expédition légendaire : décidez du sort de la découverte' : 'Expédition légendaire : une décision vous attend', goto: 'legend' });
+  // Réactions des factions (v13) : seulement celles qui demandent une décision
+  // Les contre-offensives restent toujours signalées (menace) ; les autres réactions sont informatives et désactivables
+  for (const r of (state.factionReports || []).filter((x) => now - x.t < 6 * 3600000 && ['counter', 'embargo', 'aid', 'weakened'].includes(x.kind) && (x.kind === 'counter' || state.meta.factionAlerts !== false)).slice(0, 2)) alerts.push({ sev: r.kind === 'counter' ? 'bad' : r.kind === 'embargo' ? 'warn' : 'good', icon: { counter: '🔥', embargo: '⛔', aid: '🤝', weakened: '🏳️' }[r.kind], text: r.text, goto: r.kind === 'aid' ? 'convoys' : 'factions' });
   if (state.legacy?.offer) alerts.push({ sev: 'good', icon: '👑', text: 'Une tradition dynastique peut être choisie', goto: 'legacy' });
   if (state.famine) alerts.unshift({ sev: 'bad', icon: '🍞', text: 'Famine : plus de nourriture, le moral s’effondre', goto: 'g-prod' });
+  // Aucune production de nourriture alors que l'entretien en consomme : alerte dès maintenant, pas 6 h avant la famine
+  else if ((net.food || 0) < 0 && !Object.values(state.city.buildings).some((b) => ['farm', 'fishery', 'orchard', 'hunter', 'pasture'].includes(b.type) && b.level > 0)) {
+    const h = (state.resources.food || 0) / -(net.food || -1);
+    alerts.unshift({ sev: h < 12 ? 'bad' : 'warn', icon: '🌾', text: `Aucune ferme : la nourriture s’épuisera dans ${Math.max(1, Math.round(h))} h`, goto: 'ecoReport' });
+  }
 
   // Saison suivante (annoncée à l'avance)
   const cal = calendar(state, now);

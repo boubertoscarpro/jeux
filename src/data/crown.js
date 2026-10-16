@@ -138,6 +138,51 @@ export const CROWN_PROJECTS = {
     cost: { gold: 25000, cloth: 500, crystals: 40, rareOre: 30 },
     reward: { title: 'Souverain consacré', insignia: 15, buff: { name: 'Sacre royal', mods: { 'prod.all': 0.08 }, hours: 72 } },
   },
+  // ───────── v13 : projets liés aux autres systèmes (diplomatie, avant-postes, fouilles, campagnes) ─────────
+  freeCityExchange: {
+    family: 'economy', name: 'Comptoir des cités libres', icon: '🏪', th: 9, hours: 8,
+    desc: 'Un comptoir commun avec un partenaire commercial : il n’a de sens qu’avec un pacte signé.',
+    cost: { gold: 8000, planks: 300, cloth: 100 },
+    req: [['Un pacte commercial ou une alliance avec une faction', (s, h) => h.pact()]],
+    reward: { mods: { 'caravan.gain': 0.05, 'contract.reward': 0.03 } },
+  },
+  frontierForts: {
+    family: 'military', name: 'Forts de la frontière', icon: '🏯', th: 10, hours: 10,
+    desc: 'Relier les avant-postes par des fortins ravitaillés : il faut des positions à défendre et des vivres en réserve.',
+    cost: { stone: 15000, iron: 4000, rations: 150 },
+    req: [['Deux avant-postes', (s, h) => h.outposts() >= 2], ['Tour de garde niveau 6', (s, h) => h.level('watchtower') >= 6]],
+    reward: { mods: { 'city.def': 0.04 }, speedups: { rspeed60: 1 } },
+  },
+  excavationReliquary: {
+    family: 'prestige', name: 'Reliquaire des fouilles', icon: '🏺', th: 9, hours: 8,
+    desc: 'Exposer dans la capitale ce que vos archéologues ont rapporté des ruines de l’Aube.',
+    cost: { stone: 12000, gold: 6000, crystals: 15 },
+    req: [['Un mystère archéologique résolu', (s, h) => h.mysteries() >= 1]],
+    reward: { title: 'Gardien des fouilles', insignia: 6, relic: 1 },
+  },
+  peaceCongress: {
+    family: 'prestige', name: 'Congrès de paix', icon: '🕊️', th: 12, hours: 6,
+    desc: 'Réunir les ambassadeurs des royaumes sous l’égide de votre alliance.',
+    cost: { gold: 15000, cloth: 300, bread: 400 },
+    req: [['Une alliance scellée', (s, h) => h.alliance()]],
+    repeat: { max: 2, cooldownH: 96, growth: 1.4 },
+    reward: { buff: { name: 'Paix des royaumes', mods: { 'caravan.gain': 0.1, 'contract.reward': 0.1 }, hours: 48 }, title: 'Artisan de la paix', insignia: 4 },
+  },
+  triumphalWay: {
+    family: 'prestige', name: 'Voie triomphale', icon: '🏟️', th: 13, hours: 10,
+    desc: 'Une avenue de trophées pour une campagne victorieuse : elle rappelle vos victoires, sans armée de plus.',
+    cost: { stone: 25000, gold: 10000, steel: 200 },
+    req: [['Une campagne militaire remportée', (s, h) => h.campaignsWon() >= 1]],
+    reward: { deco: 'deco_triumph', title: 'Conquérant couronné', insignia: 8 },
+  },
+  // ───────── Fin de partie : prestige très coûteux, facultatif, sans puissance permanente ─────────
+  imperialArchive: {
+    family: 'prestige', name: 'Archives impériales', icon: '📚', th: 20, hours: 24,
+    desc: 'Rassembler la chronique, les cartes et les traités du royaume dans une bibliothèque impériale.',
+    cost: { stone: 300000, gold: 120000, planks: 2000, crystals: 40 },
+    req: [['Bibliothèque niveau 18', (s, h) => h.level('library') >= 18]],
+    reward: { title: 'Mémoire de l’Empire', insignia: 20, speedups: { speed480: 1, rspeed480: 1 } },
+  },
   // ───────── Lié aux événements (calendrier existant) ─────────
   eventBanquet: {
     family: 'economy', name: 'Banquet de l’événement', icon: '🍷', th: 6, hours: 2, event: true,

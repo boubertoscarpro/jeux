@@ -12,6 +12,7 @@ export function reportHtml(r) {
     <div class="ev-stat"><span class="muted small">Monnaie gagnée</span><b>${fmt(r.earned)}</b></div>
     <div class="ev-stat"><span class="muted small">Boss (rangs)</span><b>${r.bossTier}</b></div>
     <div class="ev-stat"><span class="muted small">Restant converti</span><b>${fmt(r.left)} → ${r.converted}</b></div></div>
+    ${r.aftermath?.length ? `<div class="small"><b>Conséquences :</b> ${r.aftermath.map((x) => esc(x)).join(' · ')}</div>` : ''}
     ${r.best ? `<div class="small">⭐ Meilleur gain : ${fmt(r.best.v)} (${esc(r.best.why)})</div>` : ''}
     ${r.rewards.length ? `<h4>Récompenses de fin</h4><ul class="small">${r.rewards.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`;
 }

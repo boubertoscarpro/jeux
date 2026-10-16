@@ -11,7 +11,7 @@ import { ADVICE_LEVELS, setAdviceLevel } from '../../systems/guide.js';
 import { resChips } from '../components.js';
 import { SAGAS, fillText } from '../../systems/sagas.js';
 import { esc, bar, countdown } from '../components.js';
-import { questlineList, questlinesBadge, claimQuestStep, claimQuestFinal } from '../../systems/questlines.js';
+import { questlineList, questlinesBadge, claimQuestStep, claimQuestFinal, chooseQuestPath } from '../../systems/questlines.js';
 import { QUEST_CATS } from '../../data/questlines.js';
 import { missionList, claimDynMission, dropMission, missionState, missionsUnlocked, MISSION_MAX, MISSION_TAGS, playStyle } from '../../systems/missions.js';
 import { rewardText as rwText } from '../../systems/rewards.js';
@@ -64,12 +64,22 @@ function questCard(l) {
   return `<div class="goal quest-line ${l.finished ? 'done' : ''}">
     <div class="goal-head"><span class="goal-icon">${l.icon}</span><b>${esc(l.title)}</b> <span class="chip small">${cat.icon} ${esc(cat.name)}</span><span class="muted small">${doneN}/${l.steps.length}</span></div>
     <div class="small story">${esc(l.intro)}</div>
-    <ol class="ql-steps">${l.steps.map((st) => `<li class="${st.done ? 'done' : st.current ? 'current' : 'locked'}">
-      <div><b>${st.done ? '✔ ' : ''}${esc(st.title)}</b>${st.current ? ` <span class="muted small">${fmt(st.cur)}/${fmt(st.target)}</span>` : ''}</div>
+    ${l.path ? `<div class="small ok">Voie choisie : <b>${esc(l.steps.find((s) => s.choice && s.chosen)?.options?.find((o) => o.key === l.path)?.label || l.path)}</b></div>` : ''}
+    <ol class="ql-steps">${l.steps.filter((st) => !st.skipped && !st.offPath).map((st) => st.choice ? choiceStep(l, st) : `<li class="${st.done ? 'done' : st.current ? 'current' : 'locked'}${st.offPath ? ' off-path' : ''}">
+      <div><b>${st.done ? '✔ ' : ''}${esc(st.title)}</b>${st.offPath ? ' <span class="chip small">selon la voie choisie</span>' : ''}${st.current ? ` <span class="muted small">${fmt(st.cur)}/${fmt(st.target)}</span>` : ''}</div>
       ${st.current || st.done ? `<div class="small muted">${esc(st.desc)}</div>` : '<div class="small muted">Étape suivante…</div>'}
       ${st.current ? bar(st.cur, st.target) : ''}
       <div class="quest-foot"><span class="small">🎁 ${esc(rwText(st.reward))}</span>${st.done && !st.claimed ? `<button class="mini good" data-action="ql-claim" data-id="${l.id}" data-i="${st.i}">Réclamer</button>` : st.claimed ? '<span class="ok small">✔ Réclamée</span>' : st.current && st.view ? `<button class="mini ghost" data-action="goto" data-view="${st.view}">Y aller →</button>` : ''}</div></li>`).join('')}</ol>
-    <div class="quest-foot"><span class="small">🏆 Fin de quête : ${esc(rwText(l.final))}</span>${l.finished && !l.finalClaimed ? `<button class="mini good" data-action="ql-final" data-id="${l.id}">Réclamer</button>` : l.finalClaimed ? '<span class="ok small">✔ Réclamée</span>' : ''}</div></div>`;
+    <div class="quest-foot"><span class="small">🏆 Fin de quête : ${esc(rwText(l.final))}${l.finalByPath && !l.path ? ' (selon la voie choisie)' : ''}</span>${l.finished && !l.finalClaimed ? `<button class="mini good" data-action="ql-final" data-id="${l.id}">Réclamer</button>` : l.finalClaimed ? '<span class="ok small">✔ Réclamée</span>' : ''}</div></div>`;
+}
+
+// Étape à embranchement : options avec coût, effets et conséquences annoncées avant le choix
+function choiceStep(l, st) {
+  if (st.chosen) { const o = st.options.find((x) => x.key === st.chosen); return `<li class="done"><div><b>✔ ${esc(st.title)}</b></div><div class="small">Choix : <b>${esc(o?.label || st.chosen)}</b></div></li>`; }
+  if (!st.current) return `<li class="locked"><div><b>${esc(st.title)}</b> <span class="chip small">⚖️ choix</span></div><div class="small muted">Un choix vous attend plus loin.</div></li>`;
+  return `<li class="current"><div><b>⚖️ ${esc(st.title)}</b></div><div class="small muted">${esc(st.desc)}</div>
+    <div class="ql-choices">${st.options.map((o) => { const cost = Object.keys(o.cost).length ? resChips(o.cost) : '<span class="muted small">sans coût</span>'; const lack = Object.keys(o.missing).length; const blocked = lack || o.unmet;
+      return `<div class="ql-choice"><b>${esc(o.label)}</b><div class="small">${esc(o.hint || '')}</div><div class="small">Coût : ${cost}</div>${o.unmet ? `<div class="req">${esc(o.unmet)}</div>` : ''}<button class="mini ${blocked ? 'ghost' : 'primary'}" data-action="ql-choose" data-id="${l.id}" data-i="${st.i}" data-k="${o.key}" ${blocked ? 'disabled' : ''}>Choisir</button></div>`; }).join('')}</div></li>`;
 }
 
 // Mission dynamique
@@ -186,12 +196,14 @@ export default {
       ${body}</div>
       <div class="card"><h3>🧙‍♂️ Conseiller et tutoriel</h3>
         <div class="row gap wrap"><span class="small">Conseiller du tableau de bord :</span>${Object.entries(ADVICE_LEVELS).map(([k, l]) => `<button class="mini ${(s.meta.advice || 'full') === k ? 'primary' : ''}" data-action="advice-level" data-k="${k}">${esc(l)}</button>`).join('')}</div>
+        <div class="row gap wrap"><span class="small">Alertes des factions (embargo, aide, négociation) :</span><button class="mini" data-action="faction-alerts">${s.meta.factionAlerts === false ? '🔕 Réactiver' : '🔔 Masquer'}</button><span class="muted small">Les contre-offensives restent toujours signalées.</span></div>
         <div class="row gap wrap"><span class="small">Fiches du tutoriel :</span><button class="mini" data-action="tips-toggle">${s.meta.tipsOff ? '📘 Réactiver' : '📘 Désactiver'}</button><button class="mini ghost" data-action="nav" data-view="journal">Revoir les fiches (Journal) →</button>${Object.keys(s.campaign?.dismissed || {}).length ? '<button class="mini ghost" data-action="advice-reset">↺ Réafficher les conseils ignorés</button>' : ''}</div></div>
       ${sagaCard(s)}`;
   },
   actions: {
     'goal-cat': (app, el) => { app.ui.goalCat = el.dataset.k; app.render(); },
     'ql-claim': (app, el) => app.act(() => claimQuestStep(app.state, el.dataset.id, +el.dataset.i), (r) => `Étape accomplie : ${r.text}`),
+    'ql-choose': (app, el) => app.confirm('<h2>Confirmer ce choix ?</h2><p>Il est définitif : il oriente la suite de la quête et ses récompenses.</p>', 'Choisir', () => app.act(() => chooseQuestPath(app.state, el.dataset.id, +el.dataset.i, el.dataset.k), (r) => `Choix fait${r.text ? ' : ' + r.text : ''}`)),
     'ql-final': (app, el) => app.act(() => claimQuestFinal(app.state, el.dataset.id), (r) => `🏆 Quête terminée : ${r.text}`),
     'dm-claim': (app, el) => app.act(() => claimDynMission(app.state, el.dataset.id), (r) => `Mission accomplie : ${r.text}`),
     'dm-drop': (app, el) => app.act(() => dropMission(app.state, el.dataset.id), (r) => (r.void ? 'Mission retirée sans pénalité' : 'Mission refusée : une autre sera proposée')),
@@ -199,6 +211,7 @@ export default {
     'claim-event-daily': (app, el) => app.act(() => claimDaily(app.state, +el.dataset.i), 'Mission du jour accomplie !'),
     'advice-level': (app, el) => app.act(() => setAdviceLevel(app.state, el.dataset.k), 'Conseiller réglé'),
     'advice-reset': (app) => app.act(() => { app.state.campaign.dismissed = {}; app.state.campaign.snoozed = {}; return { ok: true }; }, 'Conseils réaffichés'),
+    'faction-alerts': (app) => { app.state.meta.factionAlerts = app.state.meta.factionAlerts === false; app.render(); app.save(); },
     'tips-toggle': (app) => { app.state.meta.tipsOff = !app.state.meta.tipsOff; app.render(); },
   },
 };

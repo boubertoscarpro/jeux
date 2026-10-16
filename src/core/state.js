@@ -162,6 +162,10 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     // --- Grands projets royaux ---
     projects: { active: null, done: {} },
     crown: { active: {}, done: {}, last: {}, claimed: {} },
+    // v13 : faits déjà inscrits dans la chronique, relevés économiques horaires, rapports de réactions des factions
+    historyKeys: {},
+    ecoLog: { at: 0, s: [] },
+    factionReports: [],
     // --- Campagnes militaires et Comptoir du Joaillier ---
     war: { active: null, history: [], cooldownUntil: 0 },
     shop: { day: 0, bought: {}, total: 0 },

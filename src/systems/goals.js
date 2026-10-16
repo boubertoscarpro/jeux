@@ -21,6 +21,14 @@ import { shardState } from './shards.js';
 import { wheelCfg } from './config.js';
 import { objectives as eventObjectives, dailyMissions } from './liveEvents.js';
 import { contractProgress } from './market.js';
+import { netRates, storageCap } from './economy.js';
+import { isCapped } from '../data/resources.js';
+import { RIVALS } from '../data/world.js';
+import { factionPower, playerPower } from './factions.js';
+import { canStartCampaign } from './warcampaign.js';
+import { crownList } from './crown.js';
+import { questlineList } from './questlines.js';
+import { combatUnitCount } from './army.js';
 
 const costText = (c) => Object.entries(c || {}).map(([r, v]) => `${Math.round(v)} ${RESOURCES[r]?.icon || r}`).join(' ');
 
@@ -48,6 +56,9 @@ export function goals(state, now = Date.now()) {
     for (const m of daily.slice(0, 2)) short.push({ icon: '🗓️', title: `${def.icon} Mission du jour : ${m.label}`, cur: Math.min(m.value || 0, m.target), max: m.target, done: (m.value || 0) >= m.target, reward: `${m.reward} ${def.currency.icon}`, view: 'event' });
   }
 
+  // ── Objectifs adaptés à la situation (v13) : stocks, pénuries, armée, factions, projets, quêtes ──
+  for (const g of situationalGoals(state, mods, now)) ({ short, mid, long })[g.term].push(g);
+
   // ── Moyen terme ──
   const avail = Object.keys(TECHS).filter((id) => techStatus(state, id).status === 'available').sort((a, b) => Object.values(researchCost(a, mods)).reduce((x, y) => x + y, 0) - Object.values(researchCost(b, mods)).reduce((x, y) => x + y, 0));
   if (avail.length) mid.push({ icon: '🔬', title: `Recherche : ${TECHS[avail[0]].name}`, desc: TECHS[avail[0]].desc, prereq: `Coût : ${costText(researchCost(avail[0], mods))}`, view: 'research', extra: avail.length > 1 ? `${avail.length - 1} autre(s) technologie(s) disponible(s)` : '' });
@@ -71,4 +82,43 @@ export function goals(state, now = Date.now()) {
   long.push({ icon: '🎡', title: 'Garantie légendaire de la Roue', cur: sh.pity.legendary, max: pity.legendary, reward: 'Récompense légendaire garantie', view: 'wheel' });
   long.push({ icon: '👑', title: 'Fonder une nouvelle dynastie', cur: th, max: PRESTIGE_TH, desc: 'Recommencer avec des avantages permanents limités.', view: 'talents', done: th >= PRESTIGE_TH });
   return { short, mid, long };
+}
+
+// Objectifs adaptés à l'état réel du royaume. Chaque objectif est atteignable maintenant ou explique ce qui manque ;
+// rien n'est obligatoire. term : short (immédiat), mid (moyen terme), long (long terme).
+export function situationalGoals(state, mods = computeMods(state), now = Date.now()) {
+  const out = [];
+  const th = thLevel(state);
+  const net = netRates(state, mods);
+  // Économie : la nourriture d'abord
+  const foodNet = net.food || 0;
+  if (foodNet < 0) {
+    const h = (state.resources.food || 0) / -foodNet;
+    out.push({ term: 'short', icon: '🌾', title: 'Stabiliser la nourriture', desc: `Bilan ${Math.round(foodNet)}/h${h < 48 ? ` : réserves vides dans ${Math.max(1, Math.round(h))} h` : ''}. Ferme, moulin, pause d’une chaîne gourmande ou achat au marché : le Bilan détaille les options.`, cur: 0, max: 1, view: 'ecoReport', urgent: h < 12, tag: 'eco' });
+  }
+  // Excédent → investissement utile (Grand Projet abordable qui emploie la ressource pleine)
+  const full = Object.keys(state.resources).filter((r) => RESOURCES[r] && isCapped(r) && (state.resources[r] || 0) >= storageCap(state, mods, r) * 0.95);
+  if (full.length) {
+    let crown = [];
+    try { crown = crownList(state, now).filter((i) => i.status === 'available' && i.affordable && full.some((r) => i.cost[r])); } catch { crown = []; }
+    if (crown.length) out.push({ term: 'mid', icon: crown[0].def.icon, title: `Investir l’excédent : ${crown[0].def.name}`, desc: `${full.map((r) => RESOURCES[r].name).join(', ')} au plafond : ce Grand Projet l’emploie et rapporte une récompense connue d’avance.`, view: 'projects', tag: 'eco' });
+    else out.push({ term: 'short', icon: '📦', title: `${full.map((r) => RESOURCES[r].name).join(', ')} au plafond`, desc: 'La production est perdue : transformez, investissez ou vendez à bon prix (Bilan → recommandations).', view: 'ecoReport', tag: 'eco' });
+  }
+  // Militaire : seulement si les réserves suivent (nourriture positive) et qu'une cible est à la mesure de l'armée
+  if (th >= 5 && foodNet >= 0 && combatUnitCount(state.army) >= 30) {
+    const targets = (state.factions || []).filter((f) => canStartCampaign(state, f.idx, now).ok && playerPower(state) >= factionPower(state, f) * 0.9);
+    if (targets.length) { const f = targets.sort((a, b) => a.relation - b.relation)[0]; out.push({ term: 'mid', icon: '⚔️', title: `Campagne possible contre ${RIVALS[f.idx]?.name}`, desc: 'Vos réserves sont saines et votre armée fait jeu égal. Facultatif : la diplomatie ou le commerce restent possibles.', view: 'warcampaign', tag: 'mil' }); }
+  }
+  // Factions : occasions et sanctions
+  for (const f of state.factions || []) {
+    if (f.negotiableUntil > now && f.stance === 'war') out.push({ term: 'short', icon: '🏳️', title: `${RIVALS[f.idx]?.name} est prête à négocier`, desc: 'Affaiblie, elle accepterait plus facilement la paix (et un pacte) pour quelques heures.', view: 'factions', until: f.negotiableUntil, tag: 'diplo' });
+    if (f.embargoUntil > now) out.push({ term: 'mid', icon: '⛔', title: `Lever l’embargo de ${RIVALS[f.idx]?.name}`, desc: 'Ramenez la relation au-dessus de −30 (ambassade, geste d’apaisement) : vos caravanes retrouvent leurs gains.', cur: Math.max(0, Math.round(f.relation + 100)), max: 70, view: 'factions', tag: 'diplo' });
+  }
+  // Quêtes : un choix en attente passe devant
+  try {
+    for (const l of questlineList(state).filter((x) => x.active && !x.finished && x.current?.choice)) out.push({ term: 'short', icon: '⚖️', title: `${l.title} : un choix vous attend`, desc: l.current.desc, view: 'goals', tag: 'quest' });
+    const legacy = questlineList(state).find((x) => x.id === 'legacy_mastery' && x.active && !x.finished);
+    if (legacy?.current) out.push({ term: 'long', icon: legacy.icon, title: `Héritage : ${legacy.current.title}`, desc: legacy.current.desc, cur: legacy.current.cur, max: legacy.current.target, view: legacy.current.view || 'goals', tag: 'legacy' });
+  } catch { /* quêtes indisponibles : objectifs ignorés */ }
+  return out;
 }

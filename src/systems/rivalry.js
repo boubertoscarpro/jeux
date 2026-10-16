@@ -117,6 +117,12 @@ export function deescalate(state, idx, id, now = Date.now()) {
 // Tick (toutes les 10 min, avec les factions) : commerce durable, promesses rompues
 export function rivalryTick(state, now = Date.now()) {
   for (const f of state.factions || []) {
+    // Changement de statut durable (rivale déclarée, partenaire, allié de confiance) : inscrit une fois dans la chronique
+    const st = rivalryStatus(f, now)?.key || null;
+    if (st !== (f.statusKey ?? null)) {
+      if (st) chronicle(state, `${RIVALS[f.idx]?.name} devient ${{ rival: 'une rivale déclarée', partner: 'un partenaire privilégié', ally: 'un allié de confiance' }[st]} de ${state.meta.kingdomName}.`, now, 'faction', `status:${f.idx}:${st}:${Math.floor(now / 86400000)}`);
+      f.statusKey = st;
+    }
     if ((f.stance === 'trade' || f.stance === 'alliance') && !(f.tradeMemAt > now - MEMORY.tradeEveryH * 3600000)) {
       if (f.tradeMemAt) remember(state, f.idx, 'trade', 4, 'Des années de commerce prospère', now);
       f.tradeMemAt = now;

@@ -10,6 +10,7 @@ import { generateItem } from './items.js';
 import { giveXp } from './heroes.js';
 import { shardState } from './shards.js';
 import { fmt } from '../core/util.js';
+import { COSMETICS } from '../data/social.js';
 import { grantSpeedups, speedupText } from './speedups.js';
 
 // reward : { res: {r: n}, item: 'rare'|'epic'|…, rep: {axe: n}, relic: n, xp: n, buff: { name, mods, hours }, speedups: {clé: n} }
@@ -32,6 +33,10 @@ export function grantReward(state, reward, now = Date.now(), key = null) {
   }
   if (reward.buff) { state.buffs.push({ name: reward.buff.name, mods: reward.buff.mods, until: now + reward.buff.hours * 3600000 }); parts.push(`bonus « ${reward.buff.name} » (${reward.buff.hours} h)`); }
   if (reward.speedups) { const t = grantSpeedups(state, reward.speedups, '', now, key); if (t) parts.push(t); }
+  // Prestige (jamais en double) : titre, décoration, insignes
+  if (reward.title && !(state.meta.titles || []).includes(reward.title)) { (state.meta.titles ||= []).push(reward.title); parts.push(`titre « ${reward.title} »`); }
+  if (reward.deco && !state.meta.owned?.[reward.deco]) { (state.meta.owned ||= {})[reward.deco] = true; parts.push(`décoration « ${COSMETICS[reward.deco]?.name || reward.deco} »`); }
+  if (reward.insignia) { state.meta.insignia = (state.meta.insignia || 0) + reward.insignia; parts.push(`${reward.insignia} insignes`); }
   return parts.join(', ');
 }
 
@@ -45,5 +50,8 @@ export function rewardText(reward = {}) {
   if (reward.xp) parts.push(`✨ ${reward.xp} XP (héros)`);
   if (reward.buff) parts.push(`✨ ${reward.buff.name} (${reward.buff.hours} h)`);
   if (reward.speedups) parts.push(speedupText(reward.speedups));
+  if (reward.title) parts.push(`🎖️ titre « ${reward.title} »`);
+  if (reward.deco) parts.push(`🏛️ ${COSMETICS[reward.deco]?.name || reward.deco}`);
+  if (reward.insignia) parts.push(`🎖️ ${reward.insignia} insignes`);
   return parts.join(' · ');
 }

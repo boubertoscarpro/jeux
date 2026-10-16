@@ -22,6 +22,7 @@ export const MARKS = {
   scorched: { name: 'Terres ravagées', icon: '🔥', desc: 'Champs brûlés et villages vidés par la guerre : avant-postes −25 % de production, sites voisins −40 % de régénération.' },
   overcut: { name: 'Coupes rases', icon: '🪵', desc: 'Bois surexploité : il se régénère à peine. Laissez-le reposer.' },
   regrown: { name: 'Forêt restaurée', icon: '🌳', desc: 'Le bois a repoussé après le repos : régénération +25 % pendant 24 h.' },
+  fortified: { name: 'Forteresse renforcée', icon: '🛡️', desc: 'Après des attaques répétées, la faction a renforcé sa capitale : garnison +20 %.' },
   ruinedRoad: { name: 'Route en ruine', icon: '🚧', desc: 'Faute d’entretien, la route a perdu un niveau. Reconstruisez-la (Logistique).' },
 };
 export const HAMLET_MAX = 3, HAMLET_HOURS = 24, HAMLET_STAB = 70;

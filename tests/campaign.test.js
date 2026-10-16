@@ -58,6 +58,7 @@ test('Chapitre 1 : détection automatique, récompense réclamable une seule foi
   // Terminer les autres missions principales
   s.city.buildings.sw = { id: 'sw', type: 'sawmill', level: 1, x: 2, y: 8 };
   s.city.buildings.qu = { id: 'qu', type: 'quarry', level: 1, x: 12, y: 3 };
+  s.city.buildings.fa = { id: 'fa', type: 'farm', level: 1, x: 4, y: 5 }; // v13 : la ferme fait partie du chapitre 1
   Object.values(s.city.buildings).find((b) => b.type === 'townhall').level = 2;
   const ev = campaignTick(s, T0 + 2 * H);
   assert.equal(s.campaign.chapter, 2);

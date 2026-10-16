@@ -911,3 +911,17 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .era-track span.cur { opacity: 1; border-color: var(--gold); background: rgba(201, 162, 39, 0.15); }
 .b-art.tier-4 { transform: scale(1.07); }
 .b-art.tier-5 { transform: scale(1.09); }
+/* ---------- Quêtes à embranchements (v13) ---------- */
+.ql-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin: 6px 0; }
+.ql-choice { display: flex; flex-direction: column; gap: 4px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.ql-choice .mini { align-self: flex-start; margin-top: auto; }
+.ql-steps li.off-path { opacity: 0.7; }
+.hist-cats { margin-top: 8px; gap: 6px; }
+.hist-cat { font-family: var(--emoji); }
+.react-list { display: grid; gap: 3px; }
+/* ---------- Bilan : recommandations (v13) ---------- */
+.eco-adv { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg2); margin: 4px 0; flex-wrap: wrap; }
+.eco-adv.bad { border-color: var(--bad, #c0503a); }
+.eco-adv.warn { border-color: var(--warn); }
+.eco-adv-ic { font-family: var(--emoji); font-size: 20px; }
+.eco-adv .grow { flex: 1; min-width: 180px; }
