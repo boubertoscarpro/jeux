@@ -65,7 +65,7 @@ function questCard(l) {
     <div class="goal-head"><span class="goal-icon">${l.icon}</span><b>${esc(l.title)}</b> <span class="chip small">${cat.icon} ${esc(cat.name)}</span><span class="muted small">${doneN}/${l.steps.length}</span></div>
     <div class="small story">${esc(l.intro)}</div>
     ${l.path ? `<div class="small ok">Voie choisie : <b>${esc(l.steps.find((s) => s.choice && s.chosen)?.options?.find((o) => o.key === l.path)?.label || l.path)}</b></div>` : ''}
-    <ol class="ql-steps">${l.steps.filter((st) => !st.skipped).map((st) => st.choice ? choiceStep(l, st) : `<li class="${st.done ? 'done' : st.current ? 'current' : 'locked'}${st.offPath ? ' off-path' : ''}">
+    <ol class="ql-steps">${l.steps.filter((st) => !st.skipped && !st.offPath).map((st) => st.choice ? choiceStep(l, st) : `<li class="${st.done ? 'done' : st.current ? 'current' : 'locked'}${st.offPath ? ' off-path' : ''}">
       <div><b>${st.done ? '✔ ' : ''}${esc(st.title)}</b>${st.offPath ? ' <span class="chip small">selon la voie choisie</span>' : ''}${st.current ? ` <span class="muted small">${fmt(st.cur)}/${fmt(st.target)}</span>` : ''}</div>
       ${st.current || st.done ? `<div class="small muted">${esc(st.desc)}</div>` : '<div class="small muted">Étape suivante…</div>'}
       ${st.current ? bar(st.cur, st.target) : ''}

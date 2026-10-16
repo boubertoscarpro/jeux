@@ -298,7 +298,8 @@ function claimCampaign(s, now) {
   // Le joueur suit l'alerte « aucune ferme » du tableau de bord avant le reste
   if (pend.has('c1_farm') && !allBuildings(s).some((b) => b.type === 'farm')) { const tl = bestTile(s, 'farm', computeMods(s, now)); if (tl) startBuild(s, 'farm', tl.x, tl.y, now); }
   if (pend.has('q_clear')) { for (let y = 0; y < s.city.h; y++) for (let x = 0; x < s.city.w; x++) if (terrainAt(s, x, y) === 'rubble' && startClear(s, x, y, now).ok) { y = 1e9; break; } }
-  const want = { c1_farm: 'farm', q_saw: 'sawmill', q_quarry: 'quarry', q_farm: 'farm', q_barracks: 'barracks', q_library: 'library', q_market: 'market' };
+  // q_scouts : les éclaireurs se forment à la caserne (le diplomate, qui n'en construisait jamais, restait bloqué)
+  const want = { c1_farm: 'farm', q_scouts: 'barracks', q_saw: 'sawmill', q_quarry: 'quarry', q_farm: 'farm', q_barracks: 'barracks', q_library: 'library', q_market: 'market' };
   for (const [id, type] of Object.entries(want)) if (pend.has(id) && !allBuildings(s).some((b) => b.type === type) && !buildRequirement(s, type)) { const tl = bestTile(s, type, computeMods(s, now)); if (tl && startBuild(s, type, tl.x, tl.y, now).ok) break; }
   if (c.chapter >= 4 && !c.flags.training) trainingBattle(s, now);
   if (c.chapter >= 6 && !(s.stats.envoys > 0)) for (const f of s.factions || []) if (diplomacy(s, f.idx, 'envoy', now).ok) break;
