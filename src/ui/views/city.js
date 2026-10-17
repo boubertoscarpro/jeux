@@ -291,22 +291,25 @@ function fortPanel(app, mods) {
 }
 
 // Caméra de la carte du royaume (conservée entre deux rendus)
-const CITY_ZMIN = 0.25, CITY_ZMAX = 2.2;
+// v13.2 : vue du royaume plus grande par défaut (échelle 1,3) ; tout le dessin suit (bâtiments, pastilles, textes)
+export const CITY_SCALE = 1.3;
+const CITY_ZMIN = 0.25, CITY_ZMAX = 2.8;
 // Niveaux de détail : vue globale (far), intermédiaire (mid), rapprochée (near). Les pastilles d'état gardent une
 // taille lisible quel que soit le zoom (--bz compense l'échelle), les noms n'apparaissent qu'en vue rapprochée.
 export const cityZoomLevel = (z) => (z < 0.55 ? 'far' : z < 1.05 ? 'mid' : 'near');
+
 function onCityCam(vp, cam) {
   const zl = cityZoomLevel(cam.z);
   if (vp.dataset.zl !== zl) vp.dataset.zl = zl;
   vp.style.setProperty('--bz', String(Math.min(2.2, Math.max(1, 0.95 / cam.z))));
   vp.querySelector('#city-tip')?.classList.remove('on');
 }
-function cityCam(app) { return (app.ui.cityCam ||= { x: 0, y: 0, z: 1, init: false }); }
+function cityCam(app) { return (app.ui.cityCam ||= { x: 0, y: 0, z: CITY_SCALE, init: false }); }
 function centerOnTown(app, vp, at = null) {
   const cam = cityCam(app);
   const th = at || Object.values(app.state.city.buildings).find((b) => b.type === 'townhall');
-  if (!at) cam.z = window.innerWidth < 700 ? 0.8 : 1;
-  else cam.z = Math.max(cam.z, 0.9);
+  if (!at) cam.z = (window.innerWidth < 700 ? 0.8 : 1) * CITY_SCALE;
+  else cam.z = Math.max(cam.z, 0.9 * CITY_SCALE);
   if (th) { cam.x = vp.clientWidth / 2 - (th.x + 0.5) * CITY_TILE * cam.z; cam.y = vp.clientHeight / 2 - (th.y + 0.5) * CITY_TILE * cam.z; }
   cam.init = true;
 }
@@ -449,7 +452,7 @@ export default {
     recipe: (app, el) => { app.state.city.buildings[el.dataset.id].recipe = +el.value; app.render(); app.save(); },
     expand: (app) => app.act(() => expandDomain(app.state), 'Le domaine s’agrandit !'),
     'city-zoom': (app, el) => { const vp = document.getElementById('city-vp'); if (!vp) return; zoomAt(cityCam(app), +el.dataset.z, vp.clientWidth / 2, vp.clientHeight / 2, CITY_ZMIN, CITY_ZMAX); vp._apply(); },
-    'city-fit': (app) => { const vp = document.getElementById('city-vp'); if (!vp) return; const c = vp.querySelector('.mapvp-inner'); const cam = cityCam(app); cam.z = Math.max(CITY_ZMIN, Math.min(1, fitZoom(vp.clientWidth, vp.clientHeight, c.offsetWidth, c.offsetHeight))); vp._apply(); },
+    'city-fit': (app) => { const vp = document.getElementById('city-vp'); if (!vp) return; const c = vp.querySelector('.mapvp-inner'); const cam = cityCam(app); cam.z = Math.max(CITY_ZMIN, Math.min(CITY_SCALE, fitZoom(vp.clientWidth, vp.clientHeight, c.offsetWidth, c.offsetHeight))); vp._apply(); },
     'city-center': (app) => { const vp = document.getElementById('city-vp'); if (!vp) return; centerOnTown(app, vp); vp._apply(); },
     pause: (app, el) => { const b = app.state.city.buildings[el.dataset.id]; b.paused = !b.paused; app.render(); },
     deco: (app, el) => app.act(() => placeDeco(app.state, el.dataset.key, +el.dataset.x, +el.dataset.y), 'Décoration placée'),

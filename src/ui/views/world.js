@@ -27,12 +27,13 @@ import { ensureDungeon } from '../../systems/dungeons.js';
 import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons.js';
 import { esc, costList, resChips, bar, countdown, progress } from '../components.js';
 import { npcList, npcOf, npcOffers, npcState } from '../../systems/npcs.js';
+import { autoFillAttack, halfOfEach } from '../../systems/autofill.js';
 import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
 
 // Taille réelle d'une case au zoom 1 (px) : 40 (au lieu de 26) pour des lieux immédiatement reconnaissables
-export const BASE_TILE = 40;
+export const BASE_TILE = 52; // v13.2 : cases plus grandes (40 auparavant)
 const Z_MAX = 2.6;
 
 function cam(app) {
@@ -219,7 +220,7 @@ export function drawMap(app) {
   drawWorldMarks(ctx, s, { ox, oy, T, x0, x1, y0, y1, now });
   const labels = [];
   const blocked = [];
-  const lsize = Math.round(Math.max(10, Math.min(14, T * 0.34)));
+  const lsize = Math.round(Math.max(10, Math.min(16, T * 0.34)));
   for (const p of Object.values(w.pois)) {
     if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
     if (!isRevealed(w, p.x, p.y)) continue;
@@ -239,13 +240,13 @@ export function drawMap(app) {
       continue;
     }
     const icon = p.type === 'kingdom' ? RIVALS[p.rival]?.icon || def.icon : p.type === 'boss' && s.boss ? ALL_UNITS[BOSSES[s.boss.key].unit].icon : def.icon;
-    const r = major ? Math.max(9, Math.min(def.kind === 'capital' ? 30 : 26, T * (def.kind === 'capital' ? 0.62 : 0.52))) : Math.max(7, Math.min(20, T * 0.4));
+    const r = major ? Math.max(9, Math.min(def.kind === 'capital' ? 38 : 33, T * (def.kind === 'capital' ? 0.62 : 0.52))) : Math.max(7, Math.min(26, T * 0.4));
     const ring = def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color || CAT_COLOR.social : def.kind === 'boss' ? '#ff3b3b' : CAT_COLOR[cat];
     // Lieux rares (donjons, cité perdue) et très dangereux : halo pulsé (fixe si animations réduites)
     const pulse = reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(now / 420);
     const glow = def.kind === 'boss' ? `rgba(255,60,60,${0.5 + 0.4 * Math.sin(now / 300)})` : def.kind === 'capital' ? 'rgba(255,220,120,0.7)'
       : !cleared && (def.dungeon || p.type === 'lostCity') ? `rgba(190,150,255,${0.35 + 0.35 * pulse})` : !cleared && p.danger >= 4 ? `rgba(255,90,70,${0.25 + 0.3 * pulse})` : null;
-    const rb = def.kind === 'breach' && p.breach ? Math.max(8, Math.min(30, T * 0.46)) * (1 + 0.08 * (Math.floor((p.breach.level - 1) / 5))) : 0;
+    const rb = def.kind === 'breach' && p.breach ? Math.max(8, Math.min(38, T * 0.46)) * (1 + 0.08 * (Math.floor((p.breach.level - 1) / 5))) : 0;
     if (rb) drawBreachFort(ctx, px, py, rb, p.breach, { cleared });
     else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
@@ -702,6 +703,7 @@ function marchDialog(app, type) {
         ${unitsAvail.length ? unitsAvail.map(([u, n]) => `<div class="unit-pick"><span title="${esc(UNITS[u].desc)}">${UNITS[u].icon} ${esc(UNITS[u].name)}</span>
           <input type="number" min="0" max="${n}" value="${md.units[u] || 0}" data-input="mu" data-unit="${u}" id="mu-${u}"> <span class="muted small">/ ${n}</span>
           <button class="mini ghost" data-action="mu-max" data-unit="${u}">max</button></div>`).join('') : '<div class="req">Aucune unité disponible.</div>'}
+        ${['attack', 'gather', 'dungeon', 'boss'].includes(type) && unitsAvail.length ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="mu-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button>${type === 'attack' ? '<button class="mini primary" data-action="mu-auto" title="Le minimum pour gagner d’après l’aperçu de combat, plus une marge de sécurité">⚖️ Remplissage auto</button>' : ''}<button class="mini ghost" data-action="mu-none">Vider</button></div><div class="small muted" id="mu-auto-note"></div>` : ''}
         <h4>Commandant</h4>
         <select data-change="mh" id="mh"><option value="">— Aucun —</option>${idle.map((h) => `<option value="${h.id}" ${h.id === md.heroId ? 'selected' : ''}>${HERO_CLASSES[h.cls].icon} ${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select>
         ${fights ? `<h4>Formation</h4><select data-change="mf" id="mf">${Object.entries(FORMATIONS).map(([k, f]) => `<option value="${k}">${f.icon} ${esc(f.name)}</option>`).join('')}</select><div class="muted small" id="mf-desc">${esc(FORMATIONS.balanced.desc)}</div>
@@ -772,8 +774,30 @@ function updateMarchPreview(app) {
   el.innerHTML = html;
 }
 
+// Remplit la fenêtre d'envoi avec une composition (les champs et l'aperçu suivent)
+function setDraftUnits(app, units, note) {
+  const md = app.ui.marchDraft;
+  for (const u of Object.keys(app.state.army)) {
+    if (u === 'scout' && md.type !== 'attack' && md.type !== 'boss' && md.type !== 'gather' && md.type !== 'dungeon') continue;
+    const v = units[u] || 0;
+    md.units[u] = v;
+    const el = document.getElementById('mu-' + u);
+    if (el) el.value = v;
+  }
+  const n = document.getElementById('mu-auto-note');
+  if (n) n.textContent = note;
+  updateMarchPreview(app);
+}
 const marchActions = {
   mu: (app, el) => { app.ui.marchDraft.units[el.dataset.unit] = Math.max(0, Math.min(app.state.army[el.dataset.unit] || 0, +el.value || 0)); updateMarchPreview(app); },
+  'mu-half': (app) => setDraftUnits(app, halfOfEach(app.state), 'Moitié de chaque unité.'),
+  'mu-none': (app) => setDraftUnits(app, {}, ''),
+  'mu-auto': (app) => {
+    const r = autoFillAttack(app.state, app.ui.marchDraft);
+    if (!r.ok) { const n = document.getElementById('mu-auto-note'); if (n) n.textContent = `⚠️ ${r.reason}`; return; }
+    const n = Object.values(r.units).reduce((x, y) => x + y, 0), all = Object.values(halfOfEach(app.state)).reduce((x, y) => x + y, 0) * 2 || n;
+    setDraftUnits(app, r.units, `⚖️ ${fmt(n)} soldats sur ${fmt(all)} disponibles : le minimum qui gagne d’après l’aperçu, plus une marge ${r.estimated ? 'prudente (lieu non espionné)' : 'de sécurité'}. Aperçu : ${r.verdict}.`);
+  },
   'mu-max': (app, el) => { const u = el.dataset.unit; app.ui.marchDraft.units[u] = app.state.army[u]; document.getElementById('mu-' + u).value = app.state.army[u]; updateMarchPreview(app); },
   mh: (app, el) => { app.ui.marchDraft.heroId = el.value || null; updateMarchPreview(app); },
   mf: (app, el) => { app.ui.marchDraft.formation = el.value; document.getElementById('mf-desc').textContent = FORMATIONS[el.value].desc; updateMarchPreview(app); },

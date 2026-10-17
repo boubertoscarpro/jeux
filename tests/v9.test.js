@@ -157,6 +157,8 @@ test('Spécialités : l’affinité dépend des environs et reste plafonnée à 
   th(s).level = 6;
   const w = s.world, x = w.capital.x + 4, y = w.capital.y;
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (!w.pois[key(x + dx, y + dy)]) setTerrain(w, x + dx, y + dy, 'forest');
+  // Pas de menace le long de la route (le tirage de la carte ne doit pas fausser la mesure de l'affinité)
+  for (const [k, p] of Object.entries(w.pois)) if (p.danger > 0 && Math.abs(p.y - y) <= 4 && p.x >= w.capital.x - 3 && p.x <= x + 3) delete w.pois[k];
   w.revealed.fill(1);
   assert.ok(claimTerritory(s, x, y, T0).ok);
   const t = s.territories[key(x, y)];
