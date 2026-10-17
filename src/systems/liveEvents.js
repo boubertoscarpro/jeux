@@ -15,7 +15,7 @@ import { deepMerge } from './config.js';
 import { computeMods } from './modifiers.js';
 import { gain, pay, canAfford, storageCap } from './economy.js';
 import { thLevel } from './city.js';
-import { simulateBattle } from './combat.js';
+import { simulateBattle, previewBattle } from './combat.js';
 import { marchMods } from './marches.js';
 import { giveXp } from './heroes.js';
 import { generateItem, createUniqueItem } from './items.js';
@@ -498,7 +498,8 @@ function addLiveReport(state, text, t, win = true) {
   if (cur.log.length > 40) cur.log.length = 40;
 }
 
-function liveBattle(state, m, enemies, t, opts = {}) {
+// Les deux camps d'un combat d'événement (partagés par le vrai combat et l'estimation)
+function liveSides(state, m, enemies, t, opts = {}) {
   const cur = liveState(state).current;
   const mods = { ...marchMods(state, m.heroId, null, t) };
   if (opts.bonusAtk) mods['combat.atk'] = (mods['combat.atk'] || 0) + opts.bonusAtk;
@@ -506,17 +507,60 @@ function liveBattle(state, m, enemies, t, opts = {}) {
   if (stance?.losses) mods['combat.losses'] = (mods['combat.losses'] || 0) + stance.losses;
   const terrain = cur.map.tiles[m.y * cur.map.w + m.x];
   const tier = opts.tier || 1;
-  const res = simulateBattle(
+  return [
     { units: m.units, mods, formation: m.formation, label: 'Vous' },
     { units: enemies, mods: { 'combat.atk': 0.04 * tier + (opts.enemyMods?.['combat.atk'] || 0), 'combat.def': 0.04 * tier }, label: opts.label || 'Ennemi' },
     { terrain: terrain === 'ash' ? 'ruins' : terrain, weather: state.weather.type, bossHp: opts.bossHp },
-  );
+  ];
+}
+
+function liveBattle(state, m, enemies, t, opts = {}) {
+  const [att, dfn, ctx] = liveSides(state, m, enemies, t, opts);
+  const mods = att.mods;
+  const res = simulateBattle(att, dfn, ctx);
   m.units = Object.fromEntries(Object.entries(res.attRemaining).filter(([, n]) => n > 0));
   const killed = Object.values(res.defLosses).reduce((a, b) => a + b, 0);
   const hero = state.heroes.find((h) => h.id === m.heroId);
   if (hero) giveXp(state, hero, 20 + killed * 8 + res.bossDamage / 60, mods);
   state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + killed;
   return res;
+}
+
+/**
+ * Adversaire attendu d'une action d'événement (pour l'estimation et le remplissage auto), avec les mêmes options que
+ * le vrai combat. kind : 'win' (il faut l'emporter), 'boss' (dégâts à infliger, pas de victoire), null (pas de combat).
+ */
+export function liveFoe(state, action, tg) {
+  const cur = liveState(state).current;
+  if (!cur || !tg) return null;
+  const def = LIVE_EVENTS[cur.key];
+  if (action === 'attack') {
+    if (tg.type === 'boss') {
+      const b = def.bosses[0];
+      if (cur.bossIdx >= b.tiers.length) return null;
+      return { kind: 'boss', enemies: { [b.unit]: 1 }, opts: { bossHp: cur.bossHp, tier: 3 + cur.bossIdx, enemyMods: bossPhase(state, cur, def).enemyMods } };
+    }
+    if (tg.type === 'lair') return cur.coop?.hp > 0 ? { kind: 'boss', enemies: { [def.coop.unit]: 1 }, opts: { bossHp: cur.coop.hp, tier: 5 } } : null;
+    const enemies = tg.enemies || scaleEnemies(state, def, tg.type === 'ship' || tg.type === 'caravan' ? tg.type : 'camp', tg.tier);
+    const bonusAtk = tg.type === 'ship' && (state.city && Object.values(state.city.buildings).some((b) => b.type === 'port')) ? 0.3 : 0;
+    return { kind: 'win', enemies, opts: { tier: tg.tier, bonusAtk } };
+  }
+  if (action === 'escort') return { kind: 'win', ambush: true, enemies: scaleEnemies(state, def, 'camp', Math.max(1, tg.tier - 1)), opts: { tier: tg.tier } };
+  if (action === 'garrison' && tg.type === 'zone') return { kind: 'win', hold: true, enemies: scaleEnemies(state, def, 'zone', Math.max(1, tg.tier - 1)), opts: { tier: tg.tier } };
+  if (action === 'garrison' && tg.type === 'bastion' && def.enemies.assault) {
+    const k = (0.4 + ((cur.stats.assaultsSeen || 0) + 1) * 0.08) * thScale(state) * liveCfg(state).enemyMult;
+    return { kind: 'win', hold: true, enemies: Object.fromEntries(Object.entries(def.enemies.assault).map(([u, v]) => [u, Math.max(1, Math.round(v * k))])), opts: { tier: 3 } };
+  }
+  return null;
+}
+
+// Estimation déterministe d'un envoi d'événement contre l'adversaire attendu
+export function livePreview(state, opts, now = Date.now()) {
+  const tg = liveTarget(state, opts.targetId);
+  const foe = liveFoe(state, opts.action, tg);
+  if (!foe) return null;
+  const m = { units: opts.units, heroId: opts.heroId, formation: opts.formation, x: tg.x, y: tg.y };
+  return { ...foe, pv: previewBattle(...liveSides(state, m, foe.enemies, now, foe.opts)) };
 }
 
 const campReward = (tier) => 50 * tier + 15 * tier * tier;

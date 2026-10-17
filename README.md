@@ -21,8 +21,8 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
-> **v13.2** : boutons « Moitié de chaque unité » et « Remplissage auto » (minimum pour gagner) dans la fenêtre
-> d'attaque, monde agrandi à 128 × 128, cases plus grandes dans le royaume et sur la carte — voir
+> **v13.2** : boutons « Moitié de chaque unité » et « Remplissage auto » (minimum pour gagner) dans toutes les
+> fenêtres de combat (attaque, récolte, donjon, boss, événements en direct, campagnes), monde agrandi à 128 × 128, cases plus grandes dans le royaume et sur la carte — voir
 > [`docs/V13_2.md`](docs/V13_2.md).
 >
 > **v13.1** : grosses commandes aux forgerons (3, 6 ou 10 objets, longues et coûteuses, rareté garantie),

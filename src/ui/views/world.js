@@ -27,7 +27,7 @@ import { ensureDungeon } from '../../systems/dungeons.js';
 import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons.js';
 import { esc, costList, resChips, bar, countdown, progress } from '../components.js';
 import { npcList, npcOf, npcOffers, npcState } from '../../systems/npcs.js';
-import { autoFillAttack, halfOfEach } from '../../systems/autofill.js';
+import { autoFillAttack, autoFillNote, halfOfEach } from '../../systems/autofill.js';
 import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
@@ -714,7 +714,7 @@ function marchDialog(app, type) {
         ${unitsAvail.length ? unitsAvail.map(([u, n]) => `<div class="unit-pick"><span title="${esc(UNITS[u].desc)}">${UNITS[u].icon} ${esc(UNITS[u].name)}</span>
           <input type="number" min="0" max="${n}" value="${md.units[u] || 0}" data-input="mu" data-unit="${u}" id="mu-${u}"> <span class="muted small">/ ${n}</span>
           <button class="mini ghost" data-action="mu-max" data-unit="${u}">max</button></div>`).join('') : '<div class="req">Aucune unité disponible.</div>'}
-        ${['attack', 'gather', 'dungeon', 'boss'].includes(type) && unitsAvail.length ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="mu-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button>${type === 'attack' ? '<button class="mini primary" data-action="mu-auto" title="Le minimum pour gagner d’après l’aperçu de combat, plus une marge de sécurité">⚖️ Remplissage auto</button>' : ''}<button class="mini ghost" data-action="mu-none">Vider</button></div><div class="small muted" id="mu-auto-note"></div>` : ''}
+        ${['attack', 'gather', 'dungeon', 'boss'].includes(type) && unitsAvail.length ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="mu-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button><button class="mini primary" data-action="mu-auto" title="${type === 'boss' ? 'Contre un boss : toutes les unités de combat (chaque soldat ajoute des dégâts)' : type === 'gather' ? 'Le minimum pour vider le site et repousser une embuscade' : type === 'dungeon' ? 'Le minimum pour franchir toutes les salles restantes' : 'Le minimum pour gagner d’après l’aperçu de combat, plus une marge de sécurité'}">⚖️ Remplissage auto</button><button class="mini ghost" data-action="mu-none">Vider</button></div><div class="small muted" id="mu-auto-note"></div>` : ''}
         <h4>Commandant</h4>
         <select data-change="mh" id="mh"><option value="">— Aucun —</option>${idle.map((h) => `<option value="${h.id}" ${h.id === md.heroId ? 'selected' : ''}>${HERO_CLASSES[h.cls].icon} ${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select>
         ${fights ? `<h4>Formation</h4><select data-change="mf" id="mf">${Object.entries(FORMATIONS).map(([k, f]) => `<option value="${k}">${f.icon} ${esc(f.name)}</option>`).join('')}</select><div class="muted small" id="mf-desc">${esc(FORMATIONS.balanced.desc)}</div>
@@ -805,9 +805,8 @@ const marchActions = {
   'mu-none': (app) => setDraftUnits(app, {}, ''),
   'mu-auto': (app) => {
     const r = autoFillAttack(app.state, app.ui.marchDraft);
-    if (!r.ok) { const n = document.getElementById('mu-auto-note'); if (n) n.textContent = `⚠️ ${r.reason}`; return; }
-    const n = Object.values(r.units).reduce((x, y) => x + y, 0), all = Object.values(halfOfEach(app.state)).reduce((x, y) => x + y, 0) * 2 || n;
-    setDraftUnits(app, r.units, `⚖️ ${fmt(n)} soldats sur ${fmt(all)} disponibles : le minimum qui gagne d’après l’aperçu, plus une marge ${r.estimated ? 'prudente (lieu non espionné)' : 'de sécurité'}. Aperçu : ${r.verdict}.`);
+    if (!r.ok) { const n = document.getElementById('mu-auto-note'); if (n) n.textContent = autoFillNote(app.state, r); return; }
+    setDraftUnits(app, r.units, autoFillNote(app.state, r));
   },
   'mu-max': (app, el) => { const u = el.dataset.unit; app.ui.marchDraft.units[u] = app.state.army[u]; document.getElementById('mu-' + u).value = app.state.army[u]; updateMarchPreview(app); },
   mh: (app, el) => { app.ui.marchDraft.heroId = el.value || null; updateMarchPreview(app); },

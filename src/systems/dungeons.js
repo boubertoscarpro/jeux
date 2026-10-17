@@ -4,7 +4,7 @@ import { ALL_UNITS } from '../data/units.js';
 import { RESOURCES } from '../data/resources.js';
 import { mulberry32, rng } from '../core/rng.js';
 import { fmt, addInto } from '../core/util.js';
-import { simulateBattle } from './combat.js';
+import { simulateBattle, previewBattle } from './combat.js';
 import { generateItem } from './items.js';
 import { grantArtifact } from './collection.js';
 import { recordMax, bumpRep } from './reputation.js';
@@ -41,11 +41,12 @@ export function ensureDungeon(poi) {
   return poi.dungeonData;
 }
 
-function roomEnemies(d, room) {
+// f : facteur d'effectif fixe (estimation) ; sinon tirage ±20 % comme en jeu
+function roomEnemies(d, room, f) {
   const th = DUNGEON_THEMES[d.theme];
   const k = (1 + d.level * 0.22) * (d.affixes.includes('swarming') ? 1.35 : 1);
   const out = {};
-  if (room.type === 'battle') { for (const u of th.enemies) out[u] = Math.max(1, Math.round((ALL_UNITS[u].hp > 100 ? 1 : 6) * k * rng.float(0.8, 1.2))); }
+  if (room.type === 'battle') { for (const u of th.enemies) out[u] = Math.max(1, Math.round((ALL_UNITS[u].hp > 100 ? 1 : 6) * k * (f ?? rng.float(0.8, 1.2)))); }
   if (room.type === 'miniboss') { out[th.mini] = Math.max(1, Math.round((ALL_UNITS[th.mini].hp > 100 ? 2 : 10) * k)); out[th.enemies[0]] = Math.round(5 * k); }
   if (room.type === 'boss') { out[th.boss] = Math.max(2, Math.round(3 * k)); for (const u of th.enemies) out[u] = (out[u] || 0) + Math.round(5 * k); }
   return out;
@@ -157,6 +158,40 @@ export function runDungeon(state, m, poi, mods, now) {
   recordMax(state, 'biggestVictory', killed, `${fmt(killed)} ennemis dans un donjon`, now);
   // cleared : salles franchies au total ; clearedNow : salles franchies par CETTE expédition (expérience des héros)
   return { lines, cleared: d.cleared, clearedNow, total: d.rooms.length, done: allDone, level: d.level };
+}
+
+/**
+ * Estimation déterministe d'une expédition (remplissage auto) : les salles restantes sont enchaînées comme en jeu,
+ * salles de combat au plus fort de leur effectif (+20 %), pièges à leur perte moyenne, autels comptés.
+ * Renvoie { ok (toutes les salles franchies), cleared, total, lossRatio }.
+ */
+export function previewDungeon(state, units, mods, poi, opts = {}) {
+  const d = ensureDungeon(poi);
+  const sum = (u) => Object.values(u).reduce((a, b) => a + b, 0);
+  const start = sum(units) || 1;
+  const rooms = d.rooms.filter((r) => !r.done);
+  let cur = { ...units }, morale = 0, cleared = 0;
+  for (const room of rooms) {
+    const alive = sum(cur);
+    if (!alive || 1 - alive / start >= (opts.retreat ?? 0.5)) break;
+    if (room.type === 'trap') {
+      const p = Math.min(0.9, 0.3 + ((cur.engineer || 0) + (cur.scout || 0)) * 0.05);
+      for (const u of Object.keys(cur)) cur[u] -= Math.floor(cur[u] * 0.08 * (1 - p));
+    } else if (room.type === 'shrine') morale += 15;
+    else if (room.type !== 'treasure') {
+      const enemyMods = { 'combat.atk': 0.04 * d.level, 'combat.def': 0.04 * d.level };
+      for (const a of d.affixes) for (const [k, v] of Object.entries(DUNGEON_AFFIXES[a].enemy || {})) enemyMods[k] = (enemyMods[k] || 0) + v;
+      const pv = previewBattle(
+        { units: cur, mods: ourMods({ ...mods, 'combat.morale': (mods['combat.morale'] || 0) + morale }, d), formation: opts.formation, supply: opts.supply },
+        { units: roomEnemies(d, room, 1.2), mods: enemyMods },
+        { terrain: 'ruins', weather: 'clear' },
+      );
+      if (pv.winner !== 'attacker') break;
+      cur = Object.fromEntries(Object.entries(pv.attRemaining).filter(([, n]) => n > 0));
+    }
+    cleared++;
+  }
+  return { ok: cleared === rooms.length, cleared, total: rooms.length, lossRatio: 1 - sum(cur) / start };
 }
 
 export const dungeonTerrain = (state, poi) => wTerrain(state.world, poi.x, poi.y);
