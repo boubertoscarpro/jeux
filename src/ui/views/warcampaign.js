@@ -5,10 +5,13 @@ import { fmt } from '../../core/util.js';
 import { thLevel } from '../../systems/city.js';
 import { armyPower } from '../../systems/army.js';
 import { OPS, SEQUENCE, WAR_MIN_TH, warState, campaignTargets, canStartCampaign, startCampaign, currentOpKey, opEnemies, previewOp, bestFreeHero, chooseFinal, launchOp, abandonCampaign, seasonWar } from '../../systems/warcampaign.js';
+import { autoFillWarOp, autoFillNote } from '../../systems/autofill.js';
 import { esc, countdown, progress } from '../components.js';
 
-const SHARES = { all: ['Toute l’armée', 1], two: ['Les deux tiers', 2 / 3], half: ['La moitié (garder une garnison)', 0.5] };
-const pick = (s, share) => Object.fromEntries(Object.entries(s.army).filter(([u, n]) => n > 0 && UNITS[u] && UNITS[u].class !== 'special').map(([u, n]) => [u, Math.floor(n * share)]).filter(([, n]) => n > 0));
+const SHARES = { all: ['Toute l’armée', 1], two: ['Les deux tiers', 2 / 3], half: ['½ Moitié de chaque unité', 0.5], auto: ['⚖️ Remplissage auto', null] };
+const pickShare = (s, share) => Object.fromEntries(Object.entries(s.army).filter(([u, n]) => n > 0 && UNITS[u] && UNITS[u].class !== 'special').map(([u, n]) => [u, Math.floor(n * share)]).filter(([, n]) => n > 0));
+// Remplissage auto : le minimum qui gagne l'opération d'après l'estimation (+ marge) ; sinon rien n'est engagé
+const pick = (s, key, auto = key === 'auto' ? autoFillWarOp(s, bestFreeHero(s)?.id) : null) => (key === 'auto' ? (auto.ok ? auto.units : {}) : pickShare(s, SHARES[key][1]));
 const unitsText = (o) => Object.entries(o).map(([u, n]) => `${ALL_UNITS[u]?.icon || ''} ${n} ${esc(ALL_UNITS[u]?.name || u)}`).join(', ');
 
 function track(a) {
@@ -26,7 +29,7 @@ export default {
   locked: (app) => (thLevel(app.state) < WAR_MIN_TH ? `Les campagnes militaires s’ouvrent à l’hôtel de ville niveau ${WAR_MIN_TH} (avec une caserne).` : null),
   render(app) {
     const s = app.state, W = warState(s), a = W.active, now = Date.now();
-    const share = app.ui.warShare || 'two';
+    const share = SHARES[app.ui.warShare] ? app.ui.warShare : 'two';
     let body = '';
     if (!a) {
       body = `<div class="card"><h3>Choisir une cible</h3>${W.cooldownUntil > now ? `<p class="req small">Vos troupes se remettent de la dernière campagne : ${countdown(W.cooldownUntil)}.</p>` : ''}
@@ -34,7 +37,8 @@ export default {
           ${c.ok ? `<button class="btn ${c.declares ? 'danger' : 'primary'} small" data-action="war-start" data-i="${t.f.idx}">${c.declares ? 'Déclarer la guerre et lancer' : 'Lancer la campagne'}</button>` : `<div class="req small">${esc(c.reason)}</div>`}</div>`; }).join('') || '<p class="muted small">Aucune faction ne peut être visée (alliances, pactes ou tributs).</p>'}</div></div>`;
     } else {
       const key = currentOpKey(s);
-      const sel = pick(s, SHARES[share][1]);
+      const auto = share === 'auto' ? autoFillWarOp(s, bestFreeHero(s)?.id, now) : null;
+      const sel = pick(s, share, auto);
       let opHtml = '';
       if (a.op) opHtml = `<div class="panel-sub"><h4>${OPS[a.op.key].icon} ${esc(OPS[a.op.key].name)} — en cours</h4><div class="small">Troupes engagées : ${unitsText(a.op.units)}</div>${countdown(a.op.end)}${progress(a.op.start, a.op.end)}</div>`;
       else if (!key) opHtml = `<div class="panel-sub"><h4>🎯 Choisissez l’objectif final</h4><div class="row gap wrap">${['siege', 'protect'].map((k) => `<button class="btn" data-action="war-final" data-k="${k}">${OPS[k].icon} ${esc(OPS[k].name)}</button>`).join('')}</div><div class="small muted">${esc(OPS.siege.effect)}<br>${esc(OPS.protect.effect)}</div></div>`;
@@ -43,7 +47,8 @@ export default {
         opHtml = `<div class="panel-sub"><h4>Prochaine opération : ${OPS[key].icon} ${esc(OPS[key].name)}</h4>
           <div class="small">Forces ennemies attendues : ${unitsText(opEnemies(s, key))}${a.weaken ? ' <span class="ok">(affaiblies)</span>' : ''}</div>
           <div class="row gap wrap small">Engager : ${Object.entries(SHARES).map(([k, [l]]) => `<button class="mini ${share === k ? 'primary' : ''}" data-action="war-share" data-k="${k}">${esc(l)}</button>`).join('')}</div>
-          <div class="small">${Object.keys(sel).length ? unitsText(sel) : '<span class="req">Aucune troupe disponible au château</span>'}</div>
+          <div class="small">${Object.keys(sel).length ? unitsText(sel) : `<span class="req">${auto && !auto.ok ? esc(auto.reason) : 'Aucune troupe disponible au château'}</span>`}</div>
+          ${auto?.ok ? `<div class="small muted">${esc(autoFillNote(s, auto))}</div>` : ''}
           ${pv ? `<div class="verdict ${pv.pv.winner === 'attacker' ? 'good' : 'bad'}">${pv.pv.winner === 'attacker' ? '✔' : '✖'} ${esc(pv.pv.verdict)} · pertes estimées ${Math.round(pv.pv.lossRatio * 100)} %</div><ul class="notes small">${pv.pv.notes.slice(0, 4).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
           <div class="small">Commandant : ${bestFreeHero(s) ? `${esc(bestFreeHero(s).name)} (niv. ${bestFreeHero(s).level}) — ses bonus comptent dans l’estimation` : '<span class="muted">aucun héros libre</span>'}</div>
           <div class="small muted">Durée : ${OPS[key].minutes} min. Les troupes engagées quittent le château (moins de défenseurs en cas de raid).${a.bonus ? ` Bonus de campagne : attaque +${Math.round(a.bonus * 100)} %.` : ''}</div>
@@ -59,7 +64,7 @@ export default {
     'war-start': (app, el) => { const i = +el.dataset.i; const c = canStartCampaign(app.state, i); const go = () => app.act(() => startCampaign(app.state, i), 'Campagne lancée'); if (c.declares) app.confirm(`<h2>Déclarer la guerre à ${esc(RIVALS[i].name)} ?</h2><p>La relation chute et la faction peut lancer des raids plus fréquents tant que dure la guerre.</p>`, 'Déclarer la guerre', go); else go(); },
     'war-share': (app, el) => { app.ui.warShare = el.dataset.k; app.render(); },
     'war-final': (app, el) => app.act(() => chooseFinal(app.state, el.dataset.k), 'Objectif final choisi'),
-    'war-launch': (app) => app.act(() => launchOp(app.state, pick(app.state, SHARES[app.ui.warShare || 'two'][1]), bestFreeHero(app.state)?.id), 'Opération lancée'),
+    'war-launch': (app) => app.act(() => launchOp(app.state, pick(app.state, SHARES[app.ui.warShare] ? app.ui.warShare : 'two'), bestFreeHero(app.state)?.id), 'Opération lancée'),
     'war-abandon': (app) => app.confirm('<h2>Abandonner la campagne ?</h2><p>La relation avec la faction baisse et vos troupes devront se reposer 12 h avant une nouvelle campagne.</p>', 'Abandonner', () => app.act(() => abandonCampaign(app.state), 'Campagne abandonnée')),
   },
 };

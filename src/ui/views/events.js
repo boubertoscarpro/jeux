@@ -7,10 +7,11 @@ import { fmt, fmtTime } from '../../core/util.js';
 import {
   liveState, ensureCalendar, actionsFor, ACTIONS, TARGET_INFO, targetName, isVisible, sendLive, recallLive, planLive, actionCost,
   objectives, claimObjective, passInfo, claimPass, leaderboard, lbRewardFor, guildInfo, claimGuild, coopProgress, claimCoop,
-  lightFires, liveMarchNext, maxLiveMarches, liveTarget, lavaNear, scaleEnemies,
+  lightFires, liveMarchNext, maxLiveMarches, liveTarget, lavaNear, scaleEnemies, liveFoe,
   bossPhase, setStance, dailyMissions, claimDaily, challengeInfo, claimChallenge,
 } from '../../systems/liveEvents.js';
 import { EVENT_STANCES } from '../../data/liveEvents.js';
+import { autoFillLive, autoFillNote, halfOfEach } from '../../systems/autofill.js';
 import { dayKey } from '../../systems/shards.js';
 import { esc, countdown, progress, bar, resChips } from '../components.js';
 
@@ -205,14 +206,28 @@ function openSend(app, opts) {
   const title = t ? `${ACTIONS[opts.act].icon} ${ACTIONS[opts.act].label} — ${targetName(cur, t)}` : `🧭 Explorer (${opts.x}, ${opts.y})`;
   const heroes = s.heroes.filter((h) => !h.marchId && !h.assignment);
   const peaceful = ['trade', 'deliver', 'solve', 'spy', 'track', 'explore', 'dig', 'mine', 'harvest'].includes(opts.act);
+  const combat = t ? liveFoe(s, opts.act, t) : null;
+  const fill = (units, note) => {
+    document.querySelectorAll('#modal-root .qty').forEach((i) => { i.value = Math.min(+i.max || 0, units[i.dataset.u] || 0); });
+    const n = document.getElementById('ev-auto-note');
+    if (n) n.textContent = note;
+  };
   app.modal(`<h2>${esc(title)}</h2>
     ${t?.enemies && opts.act === 'attack' ? `<h4>Défenseurs</h4><div class="chips">${enemyList(t.enemies)}</div>` : ''}
     <p class="small muted">${esc(ACTIONS[opts.act].hint || (peaceful ? 'Mission sans combat prévu.' : 'Combat : choisissez une armée adaptée (contre la cavalerie, des lanciers !).'))}</p>
     <div class="ev-pick">${avail.map(([u, n]) => `<label class="pick">${UNITS[u].icon} ${esc(UNITS[u].name)} <span class="muted small">(${n})</span><input class="qty" type="number" min="0" max="${n}" value="0" data-u="${u}" id="evq-${u}"><button class="mini" data-action="ev-all" data-u="${u}" data-n="${n}">max</button></label>`).join('') || '<p class="muted">Aucune troupe en ville.</p>'}</div>
+    ${avail.length && !peaceful ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="ev-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button>${combat ? `<button class="mini primary" data-action="ev-auto" title="${combat.kind === 'boss' ? 'Contre un boss : toutes les unités de combat (chaque soldat ajoute des dégâts)' : 'Le minimum pour gagner d’après l’estimation de combat, plus une marge de sécurité'}">⚖️ Remplissage auto</button>` : ''}<button class="mini ghost" data-action="ev-none">Vider</button></div><div class="small muted" id="ev-auto-note"></div>` : ''}
     <div class="row gap wrap"><label>Héros <select id="ev-hero"><option value="">— Aucun —</option>${heroes.map((h) => `<option value="${h.id}">${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select></label>
       <label>Formation <select id="ev-form">${Object.entries(FORMATIONS).map(([k, f]) => `<option value="${k}">${esc(f.name)}</option>`).join('')}</select></label></div>
     <div class="row gap"><button class="btn primary" data-action="ev-go">Envoyer</button><button class="btn ghost" data-action="close-modal">Annuler</button></div>`, {
     'ev-all': (a, el) => { document.getElementById('evq-' + el.dataset.u).value = el.dataset.n; },
+    'ev-half': () => fill(halfOfEach(s), 'Moitié de chaque unité.'),
+    'ev-none': () => fill({}, ''),
+    'ev-auto': () => {
+      const r = autoFillLive(s, { action: opts.act, targetId: opts.id, heroId: document.getElementById('ev-hero').value || null, formation: document.getElementById('ev-form').value });
+      if (!r.ok) { const n = document.getElementById('ev-auto-note'); if (n) n.textContent = autoFillNote(s, r); return; }
+      fill(r.units, autoFillNote(s, r));
+    },
     'ev-go': (a) => {
       const units = {};
       document.querySelectorAll('#modal-root .qty').forEach((i) => { const v = +i.value; if (v > 0) units[i.dataset.u] = v; });
