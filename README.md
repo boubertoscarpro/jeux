@@ -21,6 +21,9 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v13.3** : raids en série — jusqu'à 10 attaques automatiques sur un camp, avec intendance, repos, réapparition
+> du camp et butin décroissant — voir [`docs/V13_3.md`](docs/V13_3.md).
+>
 > **v13.2** : boutons « Moitié de chaque unité » et « Remplissage auto » (minimum pour gagner) dans toutes les
 > fenêtres de combat (attaque, récolte, donjon, boss, événements en direct, campagnes), monde agrandi à 128 × 128, cases plus grandes dans le royaume et sur la carte — voir
 > [`docs/V13_2.md`](docs/V13_2.md).

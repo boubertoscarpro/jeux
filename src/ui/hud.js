@@ -20,6 +20,7 @@ import { cancelResearch } from '../systems/research.js';
 import { cancelTrain } from '../systems/army.js';
 import { cancelCraft } from '../systems/crafting.js';
 import { MARCH_TYPES, recallMarch, maxMarches } from '../systems/marches.js';
+import { cancelRaidOrder } from '../systems/raidOrders.js';
 import { describePending, resolveAny } from '../systems/pending.js';
 import { calendar } from '../systems/chronicle.js';
 import { CATASTROPHES } from '../data/seasons.js';
@@ -137,6 +138,8 @@ export function renderSide(app) {
         <div class="muted small">${phase} · ${Object.values(m.units).reduce((a, b) => a + b, 0)} unités${Object.keys(m.loot).length ? ' · ' + resChips(m.loot) : ''}</div>${end ? progress(start, end) : ''}</div>`;
     }).join('') || '<div class="muted small">Aucune marche. Explorez ou récoltez depuis la Carte.</div>'}
     ${s.caravans.map((c) => `<div class="q-row"><div class="q-top"><span>🐪 ${esc(c.town)}${c.repeat ? ' 🔁' : ''}</span>${countdown(c.end)}</div>${progress(c.start, c.end)}</div>`).join('')}
+    ${(s.raidOrders?.active || []).map((o) => `<div class="q-row raid-order"><div class="q-top"><span>🔁 ${esc(o.name)} · ${o.done}/${o.total}</span>${o.status === 'waiting' && o.nextAt > now ? countdown(o.nextAt) : ''}<button class="mini ghost" data-action="raid-stop" data-id="${o.id}" title="Arrêter les raids en série">⏹</button></div>
+      <div class="muted small">${o.status === 'marching' ? 'Attaque en cours' : esc(o.note || 'Prochaine attaque')} · ✔ ${o.wins}${o.lost ? ` · −${fmt(o.lost)} soldats` : ''}${Object.keys(o.loot).length ? ' · ' + resChips(o.loot) : ''}</div></div>`).join('')}
   </section>`);
 
   const exps = (s.expeditions || []).filter((t) => t.status !== 'idle');
@@ -186,6 +189,7 @@ export const sideActions = {
   'cancel-train': (app, el) => app.act(() => cancelTrain(app.state, el.dataset.id)),
   'cancel-craft': (app, el) => app.act(() => cancelCraft(app.state, el.dataset.id)),
   recall: (app, el) => app.act(() => recallMarch(app.state, el.dataset.id), 'Marche rappelée'),
+  'raid-stop': (app, el) => app.confirm('<h2>Arrêter les raids en série ?</h2><p>Aucune nouvelle attaque ne partira. Une attaque déjà en route va au bout et rentre normalement. 80 % de l’intendance des attaques non menées est rendue.</p>', 'Arrêter', () => app.act(() => cancelRaidOrder(app.state, el.dataset.id), 'Raids en série arrêtés')),
   'claim-quest': (app, el) => app.act(() => claimMission(app.state, el.dataset.id), 'Récompense obtenue !'),
   'claim-chapter': (app, el) => app.act(() => claimChapter(app.state, +el.dataset.n), 'Chapitre terminé : récompense obtenue !'),
   'adv-snooze': (app, el) => app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'),

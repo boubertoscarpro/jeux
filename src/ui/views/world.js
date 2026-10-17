@@ -22,12 +22,13 @@ import { logisticsNetwork } from '../../systems/logistics.js';
 import { stabOf, stabLevel } from '../../systems/stability.js';
 import { openRenameCastle, openRenameOutpost } from '../upgrades.js';
 import { sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots } from '../../systems/market.js';
-import { levelOf } from '../../systems/city.js';
+import { levelOf, thLevel } from '../../systems/city.js';
 import { ensureDungeon } from '../../systems/dungeons.js';
 import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons.js';
 import { esc, costList, resChips, bar, countdown, progress } from '../components.js';
 import { npcList, npcOf, npcOffers, npcState } from '../../systems/npcs.js';
 import { autoFillAttack, autoFillNote, halfOfEach } from '../../systems/autofill.js';
+import { RAID, RAID_COUNTS, raidTargetOk, raidStatus, raidCycle, startRaidOrder, raidResText } from '../../systems/raidOrders.js';
 import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
@@ -630,7 +631,7 @@ function tilePanel(app) {
           ${def.item ? `<div class="small">Objet : ${Math.round(def.item * 100)}%${def.itemMin ? ' (≥ ' + def.itemMin + ')' : ''}</div>` : ''}
           ${def.becomes ? '<div class="small ok">Une fois nettoyée, la mine devient un riche site de fer exploitable.</div>' : ''}
           <div class="muted small">Le butin est limité par la capacité de transport de vos troupes.</div></div>
-          <div class="row gap"><button class="btn primary" data-action="march" data-type="attack">⚔️ Attaquer</button><button class="btn" data-action="march" data-type="scout">👁️ Espionner</button></div>`;
+          <div class="row gap"><button class="btn primary" data-action="march" data-type="attack">⚔️ Attaquer</button>${raidTargetOk(poi) && thLevel(s) >= RAID.minTh ? '<button class="btn" data-action="march" data-type="attack" data-raid="10" title="Jusqu’à 10 attaques automatiques sur ce lieu, le minimum pour gagner recalculé à chaque fois">🔁 Raids en série</button>' : ''}<button class="btn" data-action="march" data-type="scout">👁️ Espionner</button></div>`;
       }
     }
     if (def.kind === 'kingdom') {
@@ -689,12 +690,32 @@ function townPanel(app, town, mods) {
       <button class="btn primary" data-action="caravan">Envoyer (sécurisé)</button> <button class="btn ghost" data-action="goto-convoys">Convoi avancé (modes, gardes) →</button></div>`;
 }
 
+// Raids en série : la même attaque relancée automatiquement (voir systems/raidOrders.js)
+function raidSection(s, md) {
+  if (thLevel(s) < RAID.minTh) return `<h4>🔁 Raids en série</h4><div class="small muted">Disponible à l’hôtel de ville niveau ${RAID.minTh} : jusqu’à ${RAID.maxAttacks} attaques automatiques sur ce lieu.</div>`;
+  return `<h4>🔁 Raids en série</h4>
+    <select data-change="mrep" id="mrep"><option value="1">Une seule attaque</option>${RAID_COUNTS.map((n) => `<option value="${n}" ${md.repeat === n ? 'selected' : ''}>${n} attaques automatiques</option>`).join('')}</select>
+    <label class="small"><input type="checkbox" data-change="mrauto" id="mrauto" ${md.raidAuto ? 'checked' : ''}> ⚖️ Recalculer le minimum pour gagner (et rapporter le butin) avant chaque attaque</label>
+    <div class="small muted" id="mrep-info"></div>`;
+}
+
+function raidInfo(app) {
+  const el = document.getElementById('mrep-info');
+  const md = app.ui.marchDraft;
+  if (!el || !md) return;
+  if (!(md.repeat > 1)) { el.textContent = ''; return; }
+  const s = app.state, o = { ...md, count: md.repeat, auto: !!md.raidAuto };
+  const st = raidStatus(s, o);
+  const cycle = raidCycle(s, o);
+  el.innerHTML = `Intendance payée d’avance : ${raidResText(st.cost)} (80 % de la part non utilisée rendus). Durée estimée : ≈ ${fmtTime(cycle * md.repeat)} (${RAID.restMin} min de repos et attente de la réapparition du camp entre deux attaques, ${RAID.maxHours} h au plus). Butin −${Math.round(RAID.lootDecay * 100)} % par attaque répétée (au moins ${Math.round(RAID.lootFloor * 100)} %). Arrêt automatique à la première défaite ou si une attaque coûte plus de la moitié des soldats.${st.ok ? '' : `<div class="req">${esc(st.reason)}</div>`}`;
+}
+
 // ---------- Fenêtre d'envoi de marche ----------
-function marchDialog(app, type) {
+function marchDialog(app, type, raid = 0) {
   const s = app.state;
   const { x, y } = app.ui.worldSel;
   const poi = poiAt(s.world, x, y);
-  const md = app.ui.marchDraft = { type, x, y, units: {}, heroId: null, formation: 'balanced', supply: false, potion: '' };
+  const md = app.ui.marchDraft = { type, x, y, units: {}, heroId: null, formation: 'balanced', supply: false, potion: '', repeat: raid || 1, raidAuto: !!raid };
   // Pré-sélection intelligente
   if (type === 'visit') { if (s.army.scout > 0) md.units.scout = 1; else { const u = Object.entries(s.army).find(([k, n]) => n > 0 && k !== 'spy'); if (u) md.units[u[0]] = 1; } }
   else if (type === 'explore' || type === 'scout') md.units.scout = Math.min(s.army.scout || 0, type === 'scout' ? 2 : 1);
@@ -715,6 +736,7 @@ function marchDialog(app, type) {
           <input type="number" min="0" max="${n}" value="${md.units[u] || 0}" data-input="mu" data-unit="${u}" id="mu-${u}"> <span class="muted small">/ ${n}</span>
           <button class="mini ghost" data-action="mu-max" data-unit="${u}">max</button></div>`).join('') : '<div class="req">Aucune unité disponible.</div>'}
         ${['attack', 'gather', 'dungeon', 'boss'].includes(type) && unitsAvail.length ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="mu-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button><button class="mini primary" data-action="mu-auto" title="${type === 'boss' ? 'Contre un boss : toutes les unités de combat (chaque soldat ajoute des dégâts)' : type === 'gather' ? 'Le minimum pour vider le site et repousser une embuscade' : type === 'dungeon' ? 'Le minimum pour franchir toutes les salles restantes' : 'Le minimum pour gagner d’après l’aperçu de combat, plus une marge de sécurité'}">⚖️ Remplissage auto</button><button class="mini ghost" data-action="mu-none">Vider</button></div><div class="small muted" id="mu-auto-note"></div>` : ''}
+        ${type === 'attack' && raidTargetOk(poi) ? raidSection(s, md) : ''}
         <h4>Commandant</h4>
         <select data-change="mh" id="mh"><option value="">— Aucun —</option>${idle.map((h) => `<option value="${h.id}" ${h.id === md.heroId ? 'selected' : ''}>${HERO_CLASSES[h.cls].icon} ${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select>
         ${fights ? `<h4>Formation</h4><select data-change="mf" id="mf">${Object.entries(FORMATIONS).map(([k, f]) => `<option value="${k}">${f.icon} ${esc(f.name)}</option>`).join('')}</select><div class="muted small" id="mf-desc">${esc(FORMATIONS.balanced.desc)}</div>
@@ -783,6 +805,7 @@ function updateMarchPreview(app) {
   }
   if (md.type === 'explore') html += '<div class="small muted">Les éclaireurs révèlent la zone et peuvent déclencher un événement (choix, trésor, embuscade…). Un héros Explorateur augmente la vitesse et les trouvailles.</div>';
   el.innerHTML = html;
+  raidInfo(app);
 }
 
 // Remplit la fenêtre d'envoi avec une composition (les champs et l'aperçu suivent)
@@ -814,7 +837,18 @@ const marchActions = {
   ms: (app, el) => { app.ui.marchDraft.supply = el.checked; updateMarchPreview(app); },
   mp: (app, el) => { app.ui.marchDraft.potion = el.value || null; updateMarchPreview(app); },
   mr: (app, el) => { app.ui.marchDraft.retreat = +el.value; },
+  mrep: (app, el) => { app.ui.marchDraft.repeat = +el.value; raidInfo(app); },
+  mrauto: (app, el) => { app.ui.marchDraft.raidAuto = el.checked; raidInfo(app); },
   'send-march': (app) => {
+    const md = app.ui.marchDraft;
+    if (md.type === 'attack' && md.repeat > 1) {
+      const o = startRaidOrder(app.state, { ...md, count: md.repeat, auto: !!md.raidAuto });
+      if (!o.ok) return app.toast(o.reason, 'bad');
+      app.closeModal();
+      app.toast(`🔁 Raids en série lancés : ${md.repeat} attaques${o.order.status === 'marching' ? ', la première est en route' : ` (${o.order.note.toLowerCase()})`}`, 'good');
+      app.render(); app.save();
+      return;
+    }
     const r = sendMarch(app.state, app.ui.marchDraft);
     if (!r.ok) return app.toast(r.reason, 'bad');
     app.closeModal();
@@ -860,7 +894,7 @@ const worldView = {
       app.confirm(`<h2>${d.icon} ${esc(d.name)} ?</h2><p>${d.scouts} éclaireurs partent ${d.hours} h et reviennent à la fin.</p><p>Coût payé maintenant : ${costList(st.cost, app.state)}</p>`, 'Lancer', () => app.act(() => startSurvey(app.state, k), (r) => `${d.icon} ${r.text}`)); },
     'survey-recall': (app) => app.confirm('<h2>Rappeler les éclaireurs ?</h2><p>Les zones déjà révélées restent acquises ; le coût n’est pas rendu.</p>', 'Rappeler', () => app.act(() => recallSurvey(app.state), 'Éclaireurs rappelés')),
     'goto-boss': (app) => { const b = app.state.boss; if (b) focusTile(app, b.x, b.y, 1); },
-    march: (app, el) => marchDialog(app, el.dataset.type),
+    march: (app, el) => marchDialog(app, el.dataset.type, +el.dataset.raid || 0),
     claim: (app) => app.act(() => claimTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), (r) => `Avant-poste « ${r.name} » établi — vous pouvez le renommer`),
     'rename-castle': (app) => openRenameCastle(app),
     'rename-outpost': (app, el) => openRenameOutpost(app, el.dataset.k),
