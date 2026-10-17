@@ -540,6 +540,17 @@ function npcOverview(s, now) {
   return `<h4>🧑 Personnages sur la carte</h4><div class="small npc-list">${list.map((p) => `<button class="mini ghost" data-action="world-goto" data-x="${p.x}" data-y="${p.y}">${POI_TYPES[p.type].icon} ${esc(POI_TYPES[p.type].name)} (${p.x}, ${p.y})</button>`).join(' ')}</div>
     ${bounties.map((b) => `<div class="small">🎯 Prime : ${esc(b.name)} (${b.x}, ${b.y}) · ${countdown(b.until)}</div>`).join('')}`;
 }
+// Bouton flottant sur la carte : lance ou suit l'exploration automatique sans chercher le panneau
+function surveyButton(s, now = Date.now()) {
+  const a = surveyState(s).active;
+  if (a) {
+    const pct = Math.round(Math.min(1, (now - a.start) / Math.max(1, a.end - a.start)) * 100);
+    return `<button class="map-survey on" data-action="survey-open" title="Mission cartographique en cours : ${a.zones} zones révélées">🛰️ Exploration auto <b>${pct} %</b><span class="ms-bar"><i style="width:${pct}%"></i></span></button>`;
+  }
+  const ready = Object.keys(SURVEYS).some((k) => surveyStatus(s, k, now).ok);
+  return `<button class="map-survey ${ready ? 'ready' : ''}" data-action="survey-open" title="Des éclaireurs explorent seuls la carte pendant des heures">🛰️ Exploration auto</button>`;
+}
+
 // Missions cartographiques automatiques
 function surveyPanel(s, now) {
   const S = surveyState(s);
@@ -580,7 +591,7 @@ function tilePanel(app) {
     <div class="muted small">Distance : ${d.toFixed(1)} cases · éclaireur ≈ ${fmtTime(travelTime(w, x, y, scouts, mods, 'explore'))} · infanterie ≈ ${fmtTime(travelTime(w, x, y, { spearman: 1 }, mods))}</div>`;
   if (!revealed) {
     return html + `<p>Une région inconnue. Vos éclaireurs peuvent y découvrir des ressources, des ruines, des trésors… ou des dangers.</p>
-      <button class="btn primary" data-action="march" data-type="explore">🧭 Explorer</button>`;
+      <button class="btn primary" data-action="march" data-type="explore">🧭 Explorer</button> <button class="btn" data-action="survey-open">🛰️ Exploration auto…</button>`;
   }
   const ter = wTerrain(w, x, y);
   const tc = TERRAIN_COMBAT[ter === 'ash' ? 'ruins' : ter];
@@ -813,7 +824,7 @@ const marchActions = {
   },
 };
 
-export default {
+const worldView = {
   id: 'world', title: 'Carte', icon: '🗺️',
   badge: (app) => app.state.pending.length,
   render(app) {
@@ -823,6 +834,7 @@ export default {
         <canvas id="world-canvas" aria-label="Carte du monde : cliquez sur une case pour l’inspecter"></canvas>
         <div class="map-tip" id="world-tip" role="tooltip"></div>
         <div class="map-tools"><button class="mini" data-action="zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="fit" title="Vue d’ensemble du monde">⤢</button><button class="mini" data-action="center" title="Recentrer sur la capitale (zoom par défaut)">🏰</button>${app.state.boss ? '<button class="mini warn" data-action="goto-boss" title="Boss mondial">🐉</button>' : ''}<button class="mini" data-action="mini-toggle" title="Afficher / masquer la mini-carte">🗺️</button></div>
+        ${surveyButton(app.state)}
         <div class="map-filters">${Object.entries(MAP_FILTERS).map(([k, l]) => `<button class="chip ${filters(app)[k] ? 'on' : 'off'}" data-action="map-filter" data-k="${k}" aria-pressed="${filters(app)[k]}">${l}</button>`).join('')}
           <select class="map-places" data-change="map-place" aria-label="Aller à un lieu découvert"><option value="">📍 Aller à…</option>${notablePlaces(app.state).map((p) => `<option value="${p.x},${p.y}">${esc(p.label)} · ${Math.round(p.d)} cases</option>`).join('')}</select></div>
         <canvas id="world-mini" class="world-mini" ${app.ui.miniOff ? 'hidden' : ''} title="Mini-carte : cliquez pour vous y rendre"></canvas>
@@ -840,6 +852,10 @@ export default {
     'mini-toggle': (app) => { app.ui.miniOff = !app.ui.miniOff; const m = document.getElementById('world-mini'); if (m) m.hidden = app.ui.miniOff; drawMap(app); },
     'map-filter': (app, el) => { const f = filters(app); f[el.dataset.k] = !f[el.dataset.k]; el.classList.toggle('on', f[el.dataset.k]); el.classList.toggle('off', !f[el.dataset.k]); el.setAttribute('aria-pressed', f[el.dataset.k]); drawMap(app); },
     'map-place': (app, el) => { if (!el.value) return; const [x, y] = el.value.split(',').map(Number); el.value = ''; focusTile(app, x, y, 1.2); },
+    'survey-open': (app) => app.modal(`${surveyPanel(app.state, Date.now())}<div class="row gap end"><button class="btn ghost" data-action="close-modal">Fermer</button></div>`, {
+      'survey-start': (a, el) => { a.closeModal(); worldView.actions['survey-start'](a, el); },
+      'survey-recall': (a) => { a.closeModal(); worldView.actions['survey-recall'](a); },
+    }),
     'world-goto': (app, el) => focusTile(app, +el.dataset.x, +el.dataset.y, 1.2),
     'survey-start': (app, el) => { const k = el.dataset.k, d = SURVEYS[k], st = surveyStatus(app.state, k); if (!st.ok) { app.toast(st.reason, 'bad'); return; }
       app.confirm(`<h2>${d.icon} ${esc(d.name)} ?</h2><p>${d.scouts} éclaireurs partent ${d.hours} h et reviennent à la fin.</p><p>Coût payé maintenant : ${costList(st.cost, app.state)}</p>`, 'Lancer', () => app.act(() => startSurvey(app.state, k), (r) => `${d.icon} ${r.text}`)); },
@@ -860,3 +876,4 @@ export default {
     },
   },
 };
+export default worldView;
