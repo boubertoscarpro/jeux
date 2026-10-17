@@ -1,3 +1,4 @@
+import { borderOf } from '../../systems/hazards.js';
 import { TERRAINS, POI_TYPES, RIVALS, BOSSES } from '../../data/world.js';
 import { resIcon } from '../icons.js';
 import { UNITS, ALL_UNITS, FORMATIONS, TERRAIN_COMBAT } from '../../data/units.js';
@@ -271,7 +272,7 @@ export function drawMap(app) {
     const hasPoi = !!w.pois[key(t.x, t.y)];
     drawBanner(ctx, hasPoi ? px + T * 0.3 : px, hasPoi ? py - T * 0.3 : py, sz, banner);
     if (t.hamlet && T >= 14) drawHamlet(ctx, px - T * 0.32, py + T * 0.18, T, t.hamlet);
-    if (T >= 12) labels.push({ x: px, y: py, offset: sz * 0.6 + 2, text: `🚩 ${outpostLabel(t)}`, prio: 70, size: lsize, color: '#ffe9a8', border: banner });
+    if (T >= 12) labels.push({ x: px, y: py, offset: sz * 0.6 + 2, text: `${(() => { const bd = borderOf(s, t); return bd?.kind === 'contested' ? '⚔️' : bd?.kind === 'friendly' ? '🤝' : '🚩'; })()} ${outpostLabel(t)}`, prio: 70, size: lsize, color: '#ffe9a8', border: banner });
   }
   // Grands projets achevés : repères près de la capitale
   for (const id of Object.keys(s.projects?.done || {})) {

@@ -1,3 +1,4 @@
+import { omenText } from './omens.js';
 import { surplusPlan, cappedResources } from './surplus.js';
 import { RESOURCES, isCapped } from '../data/resources.js';
 import { BUILDINGS } from '../data/buildings.js';
@@ -7,7 +8,7 @@ import { WORK_SECTORS } from '../data/workers.js';
 import { fmt, fmtTime } from '../core/util.js';
 import { computeMods } from './modifiers.js';
 import { netRates, storageCap, buildingRates, upkeepPerHour, armyUpkeep, armyTotals, recipeOf } from './economy.js';
-import { allBuildings, thLevel } from './city.js';
+import { allBuildings, thLevel, levelOf } from './city.js';
 import { armyPower } from './army.js';
 import { previewBattle } from './combat.js';
 import { isRevealed, distCap, wTerrain, key } from './world.js';
@@ -27,6 +28,7 @@ import { stabOf, stabilityFactors } from './stability.js';
 const R = (r) => `${RESOURCES[r].icon} ${RESOURCES[r].name}`;
 
 // Production / consommation détaillées d'une ressource
+const o2p = (o) => (o.checked === true ? 'confirmé' : `fiabilité ${Math.round(o.q * 100)} %`);
 export function resourceBreakdown(state, res, mods) {
   const sources = [], sinks = [];
   for (const b of allBuildings(state)) {
@@ -42,7 +44,7 @@ export function resourceBreakdown(state, res, mods) {
   return { sources: sources.sort((a, b) => b.v - a.v), sinks: sinks.sort((a, b) => b.v - a.v), prod: sources.reduce((a, s) => a + s.v, 0), cons: sinks.reduce((a, s) => a + s.v, 0) };
 }
 
-const APPLY_LABEL = { chain: 'Relancer', invest: 'Améliorer', storage: 'Agrandir', convert: 'Placer', prepare: 'Lancer', sell: 'Vendre' };
+const APPLY_LABEL = { chain: 'Relancer', invest: 'Améliorer', storage: 'Agrandir', convert: 'Placer', prepare: 'Lancer', sell: 'Vendre', reserve: 'Mettre en réserve' };
 
 export function analyze(state, now = Date.now()) {
   const mods = computeMods(state, now);
@@ -146,7 +148,9 @@ export function analyze(state, now = Date.now()) {
     if (f.stance === 'war') push('bad', `Vous êtes en guerre contre ${RIVALS[f.idx].name} (puissance estimée ${fmt(factionPower(state, f))} contre ${fmt(armyPower(armyTotals(state)))} pour vous).`, 'world');
     else if (raidWillingness(state, f.idx) > 0.08 && thLevel(state) >= 4) push('warn', `${RIVALS[f.idx].name} vous est hostile (relation ${Math.round(f.relation)}) : un raid est probable.`, 'world');
   }
-  if (state.rumor && !state.rumor.done && state.rumor.heard) push('info', `Rumeur : « ${state.rumor.text} » Acheter du ${RESOURCES[state.rumor.res].name} maintenant pourrait rapporter gros.`, 'market');
+  // v14 : les rumeurs de la taverne sont devenues des présages du marché (fiabilité affichée, pas une certitude)
+  const mo = (state.omens?.list || []).find((o) => o.kind === 'market' && !o.resolved && o.checked !== false);
+  if (mo && levelOf(state, 'tavern') > 0) push('info', `Présage à la taverne : « ${omenText(mo)} » (${o2p(mo)}). Acheter du ${RESOURCES[mo.key].name.toLowerCase()} maintenant est un pari.`, 'market');
   const order = { bad: 0, warn: 1, info: 2, good: 3 };
   recs.sort((a, b) => order[a.sev] - order[b.sev]);
   return { net, forecasts, recs, foodRatio: ratio, mods };

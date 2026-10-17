@@ -6,6 +6,7 @@
 //         node tools/profileSim.js --projects [jours] [graines]   (effet des grands projets)
 if (process.argv.includes('--no-v10')) globalThis.__noV10 = true;
 if (process.argv.includes('--no-surplus')) globalThis.__noSurplus = true;
+if (process.argv.includes('--no-v14')) globalThis.__noV14 = true;
 import { cappedResources, applySurplus } from '../src/systems/surplus.js';
 import { createNewState } from '../src/core/state.js';
 import { advance } from '../src/core/engine.js';
@@ -43,12 +44,23 @@ import { logisticsNetwork } from '../src/systems/logistics.js';
 import { PROJECTS } from '../src/data/projects.js';
 import { projectState, startProject, contribute, startStageWorks } from '../src/systems/projects.js';
 import { v10Bot } from './v10bot.js';
+import { v14Bot } from './v14bot.js';
 import { challengeState } from '../src/systems/challenges.js';
 import { legendState } from '../src/systems/legendary.js';
 import { monumentOf } from '../src/systems/monument.js';
 import { rivalryStatus, memoryScore } from '../src/systems/rivalry.js';
 
 const H = 3600000;
+const sumV = (o) => Object.values(o || {}).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+// Mesures v14 : crises, présages, réserves, production perdue au plafond
+function v14Metrics(s) {
+  const C = s.crises?.stats || {}, O = s.omens?.stats || {}, R = s.reserve || {};
+  return {
+    crises: C.opened || 0, crRes: C.resolved || 0, crEnd: C.endured || 0, crStage: C.maxStage || 0, crRevolts: C.revolts || 0, burnt: C.burnt || 0, fires: s.stats.fires || 0,
+    omens: O.announced || 0, omFalse: O.false || 0, omVer: O.verified || 0, omPrep: O.prepared || 0,
+    reserve: Math.round(sumV(R.stock)), resUsed: Math.round(sumV(R.used)), regent: C.regent || 0, absorbed: Math.round(sumV(R.absorbed)), lostProd: Math.round(sumV(s.stats.overflow)),
+  };
+}
 const ECO = ['farm', 'sawmill', 'quarry', 'mine', 'house', 'warehouse', 'mill', 'bakery', 'market', 'charcoal', 'foundry', 'library', 'herbalist', 'hunter', 'tannery', 'weaver', 'carpentry', 'fishery'];
 const MIL = ['barracks', 'castle', 'stable', 'forge', 'watchtower', 'armory', 'quartermaster', 'tavern'];
 
@@ -171,7 +183,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     t += STEP;
     advance(s, t);
     if (policy && thLevel(s) >= 3 && policyState(s).id !== policy && policyState(s).pending !== policy) setPolicy(s, policy, t);
-    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); }
+    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); if (!globalThis.__noV14) v14Bot(s, profileKey, t, computeMods(s, t)); }
     if (s.famine) famineMin += 10;
     if (globalThis.__trace) globalThis.__trace(s, t, i);
     if (globalThis.__trace) globalThis.__trace(s, t, i);
@@ -206,6 +218,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     brWins: s.stats.breachWins || 0, brTier: s.stats.breachTierMax || 0, brLosses: Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.losses, 0),
     brLevel: Math.round(Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.level, 0) / Math.max(1, Object.values(s.world.pois).filter((p) => p.breach).length) * 10) / 10,
     allies: (s.factions || []).filter((f) => ['trade', 'alliance'].includes(f.stance)).length, commissions: Object.keys(s.commissions?.done || {}).length,
+    ...v14Metrics(s),
     hamlets: Object.values(s.territories || {}).reduce((a, t) => a + (t.hamlet || 0), 0), codex: Object.values(s.codex?.seen || {}).reduce((a, x) => a + Object.keys(x).length, 0),
     memory: Math.round((s.factions || []).reduce((a, f) => a + memoryScore(f, t), 0)), insignia: s.meta.insignia || 0,
     chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
@@ -280,7 +293,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'crises', 'crRes', 'crEnd', 'crStage', 'crRevolts', 'burnt', 'fires', 'omens', 'omFalse', 'omVer', 'omPrep', 'reserve', 'resUsed', 'regent', 'absorbed', 'lostProd', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');

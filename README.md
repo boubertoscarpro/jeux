@@ -21,6 +21,15 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v14 — Répercussions** : le royaume voit venir ses fléaux et choisit où couper la chaîne.
+> - **Présages** : sécheresse, crue, blizzard et tensions du marché sont annoncés 1 à 2 h à l'avance, avec une fiabilité affichée (une part est fausse). On peut les recouper ou se préparer.
+> - **Crises en cascade** : une sécheresse renchérit le pain, fâche les villages au conseil, puis soulève une province. Chaque étape propose des interventions chiffrées.
+> - **Réserves royales** : le surplus devient une assurance, et le régent peut y puiser.
+> - **Feu et eau sur la carte du royaume** : l'incendie se propage selon le placement, la crue frappe la zone inondable, avec un aperçu des risques.
+> - **Frontières contestées** : la stabilité des provinces suit les relations avec la faction voisine.
+>
+> Aucune nouvelle monnaie, aucune ressource produite. Voir [`docs/AUDIT_V14.md`](docs/AUDIT_V14.md) et [`docs/V14.md`](docs/V14.md).
+>
 > **v13.3** : raids en série — jusqu'à 10 attaques automatiques sur un camp, avec intendance, repos, réapparition
 > du camp et butin décroissant — voir [`docs/V13_3.md`](docs/V13_3.md).
 >

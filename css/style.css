@@ -943,3 +943,33 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .map-survey .ms-bar { display: block; width: 120px; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
 .map-survey .ms-bar i { display: block; height: 100%; background: #7fd7e8; }
 .map-survey:hover { filter: brightness(1.15); }
+
+/* ───────── v14 · Répercussions : fil des crises, almanach, réserves, aperçu des risques ───────── */
+.rep-card { border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
+.rep-thread + .rep-thread { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.rep-chain { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; counter-reset: rep; }
+.rep-link { position: relative; background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+.rep-link.past { opacity: 0.6; }
+.rep-link.now { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad) inset; }
+.rep-link.next { border-style: dashed; }
+.rep-link:not(:last-child)::after { content: '→'; position: absolute; right: -11px; top: 50%; transform: translateY(-50%); color: var(--muted); font-weight: 700; }
+.rep-node { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rep-ico { font-family: var(--emoji); }
+.rep-ivs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.rep-iv { background: var(--bg2); border: 1px solid var(--line-l); border-radius: 9px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.rep-iv.off { opacity: 0.7; }
+.almanac .omen { border-top: 1px solid var(--line); padding: 6px 0; display: flex; flex-direction: column; gap: 4px; }
+.almanac .omen.past { opacity: 0.6; }
+.reserve-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 6px 0; }
+.reserve-grid .res-row { display: flex; flex-direction: column; gap: 3px; background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; }
+.rep-side .q-top span { color: var(--bad); }
+.tile.risk-high { box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--bad) 85%, transparent); }
+.tile.risk-mid { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--warn) 80%, transparent); }
+.tile.risk-low { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent); }
+.tile.risk-flood { background-image: linear-gradient(0deg, color-mix(in srgb, var(--blue) 35%, transparent), transparent 45%); }
+.t-risk { position: absolute; z-index: 7; bottom: 2px; font: 700 11px var(--emoji); line-height: 16px; transform: scale(var(--bz, 1)); pointer-events: auto; }
+.t-risk.high, .t-risk.mid, .t-risk.low { left: 2px; transform-origin: bottom left; }
+.t-risk.low { opacity: 0.6; }
+.t-risk.flood { right: 2px; transform-origin: bottom right; }
+@media (max-width: 640px) { .rep-link:not(:last-child)::after { content: '↓'; right: 50%; top: auto; bottom: -13px; transform: none; } .rep-chain { gap: 14px; } }
+.reserve-grid .res-row .progress { width: 100%; align-self: stretch; }

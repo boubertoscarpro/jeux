@@ -1,3 +1,4 @@
+import { omenText } from '../../systems/omens.js';
 import { RIVALS, PERSONALITIES, STANCES } from '../../data/world.js';
 import { rivalryStatus, ambitionOf, topMemories, memoryScore, deescalationOptions, deescalate } from '../../systems/rivalry.js';
 import { RESOURCES } from '../../data/resources.js';
@@ -46,11 +47,11 @@ export default {
     const s = app.state;
     const pp = playerPower(s);
     const rep = s.reputation || {};
-    const rumor = s.rumor && !s.rumor.done && levelOf(s, 'tavern') ? s.rumor : null;
+    const rumor = levelOf(s, 'tavern') ? (s.omens?.list || []).find((o) => o.kind === 'market' && !o.resolved) : null;
     return `<div class="card"><h2>🕊️ Factions des Terres Brisées</h2>
       <p class="muted small">Cinq royaumes IA vivent leur vie : ils s’enrichissent, s’arment, s’étendent sur la carte et se font la guerre, même sans vous. Leur attitude dépend de leur personnalité et de votre réputation. Votre puissance : <b>${fmt(pp)}</b>.</p>
       <div class="rep-strip">${Object.entries(REPUTATIONS).map(([k, r]) => `<span class="chip" title="${esc(r.desc)}">${r.icon} ${esc(r.name)} : ${repTier(rep[k] || 0)} (${Math.round(rep[k] || 0)})</span>`).join('')}</div>
-      ${rumor ? `<div class="rumor">🍺 À la taverne, on murmure : « ${esc(rumor.text)} »</div>` : ''}
+      ${rumor ? `<div class="rumor">🍺 À la taverne, on murmure : « ${esc(omenText(rumor))} » <span class="muted small">(${rumor.checked === true ? 'confirmé' : rumor.checked === false ? 'démenti' : `fiabilité ${Math.round(rumor.q * 100)} %`} — voir l’almanach dans Objectifs)</span></div>` : ''}
       <div class="small muted">Contre-espionnage : tour de garde niv. ${levelOf(s, 'watchtower')} + ${s.army.spy || 0} espion(s) en ville.</div>
       ${(s.factionReports || []).length ? `<h4>Réactions récentes</h4><div class="react-list">${s.factionReports.slice(0, 5).map((r) => `<div class="small">${REACTION_TEXT[r.kind]?.icon || '•'} ${esc(r.text)} <span class="muted">(il y a ${ago(r.t)})</span></div>`).join('')}</div>` : ''}</div>
       <div class="faction-grid">${(s.factions || []).map((f) => {

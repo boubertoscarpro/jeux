@@ -8,6 +8,7 @@ const H = {
     ['Icônes de la carte', '<b>⬆ vert</b> : amélioration possible maintenant (ressources, prérequis et place dans la file réunis). <b>⬆ gris</b> : amélioration bloquée (ressources manquantes ou file pleine) — survolez pour la raison. <b>🔨</b> : chantier en cours. <b>!</b> : manque de matières premières. <b>🔥</b> : bâtiment endommagé. Le compteur « améliorations disponibles » ouvre la liste complète ; le bouton 👁 masque les icônes.'],
     ['Placement', 'Le bonus d’adjacence compte : scierie près d’une forêt +15 %, carrière ou mine près d’une montagne +15 %, ferme au bord de la rivière +10 %. En mode placement, chaque case affiche le bonus qu’y obtiendrait le bâtiment. Une route reliée à l’hôtel de ville donne +5 %.'],
     ['Coûts et file', 'Chaque niveau coûte environ 55 % de plus que le précédent ; à partir du niveau 6, du fer, puis de l’acier et du minerai rare sont demandés. La file de construction est limitée : si elle est pleine, l’amélioration peut être planifiée et démarrera seule.'],
+    ['Feu et eau', 'Le bouton 🔥 affiche les risques : un incendie se propage de bâtiment en bâtiment (le bois brûle, la pierre résiste ; routes, rivière et cases libres l’arrêtent ; une caserne ou une tour de garde à 3 cases le maîtrise vite). 🌊 marque la zone inondable : les bâtiments au bord de la rivière y gagnent leurs bonus, mais une crue peut les abîmer.'],
     ['Navigation', 'Glisser pour déplacer, molette ou pincement pour zoomer (centré sur le curseur), ⤢ pour la vue d’ensemble, 🏛️ pour revenir au château. Les noms apparaissent en vue rapprochée.'],
     ['Château principal', 'Le nom du château se change depuis la fiche de l’hôtel de ville (✎ Renommer). Il apparaît sur les deux cartes et dans les rapports.'],
     ['Passe-temps', 'Le bouton sablier, à côté de chaque chantier (colonne des files ou fiche du bâtiment), ouvre la fenêtre d’accélération : choisissez un passe-temps (5 min, 15 min, 1 h, 8 h) ou payez en gemmes. Le temps retiré et le temps restant sont affichés avant l’action ; rien n’est consommé si le chantier est déjà terminé. Les passe-temps se gagnent en jouant : combats à votre mesure, Brèche, événements, quêtes, défis, expéditions.'],
@@ -18,6 +19,8 @@ const H = {
     ['Quêtes du royaume', 'Des chaînes en plusieurs étapes (histoire, développement, exploration, militaire, commerce, diplomatie, avant-postes). Chaque étape compte ce que vous faites <b>après</b> son ouverture.'],
     ['Missions du royaume', 'Au plus 3 missions proposées d’après l’état réel du royaume, facultatives, sans pénalité si elles expirent. Une mission devenue impossible peut être remplacée gratuitement ; vous pouvez aussi en refuser une toutes les 30 min.'],
     ['Jouer librement', 'Rien n’est obligatoire : le conseiller se règle (complet, réduit, désactivé) et chaque conseil peut être reporté ou ignoré.'],
+    ['Fil des répercussions', 'Une sécheresse, une crue, un blizzard ou un incendie ouvre une <b>crise à étapes</b> : chaque étape touche un autre système (prix du marché, faveur du conseil, stabilité des provinces, production). Le fil montre l’étape en cours, la suivante et son échéance, et les interventions possibles : tôt et bon marché, tard et cher, ou en puisant dans la réserve royale. Tous les effets sont temporaires.'],
+    ['Almanach des présages', 'Les fléaux et les tensions du marché s’annoncent 1 à 2 h à l’avance. La <b>fiabilité</b> affichée est la chance que le présage se réalise (taverne, tour de garde et observatoire l’améliorent). Recoupez-le (astrologues ou éclaireur) ou préparez-vous : une catastrophe préparée frappe quand même, mais ne tourne pas à la crise.'],
   ] },
   world: { title: '🗺️ La carte du monde', sections: [
     ['Explorer', 'Les cases sombres sont inexplorées : sélectionnez-en une et envoyez des éclaireurs. Les découvertes peuvent déclencher des choix.'],
@@ -51,9 +54,10 @@ const H = {
     ['Bilan', 'Production et consommation par heure, pénuries prévues, chaînes bloquées et pertes. Un bilan négatif finit par vider le stock.'],
     ['Chaînes', 'Ferme → moulin → boulangerie ; mine + charbonnière → fonderie → armurerie. Un bâtiment de chaîne sans matière première tourne au ralenti (« ! » sur la carte).'],
     ['Automatisation', 'Intendance (paliers), ouvriers, expéditions, priorités et Ordres du royaume se débloquent avec l’hôtel de ville.'],
+    ['Réserves royales', 'En bas du Bilan : mettez de côté nourriture, bois, charbon ou herbes, hors entrepôt (plafond : une part de sa capacité). Sans rendement et sans reprise libre, elles servent aux interventions de crise et rendent la nourriture en cas de famine. Consignes : verser le débordement de l’entrepôt (au lieu de l’écouler à 15 %), et laisser le régent y puiser quand une crise s’aggrave.'],
   ] },
   market: { title: '⚖️ Commerce', sections: [
-    ['Marché', 'Achetez et vendez ; la taxe baisse avec le niveau du marché. Les prix varient avec les saisons, les guerres et les rumeurs.'],
+    ['Marché', 'Achetez et vendez ; la taxe baisse avec le niveau du marché. Les prix varient avec les saisons, les guerres, les présages du marché et les crises (le pain renchérit pendant une sécheresse).'],
     ['Caravanes et contrats', 'Les cités paient +60 % pour leurs ressources demandées. Les contrats exigent des marchandises produites par votre royaume.'],
     ['Débloquer', 'Le marché demande l’hôtel de ville 2.'],
   ] },

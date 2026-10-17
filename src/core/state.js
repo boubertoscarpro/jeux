@@ -170,6 +170,9 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     npcs: { nextAt: 0, bounties: [] },
     survey: { active: null, history: [] },
     raidOrders: { active: [], history: [], returns: [] },
+    crises: { active: [], history: [], cooldownUntil: 0 },
+    omens: { list: [], prep: {} },
+    reserve: { stock: {}, overflow: false, regent: true, used: {} },
     // --- Campagnes militaires et Comptoir du Joaillier ---
     war: { active: null, history: [], cooldownUntil: 0 },
     shop: { day: 0, bought: {}, total: 0 },

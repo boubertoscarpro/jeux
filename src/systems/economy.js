@@ -1,4 +1,5 @@
 import { recordLoss } from './losses.js';
+import { absorbOverflow } from './reserve.js';
 import { BUILDINGS, levelProdFactor } from '../data/buildings.js';
 import { RESOURCES, isCapped } from '../data/resources.js';
 import { UNITS } from '../data/units.js';
@@ -168,7 +169,12 @@ export function advanceEconomy(state, dt, mods) {
       const got = addResource(state, k, v * h, mods, capOf(k));
       produced[k] = (produced[k] || 0) + got;
       const lost = v * h - got;
-      if (lost > 1e-6 && isCapped(k)) { over[k] = (over[k] || 0) + lost; if (market) overGold += lost * (RESOURCES[k].price || 0) * OVERFLOW_RATE; }
+      if (lost > 1e-6 && isCapped(k)) {
+        // v14 : consigne « verser le débordement à la réserve royale » (au lieu de l'écouler à 15 %)
+        const kept = absorbOverflow(state, k, lost, mods);
+        const rest = lost - kept;
+        if (rest > 1e-6) { over[k] = (over[k] || 0) + rest; if (market) overGold += rest * (RESOURCES[k].price || 0) * OVERFLOW_RATE; }
+      }
     }
   }
   overGold = Math.min(overGold, OVERFLOW_GOLD_PER_LVL * marketLvl * h);

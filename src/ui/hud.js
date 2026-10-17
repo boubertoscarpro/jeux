@@ -1,3 +1,4 @@
+import { sideRepercussions } from './repercussions.js';
 import { applySurplus } from '../systems/surplus.js';
 import { coatSvg } from './heraldry.js';
 import { RESOURCES, RES_ORDER, isCapped } from '../data/resources.js';
@@ -102,6 +103,8 @@ export function renderSide(app) {
   const mods = computeMods(s, now);
   const parts = [];
 
+  const rep = sideRepercussions(s, now);
+  if (rep) parts.push(rep);
   if (s.pending.length) {
     parts.push(`<section class="side-box attention"><h3>⚖️ Décisions (${s.pending.length})</h3>${s.pending.map((p) => { const d = describePending(s, p); return `<button class="btn block warn pending-btn" data-action="open-pending" data-id="${p.id}"><span>${d.icon} ${esc(d.title)}</span>${d.deadline ? countdown(d.deadline) : ''}</button>`; }).join('')}</section>`);
   }
