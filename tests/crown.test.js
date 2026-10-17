@@ -1,6 +1,7 @@
 // Grands Projets du Royaume : refus si ressources insuffisantes (rien n'est payé), coûts affichés = coûts débités,
 // récompense unique jamais donnée deux fois, limites des répétables, sauvegarde, anciennes sauvegardes, pas de
 // boucle infinie, bonus temporaires qui expirent, projet d'événement.
+import { rng, mulberry32 } from '../src/core/rng.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createNewState } from '../src/core/state.js';
@@ -156,6 +157,10 @@ test('Projets 12 : aucune boucle infinie — ce qui est rendu vaut toujours moin
 });
 
 test('Projets 14 : un bonus temporaire expire ; un bonus permanent de projet unique reste', () => {
+  // Tirages fixés : les 9 h simulées ne doivent pas dépendre du hasard du monde (depuis v14, une crise aléatoire —
+  // épidémie, entraînement −15 % — pouvait survenir pendant ces 9 h et fausser la comparaison)
+  rng.setSource(mulberry32(14));
+  try {
   const s = kingdom('c14');
   assert.ok(startCrown(s, 'royalMobilization', T0).ok);
   const t1 = T0 + 4 * H;
@@ -165,6 +170,7 @@ test('Projets 14 : un bonus temporaire expire ; un bonus permanent de projet uni
   advance(s, t1 + 9 * H);
   assert.ok(Math.abs((computeMods(s, t1 + 9 * H)['train.speed'] || 0) - base) < 1e-9, 'bonus expiré');
   assert.ok(!s.buffs.some((b) => b.name === 'Mobilisation royale' && b.until > t1 + 9 * H));
+  } finally { rng.setSource(null); }
 });
 
 test('Projets 15 : le projet d’événement n’existe que pendant un événement, une fois, et verse sa monnaie', () => {

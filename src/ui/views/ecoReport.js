@@ -1,3 +1,4 @@
+import { reserveCard } from '../repercussions.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { economicReport } from '../../systems/report.js';
 import { esc, resChips } from '../components.js';
@@ -35,6 +36,7 @@ export default {
       <div class="card"><h3>🍖 Entretien</h3><div class="small">Armée : <b>${fmt(r.upkeep.army)}</b>/h · Ouvriers : <b>${fmt(r.upkeep.workers)}</b>/h · Total : <b>${fmt(r.upkeep.total)}</b> nourriture/h</div>
         ${r.upkeep.byUnit.slice(0, 8).map((u) => `<div class="small">${u.icon} ${u.n} ${esc(u.name)} — ${fmt(u.food)}/h</div>`).join('')}
         ${(() => { const p = plannedSpending(s); return p.items.length ? `<h3>🗓️ Dépenses prévues</h3><div class="small">${p.items.map((i) => `${esc(i.label)} : ${resChips(i.cost)}`).join('<br>')}</div><div class="small muted">Total à réunir : ${resChips(p.total)}</div>` : ''; })()}
-        <h3>💸 Pertes (7 derniers jours)</h3>${r.losses.map((l) => `<div class="small">${esc(l.label)} : ${resChips(l.res)}</div>`).join('') || '<p class="muted small">Aucune perte enregistrée.</p>'}</div></div>`;
+        <h3>💸 Pertes (7 derniers jours)</h3>${r.losses.map((l) => `<div class="small">${esc(l.label)} : ${resChips(l.res)}</div>`).join('') || '<p class="muted small">Aucune perte enregistrée.</p>'}</div></div>
+      ${reserveCard(s)}`;
   },
 };

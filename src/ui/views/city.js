@@ -1,3 +1,4 @@
+import { fireRisk, riskBand, floodZone } from '../../systems/hazards.js';
 import { speedupLine } from '../speedups.js';
 import { BUILDINGS, BUILDING_CATEGORIES, levelProdFactor } from '../../data/buildings.js';
 import { ORIENTS, MONUMENT_STAGES } from '../../data/monument.js';
@@ -28,6 +29,7 @@ const TERRAIN_NAME = { forest: 'Forêt', mountain: 'Montagne', river: 'Rivière'
 const NEAR_NAME = { forest: 'forêt', mountain: 'montagne', river: 'rivière' };
 // Taille réelle d'une case (px au zoom 1). Le zoom (molette, boutons) part de cette taille.
 export const CITY_TILE = 64;
+const RISK_NAME = { high: 'élevé', mid: 'moyen', low: 'faible', none: 'nul' };
 
 const bName = (b) => (b.type === 'deco' ? COSMETICS[b.deco]?.name : BUILDINGS[b.type]?.name) || '';
 const showUpgrades = (s) => s.meta.showUpgrades !== false;
@@ -42,7 +44,10 @@ function cityCtx(app, mods) {
   const up = new Map();
   if (showUpgrades(s)) for (const u of upgradeSummary(s, mods).list) if (!u.fort) up.set(u.bid, u);
   const planned = new Set((s.queues.planned || []).map((p) => p.bid).filter(Boolean));
-  return { s, mods, at, q, up, planned, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  // v14 : aperçu des risques (incendie selon le voisinage, zone inondable) — calculé seulement s'il est affiché
+  const risk = app.ui.cityRisk ? new Map(Object.values(s.city.buildings).map((b) => [b.id, riskBand(fireRisk(s, b))])) : null;
+  const flood = app.ui.cityRisk ? new Set(floodZone(s).map((b) => b.id)) : null;
+  return { s, mods, at, q, up, planned, risk, flood, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -81,6 +86,11 @@ function tileHtml(app, x, y, ctx) {
       if (b.starved) { cls.push('st-alert'); inner += '<span class="t-flag warn" title="Manque de matières premières">!</span>'; }
       if (b.damaged) { cls.push('st-alert'); inner += '<span class="t-flag fire" title="Endommagé : production −50 %">🔥</span>'; }
       if (b.paused) inner += '<span class="t-flag pause" title="Chaîne en pause">⏸</span>';
+      if (ctx.risk) {
+        const rb = ctx.risk.get(b.id);
+        if (rb && rb !== 'none') { cls.push('risk-' + rb); inner += `<span class="t-risk ${rb}" title="Risque d’incendie ${RISK_NAME[rb]}">🔥</span>`; }
+        if (ctx.flood.has(b.id)) { cls.push('risk-flood'); inner += '<span class="t-risk flood" title="Zone inondable : une crue peut l’endommager">🌊</span>'; }
+      }
     }
   }
   if (q) {
@@ -126,6 +136,7 @@ function tipHtml(app, x, y) {
   return `<b>${def.icon} ${esc(b.type === 'townhall' ? castleName(s) : def.name)}</b> <span class="muted">niv. ${b.level}</span>${b.type === 'townhall' ? `<div class="small muted">${esc(def.name)}</div>` : ''}
     <div class="small">${esc(state)}</div>
     ${r && Object.keys(r.out).length ? `<div class="small">Production : ${resChips(r.out)}<span class="muted">/h</span></div>` : ''}${upLine}
+    ${b.level > 0 && b.type !== 'road' ? `<div class="small muted">🔥 Risque d’incendie : ${RISK_NAME[riskBand(fireRisk(s, b))]}${floodZone(s).some((x) => x.id === b.id) ? ' · 🌊 zone inondable' : ''}</div>` : ''}
     <div class="small muted">Clic : fiche du bâtiment${u && u.status !== 'max' ? ' · ⬆ : amélioration' : ''}</div>`;
 }
 
@@ -400,8 +411,8 @@ export default {
         <div class="mapvp city-vp" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--bz:${Math.min(2.2, Math.max(1, 0.95 / cam.z))}">
           <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="city-grid ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div></div>
           <div class="map-tip" id="city-tip" role="tooltip"></div>
-          <div class="map-tools"><button class="mini" data-action="city-zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="city-zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="city-fit" title="Vue d’ensemble du royaume">⤢</button><button class="mini" data-action="city-center" title="Recentrer sur l’hôtel de ville (zoom par défaut)">🏛️</button></div>
-          <div class="map-hint muted small">${s.city.w}×${s.city.h} · glisser pour déplacer · molette pour zoomer · survol : détails</div>
+          <div class="map-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : îlots inflammables et zone inondable">🔥</button><button class="mini" data-action="city-zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="city-zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="city-fit" title="Vue d’ensemble du royaume">⤢</button><button class="mini" data-action="city-center" title="Recentrer sur l’hôtel de ville (zoom par défaut)">🏛️</button></div>
+          <div class="map-hint muted small">${app.ui.cityRisk ? 'Risques : 🔥 incendie (bois serré = élevé ; pierre, routes, rivière, caserne ou tour de garde proches le réduisent) · 🌊 zone inondable' : `${s.city.w}×${s.city.h} · glisser pour déplacer · molette pour zoomer · survol : détails`}</div>
         </div>
         ${(() => { const st = nextDomainStep(s); return st ? `<div class="card domain-card"><h3>🗺️ Agrandir le domaine <span class="muted small">${s.city.w}×${s.city.h} cases</span></h3><div class="small muted">Étape « ${esc(st.name)} » : +${DOMAIN_GROW.w} colonnes à l’est et +${DOMAIN_GROW.h} rangées au sud de terrain vierge à aménager (forêts, montagnes, quelques décombres, rivière).</div><div class="b-opt-foot">${costList(st.cost, s)} <span class="small ${thLevel(s) >= st.th ? 'ok' : 'req'}">HdV ${st.th}</span><button class="mini primary" data-action="expand">Agrandir</button></div></div>` : ''; })()}
         <div class="card"><h3>🧱 Fortifications</h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
@@ -442,6 +453,7 @@ export default {
     clear: (app, el) => app.act(() => startClear(app.state, +el.dataset.x, +el.dataset.y), 'Déblaiement lancé'),
     move: (app, el) => { app.ui.moveId = el.dataset.id; app.ui.placeType = null; app.render(); },
     'place-mode': (app, el) => { app.ui.placeType = el.dataset.type; app.ui.moveId = null; app.render(); },
+    'city-risk': (app) => { app.ui.cityRisk = !app.ui.cityRisk; app.render(); },
     'cancel-mode': (app) => { app.ui.moveId = null; app.ui.placeType = null; app.ui.citySel = null; app.render(); },
     demolish: (app, el) => {
       if (!confirm('Démolir ce bâtiment ? Aucun remboursement.')) return;

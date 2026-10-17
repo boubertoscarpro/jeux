@@ -6,7 +6,8 @@
 //  - invest  : un chantier abordable maintenant qui emploie une bonne part de l'excédent ;
 //  - prepare : préparer une expédition légendaire, une commande prestigieuse ou une armée (troupes) ;
 //  - sell    : vendre au marché, SEULEMENT si le cours est correct (≥ 85 % du prix de référence) ;
-//  - storage : agrandir l'entrepôt (si la ressource est vraiment structurelle : production nette élevée).
+//  - storage : agrandir l'entrepôt (si la ressource est vraiment structurelle : production nette élevée) ;
+//  - reserve : verser à la réserve royale (v14) : sans rendement, mais une assurance contre les crises.
 import { RESOURCES, isCapped, TRADABLE } from '../data/resources.js';
 import { BUILDINGS, buildingCost } from '../data/buildings.js';
 import { UNITS } from '../data/units.js';
@@ -20,6 +21,8 @@ import { commissionState, launchStage } from './commissions.js';
 import { unitStatus, unitCost, train } from './army.js';
 import { crownList, startCrown, crownRunning, crownRewardText } from './crown.js';
 import { crownSlots } from '../data/crown.js';
+import { RESERVE } from '../data/crises.js';
+import { reserveRoom, depositReserve } from './reserve.js';
 
 export const SELL_MIN_RATIO = 0.85; // en dessous, vendre détruit de la valeur : on ne le conseille pas
 const val = (r) => RESOURCES[r]?.price || 0;
@@ -90,6 +93,12 @@ export function surplusPlan(state, r, now = Date.now(), mods = computeMods(state
     const ratio = q.unit / Math.max(0.0001, val(r));
     out.push({ kind: 'sell', label: `Vendre ${qty} ${RESOURCES[r].name.toLowerCase()}`, detail: `≈ ${q.total} or (${Math.round(ratio * 100)} % du prix de référence).${ratio < SELL_MIN_RATIO ? ' Cours trop bas : seulement en dernier recours.' : ''}`, gain: ratio >= SELL_MIN_RATIO ? q.total * 0.6 : 0, feasible: ratio >= SELL_MIN_RATIO, reason: ratio >= SELL_MIN_RATIO ? null : 'Cours trop bas', view: 'market', qty, ratio });
   }
+  // 5 bis) v14 : mettre en réserve royale (assurance contre les crises, sans rendement)
+  if (RESERVE.res.includes(r)) {
+    const room = reserveRoom(state, r, mods);
+    const qty = Math.floor(Math.min(room, have * RESERVE.depositShare));
+    if (qty > 0) out.push({ kind: 'reserve', label: `Verser ${qty} ${RESOURCES[r].name.toLowerCase()} à la réserve royale`, detail: 'Sans rendement, mais elle coupe une crise (greniers, remèdes, bois de chauffe) sans toucher aux stocks, et nourrit le royaume en cas de famine.', gain: qty * val(r) * 0.5, feasible: true, qty });
+  }
   // 6) Agrandir l'entrepôt quand l'excédent est structurel (forte production nette)
   const net = netRates(state, mods)[r] || 0;
   if (net > cap * 0.05) {
@@ -99,7 +108,7 @@ export function surplusPlan(state, r, now = Date.now(), mods = computeMods(state
   }
   // Classement : réalisables d'abord ; puis relancer une chaîne existante (gratuit), puis employer ou transformer
   // l'excédent (valeur créée), la vente et l'agrandissement de l'entrepôt en dernier recours
-  const tier = { chain: 3, invest: 2, convert: 2, prepare: 2, storage: 1, sell: 0 };
+  const tier = { chain: 3, invest: 2, convert: 2, prepare: 2, storage: 1, reserve: 1, sell: 0 };
   return out.sort((x, y) => (y.feasible - x.feasible) || (tier[y.kind] - tier[x.kind]) || (y.gain - x.gain));
 }
 
@@ -116,6 +125,7 @@ export function applySurplus(state, r, now = Date.now(), mods = computeMods(stat
     case 'prepare': res = act.crown ? startCrown(state, act.crown, now) : act.unit ? train(state, act.unit, act.n, now) : act.view === 'craft' ? launchStage(state, now) : { ok: true, goto: act.view }; break;
     case 'convert': res = { ok: true, place: act.type }; break;
     case 'sell': res = sell(state, r, act.qty, now); break;
+    case 'reserve': res = depositReserve(state, r, act.qty, now); break;
     default: return { ok: false, reason: 'Action inconnue' };
   }
   return res.ok === false ? res : { ...res, ok: true, text: act.label };

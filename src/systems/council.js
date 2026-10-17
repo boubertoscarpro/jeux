@@ -10,6 +10,7 @@ import { pay, missing, gain } from './economy.js';
 import { computeMods } from './modifiers.js';
 import { chronicle } from './chronicle.js';
 import { log, toast } from './log.js';
+import { crisisCouncil } from './crises.js';
 
 export function councilState(state) {
   const c = (state.council && typeof state.council === 'object') ? state.council : (state.council = {});
@@ -45,6 +46,8 @@ export function councilPressures(state, now = Date.now()) {
   if ((state.caravans || []).length) push('merchants', 'Caravanes sur les routes', 4);
   if (state.projects?.active) push('nobles', 'Grand projet en chantier', 5);
   for (const m of state.council?.memory || []) if (m.until > now) push(m.g, m.label, m.v);
+  // v14 : les crises en cours pèsent sur les groupes (le pain cher fâche les villages, etc.)
+  for (const [g, label, v] of crisisCouncil(state)) push(g, label, v);
   return out;
 }
 
@@ -86,6 +89,8 @@ export function optionText(state, opt) {
   return parts.join(' · ');
 }
 
+// Variation de faveur réutilisée par les interventions de crise (v14)
+export const shiftFavor = (state, g, v, label, now = Date.now()) => changeFavor(state, g, v, label, now);
 function changeFavor(state, g, v, label, now) {
   const c = councilState(state);
   c.favor[g] = Math.max(0, Math.min(100, c.favor[g] + v));
@@ -97,7 +102,9 @@ function changeFavor(state, g, v, label, now) {
 export function pickMotion(state) {
   const c = councilState(state);
   const last = c.history[0]?.id;
-  const ids = Object.keys(MOTIONS).filter((id) => id !== last);
+  // « Distribuer le grain » parle d'une mauvaise récolte : proposée seulement quand la nourriture manque vraiment
+  const hungry = state.famine || (state.crises?.active || []).some((c) => c.type === 'drought');
+  const ids = Object.keys(MOTIONS).filter((id) => id !== last && (id !== 'grain' || hungry));
   return rng.weighted(Object.fromEntries(ids.map((id) => [id, 1 + Math.max(0, 50 - favorOf(state, MOTIONS[id].group)) / 10])));
 }
 

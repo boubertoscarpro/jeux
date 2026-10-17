@@ -11,6 +11,10 @@ import { key, poiAt, setTerrain, spawnPoi, findFreeTile, reveal, distCap, wTerra
 import { gain } from './economy.js';
 import { computeMods } from './modifiers.js';
 import { log, toast } from './log.js';
+import { omenTick, isPrepared } from './omens.js';
+import { openCrisis, crisisMods, crisisPrice } from './crises.js';
+import { floodDamage, pickFireStart, guardNear } from './hazards.js';
+import { CRISES, PREPARATIONS } from '../data/crises.js';
 
 // Modificateurs de la saison et de la catastrophe en cours
 // Résistance à l'hiver (spécialisation, monument, traditions) — calculée sans computeMods pour éviter une boucle
@@ -35,6 +39,7 @@ export function livingMods(state, now) {
   const c = state.catastrophe;
   if (c && c.until > now) add(CATASTROPHES[c.key].mods);
   if (state.fertileUntil > now) add({ 'prod.food': 0.2, 'prod.grain': 0.2 });
+  add(crisisMods(state));
   return m;
 }
 
@@ -46,6 +51,7 @@ export function livingMarket(state, r, now) {
   if (s === 'autumn') k *= { grain: 0.75, food: 0.9 }[r] || 1;
   if (s === 'spring') k *= { herbs: 0.85 }[r] || 1;
   if (state.scarcity && state.scarcity.until > now && state.scarcity.res === r) k *= 1.8;
+  k *= crisisPrice(state, r);
   return k;
 }
 
@@ -62,13 +68,12 @@ export function livingTick(state, dtSec, now) {
     state.seasonKey = sk;
   }
   const hFrac = dtSec / 3600;
-  // Catastrophes rares
-  if (!(state.catastrophe?.until > now) && thLevel(state) >= 2) {
-    for (const [k, c] of Object.entries(CATASTROPHES)) {
-      if (!c.seasons.includes(cal.season.key)) continue;
-      if (rng.chance(c.chance * hFrac)) { startCatastrophe(state, k, now); break; }
-    }
-  }
+  // Catastrophes rares et tensions du marché : annoncées par des présages plus ou moins fiables (v14), qui déclenchent
+  // l'événement à leur échéance s'ils sont vrais. Fréquence réelle inchangée.
+  omenTick(state, now, hFrac, cal.season, {
+    catastrophe: (k, t) => { if (state.catastrophe?.until > t) return false; startCatastrophe(state, k, t); return true; },
+    market: (res, t) => { state.scarcity = { res, until: t + 2 * 3600000 }; log(state, 'event', `📈 Le présage se confirme : ${RESOURCES[res].name} ×1,8 pendant 2 h !`, t); return true; },
+  });
   // Incendies pendant la sécheresse / risque de base très faible
   const c = state.catastrophe?.until > now ? CATASTROPHES[state.catastrophe.key] : null;
   const fireRisk = (c?.fireRisk || 0) + (thLevel(state) >= 3 ? 0.012 : 0);
@@ -88,8 +93,6 @@ export function livingTick(state, dtSec, now) {
   if (rng.chance(0.05 * hFrac)) villageVanishes(state, now);
   if (rng.chance(0.08 * hFrac)) monsterMigration(state, now);
   if (!(state.scarcity?.until > now) && rng.chance(0.06 * hFrac)) scarcity(state, now);
-  // Rumeurs : préviennent d'un futur événement (avantage aux marchands attentifs)
-  rumorTick(state, now, hFrac);
   // Tribut des cités vassales
   const vassals = Object.values(state.world.pois).filter((p) => p.type === 'town' && p.vassal);
   if (vassals.length) gain(state, { gold: vassals.length * (40 + thLevel(state) * 15) * hFrac }, computeMods(state, now));
@@ -101,14 +104,18 @@ export function startCatastrophe(state, k, now) {
   if (c.weather) state.weather = { type: c.weather, until: now + c.duration * 1000 };
   chronicle(state, `${c.icon} ${c.name} : ${c.text}`, now);
   toast(`${c.icon} ${c.name} !`, 'bad');
+  const prepared = isPrepared(state, k, now);
   if (c.flood) {
-    let n = 0;
-    for (const b of allBuildings(state)) {
-      if (b.level <= 0 || b.type === 'road' || b.type === 'deco') continue;
-      if (neighbors(state, b.x, b.y).some((x) => x.terrain === 'river') && rng.chance(0.4)) { b.damaged = true; n++; }
-    }
+    // Zone inondable : seuls les bâtiments au bord de la rivière risquent d'être abîmés (sacs de sable : ×0,25)
+    const n = floodDamage(state, prepared ? PREPARATIONS.flood.floodGuard : 1);
     state.fertileUntil = now + c.duration * 1000 + 3 * 3600000;
-    if (n) log(state, 'bad', `🌊 L’inondation endommage ${n} bâtiment(s) au bord de la rivière. Les terres seront plus fertiles ensuite (+20% nourriture).`, now);
+    if (n) log(state, 'bad', `🌊 L’inondation endommage ${n} bâtiment(s) au bord de la rivière${prepared ? ' malgré les sacs de sable' : ''}. Les terres seront plus fertiles ensuite (+20% nourriture).`, now);
+  }
+  // Répercussions : la catastrophe ouvre une crise à étapes, sauf si le royaume s'y était préparé
+  const crisis = Object.entries(CRISES).find(([, d]) => d.from === k);
+  if (crisis) {
+    if (prepared) log(state, 'good', `${PREPARATIONS[k]?.icon || '✅'} Préparé : ${c.name.toLowerCase()} ne tournera pas à la crise.`, now);
+    else openCrisis(state, crisis[0], now);
   }
   if (c.crystals) {
     const w = state.world;
@@ -121,10 +128,12 @@ export function startCatastrophe(state, k, now) {
 }
 
 function cityFire(state, now) {
-  const cands = allBuildings(state).filter((b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco', 'castle'].includes(b.type));
-  if (!cands.length) return;
-  const b = rng.pick(cands);
+  // v14 : le feu prend surtout dans le bois et peut se propager (crise « Incendie », voir systems/hazards.js)
+  const id = pickFireStart(state);
+  if (!id) return;
+  const b = state.city.buildings[id];
   b.damaged = true;
+  openCrisis(state, 'fire', now, { burnt: [b.id], guarded: guardNear(state, b.x, b.y) });
   state.stats.fires = (state.stats.fires || 0) + 1;
   log(state, 'bad', `🔥 Un incendie a ravagé : ${BUILDINGS[b.type].name} (niv. ${b.level}). Production réduite de moitié jusqu’à réparation.`, now);
   toast(`🔥 Incendie : ${BUILDINGS[b.type].name}`, 'bad');
@@ -179,27 +188,6 @@ function scarcity(state, now) {
   const res = rng.pick(['iron', 'wood', 'stone', 'leather', 'cloth', 'coal', 'herbs', 'steel']);
   state.scarcity = { res, until: now + 2 * 3600000 };
   log(state, 'event', `📉 Pénurie de ${RESOURCES[res].name} dans les Terres Brisées : les prix s’envolent (×1,8 pendant 2 h).`, now);
-}
-
-// Rumeurs : un événement de marché annoncé à l'avance
-const RUMORS = [
-  { res: 'iron', text: 'On murmure qu’une grande guerre se prépare : le fer va manquer.' },
-  { res: 'food', text: 'Les anciens annoncent une mauvaise récolte chez les voisins : la nourriture va renchérir.' },
-  { res: 'cloth', text: 'Une caravane de soieries a été pillée : le tissu va se faire rare.' },
-  { res: 'steel', text: 'Les forges de Valdor tournent au ralenti : l’acier va monter.' },
-  { res: 'leather', text: 'Une épizootie frappe les troupeaux du sud : le cuir va flamber.' },
-];
-function rumorTick(state, now, hFrac) {
-  const r = state.rumor;
-  if (r && r.at <= now && !r.done) {
-    r.done = true;
-    state.scarcity = { res: r.res, until: now + 2 * 3600000 };
-    log(state, 'event', `📈 La rumeur se confirme : ${RESOURCES[r.res].name} ×1,8 pendant 2 h !`, now);
-  }
-  if ((!r || r.done) && rng.chance(0.15 * hFrac)) {
-    const pick = rng.pick(RUMORS);
-    state.rumor = { ...pick, at: now + rng.int(40, 90) * 60000, heard: now };
-  }
 }
 
 export const currentSeason = (state, now = Date.now()) => calendar(state, now).season;

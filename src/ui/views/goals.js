@@ -1,3 +1,4 @@
+import { crisesCard, almanacCard } from '../repercussions.js';
 import { scenarioDef, scenarioObjectives } from '../../systems/scenarios.js';
 import { fmt } from '../../core/util.js';
 import { strategicSummary } from '../../systems/dashboard.js';
@@ -191,7 +192,7 @@ export default {
       const claim = { daily: 'claim-royal', event: 'claim-event-daily' }[cat] || 'claim-quest';
       body = `<p class="small muted">${sub}</p><div class="goal-grid">${list.map((m) => mission(m, claim)).join('') || '<p class="muted small">Rien dans cette catégorie pour l’instant.</p>'}</div>`;
     }
-    return `${dashboard(s, o)}${scenarioCard(s)}${chapterHeader(s, o)}
+    return `${crisesCard(s)}${dashboard(s, o)}${almanacCard(s)}${scenarioCard(s)}${chapterHeader(s, o)}
       <div class="card"><div class="tabs wrap">${CATS.map(([k, l]) => `<button class="tab ${cat === k ? 'active' : ''}" data-action="goal-cat" data-k="${k}">${l}${count[k] ? ` <span class="muted">${count[k]}</span>` : ''}${ready(k) ? ` <span class="sub-badge">${ready(k)}</span>` : ''}</button>`).join('')}</div>
       ${body}</div>
       <div class="card"><h3>🧙‍♂️ Conseiller et tutoriel</h3>

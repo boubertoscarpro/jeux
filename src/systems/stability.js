@@ -10,6 +10,8 @@ import { log } from './log.js';
 import { councilStab } from './council.js';
 import { supplyStab } from './logistics.js';
 import { key } from './world.js';
+import { borderOf } from './hazards.js';
+import { crisisStab } from './crises.js';
 
 export const STAB_DEFAULT = 70;
 export const STAB_DRIFT = 5;              // points par heure vers la cible
@@ -54,6 +56,11 @@ export function stabilityFactors(state, t, now = Date.now(), route = null) {
   if (sup) f.push(sup);
   const cs = councilStab(state);
   if (cs) f.push([cs > 0 ? 'Assemblée des villages loyale' : 'Assemblée des villages hostile', cs]);
+  // v14 : frontières contestées ou amies, crises en cours
+  const border = state.factions ? borderOf(state, t) : null;
+  if (border?.stab) f.push([border.label, border.stab]);
+  const cr = crisisStab(state);
+  if (cr) f.push(cr);
   return f;
 }
 export const stabilityTarget = (state, t, now = Date.now(), route = null) => Math.max(0, Math.min(100, stabilityFactors(state, t, now, route).reduce((a, [, v]) => a + v, 0)));

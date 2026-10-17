@@ -1,6 +1,7 @@
 import { npcTick } from '../systems/npcs.js';
 import { surveyTick } from '../systems/survey.js';
 import { raidTick } from '../systems/raidOrders.js';
+import { crisisTick, famineRelief } from '../systems/crises.js';
 import { ecoSampleTick } from '../systems/ecoAdvice.js';
 import { scenarioTick } from '../systems/scenarios.js';
 import { codexTick } from '../systems/codex.js';
@@ -92,6 +93,8 @@ export function processDue(state, t) {
     worldUpkeep(state, dt, t, mods);
     worldEventsTick(state, dt, t);
     livingTick(state, dt, t);
+    crisisTick(state, t);
+    famineRelief(state, t);
     marketTick(state, t);
     simulateGuild(state, dt, t);
     workforceTick(state, dt, t, mods);
