@@ -1,5 +1,6 @@
 import { npcTick } from '../systems/npcs.js';
 import { surveyTick } from '../systems/survey.js';
+import { raidTick } from '../systems/raidOrders.js';
 import { ecoSampleTick } from '../systems/ecoAdvice.js';
 import { scenarioTick } from '../systems/scenarios.js';
 import { codexTick } from '../systems/codex.js';
@@ -123,6 +124,7 @@ export function processDue(state, t) {
     ecoSampleTick(state, t);
     npcTick(state, t);
     surveyTick(state, t);
+    raidTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;
     changed = true;

@@ -329,6 +329,7 @@ function arriveAttack(state, m, t, mods, poi) {
   const def = poi && POI_TYPES[poi.type];
   if (def?.kind === 'breach' && poi.breach) return arriveBreach(state, m, t, mods, poi);
   if (!poi || (poi.clearedUntil > t)) {
+    if (m.orderId) m.orderResult = 'skip';
     log(state, 'info', '⚔️ La cible a déjà été nettoyée. Vos troupes rentrent.', t);
     return goBack(m, t);
   }
@@ -346,6 +347,7 @@ function arriveAttack(state, m, t, mods, poi) {
   const merit = combatMerit(armyPower(m.units), armyPower(enemies) * (1 + 0.1 * fort));
   const res = marchBattle(state, m, enemies, t, { danger: poi.danger, fort, enemyLabel: def.kind === 'kingdom' ? poi.name : def.name, terrain: def.kind === 'kingdom' ? 'city' : undefined });
   const win = res.winner === 'attacker';
+  if (m.orderId) m.orderResult = win ? 'win' : 'loss';
   let lootText = '';
   if (win) {
     const bounty = payBounty(state, poi.x, poi.y, t);
@@ -354,7 +356,8 @@ function arriveAttack(state, m, t, mods, poi) {
     if (def.kind === 'kingdom') {
       baseLoot = onRivalDefeated(state, poi, t);
     } else {
-      const k = 1 + poi.danger * 0.45;
+      // Raids en série : la région s'appauvrit à chaque attaque répétée (m.lootMult < 1)
+      const k = (1 + poi.danger * 0.45) * (m.lootMult || 1);
       for (const [r, v] of Object.entries(def.loot || {})) baseLoot[r] = Math.round(v * k * rng.float(0.85, 1.15));
       addInto(baseLoot, rareRolls(state, m, poi, mods, 0.02 * poi.danger));
       poi.clearedUntil = t + (def.respawn || 3600) * 1000;
@@ -612,6 +615,11 @@ function homecoming(state, m, t, wiped = false) {
     void g;
     const lost = Object.entries(m.loot).filter(([r, v]) => (got[r] || 0) < v).map(([r]) => RESOURCES[r].name);
     log(state, 'good', `🏠 Retour de marche : ${Object.entries(got).filter(([, v]) => v > 0).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ')}${m.items.length ? ` + ${m.items.length} objet(s)` : ''}${lost.length ? ` (entrepôt plein : ${lost.join(', ')} perdus en partie)` : ''}.`, t);
+  }
+  // Raids en série : le bilan de l'attaque est transmis à l'ordre (traité au prochain pas du monde)
+  if (m.orderId) {
+    const R = state.raidOrders && typeof state.raidOrders === 'object' ? state.raidOrders : (state.raidOrders = { active: [], history: [] });
+    (R.returns ||= []).push({ orderId: m.orderId, t, result: m.orderResult, wiped, sent: m.orderSent || {}, units: { ...m.units }, loot: Object.fromEntries(Object.entries(got).filter(([, v]) => v > 0)) });
   }
   m.phase = 'done';
   state.marches = state.marches.filter((x) => x.id !== m.id);

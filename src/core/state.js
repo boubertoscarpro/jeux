@@ -169,6 +169,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     // Personnages itinérants (primes en cours) et missions cartographiques automatiques
     npcs: { nextAt: 0, bounties: [] },
     survey: { active: null, history: [] },
+    raidOrders: { active: [], history: [], returns: [] },
     // --- Campagnes militaires et Comptoir du Joaillier ---
     war: { active: null, history: [], cooldownUntil: 0 },
     shop: { day: 0, bought: {}, total: 0 },

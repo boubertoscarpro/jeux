@@ -69,7 +69,7 @@ const failReason = (r, what = 'toute votre armée') => r.empty ? 'Aucune unité 
 const done = (r, scouted, extra = {}) => ({ ok: true, units: r.units, fraction: r.fraction, minimum: r.minimum, estimated: !scouted, verdict: r.result?.verdict, lossRatio: r.result?.lossRatio ?? 0, ...extra });
 
 // Fenêtre d'envoi de la carte du monde : attaque, récolte, donjon, boss mondial
-export function autoFillAttack(state, md, now = Date.now()) {
+export function autoFillAttack(state, md, now = Date.now(), opts = {}) {
   const type = md.type || 'attack';
   const poi = poiAt(state.world, md.x, md.y);
   const avail = fightingUnits(state);
@@ -110,8 +110,12 @@ export function autoFillAttack(state, md, now = Date.now()) {
   }
   const D = targetDefense(state, poi, now);
   if (!D || !D.enemies) return { ok: false, reason: 'Le remplissage auto ne sert qu’à attaquer un lieu tenu par des ennemis' };
-  const test = (units) => previewBattle(me(units), { units: D.enemies, mods: D.enemyMods, fort: D.fort, formation: D.formation }, ctx);
-  const r = minimalForce(avail, test, winsBattle, D.scouted ? AUTOFILL.marginScouted : AUTOFILL.marginBlind);
+  const battle = (units) => previewBattle(me(units), { units: D.enemies, mods: D.enemyMods, fort: D.fort, formation: D.formation }, ctx);
+  // opts.carry : capacité de transport minimale (raids en série : de quoi rapporter le butin), plafonnée à toute l'armée
+  const carry = Math.min(opts.carry || 0, carryCapacity(avail, mods));
+  const test = carry ? (units) => ({ ...battle(units), cap: carryCapacity(units, mods) }) : battle;
+  const wins = carry ? (pv) => winsBattle(pv) && pv.cap >= carry : winsBattle;
+  const r = minimalForce(avail, test, wins, D.scouted ? AUTOFILL.marginScouted : AUTOFILL.marginBlind);
   if (!r.ok) return { ok: false, reason: failReason(r), units: avail };
   return done(r, D.scouted);
 }
@@ -149,4 +153,16 @@ export function autoFillNote(state, r) {
     : r.rooms ? `le minimum qui franchit les ${r.rooms} salle(s) restantes`
     : r.ambush ? 'le minimum qui repousse une embuscade' : r.hold ? 'le minimum qui tient face à l’attaque attendue' : 'le minimum qui gagne';
   return `⚖️ ${fmt(n)} soldats sur ${fmt(all)} disponibles : ${why} d’après l’aperçu, plus une marge ${r.estimated ? 'prudente (adversaire non espionné)' : 'de sécurité'}. Aperçu : ${r.verdict}${r.lossRatio ? `, pertes ≈ ${Math.round(r.lossRatio * 100)} %` : ''}.`;
+}
+
+// Estimation d'une attaque de la carte avec une composition donnée (null si l'adversaire n'est pas connu)
+export function previewAttack(state, md, units, now = Date.now()) {
+  const poi = poiAt(state.world, md.x, md.y);
+  const D = targetDefense(state, poi, now);
+  if (!D?.enemies || !count(units)) return null;
+  const mods = planMarch(state, { ...md, type: 'attack', units }, now).mods;
+  const ter = wTerrain(state.world, md.x, md.y);
+  return previewBattle({ units, mods, formation: md.formation || 'balanced', supply: md.supply, famine: state.famine },
+    { units: D.enemies, mods: D.enemyMods, fort: D.fort, formation: D.formation },
+    { terrain: poi.type === 'kingdom' ? 'city' : ter === 'ash' ? 'ruins' : ter, weather: state.weather?.type });
 }
