@@ -1,3 +1,4 @@
+import { payBounty, npcMeet } from './npcs.js';
 import { scar } from './worldmarks.js';
 import { remember } from './rivalry.js';
 import { UNITS } from '../data/units.js';
@@ -32,6 +33,7 @@ import { rollCombatSpeedup, combatMerit, speedupText } from './speedups.js';
 import { COMBAT_SPEEDUPS } from '../data/speedups.js';
 
 export const MARCH_TYPES = {
+  visit: { name: 'Rencontre', icon: '🤝' },
   gather: { name: 'Récolte', icon: '🧺' },
   explore: { name: 'Exploration', icon: '🧭' },
   attack: { name: 'Attaque', icon: '⚔️' },
@@ -104,10 +106,12 @@ export function planMarch(state, opts, now = Date.now()) {
     if (poi.clearedUntil > now) return fail('Site déjà nettoyé (réapparition plus tard)');
   } else if (type === 'dungeon') {
     if (!poi || !def.dungeon) return fail('Pas de donjon ici');
+  } else if (type === 'visit') {
+    if (!poi || def.kind !== 'npc' || poi.until <= now) return fail('Personne à rencontrer ici (le personnage est peut-être reparti)');
   } else if (type === 'boss') {
     if (!state.boss || state.boss.x !== x || state.boss.y !== y || state.boss.hp <= 0) return fail('Pas de boss ici');
   }
-  const travel = travelTime(world, x, y, units, mods, type === 'explore' || type === 'scout' ? 'explore' : 'march');
+  const travel = travelTime(world, x, y, units, mods, type === 'explore' || type === 'scout' || (type === 'visit' && Object.keys(units).every((u) => u === 'scout')) ? 'explore' : 'march');
   return { ok: true, units, mods, travel, poi };
 }
 
@@ -242,6 +246,12 @@ function arrive(state, m, t) {
     if (hero) giveXp(state, hero, 25, mods);
     return goBack(m, t);
   }
+  if (m.type === 'visit') {
+    // Rencontre d'un personnage itinérant : la décision s'ouvre ; la troupe rentre aussitôt
+    if (poi && POI_TYPES[poi.type]?.kind === 'npc' && !(poi.until <= t)) npcMeet(state, poi, t);
+    else log(state, 'explore', `🤝 Personne au rendez-vous en (${m.x}, ${m.y}) : le personnage est reparti.`, t);
+    return goBack(m, t);
+  }
   if (m.type === 'gather') return arriveGather(state, m, t, mods, poi, hero);
   if (m.type === 'attack') return arriveAttack(state, m, t, mods, poi);
   if (m.type === 'boss') return arriveBoss(state, m, t, mods);
@@ -338,6 +348,8 @@ function arriveAttack(state, m, t, mods, poi) {
   const win = res.winner === 'attacker';
   let lootText = '';
   if (win) {
+    const bounty = payBounty(state, poi.x, poi.y, t);
+    if (bounty) m.log.push(`Prime touchée : ${bounty}`);
     let baseLoot = {};
     if (def.kind === 'kingdom') {
       baseLoot = onRivalDefeated(state, poi, t);

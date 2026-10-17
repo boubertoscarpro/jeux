@@ -925,3 +925,14 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .eco-adv.warn { border-color: var(--warn); }
 .eco-adv-ic { font-family: var(--emoji); font-size: 20px; }
 .eco-adv .grow { flex: 1; min-width: 180px; }
+/* ---------- Grosses commandes aux forgerons ---------- */
+.forge-orders { display: grid; gap: 6px; }
+.forge-order { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg2); }
+.forge-order.locked { opacity: 0.6; }
+.forge-order .mini { align-self: flex-start; }
+/* ---------- Personnages itinérants et missions cartographiques ---------- */
+.survey-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; background: var(--bg2); }
+.survey-opt { display: flex; flex-direction: column; gap: 3px; padding: 6px 0; border-top: 1px solid var(--line); }
+.survey-opt .mini, .survey-card > .mini { align-self: flex-start; }
+.npc-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.npc-offers li { margin: 3px 0; }

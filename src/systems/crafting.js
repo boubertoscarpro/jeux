@@ -1,4 +1,5 @@
-import { CRAFT_RECIPES, CATALYSTS, CONSUMABLES, SLOTS } from '../data/items.js';
+import { CRAFT_RECIPES, CATALYSTS, CONSUMABLES, SLOTS, FORGE_ORDERS } from '../data/items.js';
+import { RARITY_ORDER } from '../data/heroes.js';
 import { SEASON } from '../data/social.js';
 import { uid, scaleObj } from '../core/util.js';
 import { levelOf } from './city.js';
@@ -60,7 +61,63 @@ export function startBrew(state, key, n = 1, now = Date.now()) {
   return { ok: true };
 }
 
+// ───────── Grosses commandes aux forgerons ─────────
+export function orderCost(state, slot, key, mods = computeMods(state)) {
+  const o = FORGE_ORDERS[key];
+  const forge = levelOf(state, 'forge');
+  const per = (1 + forge / 5) * o.costMult;
+  const base = craftCost(slot, 'none', mods, state);
+  const c = {};
+  for (const [r, v] of Object.entries(base)) c[r] = Math.ceil(v * per * o.n);
+  c.gold = (c.gold || 0) + o.goldPer * o.n * Math.max(1, Math.ceil(forge / 3));
+  for (const [r, v] of Object.entries(o.extra || {})) c[r] = (c[r] || 0) + v;
+  return c;
+}
+export function orderDuration(state, slot, key, mods = computeMods(state)) {
+  const o = FORGE_ORDERS[key];
+  return ((o.hours * 3600 + CRAFT_RECIPES[slot].time * o.n) * 1000) / (1 + (mods['craft.speed'] || 0));
+}
+export function orderStatus(state, slot, key, now = Date.now()) {
+  const o = FORGE_ORDERS[key];
+  if (!o || !SLOTS[slot]) return { ok: false, reason: 'Commande inconnue' };
+  const forge = levelOf(state, 'forge');
+  if (!forge) return { ok: false, reason: 'Forge requise' };
+  if (forge < o.forge) return { ok: false, reason: `Forge niv. ${o.forge} requise` };
+  if (state.queues.craft.some((q) => q.kind === 'item')) return { ok: false, reason: 'La forge est occupée' };
+  const mods = computeMods(state, now);
+  const cost = orderCost(state, slot, key, mods);
+  const miss = missing(state, cost);
+  return { ok: !Object.keys(miss).length, reason: Object.keys(miss).length ? 'Ressources insuffisantes' : null, cost, missing: miss, time: orderDuration(state, slot, key, mods), quality: craftQuality(state, 'none', mods, slot) + o.quality, n: o.n };
+}
+// Lancement : tout est vérifié puis payé d'un coup ; annulable (80 % rendus, comme une fabrication normale)
+export function startForgeOrder(state, slot, key, now = Date.now()) {
+  const st = orderStatus(state, slot, key, now);
+  if (!st.ok) return { ok: false, reason: st.reason, missing: st.missing };
+  if (!pay(state, st.cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, st.cost) };
+  const o = FORGE_ORDERS[key];
+  state.queues.craft.push({ id: uid('c'), kind: 'item', order: key, n: o.n, slot, catalyst: 'none', ilvl: 1 + levelOf(state, 'forge') * 2, quality: st.quality, start: now, end: now + st.time, cost: st.cost });
+  log(state, 'info', `${o.icon} ${o.name} passée aux forgerons : ${o.n} × ${SLOTS[slot].name}.`, now);
+  return { ok: true, text: `${o.name} : ${o.n} objets` };
+}
+
 export function completeCraft(state, q, t) {
+  if (q.kind === 'item' && q.order && FORGE_ORDERS[q.order]) {
+    const o = FORGE_ORDERS[q.order];
+    const made = [];
+    for (let i = 0; i < (q.n || o.n); i++) {
+      // Garantie : les premiers objets de la commande atteignent au moins la rareté promise
+      const min = o.guarantee && i < o.guarantee.count ? o.guarantee.rarity : 'common';
+      const it = generateItem({ slot: q.slot, ilvl: q.ilvl, boost: q.quality, min });
+      state.inventory.items.push(it);
+      made.push(it);
+    }
+    state.stats.crafted = (state.stats.crafted || 0) + made.length;
+    state.stats.forgeOrders = (state.stats.forgeOrders || 0) + 1;
+    state.season.points += SEASON.points.craft * made.length;
+    const best = [...made].sort((a, b) => RARITY_ORDER.indexOf(b.rarity) - RARITY_ORDER.indexOf(a.rarity))[0];
+    log(state, 'good', `${o.icon} ${o.name} livrée : ${made.length} × ${SLOTS[q.slot].name} (meilleur : ${best.name}, ${best.rarity}).`, t);
+    return;
+  }
   if (q.kind === 'item') {
     const base = q.plan && PLANS[q.plan] ? PLANS[q.plan].base : null;
     const it = generateItem({ slot: q.slot, ilvl: q.ilvl, boost: q.quality, min: CATALYSTS[q.catalyst]?.minRarity || 'common', baseKey: base });
