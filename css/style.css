@@ -936,3 +936,10 @@ tr.foreman td:first-child { border-left: 3px solid var(--gold); }
 .survey-opt .mini, .survey-card > .mini { align-self: flex-start; }
 .npc-list { display: flex; flex-wrap: wrap; gap: 4px; }
 .npc-offers li { margin: 3px 0; }
+/* ---------- Bouton « Exploration auto » sur la carte ---------- */
+.map-survey { position: absolute; left: 10px; bottom: 34px; z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 7px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(24, 19, 13, 0.88); color: var(--text, #f3e6c4); font: 600 13px var(--font); cursor: pointer; box-shadow: var(--shadow); }
+.map-survey.ready { border-color: var(--gold); }
+.map-survey.on { border-color: #7fd7e8; }
+.map-survey .ms-bar { display: block; width: 120px; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+.map-survey .ms-bar i { display: block; height: 100%; background: #7fd7e8; }
+.map-survey:hover { filter: brightness(1.15); }
