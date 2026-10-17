@@ -79,13 +79,13 @@ test('Agrandissement du domaine : +4 colonnes, +2 rangées, rien ne bouge, jusqu
   assert.ok(count(s, 'rubble') < RUBBLE_COUNT + 30, 'peu de décombres ajoutés');
 });
 
-test('Monde : 96×96, sites 4× plus nombreux à densité égale, ressources de base proches, danger croissant', () => {
+test('Monde : WORLD_SIZE (128×128), sites plus nombreux à densité égale, ressources de base proches, danger croissant', () => {
   for (const seed of [1, 2, 3, 99, 12345]) {
     const t = Date.now();
     const w = generateWorld(seed);
     assert.ok(Date.now() - t < 500, 'génération rapide');
-    assert.equal(w.size, WORLD_SIZE); assert.equal(WORLD_SIZE, 96);
-    assert.equal(w.terrain.length, 96 * 96);
+    assert.equal(w.size, WORLD_SIZE); assert.equal(WORLD_SIZE, 128);
+    assert.equal(w.terrain.length, WORLD_SIZE * WORLD_SIZE);
     const pois = Object.values(w.pois);
     assert.ok(pois.length >= 600, `sites : ${pois.length}`);
     const by = (type) => pois.filter((p) => p.type === type);
@@ -105,7 +105,7 @@ test('Monde : 96×96, sites 4× plus nombreux à densité égale, ressources de 
     const ring = (a, b) => { const l = pois.filter((p) => d(p) >= a && d(p) < b && p.danger !== undefined); return l.reduce((s, p) => s + p.danger, 0) / l.length; };
     assert.ok(ring(0, 10) < ring(10, 25) && ring(10, 25) < ring(DANGER_RADIUS, 99), 'progression de la difficulté');
     // Tout lieu important est sur la carte, sur un terrain valide
-    for (const p of pois) { assert.ok(p.x >= 0 && p.y >= 0 && p.x < 96 && p.y < 96); assert.ok(wTerrain(w, p.x, p.y)); }
+    for (const p of pois) { assert.ok(p.x >= 0 && p.y >= 0 && p.x < WORLD_SIZE && p.y < WORLD_SIZE); assert.ok(wTerrain(w, p.x, p.y)); }
   }
 });
 
@@ -136,7 +136,7 @@ test('Événements, boss et factions : distances maîtrisées sur le grand monde
   assert.equal(worldScale(s.world), 48);
   for (let i = 0; i < 50; i++) {
     const p = aroundCapital(s.world, 10, 22);
-    assert.ok(p.x >= 3 && p.y >= 3 && p.x <= 92 && p.y <= 92);
+    assert.ok(p.x >= 3 && p.y >= 3 && p.x <= WORLD_SIZE - 4 && p.y <= WORLD_SIZE - 4);
     assert.ok(distCap(s.world, p.x, p.y) <= 23);
   }
   spawnBoss(s, null, T0);
@@ -146,7 +146,7 @@ test('Événements, boss et factions : distances maîtrisées sur le grand monde
   let t = T0;
   for (let i = 0; i < 48; i++) { t += 30 * 60000; advance(s, t); }
   rng.setSource(null);
-  for (const f of s.factions) for (const k of f.territory) { const [x, y] = k.split(',').map(Number); assert.ok(x >= 0 && y >= 0 && x < 96 && y < 96); }
+  for (const f of s.factions) for (const k of f.territory) { const [x, y] = k.split(',').map(Number); assert.ok(x >= 0 && y >= 0 && x < WORLD_SIZE && y < WORLD_SIZE); }
 });
 
 // Construit une sauvegarde au format v7 (ville 14×10 agrandie une fois, monde 48×48)
@@ -175,13 +175,13 @@ test('Migration v7 → v8 : ville et monde agrandis sans rien déplacer ni perdr
   assert.deepEqual(st.city.fort, old.city.fort);
   const newRubble = st.city.terrain.filter((t, i) => t === 'rubble' && ((i % 28) >= old.city.w || Math.floor(i / 28) >= old.city.h)).length;
   assert.equal(newRubble, 0, 'aucun décombre (butin) ajouté');
-  // Monde : 96×96, ancienne zone identique (terrain, brouillard, sites, capitale, territoires)
+  // Monde : agrandi à WORLD_SIZE, ancienne zone identique (terrain, brouillard, sites, capitale, territoires)
   const w = st.world;
-  assert.equal(w.size, 96);
+  assert.equal(w.size, WORLD_SIZE);
   assert.deepEqual(w.capital, old.world.capital);
   for (let y = 0; y < 48; y++) for (let x = 0; x < 48; x++) {
-    assert.equal(w.terrain[y * 96 + x], old.world.terrain[y * 48 + x]);
-    assert.equal(!!w.revealed[y * 96 + x], !!old.world.revealed[y * 48 + x]);
+    assert.equal(w.terrain[y * WORLD_SIZE + x], old.world.terrain[y * 48 + x]);
+    assert.equal(!!w.revealed[y * WORLD_SIZE + x], !!old.world.revealed[y * 48 + x]);
   }
   for (const [k, p] of Object.entries(old.world.pois)) assert.deepEqual(w.pois[k], p, k);
   // Territoires : tous les champs d'origine conservés ; la v9 ajoute seulement un identifiant et un nom par défaut
@@ -201,7 +201,7 @@ test('Migration v7 → v8 : ville et monde agrandis sans rien déplacer ni perdr
   // La partie continue normalement, et un second chargement ne change plus rien
   assert.doesNotThrow(() => advance(st, T0 + 6 * H));
   const again = deserialize(serialize(st));
-  assert.equal(again.world.size, 96); assert.equal(again.city.w, 28);
+  assert.equal(again.world.size, WORLD_SIZE); assert.equal(again.city.w, 28);
   assert.deepEqual(again.city.terrain, st.city.terrain);
 });
 

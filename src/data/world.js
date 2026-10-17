@@ -2,7 +2,7 @@ import { NPCS } from './npcs.js';
 // Carte du monde
 // Monde 96×96 (9 216 cases, 4× la surface d'origine 48×48). Les sites sont répartis avec la même densité
 // qu'avant : les environs de la capitale restent aussi riches, et les régions lointaines sont plus dangereuses.
-export const WORLD_SIZE = 96;
+export const WORLD_SIZE = 128; // v13.2 : monde agrandi (96 auparavant ; les anciennes parties sont étendues vers l'est et le sud)
 export const LEGACY_WORLD_SIZE = 48;
 // Distance (cases) à laquelle les sites atteignent leur danger maximal ; au-delà, les « terres lointaines »
 export const DANGER_RADIUS = 34;
