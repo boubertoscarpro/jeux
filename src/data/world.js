@@ -1,3 +1,4 @@
+import { NPCS } from './npcs.js';
 // Carte du monde
 // Monde 96×96 (9 216 cases, 4× la surface d'origine 48×48). Les sites sont répartis avec la même densité
 // qu'avant : les environs de la capitale restent aussi riches, et les régions lointaines sont plus dangereuses.
@@ -64,6 +65,8 @@ export const POI_TYPES = {
 };
 
 // Variante obtenue après avoir nettoyé une mine abandonnée
+// Personnages itinérants (data/npcs.js) : lieux temporaires « npc_<clé> », sans terrain d'apparition naturelle
+for (const [k, n] of Object.entries(NPCS)) POI_TYPES['npc_' + k] = { name: n.name, icon: n.icon, kind: 'npc', terrain: [], npc: k };
 POI_TYPES.ironNodeRich = { name: 'Mine reconquise', icon: '⚒️', kind: 'gather', terrain: [], res: 'iron', amount: [10000, 10000], regen: 900, danger: [1, 1], bonus: { coal: 0.1, rareOre: 0.004 } };
 
 // Cités libres (commerce)

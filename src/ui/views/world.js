@@ -25,7 +25,9 @@ import { sendCaravan, townPrice, caravanTime, caravanCargo, caravanSlots } from 
 import { levelOf } from '../../systems/city.js';
 import { ensureDungeon } from '../../systems/dungeons.js';
 import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons.js';
-import { esc, costList, resChips, bar, countdown } from '../components.js';
+import { esc, costList, resChips, bar, countdown, progress } from '../components.js';
+import { npcList, npcOf, npcOffers, npcState } from '../../systems/npcs.js';
+import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
 
@@ -66,11 +68,12 @@ const POI_CAT = (p) => {
   if (def.kind === 'breach') return 'breach';
   if (def.kind === 'danger') return 'danger';
   if (def.kind === 'town' || def.kind === 'kingdom' || def.kind === 'village') return 'social';
+  if (def.kind === 'npc') return 'npc';
   return 'always';
 };
-export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes' };
-const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', always: '#ffffff', other: '#cccccc' };
-const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true }); f.breach ??= true; return f; };
+export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes', npc: '🧑 Personnages' };
+const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', npc: '#7fd7e8', always: '#ffffff', other: '#cccccc' };
+const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true }); f.breach ??= true; f.npc ??= true; return f; };
 let rafPending = false;
 const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawMap(app); }); };
 
@@ -378,7 +381,7 @@ export function notablePlaces(state) {
     if (!isRevealed(w, p.x, p.y)) continue;
     const def = POI_TYPES[p.type];
     if (!def) continue;
-    if (['town', 'kingdom', 'boss', 'breach'].includes(def.kind) || def.dungeon || p.type === 'lostCity') {
+    if (['town', 'kingdom', 'boss', 'breach', 'npc'].includes(def.kind) || def.dungeon || p.type === 'lostCity') {
       const label = def.kind === 'breach' ? `🏴 ${p.name} (niv. ${p.breach?.level || '?'})` : def.kind === 'kingdom' ? `${RIVALS[p.rival]?.icon || def.icon} ${p.name}` : def.kind === 'town' ? `${def.icon} ${p.name}` : `${def.icon} ${def.name}`;
       out.push({ x: p.x, y: p.y, label, d: distCap(w, p.x, p.y) });
     }
@@ -519,12 +522,44 @@ function enemyBlock(app, poi, enemies) {
   return `<div class="enemy-list">${Object.entries(enemies).map(([u, n]) => `<span class="unit-chip" title="${esc(ALL_UNITS[u].name)} — ${esc(ALL_UNITS[u].class)}">${ALL_UNITS[u].icon} ${n} ${esc(ALL_UNITS[u].name)}</span>`).join('')}</div>`;
 }
 
+// Personnages itinérants : fiche, offres annoncées, rencontre (une petite troupe suffit)
+function npcPanel(s, poi, now) {
+  const n = npcOf(poi);
+  const offers = npcOffers(s, poi);
+  const waiting = s.pending.some((p) => p.kind === 'npc' && p.poiId === poi.id);
+  const going = s.marches.some((m) => m.type === 'visit' && m.x === poi.x && m.y === poi.y);
+  return `<p class="small">${esc(n.desc)}</p><div class="small muted">Repart dans ${countdown(poi.until)}</div>
+    <h4>Ce qu’il propose</h4><ul class="small npc-offers">${offers.filter((o) => !o.keep).map((o) => `<li><b>${esc(o.label)}</b> — ${esc(o.hint)}${Object.keys(o.cost).length ? ` <span class="muted">(${Object.entries(o.cost).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || r}`).join(' ')})</span>` : ''}</li>`).join('')}</ul>
+    ${waiting ? '<div class="ok small">Il vous attend : répondez dans les décisions en attente.</div>' : going ? '<div class="small muted">Une troupe est en route pour le rencontrer.</div>' : '<button class="btn primary" data-action="march" data-type="visit">🤝 Rencontrer</button><div class="small muted">Un éclaireur suffit. À son arrivée, vous choisissez l’offre (les coûts sont payés à ce moment-là).</div>'}`;
+}
+function npcOverview(s, now) {
+  const list = npcList(s, now).filter((p) => isRevealed(s.world, p.x, p.y));
+  const bounties = npcState(s).bounties;
+  if (!list.length && !bounties.length) return '';
+  return `<h4>🧑 Personnages sur la carte</h4><div class="small npc-list">${list.map((p) => `<button class="mini ghost" data-action="world-goto" data-x="${p.x}" data-y="${p.y}">${POI_TYPES[p.type].icon} ${esc(POI_TYPES[p.type].name)} (${p.x}, ${p.y})</button>`).join(' ')}</div>
+    ${bounties.map((b) => `<div class="small">🎯 Prime : ${esc(b.name)} (${b.x}, ${b.y}) · ${countdown(b.until)}</div>`).join('')}`;
+}
+// Missions cartographiques automatiques
+function surveyPanel(s, now) {
+  const S = surveyState(s);
+  const a = S.active;
+  if (a) {
+    const d = SURVEYS[a.key];
+    return `<div class="survey-card"><h4>${d.icon} ${esc(d.name)} en cours</h4><div class="small">${a.zones} zones · ${fmt(a.tiles)} cases révélées · ${a.scouts - a.lost}/${a.scouts} éclaireurs</div>${progress(a.start, a.end)}<div class="small muted">Retour ${countdown(a.end)} · prochaine zone ${countdown(a.nextAt)}</div>
+      ${a.found.length ? `<div class="small">Découvertes : ${esc(a.found.slice(-6).join(', '))}</div>` : ''}<button class="mini ghost" data-action="survey-recall">Rappeler les éclaireurs</button></div>`;
+  }
+  return `<div class="survey-card"><h4>🗺️ Missions cartographiques</h4><p class="small muted">Des éclaireurs explorent seuls la carte pendant des heures, zone après zone, au bord de ce que vous connaissez déjà. Très coûteux ; les éclaireurs reviennent à la fin (quelques-uns peuvent se perdre en zone dangereuse).</p>
+    ${Object.entries(SURVEYS).map(([k, d]) => { const st = surveyStatus(s, k, now); return `<div class="survey-opt"><div><b>${d.icon} ${esc(d.name)}</b> <span class="muted small">${d.hours} h · ${d.scouts} éclaireurs · ≈ ${st.zones} zones</span></div><div class="small muted">${esc(d.desc)}</div><div class="small">${costList(st.cost, s)}</div>
+      <button class="mini ${st.ok ? 'primary' : 'ghost'}" data-action="survey-start" data-k="${k}" ${st.ok ? '' : 'disabled'}>${st.ok ? 'Lancer' : esc(st.reason)}</button></div>`; }).join('')}
+    ${S.history[0] ? `<div class="small muted">Dernière mission : ${S.history[0].zones} zones, ${fmt(S.history[0].tiles)} cases.</div>` : ''}</div>`;
+}
+
 function tilePanel(app) {
   const s = app.state;
   const sel = app.ui.worldSel;
   const now = Date.now();
   if (!sel) {
-    return `<h3>🗺️ Les Terres Brisées</h3><p class="muted">Cliquez sur une case pour l’inspecter. Glissez pour vous déplacer, molette (ou pincement) pour zoomer, ⤢ pour la vue d’ensemble. La mini-carte et « Aller à… » mènent directement aux lieux découverts.</p>
+    return `${surveyPanel(s, now)}${npcOverview(s, now)}<h3>🗺️ Les Terres Brisées</h3><p class="muted">Cliquez sur une case pour l’inspecter. Glissez pour vous déplacer, molette (ou pincement) pour zoomer, ⤢ pour la vue d’ensemble. La mini-carte et « Aller à… » mènent directement aux lieux découverts.</p>
       <ul class="small legend"><li>🌫️ Cases sombres : inexplorées — envoyez des <b>éclaireurs</b>.</li><li>☠ Barres de couleur : niveau de danger.</li><li>Cercle doré pointillé : portée de vos avant-postes.</li><li>Plus un site est dangereux, plus il rapporte.</li></ul>
       <h4>Territoires</h4><div class="map-legend small">
         <div><span class="lg-sw" style="--c:${esc(s.meta.banner || '#e2b84a')}"></span> Vos avant-postes</div>
@@ -596,6 +631,7 @@ function tilePanel(app) {
     if (def.kind === 'town') {
       html += townPanel(app, poi, mods);
     }
+    if (def.kind === 'npc') html += npcPanel(s, poi, now);
     if (def.kind === 'village') html += `<p>${poi.visited ? 'Vous avez déjà fouillé ce village.' : 'Un village abandonné. Envoyez des éclaireurs : des survivants s’y cachent peut-être.'}</p><button class="btn primary" data-action="march" data-type="explore">🧭 Explorer</button>`;
     if (def.kind === 'boss' && s.boss) {
       const b = BOSSES[s.boss.key];
@@ -648,7 +684,8 @@ function marchDialog(app, type) {
   const poi = poiAt(s.world, x, y);
   const md = app.ui.marchDraft = { type, x, y, units: {}, heroId: null, formation: 'balanced', supply: false, potion: '' };
   // Pré-sélection intelligente
-  if (type === 'explore' || type === 'scout') md.units.scout = Math.min(s.army.scout || 0, type === 'scout' ? 2 : 1);
+  if (type === 'visit') { if (s.army.scout > 0) md.units.scout = 1; else { const u = Object.entries(s.army).find(([k, n]) => n > 0 && k !== 'spy'); if (u) md.units[u[0]] = 1; } }
+  else if (type === 'explore' || type === 'scout') md.units.scout = Math.min(s.army.scout || 0, type === 'scout' ? 2 : 1);
   else for (const [u, n] of Object.entries(s.army)) if (n > 0 && u !== 'scout' && u !== 'spy') md.units[u] = n;
   const idle = s.heroes.filter((h) => !h.marchId && !h.assignment);
   const best = idle.sort((a, b) => b.level - a.level)[0];
@@ -779,6 +816,10 @@ export default {
     'mini-toggle': (app) => { app.ui.miniOff = !app.ui.miniOff; const m = document.getElementById('world-mini'); if (m) m.hidden = app.ui.miniOff; drawMap(app); },
     'map-filter': (app, el) => { const f = filters(app); f[el.dataset.k] = !f[el.dataset.k]; el.classList.toggle('on', f[el.dataset.k]); el.classList.toggle('off', !f[el.dataset.k]); el.setAttribute('aria-pressed', f[el.dataset.k]); drawMap(app); },
     'map-place': (app, el) => { if (!el.value) return; const [x, y] = el.value.split(',').map(Number); el.value = ''; focusTile(app, x, y, 1.2); },
+    'world-goto': (app, el) => focusTile(app, +el.dataset.x, +el.dataset.y, 1.2),
+    'survey-start': (app, el) => { const k = el.dataset.k, d = SURVEYS[k], st = surveyStatus(app.state, k); if (!st.ok) { app.toast(st.reason, 'bad'); return; }
+      app.confirm(`<h2>${d.icon} ${esc(d.name)} ?</h2><p>${d.scouts} éclaireurs partent ${d.hours} h et reviennent à la fin.</p><p>Coût payé maintenant : ${costList(st.cost, app.state)}</p>`, 'Lancer', () => app.act(() => startSurvey(app.state, k), (r) => `${d.icon} ${r.text}`)); },
+    'survey-recall': (app) => app.confirm('<h2>Rappeler les éclaireurs ?</h2><p>Les zones déjà révélées restent acquises ; le coût n’est pas rendu.</p>', 'Rappeler', () => app.act(() => recallSurvey(app.state), 'Éclaireurs rappelés')),
     'goto-boss': (app) => { const b = app.state.boss; if (b) focusTile(app, b.x, b.y, 1); },
     march: (app, el) => marchDialog(app, el.dataset.type),
     claim: (app) => app.act(() => claimTerritory(app.state, app.ui.worldSel.x, app.ui.worldSel.y), (r) => `Avant-poste « ${r.name} » établi — vous pouvez le renommer`),

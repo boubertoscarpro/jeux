@@ -122,7 +122,7 @@ export function renderSide(app) {
     parts.push(`<section class="side-box"><h3>⏳ Files</h3>
       ${rq.map((q) => queueRow('📜', esc(TECHS[q.tech].name), q, 'cancel-research')).join('')}
       ${tq.map((q) => queueRow(UNITS[q.unit].icon, `${q.count} ${esc(UNITS[q.unit].name)}`, q, 'cancel-train', speedupButton(s, q, now))).join('')}
-      ${cq.map((q) => queueRow(q.kind === 'item' ? '⚒️' : '⚗️', q.kind === 'item' ? `Forge : ${esc(SLOTS[q.slot].name)}` : `${q.n} × ${esc(CONSUMABLES[q.key].name)}`, q, 'cancel-craft')).join('')}
+      ${cq.map((q) => queueRow(q.kind === 'item' ? '⚒️' : '⚗️', q.kind === 'item' ? (q.order ? `Commande : ${q.n} × ${esc(SLOTS[q.slot].name)}` : `Forge : ${esc(SLOTS[q.slot].name)}`) : `${q.n} × ${esc(CONSUMABLES[q.key].name)}`, q, 'cancel-craft')).join('')}
     </section>`);
   }
 

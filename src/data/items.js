@@ -119,6 +119,16 @@ export const CRAFT_RECIPES = {
   ring:   { cost: { silver: 4, gems: 1, gold: 120 }, time: 360 },
   amulet: { cost: { silver: 4, crystals: 1, gold: 120 }, time: 360 },
 };
+// Grosses commandes aux forgerons : plusieurs objets d'un coup, beaucoup plus longues et coûteuses, mais de meilleure
+// qualité. Coût par objet = recette × (1 + niveau de forge / 5) × costMult, plus des gages en or par objet.
+// Durée totale = hours (fixe : les compagnons travaillent en équipe) + temps de la recette × n.
+// La forge reste occupée pendant toute la commande (choix : objet seul rapide, ou grosse commande).
+export const FORGE_ORDERS = {
+  series: { name: 'Série d’atelier', icon: '🔨', n: 3, forge: 3, hours: 2, costMult: 1.0, goldPer: 150, quality: 0.15, desc: '3 objets du même emplacement, finition soignée.' },
+  large: { name: 'Grande commande', icon: '⚒️', n: 6, forge: 6, hours: 6, costMult: 1.1, goldPer: 300, quality: 0.3, guarantee: { rarity: 'rare', count: 2 }, desc: '6 objets, dont au moins 2 rares.' },
+  royal: { name: 'Commande royale', icon: '👑', n: 10, forge: 10, hours: 16, costMult: 1.2, goldPer: 600, quality: 0.5, guarantee: { rarity: 'epic', count: 1 }, extra: { rareOre: 6, crystals: 4 }, desc: '10 objets de maître, dont au moins 1 épique. Demande du minerai rare et des cristaux.' },
+};
+
 // Catalyseurs optionnels
 export const CATALYSTS = {
   none:    { name: 'Aucun', cost: {}, boost: 0 },

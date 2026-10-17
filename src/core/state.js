@@ -166,6 +166,9 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     historyKeys: {},
     ecoLog: { at: 0, s: [] },
     factionReports: [],
+    // Personnages itinérants (primes en cours) et missions cartographiques automatiques
+    npcs: { nextAt: 0, bounties: [] },
+    survey: { active: null, history: [] },
     // --- Campagnes militaires et Comptoir du Joaillier ---
     war: { active: null, history: [], cooldownUntil: 0 },
     shop: { day: 0, bought: {}, total: 0 },

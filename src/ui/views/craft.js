@@ -1,11 +1,11 @@
-import { SLOTS, SLOT_ORDER, CATALYSTS, CONSUMABLES, CRAFT_RECIPES } from '../../data/items.js';
+import { SLOTS, SLOT_ORDER, CATALYSTS, CONSUMABLES, CRAFT_RECIPES, FORGE_ORDERS } from '../../data/items.js';
 import { resIcon } from '../icons.js';
 import { RARITIES, RARITY_ORDER, HERO_CLASSES } from '../../data/heroes.js';
 import { RESOURCES, RES_ORDER } from '../../data/resources.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { levelOf } from '../../systems/city.js';
-import { startCraft, craftCost, craftQuality, startBrew, usePotion, upgradeItem, salvageItem, toggleLock, INVENTORY_CAP } from '../../systems/crafting.js';
+import { startCraft, craftCost, craftQuality, startBrew, usePotion, upgradeItem, salvageItem, toggleLock, INVENTORY_CAP, orderCost, orderDuration, orderStatus, startForgeOrder } from '../../systems/crafting.js';
 import { upgradeCost, salvageYield, MAX_PLUS, rarityOdds, itemScore } from '../../systems/items.js';
 import { esc, costList, resChips, itemCard, empty, rarityTag, countdown, progress } from '../components.js';
 import { commissionList, commissionState, stageCheck, startCommission, launchStage, claimCommission, abandonCommission } from '../../systems/commissions.js';
@@ -130,7 +130,15 @@ export default {
           <div class="panel-sub"><h4>Coût</h4>${costList(craftCost(slot, cat, mods, s, plan || null), s)} <span class="muted small">⏱ ${fmtTime((CRAFT_RECIPES[slot].time * 1000) / (1 + (mods['craft.speed'] || 0)))}</span></div>
           <div class="panel-sub"><h4>Chances de rareté</h4><div class="odds">${RARITY_ORDER.map((r) => `<div><span style="color:${RARITIES[r].color}">${RARITIES[r].name}</span><b>${(odds[r] * 100).toFixed(1)}%</b></div>`).join('')}</div>
             <div class="muted small">Qualité : niveau de forge, héros intendant de la Forge (Forgeron ★), technologies d’Artisanat, catalyseur.</div></div>
-          ${forgeJob ? '<div class="req">La forge est occupée.</div>' : `<button class="btn primary" data-action="craft">Forger</button>`}`}
+          ${forgeJob ? `<div class="req">La forge est occupée${forgeJob.order ? ` par une ${esc(FORGE_ORDERS[forgeJob.order].name.toLowerCase())} (${forgeJob.n} objets)` : ''}.</div>` : `<button class="btn primary" data-action="craft">Forger</button>`}
+          <div class="panel-sub forge-orders"><h4>📜 Grosses commandes aux forgerons</h4>
+            <p class="small muted">Plusieurs ${esc(SLOTS[slot].name.toLowerCase())}s d’un coup, de meilleure qualité, contre beaucoup de ressources et plusieurs heures de forge. La forge reste occupée jusqu’à la livraison ; annulation possible (80 % rendus).</p>
+            ${Object.entries(FORGE_ORDERS).map(([k, o]) => { const st = orderStatus(s, slot, k); const locked = forge < o.forge;
+              return `<div class="forge-order ${locked ? 'locked' : ''}"><div><b>${o.icon} ${esc(o.name)}</b> <span class="chip small">${o.n} objets</span> <span class="muted small">forge ${o.forge}+</span></div>
+                <div class="small muted">${esc(o.desc)}</div>
+                ${locked ? `<div class="req small">Forge niveau ${o.forge} requise</div>` : `<div class="small">${costList(orderCost(s, slot, k, mods), s)} <span class="muted">⏱ ${fmtTime(orderDuration(s, slot, k, mods))}</span></div>
+                <button class="mini ${st.ok ? 'primary' : 'ghost'}" data-action="forge-order" data-k="${k}" ${st.ok ? '' : 'disabled'}>${st.ok ? 'Passer commande' : esc(st.reason || 'Indisponible')}</button>`}</div>`; }).join('')}
+          </div>`}
         </div>
         <div class="card"><h2>⚗️ Laboratoire ${lab ? `<span class="muted small">niv. ${lab}</span>` : ''}</h2>
           ${!lab ? '<p class="muted">Construisez un Laboratoire (Hôtel de ville niv. 4) pour distiller des potions à partir d’herbes.</p>' : ''}
@@ -157,6 +165,12 @@ export default {
     'item-sel': (app, el) => { app.ui.itemSel = el.dataset.id; app.render(); },
     'craft-slot': (app, el) => { app.ui.craftSlot = el.dataset.slot; app.ui.craftPlan = ''; app.render(); },
     catalyst: (app, el) => { app.ui.catalyst = el.value; app.render(); },
+    'forge-order': (app, el) => {
+      const s = app.state, slot = app.ui.craftSlot || 'weapon', k = el.dataset.k, o = FORGE_ORDERS[k];
+      const st = orderStatus(s, slot, k);
+      if (!st.ok) { app.toast(st.reason, 'bad'); return; }
+      app.confirm(`<h2>${o.icon} ${esc(o.name)} ?</h2><p>${o.n} × ${esc(SLOTS[slot].name)} — livraison dans ${fmtTime(st.time)}.</p><p>Coût payé maintenant : ${costList(st.cost, s)}</p><p class="small muted">La forge ne pourra rien fabriquer d’autre pendant la commande.</p>`, 'Passer commande', () => app.act(() => startForgeOrder(app.state, slot, k), (r) => `${o.icon} ${r.text}`));
+    },
     craft: (app) => app.act(() => startCraft(app.state, app.ui.craftSlot || 'weapon', app.ui.catalyst || 'none', Date.now(), app.ui.craftPlan || null, app.ui.craftVariant || null), 'Le marteau résonne…'),
     'craft-plan': (app, el) => { app.ui.craftPlan = el.value; app.ui.craftVariant = ''; app.render(); },
     'craft-variant': (app, el) => { app.ui.craftVariant = el.value; app.render(); },
