@@ -85,6 +85,7 @@ function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span c
 export function drawMap(app) {
   const canvas = document.getElementById('world-canvas');
   if (!canvas) return;
+  const perfT0 = performance.now();
   const s = app.state, w = s.world, c = cam(app);
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -334,6 +335,8 @@ export function drawMap(app) {
     ctx.strokeRect(ox + sel.x * T + 1.5, oy + sel.y * T + 1.5, Math.max(3, T - 3), Math.max(3, T - 3));
   }
   drawMini(app, W, H);
+  // Mesure du coût de rendu (outil de performance, tools/v15perf.cjs) : 120 dernières images
+  const pw = (app.perfWorld ||= []); pw.push(performance.now() - perfT0); if (pw.length > 120) pw.shift();
 }
 
 // Mini-carte : terrain découvert, lieux majeurs, cadre de la vue ; cliquer ou glisser déplace la caméra
