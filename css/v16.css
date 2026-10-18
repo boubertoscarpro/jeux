@@ -1,0 +1,104 @@
+/* v16 — « Le Château et ses Faubourgs » : château dessiné, zones, anneau, terrains vagues, raid, Lieux */
+
+/* Couches du château (un SVG sous la grille, un SVG au-dessus ; jamais de clic capté) */
+.castle-slot { position: absolute; left: 0; top: 0; pointer-events: none; }
+.castle-slot.under { z-index: 0; }
+.castle-slot.over { z-index: 2; }
+.castle-slot svg { display: block; overflow: visible; }
+.zone-label { font: 700 15px var(--font-display, Cinzel, serif); fill: #fff6dc; paint-order: stroke; stroke: rgba(20, 14, 8, 0.85); stroke-width: 4px; letter-spacing: 0.06em; }
+.wall-label { font: 600 13px var(--font, Inter, sans-serif); fill: #fff3d6; paint-order: stroke; stroke: rgba(20, 14, 8, 0.9); stroke-width: 3.5px; }
+.city-vp[data-zl="far"] .zone-label { font-size: 26px; }
+/* Aucune animation à l'intérieur des grands SVG du château : chacune repeindrait toute la couche (2 560 × 1 536 px au
+   domaine maximal) à chaque image. Gardes, torches, colonne ennemie et douves en crue sont dessinés fixes. */
+@keyframes v16-guard { from { transform: translateY(0); } to { transform: translateY(-1.5px); } }
+/* Pastilles « amélioration » : elles ne pulsent plus en vue éloignée ni quand elles sont nombreuses (une animation
+   par pastille sur toute la carte coûtait plus que tout le reste) ; l'icône reste affichée */
+.city-vp[data-zl="far"] .t-up, .city-vp[data-zl="mid"] .t-up, .city-grid.calm-ups .t-up { animation: none !important; }
+
+/* Terrains vagues : panneau + nom (toujours écrit, pas seulement une couleur) */
+.city-grid.painted .tile.lot { box-shadow: inset 0 0 0 2px rgba(240, 210, 150, 0.35); border-radius: 6px; }
+.t-lot { position: absolute; inset: 0; pointer-events: none; }
+.t-lot svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.t-lot b { position: absolute; left: 0; right: 0; top: 13px; text-align: center; font-size: 15px; line-height: 1; filter: saturate(0.7); }
+.t-name.lot-name { background: rgba(40, 30, 18, 0.82); color: #f3e6c4; border-style: dashed; font-weight: 600; }
+.city-vp[data-zl="far"] .t-name.lot-name { display: none; }
+
+/* Mode construction : cases interdites par la zone (croix + raison au survol) */
+.city-grid.painted .tile.zone-no { background: repeating-linear-gradient(45deg, rgba(120, 30, 20, 0.16) 0 6px, transparent 6px 12px) !important; }
+.t-hint.no { color: #ffd4c8; background: rgba(90, 20, 14, 0.75); }
+
+/* Vie du château : forge au travail, foule au marché */
+.fx-smoke.work { opacity: 0.75; }
+.fx-crowd { position: absolute; left: 6px; right: 6px; bottom: 2px; height: 10px; display: flex; justify-content: space-around; pointer-events: none; z-index: 4; }
+.fx-crowd i { width: 6px; height: 9px; border-radius: 3px 3px 1px 1px; background: #c9a36a; border: 1px solid #2b1d12; animation: v16-guard 1.6s ease-in-out infinite alternate; }
+.fx-crowd i:nth-child(2n) { background: #6d8db0; animation-delay: 0.4s; }
+.fx-crowd i:nth-child(3n) { background: #a8432f; animation-delay: 0.8s; }
+
+/* Anneau autour d'un bâtiment (hors de la carte transformée : taille constante) */
+.ring-wrap { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 8; pointer-events: none; }
+.ring { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+.ring-btn { pointer-events: auto; position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  font: 600 18px var(--font); color: var(--ivory, #f3e6c4); background: rgba(30, 24, 17, 0.94); border: 2px solid var(--gold, #c9a54a); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); cursor: pointer; animation: v16-ring 0.18s ease-out both; }
+.ring-btn span { font-size: 10.5px; line-height: 1; letter-spacing: 0.02em; }
+.ring-btn:hover, .ring-btn:focus-visible { background: #3a2c1c; outline: 3px solid #fff3c4; outline-offset: 1px; }
+.ring-btn[disabled] { opacity: 0.55; cursor: not-allowed; border-color: #6b5a40; }
+.ring-btn.r-top { transform: translate(0, -64px); }
+.ring-btn.r-right { transform: translate(64px, 0); }
+.ring-btn.r-left { transform: translate(-64px, 0); }
+.ring-btn.r-bottom { transform: translate(0, 64px); width: 44px; height: 44px; margin: -22px 0 0 -22px; font-size: 14px; }
+@keyframes v16-ring { from { opacity: 0; } to { opacity: 1; } }
+
+/* Raid en approche */
+.raid-banner { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 7; max-width: calc(100% - 24px); padding: 7px 14px; border-radius: 10px;
+  background: rgba(70, 14, 10, 0.92); color: #fff1e8; border: 2px solid #e05a4a; font: 600 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+.raid-banner .mini { background: #fff1e8; color: #4a0e0a; }
+
+/* Carte « Château » */
+.castle-card .castle-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; }
+.enc-sides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+.enc-side { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px; border: 1px solid var(--line, #3e3428); border-radius: 8px; }
+.enc-side b { text-transform: capitalize; min-width: 3.5em; }
+.flanks, .tools { display: grid; gap: 6px; margin: 6px 0; }
+.flank { display: grid; grid-template-columns: minmax(7em, 1fr) minmax(80px, 2fr) 3.2em; align-items: center; gap: 6px; }
+.flank .small { grid-column: 1 / -1; margin-top: -4px; }
+.flank input[type="range"] { width: 100%; accent-color: var(--gold, #c9a54a); }
+.tool { display: grid; grid-template-columns: minmax(8em, 1fr) minmax(9em, 1fr); gap: 4px 8px; align-items: center; }
+.tool .small { grid-column: 1 / -1; }
+.zone-block { border-left: 3px solid var(--gold, #c9a54a); }
+
+/* Fil d'Ariane vers le château */
+.subtab.crumb { border-style: dashed; color: var(--bronze-l, #d8b77a); }
+
+/* Fenêtre « Lieux » */
+.places-q { width: 100%; padding: 9px 12px; font-size: 16px; border-radius: 8px; margin: 6px 0 10px; }
+.places { list-style: none; margin: 0; padding: 0; max-height: min(60vh, 520px); overflow-y: auto; display: grid; gap: 4px; }
+.place { display: flex; align-items: center; gap: 6px; }
+.place .place-open { flex: 1; text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line, #3e3428); background: rgba(255, 255, 255, 0.03); color: inherit; font: inherit; cursor: pointer; min-height: 40px; }
+.place.cur .place-open, .place .place-open:hover, .place .place-open:focus-visible { border-color: var(--gold, #c9a54a); background: rgba(201, 165, 74, 0.12); }
+.place.locked .place-open { opacity: 0.7; }
+
+/* Téléphone : boutons de l'anneau plus espacés, bannière de raid au-dessus des outils */
+@media (max-width: 700px) {
+  .ring-btn { width: 54px; height: 54px; margin: -27px 0 0 -27px; }
+  .raid-banner { bottom: auto; top: 46px; font-size: 12px; }
+  .enc-sides { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Animations nouvelles coupées : réglage, système, économie d'énergie */
+html.reduce-motion .castle-over *, html.saver .castle-over *, html.reduce-motion .fx-crowd i, html.saver .fx-crowd i, html.reduce-motion .moat-flood, html.saver .moat-flood, html.reduce-motion .ring-btn { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .castle-over *, .fx-crowd i, .moat-flood, .ring-btn { animation: none !important; } }
+
+/* v16 — Performance de la scène (héritée de la v15) : la météo s'anime par transform (composition seule) au lieu de
+   background-position (repeint plein écran à chaque image) ; le voile de lumière (mix-blend-mode) disparaît le jour. */
+.light-day .fx-light { display: none; }
+.wx-rain .fx-wx, .wx-storm .fx-wx { top: -140px; will-change: transform; animation: v16-rain 0.55s linear infinite; }
+.wx-snow .fx-wx { top: -200px; will-change: transform; background-size: 173px 200px, 211px 200px, 139px 200px, 257px 200px, 191px 200px; animation: v16-snow 9s linear infinite; }
+@keyframes v16-rain { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 140px, 0); } }
+@keyframes v16-snow { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 200px, 0); } }
+html.saver .wx-rain .fx-wx, html.saver .wx-storm .fx-wx, html.saver .wx-snow .fx-wx, html.reduce-motion .wx-rain .fx-wx, html.reduce-motion .wx-snow .fx-wx, html.reduce-motion .wx-storm .fx-wx { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .wx-rain .fx-wx, .wx-storm .fx-wx, .wx-snow .fx-wx { animation: none !important; } }
+
+/* v16 — Animations des bâtiments : en pause pendant les déplacements de la caméra et en vue éloignée ; coupées en
+   qualité « faible » (elles n'apportent rien à cette distance et coûtaient un repeint à chaque image) */
+.city-vp.moving [class*="anim-"], .city-vp.moving .t-up, .city-vp[data-zl="far"] [class*="anim-"] { animation-play-state: paused !important; }
+html.gfx-low .city-vp [class*="anim-"], html.gfx-low .city-vp .t-up, html.gfx-low .fx-crowd i { animation: none !important; }

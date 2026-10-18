@@ -1,6 +1,9 @@
 import { repActions } from './repercussions.js';
 import { stageActions } from './stage.js';
 import { iconize } from './glyphs.js';
+import { openPlaces, castleActions } from './castleUi.js';
+import { BUILDING_SCREENS } from '../data/castle.js';
+import { BUILDINGS } from '../data/buildings.js';
 import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
 import { RESOURCES } from '../data/resources.js';
@@ -79,6 +82,13 @@ export const GROUPS = [
   { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, codexView, statsView, treasuryView, kingdomView] },
 ];
 export const VIEWS = GROUPS.flatMap((g) => g.tabs);
+// v16 : la ville devient le menu. Le menu de gauche n'a plus que 4 entrées (+ le Conseiller) ; les autres groupes
+// s'ouvrent depuis leurs bâtiments, la fenêtre « Lieux » (/ ou Ctrl + K) ou le fil d'Ariane.
+export const NAV_GROUPS = ['g-kingdom', 'g-world', 'g-chron', 'g-events'];
+const NAV_TITLE = { 'g-kingdom': 'Château' };
+const navGroupOf = (g) => (g && NAV_GROUPS.includes(g.id) ? g.id : 'g-kingdom');
+// Bâtiment qui mène à un écran (fil d'Ariane « Château › Marché »)
+const placeOf = (viewId) => { for (const [t, ids] of Object.entries(BUILDING_SCREENS)) if (ids.includes(viewId)) return BUILDINGS[t]; return null; };
 export const MAP_VIEWS = ['city', 'world'];
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
 
@@ -102,6 +112,8 @@ export class App {
     document.documentElement.classList.toggle('compact', m.density === 'compact');
     // v15 : mode économie d'énergie (aucune animation continue, carte redessinée seulement si elle change)
     document.documentElement.classList.toggle('saver', !!m.saver);
+    // v16 : qualité graphique (faible : aucune animation de bâtiment sur la carte du royaume)
+    for (const q of ['low', 'medium', 'high']) document.documentElement.classList.toggle('gfx-' + q, (m.gfx || 'medium') === q);
   }
 
   start() {
@@ -237,13 +249,14 @@ export class App {
     this.ui.highlight = viewId;
     this.renderNav();
     const g = groupOf(viewId);
-    if (g && this.ui.view !== viewId) this.toast(`Ouvrez le menu « ${g.title} » mis en évidence.`, 'info');
+    const pl = placeOf(viewId);
+    if (g && this.ui.view !== viewId) this.toast(NAV_GROUPS.includes(g.id) ? `Ouvrez le menu « ${NAV_TITLE[g.id] || g.title} » mis en évidence.` : `Ouvrez ${pl ? `le bâtiment « ${pl.name} » dans votre château` : 'votre château'} (ou 📍 Lieux, touche /).`, 'info');
     this.render();
   }
 
   renderNav() {
-    const hl = this.ui.highlight && groupOf(this.ui.highlight)?.id;
-    this.$('#nav').innerHTML = GROUPS.map((g) => `<button class="nav-btn ${g.id === hl ? 'tut-hl' : ''}" data-action="nav" data-view="${g.id}" title="${esc(g.title)}"><span class="nav-icon">${navIcon(g.id, 26) || g.icon}</span><span class="nav-label">${esc(g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
+    const hl = this.ui.highlight && navGroupOf(groupOf(this.ui.highlight));
+    this.$('#nav').innerHTML = GROUPS.filter((g) => NAV_GROUPS.includes(g.id)).map((g) => `<button class="nav-btn ${g.id === hl ? 'tut-hl' : ''}" data-action="nav" data-view="${g.id === 'g-kingdom' ? 'city' : g.id}" data-group="${g.id}" title="${esc(NAV_TITLE[g.id] || g.title)}"><span class="nav-icon">${navIcon(g.id, 26) || g.icon}</span><span class="nav-label">${esc(NAV_TITLE[g.id] || g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
       + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">${navIcon('advisor', 26)}</span><span class="nav-label">Conseiller</span><span class="nav-badge" data-badge="advisor"></span></button>`;
   }
 
@@ -278,7 +291,12 @@ export class App {
     this.root.classList.toggle('mapmode', MAP_VIEWS.includes(view.id));
     const locked = view.locked?.(this);
     const helpBtn = helpFor(view.id) ? `<button class="subtab help-btn" data-action="help" title="Aide sur cet écran : mécanismes, coûts, prérequis">❓ Aide</button>` : '';
-    const tabs = group.tabs.length > 1 || helpBtn ? `<div class="subnav">${group.tabs.length > 1 ? group.tabs.map((t) => {
+    // v16 : les onglets verrouillés ne s'affichent plus (la ville montre la progression : terrains vagues, Lieux) ;
+    // fil d'Ariane vers le château pour les écrans ouverts depuis un bâtiment
+    const shown = group.tabs.filter((t) => t.id === view.id || !t.locked?.(this));
+    const pl = !NAV_GROUPS.includes(group.id) ? placeOf(view.id) : null;
+    const crumb = !NAV_GROUPS.includes(group.id) ? `<button class="subtab crumb" data-action="nav" data-view="city" title="Retour au château">🏰 Château ›${pl ? ` ${pl.icon} ${esc(pl.name)}` : ''}</button>` : '';
+    const tabs = shown.length > 1 || helpBtn || crumb ? `<div class="subnav">${crumb}${shown.length > 1 ? shown.map((t) => {
       const l = t.locked?.(this);
       const n = t.badge?.(this) || 0;
       return `<button class="subtab ${t.id === view.id ? 'active' : ''} ${l ? 'locked' : ''} ${t.id === this.ui.highlight ? 'tut-hl' : ''}" data-action="nav" data-view="${t.id}" title="${esc(l || t.title)}">${SUBTAB_ICONS[t.id] ? gameIcon(SUBTAB_ICONS[t.id], 16, t.icon) : t.icon} ${esc(t.title)}${l ? ' 🔒' : ''}${n ? ` <span class="sub-badge">${n}</span>` : ''}</button>`;
@@ -291,7 +309,8 @@ export class App {
     this.preserveInputs(side, () => { side.innerHTML = renderSide(this); });
     // v15 : une seule langue d'icônes dans l'interface (glyphes SVG à la place des emojis de tête)
     iconize(main); iconize(side); iconize(this.$('#topbar'));
-    this.root.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === group.id));
+    const ng = navGroupOf(group);
+    this.root.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.group === ng));
     this.updateBadges();
   }
 
@@ -299,10 +318,15 @@ export class App {
     // Conseiller unique : pastille = conseils urgents ou importants
     const ab = this.root.querySelector('[data-badge="advisor"]');
     if (ab) { let n = 0; try { if ((this.state.meta.advice || 'full') !== 'off') n = adviceList(this.state, Date.now()).filter((r) => r.sev === 'bad' || r.sev === 'warn').length; } catch { n = 0; } ab.textContent = n || ''; ab.classList.toggle('on', !!n); }
+    const sums = {};
     for (const g of GROUPS) {
-      const el = this.root.querySelector(`[data-badge="${g.id}"]`);
-      if (!el) continue;
       const n = g.tabs.reduce((a, t) => a + (t.locked?.(this) ? 0 : t.badge?.(this) || 0), 0);
+      const k = navGroupOf(g);
+      sums[k] = (sums[k] || 0) + n;
+    }
+    for (const [k, n] of Object.entries(sums)) {
+      const el = this.root.querySelector(`[data-badge="${k}"]`);
+      if (!el) continue;
       el.textContent = n ? n : '';
       el.classList.toggle('on', !!n);
     }
@@ -356,13 +380,23 @@ export class App {
       }
       const view = this.views[this.ui.view];
       const fn = (this.modalActions && this.modalActions[name]) || view.actions?.[name] || sideActions[name] || this.globalActions[name];
-      if (name === 'goto' && this.modalActions) this.closeModal();
+      if ((name === 'goto' || name === 'nav') && this.modalActions) this.closeModal();
       if (fn) { ev.preventDefault?.(); fn(this, el, ev); }
     };
     document.addEventListener('click', (ev) => handle(ev, 'data-action'));
     document.addEventListener('change', (ev) => handle(ev, 'data-change'));
     document.addEventListener('input', (ev) => handle(ev, 'data-input'));
-    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') this.closeModal(); });
+    document.addEventListener('keydown', (ev) => {
+      const open = document.getElementById('modal-root')?.classList.contains('open');
+      if (ev.key === 'Escape') {
+        if (!open && this.ui.ringOpen) { this.ui.ringOpen = false; this.render(); return; }
+        this.closeModal();
+        return;
+      }
+      // v16 : « Lieux » au clavier (/ ou Ctrl + K), sauf pendant la saisie
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target?.tagName || '') || ev.target?.isContentEditable;
+      if (!typing && !open && (ev.key === '/' || ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k'))) { ev.preventDefault(); openPlaces(this); }
+    });
   }
 
   globalActions = {
@@ -376,6 +410,8 @@ export class App {
     'kingdom-info': (app) => app.modal(`<h2>Votre royaume</h2>${kingdomInfoHtml(app.state)}`, {}, 'wide'),
     notifs: (app) => { app.openNotifications(); app.$('#topbar').innerHTML = renderTopbar(app); },
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),
+    places: (app) => openPlaces(app),
+    'goto-tile': castleActions['goto-tile'],
     ...repActions,
     ...stageActions,
   };

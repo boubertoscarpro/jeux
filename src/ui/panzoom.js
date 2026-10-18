@@ -40,6 +40,10 @@ export function bindPanZoom(vp, opts) {
     opts.onChange?.(cam);
   };
   vp._apply = apply;
+  // v16 : une seule mise à jour par image (molette, glisser, pincement) : évite de recalculer la mise en page à chaque
+  // événement sur une grande ville (960 cases)
+  let raf = 0;
+  const schedule = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; apply(); }); };
   const pts = new Map();
   let drag = null, pinch = null;
   vp.addEventListener('pointerdown', (e) => {
@@ -61,13 +65,13 @@ export function bindPanZoom(vp, opts) {
       const rect = vp.getBoundingClientRect();
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       zoomAt(cam, (pinch.z * d / pinch.d) / cam.z, (a.x + b.x) / 2 - rect.left, (a.y + b.y) / 2 - rect.top, opts.zMin, opts.zMax);
-      apply();
+      schedule();
       return;
     }
     if (!drag || drag.id !== e.pointerId) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.moved && Math.abs(dx) + Math.abs(dy) > DRAG_THRESHOLD) { drag.moved = true; vp.setPointerCapture?.(e.pointerId); vp.classList.add('dragging'); }
-    if (drag.moved) { cam.x += dx; cam.y += dy; drag.x = e.clientX; drag.y = e.clientY; apply(); }
+    if (drag.moved) { cam.x += dx; cam.y += dy; drag.x = e.clientX; drag.y = e.clientY; schedule(); }
   });
   const end = (e) => {
     pts.delete(e.pointerId);
@@ -86,7 +90,7 @@ export function bindPanZoom(vp, opts) {
     e.preventDefault(); // la molette sert au zoom sur la carte uniquement (le reste de la page défile normalement)
     const rect = vp.getBoundingClientRect();
     zoomAt(opts.getCam(), Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)), e.clientX - rect.left, e.clientY - rect.top, opts.zMin, opts.zMax);
-    apply();
+    schedule();
   }, { passive: false });
   apply();
 }

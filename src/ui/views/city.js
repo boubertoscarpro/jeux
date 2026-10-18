@@ -22,6 +22,11 @@ import { castleName } from '../../systems/identity.js';
 import { ERAS, eraOf, TH_MILESTONES, thRequirements } from '../../data/eras.js';
 import { ensureArtDefs, buildingSvg, buildingIcon, terrainSvg, plainVariant, roadSvg, upIcon } from '../art.js';
 import { openUpgradeList, openRenameCastle } from '../upgrades.js';
+import { castleUnderSvg, castleOverSvg } from '../castleArt.js';
+import { ringHtml, lotPanel, zoneBlock, castleCard, castleActions, screenButtons, openPlaces } from '../castleUi.js';
+import { vacantLots, zoneAt, castleStage, wallStyle, freeMoveActive as freeMove } from '../../systems/castle.js';
+import { FLANKS, ZONES } from '../../data/castle.js';
+import { armyTotals } from '../../systems/economy.js';
 
 // File pleine : le chantier est planifié et démarrera seul (ressources payées au démarrage)
 const orPlan = (s, r, item) => (r.ok === false && /File de construction pleine/.test(r.reason || '') ? planConstruction(s, item) : r);
@@ -54,7 +59,11 @@ function cityCtx(app, mods) {
   // v15 : ce que la carte doit montrer (feu, crue, sécheresse, saison, signes), d'après l'état réel
   const scene = sceneState(s, Date.now(), localHour());
   const burning = new Set(scene.burning), flooded = new Set(scene.floodIds), charred = new Set(scene.damaged);
-  return { s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  // v16 : terrains vagues (bâtiments « menu » à bâtir), forge au travail, foule du marché selon les caravanes
+  const lots = new Map(vacantLots(s).map((l) => [l.x + ',' + l.y, l]));
+  const crafting = (s.queues.craft || []).length > 0;
+  const crowd = Math.min(5, (s.caravans || []).length * 2 + ((s.market?.trades || 0) > 0 ? 1 : 0));
+  return { s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -95,6 +104,9 @@ function tileHtml(app, x, y, ctx) {
       if (b.damaged) { cls.push('st-alert'); inner += '<span class="t-flag fire" title="Endommagé : production −50 %">🔥</span>'; }
       if (b.paused) inner += '<span class="t-flag pause" title="Chaîne en pause">⏸</span>';
       // v15 : état visible : bâtiment en feu (flammes, fumée), sous l'eau (crue), ruines fumantes (endommagé)
+      // v16 : vie du château liée à l'état : fumée de la forge quand elle travaille, foule au marché selon les caravanes
+      if (ctx.crafting && (b.type === 'forge' || b.type === 'armory') && !ctx.burning.has(b.id)) { cls.push('working'); inner += '<span class="fx-smoke work" aria-hidden="true"></span>'; }
+      if (b.type === 'market' && ctx.crowd) inner += `<span class="fx-crowd" aria-hidden="true">${'<i></i>'.repeat(ctx.crowd)}</span>`;
       if (ctx.burning.has(b.id)) { cls.push('burning'); inner += `<span class="fx-fire" aria-hidden="true"><i></i><i></i><i></i></span><span class="fx-smoke" aria-hidden="true"></span>`; }
       else if (ctx.charred.has(b.id)) cls.push('charred');
       if (ctx.risk) {
@@ -109,19 +121,31 @@ function tileHtml(app, x, y, ctx) {
     if (b && b.level > 0) inner += '<svg class="b-art scaffold" viewBox="0 0 64 64" aria-hidden="true"><use href="#b-scaffold"/></svg>';
     inner += `<span class="t-build" title="${q.kind === 'clear' ? 'Déblaiement' : q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours">🔨</span>${progress(q.start, q.end)}`;
   }
+  const lot = !b && !ctx.place ? ctx.lots.get(x + ',' + y) : null;
+  if (lot && !q) {
+    const d = BUILDINGS[lot.type];
+    cls.push('lot');
+    label = `Terrain vague : ${d.name} à bâtir`;
+    inner += `<span class="t-lot" aria-hidden="true"><svg viewBox="0 0 64 64" width="64" height="64"><path d="M30 60V26" stroke="#4a2f17" stroke-width="4"/><rect x="12" y="12" width="40" height="20" rx="2" fill="#c9a36a" stroke="#4a2f17" stroke-width="2.5"/><path d="M8 58h48" stroke="rgba(60,40,20,.5)" stroke-width="3" stroke-dasharray="3 4"/></svg><b>${d.icon}</b></span><span class="t-name lot-name">${esc(d.name)} · à bâtir</span>`;
+  }
   if (ctx.place && !b && t === 'plain') {
     const pc = placementCheck(s, ctx.place, x, y);
     if (pc.ok) {
       const adj = adjacencyBonus(s, ctx.place, x, y, ctx.mods).total;
       hint = `<span class="t-hint ${adj > 0 ? 'pos' : ''}">${adj > 0 ? '+' + Math.round(adj * 100) + '%' : '·'}</span>`;
       cls.push('placeable');
+    } else if (pc.zone) {
+      // v16 : zone interdite pour ce bâtiment (croix + raison au survol : l'information ne passe pas que par la couleur)
+      cls.push('zone-no');
+      hint = `<span class="t-hint no" title="${esc(pc.reason)}">✕</span>`;
+      label += ` — ${pc.reason}`;
     }
   }
   if (b && ctx.flooded.has(b.id)) { cls.push('flooded'); inner += '<span class="fx-water" aria-hidden="true"></span>'; }
   if (selected) cls.push('sel');
   const fl = app.ui.flashTile;
   if (fl && fl.x === x && fl.y === y && fl.until > Date.now()) cls.push('flash-good');
-  return `<button class="${cls.join(' ')}" data-action="tile" data-x="${x}" data-y="${y}" aria-label="${esc(label)} (${x}, ${y})">${inner}${hint}</button>`;
+  return `<button class="${cls.join(' ')}" data-action="tile" data-x="${x}" data-y="${y}" aria-label="${esc(label)} (${x}, ${y}, ${ZONES[zoneAt(s, x, y)].short})">${inner}${hint}</button>`;
 }
 
 // Infobulle de survol : nom, niveau, état, production, amélioration et actions possibles
@@ -206,7 +230,7 @@ function prodBlock(s, b, mods) {
 function buildingPanel(app, b, mods) {
   const s = app.state;
   if (b.type === 'deco') {
-    return `<h3>${COSMETICS[b.deco].icon} ${esc(COSMETICS[b.deco].name)}</h3><p class="muted">Décoration cosmétique.</p>
+    return `<h3>${COSMETICS[b.deco].icon} ${esc(COSMETICS[b.deco].name)}</h3><p class="muted">Décoration. Dans les faubourgs, près de maisons, d’un marché ou d’une taverne, elle remonte le moral des ouvriers ; dans la cour, celui de la garnison.</p>${zoneBlock(app, b)}
       <button class="btn" data-action="move" data-id="${b.id}">Déplacer</button> <button class="btn ghost" data-action="demolish" data-id="${b.id}">Retirer</button>`;
   }
   const def = BUILDINGS[b.type];
@@ -220,6 +244,7 @@ function buildingPanel(app, b, mods) {
   return `<div class="b-panel-head">${buildingSvg(b.type, b.level, 'b-art b-art-panel', b.type === 'monument' ? ORIENTS[b.orient]?.color : null)}<div><h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}/${def.maxLevel}</span></h3>
     ${b.type === 'townhall' ? `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle" title="Renommer le château principal">✎ Renommer</button></div><div class="small muted">Château principal de ${esc(s.meta.kingdomName)}</div>` : ''}</div></div>
     <p class="muted">${esc(def.desc)}</p>
+    ${zoneBlock(app, b)}
     ${b.type === 'monument' ? monumentBlock(s, b) : ''}
     ${b.type === 'townhall' ? eraBlock(s, b) : ''}
     ${b.damaged ? `<div class="panel-sub damaged"><b>🔥 Endommagé</b> : production réduite de moitié. ${costList(repairCost(b, mods), s)} <button class="mini primary" data-action="repair" data-id="${b.id}">Réparer</button></div>` : ''}
@@ -233,8 +258,8 @@ function buildingPanel(app, b, mods) {
     ${info && !q ? upgradeBlock(app, b, def, next, info, mods) : ''}
     ${!info ? '<div class="panel-sub">Niveau maximum atteint.</div>' : ''}
     <div class="row gap">
-      ${links[b.type] ? `<button class="btn" data-action="nav" data-view="${links[b.type][0]}">${links[b.type][1]} →</button>` : ''}
-      ${b.level > 0 && b.type !== 'townhall' ? `<button class="btn ghost" data-action="move" data-id="${b.id}" title="Déplacer coûte ${moveCost(b).gold} or">Déplacer (${moveCost(b).gold} 🪙)</button>` : ''}
+      ${screenButtons(app, b.type, 'btn') || (links[b.type] ? `<button class="btn" data-action="nav" data-view="${links[b.type][0]}">${links[b.type][1]} →</button>` : '')}
+      ${b.level > 0 && b.type !== 'townhall' ? (freeMove(s) ? `<button class="btn ghost" data-action="move" data-id="${b.id}" title="Déménagement gratuit (nouvelles zones du château)">Déplacer (gratuit)</button>` : `<button class="btn ghost" data-action="move" data-id="${b.id}" title="Déplacer coûte ${moveCost(b).gold} or">Déplacer (${moveCost(b).gold} 🪙)</button>`) : ''}
       ${b.type !== 'townhall' && !q ? `<button class="btn ghost danger" data-action="demolish" data-id="${b.id}">Démolir</button>` : ''}
       ${recipeOf(b) && b.level > 0 ? `<button class="btn ghost" data-action="pause" data-id="${b.id}">${b.paused ? '▶ Relancer' : '⏸ Mettre en pause'}</button><button class="btn ghost" data-action="nav" data-view="chains">⚙️ Configurer la chaîne</button>` : ''}
     </div>`;
@@ -324,8 +349,23 @@ export const cityZoomLevel = (z) => (z < 0.55 ? 'far' : z < 1.05 ? 'mid' : 'near
 function onCityCam(vp, cam) {
   const zl = cityZoomLevel(cam.z);
   if (vp.dataset.zl !== zl) vp.dataset.zl = zl;
-  vp.style.setProperty('--bz', String(Math.min(2.2, Math.max(1, 0.95 / cam.z))));
+  // v16 : --bz réécrit seulement par paliers de 0,1 (chaque réécriture recalcule le style de toutes les cases)
+  const bz = (Math.round(Math.min(2.2, Math.max(1, 0.95 / cam.z)) * 10) / 10).toFixed(1);
+  if (vp._bz !== bz) { vp._bz = bz; vp.style.setProperty('--bz', bz); }
+  // v16 : animations des bâtiments en pause pendant que la caméra bouge (chaque image resterait à repeindre sinon)
+  if (!vp.classList.contains('moving')) vp.classList.add('moving');
+  clearTimeout(vp._mv); vp._mv = setTimeout(() => vp.classList.remove('moving'), 280);
   vp.querySelector('#city-tip')?.classList.remove('on');
+  placeRing(vp, cam);
+}
+// v16 : l'anneau d'un bâtiment est posé hors de la carte transformée (taille constante quel que soit le zoom),
+// recentré à chaque mouvement de caméra et gardé dans l'écran (téléphone)
+function placeRing(vp, cam) {
+  const r = vp.querySelector('#city-ring');
+  if (!r || r.dataset.x === '' || !r.firstElementChild) return;
+  const x = cam.x + (+r.dataset.x + 0.5) * CITY_TILE * cam.z, y = cam.y + (+r.dataset.y + 0.5) * CITY_TILE * cam.z;
+  const m = 70;
+  r.style.transform = `translate(${Math.max(m, Math.min(vp.clientWidth - m, x))}px, ${Math.max(m, Math.min(vp.clientHeight - m, y))}px)`;
 }
 function cityCam(app) { return (app.ui.cityCam ||= { x: 0, y: 0, z: CITY_SCALE, init: false }); }
 function centerOnTown(app, vp, at = null) {
@@ -381,6 +421,7 @@ export default {
     const cam0 = cityCam(app);
     if (!cam0.init) centerOnTown(app, vp);
     if (cam0.centerOn) { centerOnTown(app, vp, cam0.centerOn); cam0.centerOn = null; }
+    if (app.ui.cityFocus) { centerOnTown(app, vp, app.ui.cityFocus); app.ui.cityFocus = null; }
     bindPanZoom(vp, { getCam: () => cityCam(app), zMin: CITY_ZMIN, zMax: CITY_ZMAX, onChange: (cam) => onCityCam(vp, cam) });
     bindCityTip(app, vp);
     if (app.ui.focusUpgrade) { document.getElementById('up-block')?.scrollIntoView({ block: 'nearest' }); app.ui.focusUpgrade = false; }
@@ -400,7 +441,9 @@ export default {
     } else if (sel) {
       const b = buildingAt(s, sel.x, sel.y);
       const t = terrainAt(s, sel.x, sel.y);
+      const lot = !b ? vacantLots(s).find((l) => l.x === sel.x && l.y === sel.y) : null;
       if (b) panel = buildingPanel(app, b, mods);
+      else if (lot) panel = lotPanel(app, lot);
       else if (t === 'rubble') {
         const q = s.queues.build.find((qq) => qq.kind === 'clear' && qq.x === sel.x && qq.y === sel.y);
         panel = `<h3>🧱 Décombres</h3><p class="muted">Les ruines de la Fracture encombrent cette case. Déblayer libère de la place et rapporte des matériaux… et parfois une trouvaille.</p>
@@ -408,7 +451,9 @@ export default {
       } else if (t === 'plain') panel = buildMenu(app, sel.x, sel.y, mods);
       else panel = `<h3>${TERRAIN_NAME[t]}</h3><p class="muted">${t === 'river' ? 'La rivière irrigue les fermes, moulins, vergers et tanneries voisins. Pêcherie et port doivent la toucher.' : t === 'forest' ? 'La forêt profite aux scieries, chasseurs, herboristes et charbonnières voisins.' : 'La montagne profite aux carrières et mines voisines.'}</p>`;
     } else {
-      panel = `<h3>Votre royaume</h3><p class="muted">Cliquez sur une case : décombres à déblayer, terrain libre pour construire, ou bâtiment pour l’améliorer.</p>
+      panel = `<h3>${esc(castleName(s))} · ${esc(castleStage(s).name)}</h3><p class="muted">Votre ville est votre menu : cliquez sur un bâtiment pour l’ouvrir (marché → commerce, caserne → armée, taverne → héros…), l’améliorer ou l’accélérer. Les panneaux 🪧 marquent les lieux encore à bâtir.</p>
+        <p class="small">🏰 <b>Cour du donjon</b> (intra-muros) : bâtiments savants et militaires, à l’abri tant que la muraille tient. 🏘️ <b>Faubourgs</b> : commerce, maisons, ateliers. 🌾 <b>Campagne</b> : champs, bois, carrières et mines.</p>
+        <p class="small"><button class="mini" data-action="places">📍 Lieux</button> <span class="muted">(touche / ou Ctrl + K) : tous les écrans, au clavier.</span></p>
         <p class="small">💡 Le <b>placement compte</b> : une ferme au bord de la rivière produit +10%, une mine près des montagnes +15%, une caserne près de l’hôtel de ville forme plus vite…</p>
         <p class="small">Utilisez la barre <b>Construire</b> au-dessus de la ville : chaque case affiche alors le bonus qu’y obtiendrait le bâtiment.</p>`;
     }
@@ -421,15 +466,29 @@ export default {
     const grid = parts.join('');
     const ups = upgradeSummary(s, mods);
     const cam = cityCam(app);
-    const selKey = app.ui.moveId ? 'move:' + app.ui.moveId : app.ui.placeType ? 'place:' + app.ui.placeType : sel ? `sel:${sel.x},${sel.y}` : '';
+    // v16 : un bâtiment ou un terrain vague sélectionné ouvre l'anneau (le tiroir s'ouvre avec « Infos ») ; une case
+    // libre ou des décombres ouvrent le tiroir comme avant
+    const selB = sel ? buildingAt(s, sel.x, sel.y) : null;
+    const selLot = sel && !selB ? ctx.lots.get(sel.x + ',' + sel.y) : null;
+    const ring = !app.ui.placeType && !app.ui.moveId && app.ui.ringOpen && (selB || selLot) ? ringHtml(app, selB, selLot) : '';
+    const selKey = app.ui.moveId ? 'move:' + app.ui.moveId : app.ui.placeType ? 'place:' + app.ui.placeType : sel && !(selB || selLot) ? `sel:${sel.x},${sel.y}` : '';
     const panelLabel = app.ui.moveId ? 'Déplacer' : app.ui.placeType ? 'Placer' : sel ? 'Détails' : 'Votre royaume';
     const drawer = drawerHtml(app, 'city', panelLabel, panel, { auto: selKey });
+    // v16 : le château dessiné (deux couches) et le raid qu'on voit venir
+    const W = s.city.w * CITY_TILE, Hh = s.city.h * CITY_TILE;
+    const raid = (s.raids || []).slice().sort((a, b) => a.arrive - b.arrive)[0] || null;
+    const garrison = Object.entries(s.army || {}).filter(([u]) => !['scout', 'spy'].includes(u)).reduce((a, [, n]) => a + n, 0);
+    const night = ['night', 'dusk'].includes(ctx.scene.light.phase);
+    const carts = (s.caravans || []).length;
+    const raidBanner = raid ? `<div class="raid-banner" role="status">🚨 <b>${esc(raid.name)}</b> marche sur ${esc(castleName(s))} : arrivée dans <span data-end="${raid.arrive}">${fmtTime(raid.arrive - Date.now())}</span>${raid.flankSeen ? ` · flanc visé : <b>${esc(FLANKS[raid.flank]?.name || '?')}</b>` : ''} <button class="mini" data-action="castle-defense">Préparer la défense</button></div>` : '';
     // v15 : la carte occupe toute la scène ; barre « Construire » et outils posés dessus ; détail en tiroir
     return `<div class="city-layout">
       <div class="stage city-stage ${drawerOpen(app, 'city') ? 'drawer-open' : ''} ${app.ui.placeType || app.ui.moveId ? 'building' : ''} ${sceneClasses(ctx.scene)}">
         ${sceneLayersHtml(ctx.scene, 'city')}
-        <div class="mapvp city-vp" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--bz:${Math.min(2.2, Math.max(1, 0.95 / cam.z))}">
-          <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="ground-slot" style="width:${s.city.w * CITY_TILE}px;height:${s.city.h * CITY_TILE}px"></div><div class="city-grid painted ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div></div>
+        <div class="mapvp city-vp" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--bz:${(Math.round(Math.min(2.2, Math.max(1, 0.95 / cam.z)) * 10) / 10).toFixed(1)}">
+          <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="ground-slot" style="width:${W}px;height:${Hh}px"></div><div class="castle-slot under">${castleUnderSvg(s, { W, H: Hh })}</div><div class="city-grid painted ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}" style="--cw:${s.city.w}">${grid}</div><div class="castle-slot over">${castleOverSvg(s, { W, H: Hh, night, raid, garrison, carts })}</div></div>
+          <div class="ring-wrap" id="city-ring" data-x="${sel ? sel.x : ''}" data-y="${sel ? sel.y : ''}">${ring}</div>
+          ${raidBanner}
           <div class="map-tip" id="city-tip" role="tooltip"></div>
           <div class="map-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : îlots inflammables et zone inondable">🔥</button><button class="mini" data-action="city-zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="city-zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="city-fit" title="Vue d’ensemble du royaume">⤢</button><button class="mini" data-action="city-center" title="Recentrer sur l’hôtel de ville (zoom par défaut)">🏛️</button></div>
           <div class="map-hint muted small">${app.ui.cityRisk ? 'Risques : 🔥 incendie (bois serré = élevé ; pierre, routes, rivière, caserne ou tour de garde proches le réduisent) · 🌊 zone inondable' : `${s.city.w}×${s.city.h} · glisser pour déplacer · molette pour zoomer · survol : détails`}</div>
@@ -441,6 +500,7 @@ export default {
         }).join('')}${app.ui.citySel || app.ui.placeType || app.ui.moveId ? '<button class="mini ghost" data-action="cancel-mode">✕ Annuler</button>' : ''}</div>
         <div class="city-toolbar">
           <button class="up-counter ${ups.count ? 'on' : ''}" data-action="up-list" title="Liste des améliorations possibles">${upIcon('ready')} <b>${ups.count}</b> amélioration${ups.count > 1 ? 's' : ''} disponible${ups.count > 1 ? 's' : ''}</button>
+          <button class="mini" data-action="places" title="Tous les lieux et écrans du royaume (touche / ou Ctrl + K)">📍 Lieux</button>
           <button class="mini ghost" data-action="up-toggle" aria-pressed="${showUpgrades(s)}" title="Afficher ou masquer les icônes d’amélioration sur la carte">${showUpgrades(s) ? '👁 Icônes affichées' : '🚫 Icônes masquées'}</button>
           <span class="muted small legend-inline"><span class="lg lg-ready"></span> améliorable <span class="lg lg-blocked"></span> bloquée <span class="lg lg-build"></span> chantier <span class="lg lg-alert"></span> action requise</span>
         </div>
@@ -449,7 +509,8 @@ export default {
       </div>
       <div class="below-map">
         ${(() => { const st = nextDomainStep(s); return st ? `<div class="card domain-card"><h3>🗺️ Agrandir le domaine <span class="muted small">${s.city.w}×${s.city.h} cases</span></h3><div class="small muted">Étape « ${esc(st.name)} » : +${DOMAIN_GROW.w} colonnes à l’est et +${DOMAIN_GROW.h} rangées au sud de terrain vierge à aménager (forêts, montagnes, quelques décombres, rivière).</div><div class="b-opt-foot">${costList(st.cost, s)} <span class="small ${thLevel(s) >= st.th ? 'ok' : 'req'}">HdV ${st.th}</span><button class="mini primary" data-action="expand">Agrandir</button></div></div>` : ''; })()}
-        <div class="card"><h3>🧱 Fortifications</h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
+        <div class="card" id="fort-card"><h3>🧱 Fortifications <span class="muted small">${esc(wallStyle(s.city.fort.wall || 0).name)}</span></h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
+        ${castleCard(app)}
         <div class="card"><h3>📊 Bilan horaire</h3><div class="net-grid">${Object.entries(net).filter(([, v]) => Math.abs(v) > 0.05).sort((a, b) => b[1] - a[1]).map(([r, v]) => `<div class="net ${v < 0 ? 'neg' : ''}">${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)} <b>${v > 0 ? '+' : ''}${fmt(v)}</b></div>`).join('')}</div>
           <p class="muted small">Capacité : ${fmt(cap)} · Protégé des pillages : ${fmt(protectedAmount(s, mods))} par ressource. Les ressources rares et l’or ne sont pas plafonnés.</p></div>
       </div>
@@ -479,8 +540,20 @@ export default {
         return;
       }
       app.ui.citySel = { x, y };
+      app.ui.ringOpen = !!(buildingAt(s, x, y) || vacantLots(s).some((l) => l.x === x && l.y === y));
       app.render();
     },
+    'ring-close': (app) => { app.ui.ringOpen = false; app.ui.citySel = null; app.render(); },
+    'ring-info': (app) => { app.ui.ringOpen = false; (app.ui.drawer ||= {}).city = true; app.render(); },
+    'lot-build': (app, el) => {
+      const s = app.state, type = el.dataset.type, x = +el.dataset.x, y = +el.dataset.y;
+      if (!app.confirmSpend(getUpgradeInfo(s, type, 1).cost, 'cette construction')) return;
+      const r = app.act(() => orPlan(s, startBuild(s, type, x, y), { kind: 'build', type, x, y }), planMsg('Construction lancée'));
+      if (r?.ok !== false) { app.ui.ringOpen = false; app.render(); }
+    },
+    places: (app) => openPlaces(app),
+    'castle-defense': (app) => { document.querySelector('.castle-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); },
+    ...castleActions,
     build: (app, el) => { if (!app.confirmSpend(getUpgradeInfo(app.state, el.dataset.type, 1).cost, 'cette construction')) return; app.act(() => orPlan(app.state, startBuild(app.state, el.dataset.type, +el.dataset.x, +el.dataset.y), { kind: 'build', type: el.dataset.type, x: +el.dataset.x, y: +el.dataset.y }), planMsg('Construction lancée')); },
     upgrade: (app, el) => { const b = app.state.city.buildings[el.dataset.id]; if (b && !app.confirmSpend(getUpgradeInfo(app.state, b.type, b.level + 1).cost, 'cette amélioration')) return; app.act(() => orPlan(app.state, startUpgrade(app.state, el.dataset.id), { kind: 'upgrade', bid: el.dataset.id }), planMsg('Amélioration lancée')); },
     clear: (app, el) => app.act(() => startClear(app.state, +el.dataset.x, +el.dataset.y), 'Déblaiement lancé'),
