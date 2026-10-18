@@ -365,7 +365,10 @@ function placeRing(vp, cam) {
   if (!r || r.dataset.x === '' || !r.firstElementChild) return;
   const x = cam.x + (+r.dataset.x + 0.5) * CITY_TILE * cam.z, y = cam.y + (+r.dataset.y + 0.5) * CITY_TILE * cam.z;
   const m = 70;
-  r.style.transform = `translate(${Math.max(m, Math.min(vp.clientWidth - m, x))}px, ${Math.max(m, Math.min(vp.clientHeight - m, y))}px)`;
+  // Jamais sous la barre « Construire » posée sur la carte (mesurée une fois par rendu)
+  if (vp._ringTop === undefined) { const st = vp.parentElement?.querySelector('.stage-top'); vp._ringTop = st ? Math.max(m, st.offsetTop + st.offsetHeight - vp.offsetTop + 66) : m; }
+  const top = Math.min(vp._ringTop, vp.clientHeight - m);
+  r.style.transform = `translate(${Math.max(m, Math.min(vp.clientWidth - m, x))}px, ${Math.max(top, Math.min(vp.clientHeight - m, y))}px)`;
 }
 function cityCam(app) { return (app.ui.cityCam ||= { x: 0, y: 0, z: CITY_SCALE, init: false }); }
 function centerOnTown(app, vp, at = null) {

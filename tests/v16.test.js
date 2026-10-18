@@ -331,10 +331,11 @@ test('Migration : une vraie sauvegarde v15 reçoit une enceinte, rien n’est d�
 
 test('Migration : l’enceinte n’enferme ni champ ni carrière', () => {
   const s = realm();
-  put(s, 'lib', 'library', 15, 7); put(s, 'farm', 'farm', 11, 3);
+  put(s, 'lib', 'library', 14, 7); put(s, 'far', 'forge', 16, 7); put(s, 'farm', 'farm', 11, 3);
   delete s.castle;
   migrateCastle(s, T0);
-  assert.equal(zoneAt(s, 15, 7), 'keep', 'la bibliothèque est rattrapée par l’enceinte');
+  assert.equal(zoneAt(s, 14, 7), 'keep', 'la bibliothèque proche est rattrapée par l’enceinte');
+  assert.notEqual(zoneAt(s, 16, 7), 'keep', 'la forge lointaine reste dehors (enceinte courte, muraille non affaiblie)');
   assert.notEqual(zoneAt(s, 11, 3), 'keep', 'la ferme reste dehors');
   // Une ferme sur le chemin : l'enceinte ne s'étend pas jusqu'à la forge plutôt que d'enfermer la ferme
   const s2 = realm();

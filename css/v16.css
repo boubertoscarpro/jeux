@@ -49,7 +49,7 @@
 @keyframes v16-ring { from { opacity: 0; } to { opacity: 1; } }
 
 /* Raid en approche */
-.raid-banner { position: absolute; left: 50%; bottom: 44px; transform: translateX(-50%); z-index: 7; max-width: calc(100% - 24px); padding: 7px 14px; border-radius: 10px;
+.raid-banner { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); z-index: 7; max-width: calc(100% - 140px); width: max-content; padding: 5px 12px; border-radius: 10px;
   background: rgba(70, 14, 10, 0.92); color: #fff1e8; border: 2px solid #e05a4a; font: 600 13px var(--font); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
 .raid-banner .mini { background: #fff1e8; color: #4a0e0a; }
 
@@ -73,6 +73,7 @@
 .places-q { width: 100%; padding: 9px 12px; font-size: 16px; border-radius: 8px; margin: 6px 0 10px; }
 .places { list-style: none; margin: 0; padding: 0; max-height: min(60vh, 520px); overflow-y: auto; display: grid; gap: 4px; }
 .place { display: flex; align-items: center; gap: 6px; }
+.place[hidden] { display: none; }
 .place .place-open { flex: 1; text-align: left; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line, #3e3428); background: rgba(255, 255, 255, 0.03); color: inherit; font: inherit; cursor: pointer; min-height: 40px; }
 .place.cur .place-open, .place .place-open:hover, .place .place-open:focus-visible { border-color: var(--gold, #c9a54a); background: rgba(201, 165, 74, 0.12); }
 .place.locked .place-open { opacity: 0.7; }

@@ -45,6 +45,7 @@ export const ENCEINTE = {
   segmentCost: { stone: 150, wood: 60, gold: 20 }, // par nouveau segment de muraille, × (1 + 0,15 × niveau)
   levelCost: 0.15,
   freeMoveDays: 7,                            // déménagement gratuit après la migration d'une ancienne partie
+  migrateRadius: 3,                           // migration : l'enceinte n'englobe que les bâtiments à 3 cases au plus
 };
 
 // Raids par zone et dégâts de la muraille

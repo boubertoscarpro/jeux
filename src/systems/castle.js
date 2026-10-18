@@ -292,6 +292,8 @@ export function vacantLots(state) {
   const out = [];
   for (const type of LOT_TYPES) {
     if (!BUILDINGS[type] || countType(state, type) > 0) continue;
+    // Seulement ce qui est à portée : débloqué, ou débloqué au prochain niveau de l'hôtel de ville
+    if ((BUILDINGS[type].req?.townhall || 1) > thOf(state) + 1) continue;
     const prefKeep = ruleOf(type) === 'keep' || ['barracks', 'warehouse'].includes(type);
     const anchor = prefKeep ? center : gate;
     let best = null, bd = Infinity;
@@ -326,6 +328,9 @@ export function migrateCastle(state, now = Date.now()) {
   const cand = blds(state).filter((b) => b.type !== 'townhall' && ['keep', 'any'].includes(ruleOf(b.type)) && !['road', 'deco'].includes(b.type))
     .sort((a, b) => (ruleOf(b.type) === 'keep') - (ruleOf(a.type) === 'keep') || Math.max(Math.abs(a.x - t.x), Math.abs(a.y - t.y)) - Math.max(Math.abs(b.x - t.x), Math.abs(b.y - t.y)));
   for (const b of cand) {
+    // Seulement les bâtiments proches (3 cases au plus de l'hôtel de ville) : une enceinte trop longue affaiblirait la
+    // muraille d'une partie existante ; les autres restent actifs et se déménagent gratuitement
+    if (Math.max(Math.abs(b.x - t.x), Math.abs(b.y - t.y)) > ENCEINTE.migrateRadius) continue;
     const n = { x0: Math.min(r.x0, b.x), y0: Math.min(r.y0, b.y), x1: Math.max(r.x1, b.x), y1: Math.max(r.y1, b.y) };
     if (rectW(n) > mx.w || rectH(n) > mx.h) continue;
     // On n'enferme pas un champ, une carrière ou une tannerie dans la cour
