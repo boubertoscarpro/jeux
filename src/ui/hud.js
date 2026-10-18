@@ -82,14 +82,14 @@ export function renderTopbar(app) {
       ${(() => { const n = upgradeCount(s, mods); return `<button class="chip chip-up ${n ? 'on' : ''}" data-action="up-list" title="Améliorations réalisables maintenant (bâtiments, fortifications, avant-postes) — ouvrir la liste">${upIcon('ready')} ${n} amélioration${n > 1 ? 's' : ''}</button>`; })()}
       <button class="chip chip-bell ${(s.notifications || []).some((n) => !n.read) ? 'on' : ''}" data-action="notifs" title="Notifications">🔔${(s.notifications || []).filter((n) => !n.read).length || ''}</button>
     </div>
-    <button class="res-more side-toggle" data-action="toggle-side" title="Files & objectifs">📋</button>
+    ${(() => { const n = s.pending.length + (s.crises?.active?.length || 0); return `<button class="res-more side-toggle ${n ? 'alert' : ''}" data-action="toggle-side" title="Files, décisions et objectifs${n ? ` — ${n} à voir` : ''}" aria-label="Files, décisions et objectifs">📋${n ? `<span class="tb-badge">${n}</span>` : ''}</button>`; })()}
     <div class="top-status">
       ${(() => { const a = activePolicy(s, now), p = policyState(s); return a && a !== 'balanced' ? `<button class="chip" data-action="nav" data-view="policy" title="Priorité royale">${POLICIES[a].icon} ${esc(POLICIES[a].name)}</button>` : p.pending ? `<button class="chip" data-action="nav" data-view="policy" title="Réorganisation en cours">⏳ ${esc(POLICIES[p.pending].name)}</button>` : ''; })()}
       <span class="chip" title="${esc(calendar(s, now).season.desc)}">${calendar(s, now).season.icon} An ${calendar(s, now).year} · ${esc(calendar(s, now).season.name)}</span>
       <span class="chip" title="${esc(w.note)}">${w.icon} ${esc(w.name)} · ${countdown(s.weather.until)}</span>
       ${s.catastrophe && s.catastrophe.until > now ? `<span class="chip chip-bad" title="${esc(CATASTROPHES[s.catastrophe.key].text)}">${CATASTROPHES[s.catastrophe.key].icon} ${esc(CATASTROPHES[s.catastrophe.key].name)} · ${countdown(s.catastrophe.until)}</span>` : ''}
       ${s.famine ? '<span class="chip chip-bad" title="Plus de nourriture : moral −30, formation impossible">⚠️ Famine</span>' : ''}
-      ${events}${buffs}
+      ${(() => { const n = s.events.filter((e) => e.end > now).length + s.buffs.filter((b) => b.until > now).length; return n ? `<details class="fx-more"><summary class="chip" title="Événements du monde et bonus temporaires en cours">✨ ${n} effet${n > 1 ? 's' : ''} actif${n > 1 ? 's' : ''}</summary><div class="fx-pop">${events}${buffs}</div></details>` : ''; })()}
     </div>`;
 }
 
@@ -153,7 +153,7 @@ export function renderSide(app) {
       return `<div class="q-row"><div class="q-top"><span>${EXPEDITION_TYPES[t.type].icon} ${esc(t.name)}${t.repeat ? ' 🔁' : ''}</span>${countdown(end)}</div><div class="muted small">${{ out: 'En route', work: 'Au travail', back: 'Retour' }[t.status]}${t.status === 'work' && t.accum ? ` · ≈ ${Math.round(t.accum)}` : ''}</div>${progress(start, end)}</div>`;
     }).join('')}</section>`);
   }
-  parts.push(adviceBox(s, now));
+  // v15 : le conseiller n'apparaît qu'une fois (bouton « Conseiller » de la navigation, avec un compteur)
   parts.push(chapterBox(s, now));
   parts.push(missionBox(s, now));
   return parts.join('');
@@ -195,8 +195,8 @@ export const sideActions = {
   'raid-stop': (app, el) => app.confirm('<h2>Arrêter les raids en série ?</h2><p>Aucune nouvelle attaque ne partira. Une attaque déjà en route va au bout et rentre normalement. 80 % de l’intendance des attaques non menées est rendue.</p>', 'Arrêter', () => app.act(() => cancelRaidOrder(app.state, el.dataset.id), 'Raids en série arrêtés')),
   'claim-quest': (app, el) => app.act(() => claimMission(app.state, el.dataset.id), 'Récompense obtenue !'),
   'claim-chapter': (app, el) => app.act(() => claimChapter(app.state, +el.dataset.n), 'Chapitre terminé : récompense obtenue !'),
-  'adv-snooze': (app, el) => app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'),
-  'adv-dismiss': (app, el) => app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'),
+  'adv-snooze': (app, el) => { app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'); refreshAdvice(app); },
+  'adv-dismiss': (app, el) => { app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'); refreshAdvice(app); },
   'cp-training': (app) => runTraining(app),
   'dm-claim': (app, el) => app.act(() => claimDynMission(app.state, el.dataset.id), (r) => `Mission accomplie : ${r.text}`),
   // Ouvre l'écran d'une mission dynamique, avec la case ou le lieu concerné déjà sélectionné
@@ -211,6 +211,8 @@ export const sideActions = {
   'open-pending': (app, el) => openPending(app, el.dataset.id),
 };
 
+// v15 : la liste rapide vit dans la fenêtre du conseiller (bouton unique de la navigation) ; on la remet à jour sur place
+function refreshAdvice(app) { const box = document.querySelector('.modal .advice-box'); if (box) box.outerHTML = adviceBox(app.state); }
 // Conseiller du tableau de bord (niveau réglable : complet, réduit, désactivé)
 const SEV_ICON = { bad: '🔴', warn: '🟠', next: '📖', info: '🔵', good: '🟢' };
 export function adviceBox(s, now = Date.now()) {
@@ -219,11 +221,11 @@ export function adviceBox(s, now = Date.now()) {
   let list;
   try { list = adviceList(s, now); } catch (e) { console.error(e); list = []; }
   const shown = list.slice(0, level === 'reduced' ? 2 : 3);
-  return `<section class="side-box advice-box"><h3>🧙‍♂️ Conseiller${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
+  return `<section class="side-box advice-box"><h3>📌 Conseils du moment${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
     ${shown.map((r) => `<div class="advice sev-${r.sev}"><div class="small">${SEV_ICON[r.sev] || ''} ${esc(r.text)}</div>
       <div class="advice-foot">${r.apply ? `<button class="mini primary" data-action="adv-apply" data-r="${esc(r.apply)}" title="Appliquer ce conseil maintenant">${esc(r.applyLabel || 'Appliquer')}</button>` : ''}${r.action ? `<button class="mini" data-action="${r.action}">${r.action === 'up-list' ? 'Voir' : 'Lancer'}</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
       <button class="mini ghost" data-action="adv-snooze" data-id="${esc(r.id)}" title="Masquer 4 h">⏰</button>${r.sev !== 'bad' ? `<button class="mini ghost" data-action="adv-dismiss" data-id="${esc(r.id)}" title="Ne plus afficher ce conseil">✕</button>` : ''}</div></div>`).join('') || '<div class="muted small">Rien d’urgent. Votre royaume tourne bien.</div>'}
-    <button class="btn block ghost small" data-action="advisor">Analyse détaillée →</button></section>`;
+    </section>`;
 }
 
 // Chapitre en cours du parcours guidé

@@ -14,11 +14,16 @@ const result = await build({
   legalComments: 'none',
 });
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
-const css = (await readFile(root + 'css/style.css', 'utf8')) + '\n' + (await readFile(root + 'css/theme.css', 'utf8'));
+// Polices embarquées en données (aucune requête externe : le fichier unique fonctionne hors ligne)
+let fonts = await readFile(root + 'css/fonts.css', 'utf8');
+for (const m of fonts.matchAll(/url\('fonts\/([^']+)'\)/g)) fonts = fonts.replace(m[0], `url(data:font/woff2;base64,${(await readFile(root + 'css/fonts/' + m[1])).toString('base64')})`);
+const css = fonts + '\n' + (await readFile(root + 'css/style.css', 'utf8')) + '\n' + (await readFile(root + 'css/theme.css', 'utf8')) + '\n' + (await readFile(root + 'css/v15.css', 'utf8'));
 let html = await readFile(root + 'index.html', 'utf8');
 html = html
+  .replace('<link rel="stylesheet" href="css/fonts.css">', '')
   .replace('<link rel="stylesheet" href="css/style.css">', () => `<style>${css}</style>`)
   .replace('<link rel="stylesheet" href="css/theme.css">', '')
+  .replace('<link rel="stylesheet" href="css/v15.css">', '')
   .replace('<script type="module" src="src/main.js"></script>', () => `<script>${js}</script>`);
 await mkdir(root + 'dist', { recursive: true });
 await writeFile(root + 'dist/cendrelande.html', html);

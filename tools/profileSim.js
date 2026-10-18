@@ -45,6 +45,7 @@ import { PROJECTS } from '../src/data/projects.js';
 import { projectState, startProject, contribute, startStageWorks } from '../src/systems/projects.js';
 import { v10Bot } from './v10bot.js';
 import { v14Bot } from './v14bot.js';
+import { nemesisReinforcement } from '../src/systems/nemesis.js';
 import { challengeState } from '../src/systems/challenges.js';
 import { legendState } from '../src/systems/legendary.js';
 import { monumentOf } from '../src/systems/monument.js';
@@ -59,6 +60,18 @@ function v14Metrics(s) {
     crises: C.opened || 0, crRes: C.resolved || 0, crEnd: C.endured || 0, crStage: C.maxStage || 0, crRevolts: C.revolts || 0, burnt: C.burnt || 0, fires: s.stats.fires || 0,
     omens: O.announced || 0, omFalse: O.false || 0, omVer: O.verified || 0, omPrep: O.prepared || 0,
     reserve: Math.round(sumV(R.stock)), resUsed: Math.round(sumV(R.used)), regent: C.regent || 0, absorbed: Math.round(sumV(R.absorbed)), lostProd: Math.round(sumV(s.stats.overflow)),
+  };
+}
+// Mesures v15 : signes, demi-mesures, crises contenues, Némésis de la Brèche
+function v15Metrics(s) {
+  const C = s.crises?.stats || {}, O = s.omens?.stats || {};
+  const forts = Object.values(s.world?.pois || {}).filter((p) => p.breach);
+  const nem = forts.map((p) => p.breach.nem).filter(Boolean);
+  let adapt = 0;
+  for (const p of forts) adapt = Math.max(adapt, nemesisReinforcement(p.breach, 1000, s.meta.lastTick).pct);
+  return {
+    signs: O.signs || 0, omHalf: O.half || 0, contained: C.contained || 0,
+    nemMet: nem.reduce((a, n) => a + (n.met || 0), 0), nemScars: nem.reduce((a, n) => a + n.scars.length, 0), nemTitles: nem.reduce((a, n) => a + n.titles.length + (n.revenges || 0), 0), nemRev: nem.reduce((a, n) => a + (n.revenges || 0), 0), nemAdapt: Math.round(adapt * 100),
   };
 }
 const ECO = ['farm', 'sawmill', 'quarry', 'mine', 'house', 'warehouse', 'mill', 'bakery', 'market', 'charcoal', 'foundry', 'library', 'herbalist', 'hunter', 'tannery', 'weaver', 'carpentry', 'fishery'];
@@ -219,6 +232,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     brLevel: Math.round(Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.level, 0) / Math.max(1, Object.values(s.world.pois).filter((p) => p.breach).length) * 10) / 10,
     allies: (s.factions || []).filter((f) => ['trade', 'alliance'].includes(f.stance)).length, commissions: Object.keys(s.commissions?.done || {}).length,
     ...v14Metrics(s),
+    ...v15Metrics(s),
     hamlets: Object.values(s.territories || {}).reduce((a, t) => a + (t.hamlet || 0), 0), codex: Object.values(s.codex?.seen || {}).reduce((a, x) => a + Object.keys(x).length, 0),
     memory: Math.round((s.factions || []).reduce((a, f) => a + memoryScore(f, t), 0)), insignia: s.meta.insignia || 0,
     chapter: s.campaign.chapter + (s.campaign.finished ? 1 : 0) - 1, snaps,
@@ -293,7 +307,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'crises', 'crRes', 'crEnd', 'crStage', 'crRevolts', 'burnt', 'fires', 'omens', 'omFalse', 'omVer', 'omPrep', 'reserve', 'resUsed', 'regent', 'absorbed', 'lostProd', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'crises', 'crRes', 'crEnd', 'crStage', 'crRevolts', 'burnt', 'fires', 'omens', 'omFalse', 'omVer', 'omPrep', 'reserve', 'resUsed', 'regent', 'absorbed', 'lostProd', 'signs', 'omHalf', 'contained', 'nemMet', 'nemScars', 'nemTitles', 'nemRev', 'nemAdapt', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');

@@ -10,7 +10,7 @@ let chromium;
 try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
 const path = require('path');
 
-const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, 'petit écran'], [1440, 900, 'grand écran']];
+const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, 'petit écran'], [1440, 900, 'grand écran'], [390, 844, 'téléphone 390'], [1920, 1080, 'très grand écran']];
 
 (async () => {
   const browser = await chromium.launch();
@@ -22,7 +22,7 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
     page.on('pageerror', (e) => problems.push(`${label} ${W}×${H} · ${ctx} : erreur ${e.message}`));
     page.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('fonts.g')) problems.push(`${label} · ${ctx} : console ${m.text()}`); });
     page.on('dialog', (d) => d.dismiss());
-    await page.goto('file://' + path.resolve(__dirname, '../dist/cendrelande.html'));
+    await page.goto('file://' + (process.env.DIST ? path.resolve(process.env.DIST) : path.resolve(__dirname, '../dist/cendrelande.html')));
     await page.click('[data-kt="merchants"]'); await page.click('#intro-review'); await page.click('#intro-start');
     await page.waitForTimeout(300);
     // Royaume avancé : tous les écrans ouverts, contenus nombreux (cas le plus chargé)
@@ -50,6 +50,18 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
         }
         if (top && top.getBoundingClientRect().height > window.innerHeight / 3) out.push(`barre du haut trop haute (${Math.round(top.getBoundingClientRect().height)} px)`);
         if (!nav || nav.getBoundingClientRect().width === 0) out.push('navigation invisible');
+        // v15 : le sous-menu ne doit jamais recouvrir la barre d'outils de la carte (« Construire », filtres…)
+        const sub = document.querySelector('#view .subnav'), bar = document.querySelector('#view .stage-top, #view .build-bar');
+        if (sub && bar) {
+          // Mesuré en haut de page puis après défilement (le défaut v14 n'apparaissait qu'en faisant défiler)
+          const scrollers = [document.scrollingElement, document.querySelector('#view'), document.querySelector('#main')].filter(Boolean);
+          for (const dy of [0, 220]) {
+            for (const el of scrollers) el.scrollTop = dy;
+            const a = sub.getBoundingClientRect(), b = bar.getBoundingClientRect();
+            if (a.height && b.height && a.bottom > b.top + 1 && a.top < b.bottom - 1) { out.push(`le sous-menu recouvre la barre de la carte (${Math.round(a.bottom - b.top)} px, défilement ${dy})`); break; }
+          }
+          for (const el of scrollers) el.scrollTop = 0;
+        }
         const small = [...document.querySelectorAll('#nav .nav-btn')].filter((b) => { const x = b.getBoundingClientRect(); return x.width && (x.width < 32 || x.height < 32); });
         if (small.length) out.push(`${small.length} bouton(s) de navigation trop petits`);
         return out;

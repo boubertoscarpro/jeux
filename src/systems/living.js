@@ -14,7 +14,7 @@ import { log, toast } from './log.js';
 import { omenTick, isPrepared } from './omens.js';
 import { openCrisis, crisisMods, crisisPrice } from './crises.js';
 import { floodDamage, pickFireStart, guardNear } from './hazards.js';
-import { CRISES, PREPARATIONS } from '../data/crises.js';
+import { CRISES, PREPARATIONS, HALF_PREP } from '../data/crises.js';
 
 // Modificateurs de la saison et de la catastrophe en cours
 // Résistance à l'hiver (spécialisation, monument, traditions) — calculée sans computeMods pour éviter une boucle
@@ -104,17 +104,18 @@ export function startCatastrophe(state, k, now) {
   if (c.weather) state.weather = { type: c.weather, until: now + c.duration * 1000 };
   chronicle(state, `${c.icon} ${c.name} : ${c.text}`, now);
   toast(`${c.icon} ${c.name} !`, 'bad');
-  const prepared = isPrepared(state, k, now);
+  const prepared = isPrepared(state, k, now); // 'full', 'half' (v15) ou false
   if (c.flood) {
-    // Zone inondable : seuls les bâtiments au bord de la rivière risquent d'être abîmés (sacs de sable : ×0,25)
-    const n = floodDamage(state, prepared ? PREPARATIONS.flood.floodGuard : 1);
+    // Zone inondable : seuls les bâtiments au bord de la rivière risquent d'être abîmés (sacs de sable : ×0,25 ; à moitié : ×0,6)
+    const n = floodDamage(state, prepared === 'full' ? PREPARATIONS.flood.floodGuard : prepared === 'half' ? HALF_PREP.floodGuard : 1);
     state.fertileUntil = now + c.duration * 1000 + 3 * 3600000;
     if (n) log(state, 'bad', `🌊 L’inondation endommage ${n} bâtiment(s) au bord de la rivière${prepared ? ' malgré les sacs de sable' : ''}. Les terres seront plus fertiles ensuite (+20% nourriture).`, now);
   }
   // Répercussions : la catastrophe ouvre une crise à étapes, sauf si le royaume s'y était préparé
   const crisis = Object.entries(CRISES).find(([, d]) => d.from === k);
   if (crisis) {
-    if (prepared) log(state, 'good', `${PREPARATIONS[k]?.icon || '✅'} Préparé : ${c.name.toLowerCase()} ne tournera pas à la crise.`, now);
+    if (prepared === 'full') log(state, 'good', `${PREPARATIONS[k]?.icon || '✅'} Préparé : ${c.name.toLowerCase()} ne tournera pas à la crise.`, now);
+    else if (prepared === 'half') { log(state, 'good', `${PREPARATIONS[k]?.icon || '✅'} Préparatifs partiels : la crise sera contenue à sa première étape.`, now); openCrisis(state, crisis[0], now, { contained: true }); }
     else openCrisis(state, crisis[0], now);
   }
   if (c.crystals) {

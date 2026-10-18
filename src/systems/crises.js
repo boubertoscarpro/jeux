@@ -65,6 +65,7 @@ export function openCrisis(state, type, now = Date.now(), extra = {}) {
   log(state, 'bad', `${def.icon} Crise : ${def.name} — ${def.stages[0].name}. ${def.stages[0].text}`, now);
   toast(`${def.icon} Crise : ${def.name}`, 'bad');
   if (type === 'fire' && extra.guarded) c.guarded = true;
+  if (extra.contained) c.contained = true; // v15 : préparatifs partiels, la crise s'arrête après sa première étape
   regent(state, c, now);
   return c;
 }
@@ -171,6 +172,7 @@ export function crisisTick(state, now = Date.now()) {
         // La garde accourt : maîtrisé après la première vague (sans frais)
         if (c.guarded && def.stages[c.stage + 1]?.spread) { c.how = 'La garde a maîtrisé le feu'; enterStage(state, c, def.stages.findIndex((s) => !s.spread), t); continue; }
       }
+      if (c.contained && c.stage === 0) { c.how = 'Préparatifs partiels : crise contenue'; const st0 = crisesState(state).stats; st0.contained = (st0.contained || 0) + 1; end(state, c, 'resolved', t); continue; }
       if (c.stage >= def.stages.length - 1) end(state, c, 'endured', t);
       else enterStage(state, c, c.stage + 1, t);
     }

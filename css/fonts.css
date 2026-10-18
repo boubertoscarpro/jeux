@@ -1,0 +1,4 @@
+/* Polices embarquées (licence SIL Open Font License 1.1, voir css/fonts/OFL.txt) : le jeu reste identique hors ligne.
+   Fichiers variables (une graisse continue) ; jeu de caractères latin (accents français compris). */
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 400 900; font-display: swap; src: url('fonts/cinzel-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('fonts/inter-latin.woff2') format('woff2'); }

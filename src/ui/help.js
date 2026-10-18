@@ -137,7 +137,7 @@ export function openHelp(app, viewId, group) {
   const h = helpFor(viewId);
   if (!h) return;
   const locked = (group?.tabs || []).map((t) => ({ t, l: t.locked?.(app) })).filter((x) => x.l);
-  app.modal(`<h2>❓ ${esc(h.title)}</h2>
+  app.modal(`<h2>❓ Aide · ${esc(h.title)}</h2>
     ${h.sections.map(([t, body]) => `<h4>${esc(t)}</h4><p class="small">${body}</p>`).join('')}
     ${locked.length ? `<h4>Encore verrouillé</h4>${locked.map(({ t, l }) => `<p class="small">🔒 <b>${esc(t.title)}</b> : ${esc(l)}</p>`).join('')}` : ''}
     <div class="row gap wrap"><button class="btn" data-action="goto" data-view="journal">📘 Revoir les fiches du tutoriel</button><button class="btn ghost" data-action="advisor">🧙‍♂️ Demander au conseiller</button><button class="btn ghost" data-action="close-modal">Fermer</button></div>`, {}, 'wide');

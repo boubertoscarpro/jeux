@@ -13,6 +13,7 @@ export function openAdvisor(app, qa = null) {
   const keyRes = ['food', 'wood', 'stone', 'iron', 'gold', 'steel', 'planks', 'bread', 'weapons', 'rations'];
   const html = `<h2>🧙‍♂️ Maître Anselin, conseiller du royaume</h2>
     <p class="muted small">« Sire, voici l’état de votre économie, établi d’après les registres du jour. »</p>
+    ${app.adviceBox ? app.adviceBox(s) : ''}
     <div class="cols-2">
       <div><h4>Votre économie</h4><table class="adv-eco"><tbody>${keyRes.map((r) => {
         const v = a.net[r] || 0;

@@ -1,3 +1,4 @@
+import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
 import { borderOf } from '../../systems/hazards.js';
 import { TERRAINS, POI_TYPES, RIVALS, BOSSES } from '../../data/world.js';
 import { resIcon } from '../icons.js';
@@ -5,6 +6,7 @@ import { UNITS, ALL_UNITS, FORMATIONS, TERRAIN_COMBAT } from '../../data/units.j
 import { RESOURCES } from '../../data/resources.js';
 import { CONSUMABLES } from '../../data/items.js';
 import { breachPanel, drawBreachFort } from '../breach.js';
+import { lordFaceImage } from '../nemesisFace.js';
 import { drawWorldMarks, drawHamlet, marksPanel } from '../worldmarks.js';
 import { breachDefense } from '../../systems/breach.js';
 import { BREACH_MIN_MERIT } from '../../data/breach.js';
@@ -33,6 +35,10 @@ import { RAID, RAID_COUNTS, raidTargetOk, raidStatus, raidCycle, startRaidOrder,
 import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
+import { drawWorldTerrain, drawFog, gfxOf, paintMini, miniFrame } from '../atlas.js';
+import { calendar } from '../../systems/chronicle.js';
+import { sceneState } from '../../systems/scene.js';
+import { sceneLayersHtml, sceneClasses, updateSceneFx, localHour } from '../sceneFx.js';
 
 // Taille réelle d'une case au zoom 1 (px) : 40 (au lieu de 26) pour des lieux immédiatement reconnaissables
 export const BASE_TILE = 52; // v13.2 : cases plus grandes (40 auparavant)
@@ -85,6 +91,7 @@ function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span c
 export function drawMap(app) {
   const canvas = document.getElementById('world-canvas');
   if (!canvas) return;
+  const perfT0 = performance.now();
   const s = app.state, w = s.world, c = cam(app);
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -106,30 +113,11 @@ export function drawMap(app) {
   for (const f of s.factions || []) for (const k of f.territory) factionTiles.set(k, f);
   const banner = s.meta.banner || '#e2b84a';
   const detail = T >= 14;
-  // Terrain (textures mises en cache) et brouillard
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    const px = ox + x * T, py = oy + y * T;
-    if (!isRevealed(w, x, y)) {
-      ctx.fillStyle = (x + y) % 2 ? '#1a1d26' : '#181a22';
-      ctx.fillRect(px, py, T + 0.5, T + 0.5);
-      continue;
-    }
-    const ter = wTerrain(w, x, y);
-    if (detail) ctx.drawImage(terrainSprite(ter, tileVariant(x, y), T, dpr), px, py, T + 0.5, T + 0.5);
-    else { ctx.fillStyle = TERRAINS[ter].color; ctx.fillRect(px, py, T + 0.5, T + 0.5); }
-  }
-  // Bord du brouillard adouci : les cases inexplorées voisines d'une case connue débordent en dégradé
-  if (T >= 8) {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-      if (isRevealed(w, x, y)) continue;
-      const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const nx = x + dx, ny = y + dy; return nx >= 0 && ny >= 0 && nx < w.size && ny < w.size && isRevealed(w, nx, ny); });
-      if (!edge) continue;
-      const cx = ox + (x + 0.5) * T, cy = oy + (y + 0.5) * T;
-      const g = ctx.createRadialGradient(cx, cy, T * 0.2, cx, cy, T * 0.95);
-      g.addColorStop(0, 'rgba(22,24,32,0.9)'); g.addColorStop(1, 'rgba(22,24,32,0)');
-      ctx.fillStyle = g; ctx.fillRect(cx - T, cy - T, T * 2, T * 2);
-    }
-  }
+  // v15 : terrain peint (niveau global + blocs mis en cache), voir src/ui/atlas.js
+  const quality = gfxOf(s);
+  const season = calendar(s, now).season.key;
+  const view = { T, ox, oy, x0, x1, y0, y1 };
+  const pending = drawWorldTerrain(ctx, w, view, season, quality, s.meta.saver ? 1 : 2);
   // Territoires : teinte et frontières selon la relation (ennemi, allié, neutre) ; les vôtres en couleur de bannière
   const owner = (x, y) => { const k = key(x, y); if (s.territories[k]) return 'me'; const f = factionTiles.get(k); return f ? f : null; };
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
@@ -141,6 +129,9 @@ export function drawMap(app) {
     ctx.fillStyle = col + (o === 'me' ? '38' : '33'); ctx.fillRect(px, py, T + 0.5, T + 0.5);
     const st = o === 'me' ? { color: banner, width: 2.5, dash: [] } : relationOf(o);
     ctx.strokeStyle = st.color || col; ctx.lineWidth = Math.max(1, Math.min(st.width, T / 8)); ctx.setLineDash(T > 10 ? st.dash : []);
+    // v15 : frontière en guerre : le tracé « vacille » (décalage du pointillé à chaque seconde), et hachures sur la case
+    if (o !== 'me' && o.stance === 'war') { ctx.lineDashOffset = reduceMotion ? 0 : (Math.floor(now / 1000) % 2) * 5; if (T > 12) { ctx.save(); ctx.beginPath(); ctx.rect(px, py, T, T); ctx.clip(); ctx.strokeStyle = 'rgba(204,90,76,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([]); for (let k = -T; k < T; k += Math.max(5, T / 5)) { ctx.beginPath(); ctx.moveTo(px + k, py + T); ctx.lineTo(px + k + T, py); ctx.stroke(); } ctx.restore(); ctx.strokeStyle = st.color || col; ctx.setLineDash(T > 10 ? st.dash : []); } }
+    else ctx.lineDashOffset = 0;
     ctx.beginPath();
     for (const [dx, dy, ax, ay, bx, by] of [[0, -1, 0, 0, 1, 0], [1, 0, 1, 0, 1, 1], [0, 1, 0, 1, 1, 1], [-1, 0, 0, 0, 0, 1]]) {
       if (owner(x + dx, y + dy) === o) continue;
@@ -148,14 +139,9 @@ export function drawMap(app) {
     }
     ctx.stroke(); ctx.setLineDash([]);
   }
-  // Grille légère (zoom rapproché)
-  if (T > 22) {
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = x0; x <= x1 + 1; x++) { ctx.moveTo(ox + x * T, oy + y0 * T); ctx.lineTo(ox + x * T, oy + (y1 + 1) * T); }
-    for (let y = y0; y <= y1 + 1; y++) { ctx.moveTo(ox + x0 * T, oy + y * T); ctx.lineTo(ox + (x1 + 1) * T, oy + y * T); }
-    ctx.stroke();
-  }
+  ctx.lineDashOffset = 0;
+  // Brouillard à l'encre (opaque sur l'inconnu, bords irréguliers)
+  drawFog(ctx, w, view, revealedCount(w), quality);
   // Portée des territoires
   const mods = computeMods(s, now);
   const cpx = ox + (w.capital.x + 0.5) * T, cpy = oy + (w.capital.y + 0.5) * T;
@@ -250,6 +236,11 @@ export function drawMap(app) {
       : !cleared && (def.dungeon || p.type === 'lostCity') ? `rgba(190,150,255,${0.35 + 0.35 * pulse})` : !cleared && p.danger >= 4 ? `rgba(255,90,70,${0.25 + 0.3 * pulse})` : null;
     const rb = def.kind === 'breach' && p.breach ? Math.max(8, Math.min(38, T * 0.46)) * (1 + 0.08 * (Math.floor((p.breach.level - 1) / 5))) : 0;
     if (rb) drawBreachFort(ctx, px, py, rb, p.breach, { cleared });
+    // v15 — Portrait du seigneur au-dessus de sa forteresse (vue rapprochée)
+    if (rb >= 16 && !cleared) {
+      const face = lordFaceImage({ name: p.breach.lord, scars: p.breach.nem?.scars, titles: p.breach.nem?.titles, tier: 1 + Math.floor((p.breach.level - 1) / 5) });
+      if (face) { const fs = Math.round(rb * 1.1); ctx.drawImage(face, px + rb * 0.9, py - rb * 1.6, fs, fs); }
+    }
     else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
     if (p.danger > 0 && def.kind !== 'boss' && def.kind !== 'breach' && T > 16) {
@@ -334,46 +325,40 @@ export function drawMap(app) {
     ctx.strokeRect(ox + sel.x * T + 1.5, oy + sel.y * T + 1.5, Math.max(3, T - 3), Math.max(3, T - 3));
   }
   drawMini(app, W, H);
+  if (pending) redraw(app); // blocs de terrain encore à peindre : on continue à l'image suivante
+  // Mesure du coût de rendu (outil de performance, tools/v15perf.cjs) : 120 dernières images
+  const pw = (app.perfWorld ||= []); pw.push(performance.now() - perfT0); if (pw.length > 120) pw.shift();
 }
 
-// Mini-carte : terrain découvert, lieux majeurs, cadre de la vue ; cliquer ou glisser déplace la caméra
+// Mini-carte (v15) : peinte comme la carte, cadrée sur la zone connue ; cliquer ou glisser déplace la caméra
 function drawMini(app, W, H) {
   const mini = document.getElementById('world-mini');
   if (!mini || mini.hidden) return;
-  const s = app.state, w = s.world, c = cam(app), S = w.size;
+  const s = app.state, w = s.world, c = cam(app);
   const dpr = window.devicePixelRatio || 1;
   const size = mini.clientWidth;
   if (mini.width !== Math.round(size * dpr)) { mini.width = Math.round(size * dpr); mini.height = Math.round(size * dpr); }
   const ctx = mini.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const k = size / S;
-  // Le fond (terrain) est mis en cache tant que le brouillard ne change pas
-  const sig = `${S}:${revealedCount(w)}:${Math.floor(Date.now() / 60000)}`;
-  if (!app._miniBg || app._miniSig !== sig) {
-    const bg = document.createElement('canvas');
-    bg.width = S; bg.height = S;
-    const b = bg.getContext('2d');
-    const img = b.createImageData(S, S);
-    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-      const i = (y * S + x) * 4;
-      const hex = isRevealed(w, x, y) ? TERRAINS[wTerrain(w, x, y)].color : '#1c1f29';
-      img.data[i] = parseInt(hex.slice(1, 3), 16); img.data[i + 1] = parseInt(hex.slice(3, 5), 16); img.data[i + 2] = parseInt(hex.slice(5, 7), 16); img.data[i + 3] = 255;
-    }
-    b.putImageData(img, 0, 0);
-    app._miniBg = bg; app._miniSig = sig;
-  }
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(app._miniBg, 0, 0, size, size);
+  const n = revealedCount(w);
+  if (!app._miniFrame || app._miniN !== n) { app._miniFrame = miniFrame(w); app._miniN = n; }
+  const fr = app._miniFrame, k = size / fr.side;
+  paintMini(ctx, w, size, fr, calendar(s, Date.now()).season.key, gfxOf(s), n);
+  const at = (x, y) => [(x - fr.x) * k, (y - fr.y) * k];
   for (const p of Object.values(w.pois)) {
     const kind = POI_TYPES[p.type]?.kind;
     if (!['capital', 'kingdom', 'town', 'boss'].includes(kind) || !isRevealed(w, p.x, p.y)) continue;
+    const [mx, my] = at(p.x + 0.5, p.y + 0.5), r = Math.max(2.5, k * 0.9);
     ctx.fillStyle = kind === 'capital' ? '#ffd24a' : kind === 'kingdom' ? RIVALS[p.rival]?.color || '#b04ad0' : kind === 'boss' ? '#ff3b3b' : '#ffe9a8';
-    ctx.fillRect((p.x - 0.8) * k, (p.y - 0.8) * k, Math.max(3, 2.6 * k), Math.max(3, 2.6 * k));
+    ctx.strokeStyle = '#1d1812'; ctx.lineWidth = 1;
+    ctx.beginPath(); if (kind === 'capital') ctx.rect(mx - r, my - r, 2 * r, 2 * r); else ctx.arc(mx, my, r, 0, 7); ctx.fill(); ctx.stroke();
   }
-  for (const t of Object.values(s.territories || {})) { ctx.fillStyle = '#e2b84a'; ctx.fillRect(t.x * k, t.y * k, Math.max(2, k), Math.max(2, k)); }
+  for (const t of Object.values(s.territories || {})) { const [mx, my] = at(t.x, t.y); ctx.fillStyle = '#e2b84a'; ctx.fillRect(mx, my, Math.max(2, k), Math.max(2, k)); }
   const T = BASE_TILE * c.zoom;
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
-  ctx.strokeRect((c.x - W / 2 / T) * k, (c.y - H / 2 / T) * k, (W / T) * k, (H / T) * k);
+  const [vx, vy] = at(c.x - W / 2 / T, c.y - H / 2 / T);
+  ctx.strokeStyle = '#fff6dc'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(vx, vy, (W / T) * k, (H / T) * k);
+  ctx.strokeStyle = 'rgba(44,34,22,0.9)'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, size - 2, size - 2);
 }
 
 // Accès rapide : lieux découverts notables, du plus proche au plus lointain
@@ -398,9 +383,19 @@ function focusTile(app, x, y, zoom = null) {
   c.x = x + 0.5; c.y = y + 0.5;
   if (zoom) c.zoom = Math.max(c.zoom, zoom);
   app.ui.worldSel = { x, y };
-  const panel = document.getElementById('world-panel');
-  if (panel) panel.innerHTML = tilePanel(app);
+  refreshDrawer(app);
   drawMap(app);
+}
+
+// Met à jour le tiroir de la case sélectionnée sans redessiner tout l'écran (la carte reste en place)
+function refreshDrawer(app) {
+  const old = document.querySelector('.world-stage .drawer');
+  if (!old) return;
+  const sel = app.ui.worldSel;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = drawerHtml(app, 'world', sel ? `Case (${sel.x}, ${sel.y})` : 'Carte du monde', tilePanel(app), { auto: sel ? `${sel.x},${sel.y}` : '' });
+  old.replaceWith(tmp.firstElementChild);
+  document.querySelector('.world-stage')?.classList.toggle('drawer-open', drawerOpen(app, 'world'));
 }
 
 // Contenu de l'infobulle du monde
@@ -485,8 +480,7 @@ function bindCanvas(app) {
       const y = Math.floor((e.clientY - r.top - H / 2) / T + c.y);
       if (x >= 0 && y >= 0 && x < S && y < S) {
         app.ui.worldSel = { x, y };
-        const panel = document.getElementById('world-panel');
-        if (panel) panel.innerHTML = tilePanel(app);
+        refreshDrawer(app);
         drawMap(app);
       }
     }
@@ -504,7 +498,7 @@ function bindCanvas(app) {
   const mini = document.getElementById('world-mini');
   if (mini) {
     let down = false;
-    const go = (e) => { const r = mini.getBoundingClientRect(), S = app.state.world.size, c = cam(app); c.x = ((e.clientX - r.left) / r.width) * S; c.y = ((e.clientY - r.top) / r.height) * S; redraw(app); };
+    const go = (e) => { const r = mini.getBoundingClientRect(), fr = app._miniFrame || { x: 0, y: 0, side: app.state.world.size }, c = cam(app); c.x = fr.x + ((e.clientX - r.left) / r.width) * fr.side; c.y = fr.y + ((e.clientY - r.top) / r.height) * fr.side; redraw(app); };
     mini.addEventListener('pointerdown', (e) => { down = true; mini.setPointerCapture(e.pointerId); go(e); e.stopPropagation(); });
     mini.addEventListener('pointermove', (e) => { if (down) go(e); });
     mini.addEventListener('pointerup', () => { down = false; });
@@ -863,8 +857,14 @@ const worldView = {
   badge: (app) => app.state.pending.length,
   render(app) {
     cam(app);
+    const sel = app.ui.worldSel;
+    const scene = sceneState(app.state, Date.now(), localHour());
+    const drawer = drawerHtml(app, 'world', sel ? `Case (${sel.x}, ${sel.y})` : 'Carte du monde', tilePanel(app), { auto: sel ? `${sel.x},${sel.y}` : '' });
+    // v15 : la carte occupe toute la scène, le détail de la case passe dans un tiroir
     return `<div class="world-layout">
-      <div class="world-canvas-wrap card">
+      <div class="stage world-stage ${drawerOpen(app, 'world') ? 'drawer-open' : ''} ${sceneClasses(scene)}">
+      ${sceneLayersHtml(scene, 'world')}
+      <div class="world-canvas-wrap">
         <canvas id="world-canvas" aria-label="Carte du monde : cliquez sur une case pour l’inspecter"></canvas>
         <div class="map-tip" id="world-tip" role="tooltip"></div>
         <div class="map-tools"><button class="mini" data-action="zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="fit" title="Vue d’ensemble du monde">⤢</button><button class="mini" data-action="center" title="Recentrer sur la capitale (zoom par défaut)">🏰</button>${app.state.boss ? '<button class="mini warn" data-action="goto-boss" title="Boss mondial">🐉</button>' : ''}<button class="mini" data-action="mini-toggle" title="Afficher / masquer la mini-carte">🗺️</button></div>
@@ -874,11 +874,18 @@ const worldView = {
         <canvas id="world-mini" class="world-mini" ${app.ui.miniOff ? 'hidden' : ''} title="Mini-carte : cliquez pour vous y rendre"></canvas>
         <div class="map-hint muted small">${app.state.world.size}×${app.state.world.size} · glisser · molette ou pincement pour zoomer</div>
       </div>
-      <div class="world-panel card" id="world-panel">${tilePanel(app)}</div>
+      ${drawer}
+      </div>
     </div>`;
   },
-  after(app) { bindCanvas(app); requestAnimationFrame(() => drawMap(app)); },
-  tick(app) { drawMap(app); },
+  after(app) { fitStage(); bindCanvas(app); requestAnimationFrame(() => drawMap(app)); },
+  tick(app) {
+    // Mode économie : sans mouvement sur la carte (marches, raids, caravanes, expéditions), un redessin toutes les 10 s
+    const s = app.state, moving = s.marches.length || s.raids.length || s.caravans.length || (s.expeditions || []).some((e) => e.status !== 'idle');
+    app._wt = (app._wt || 0) + 1;
+    if (s.meta.saver && !moving && app._wt % 10) return;
+    drawMap(app); updateSceneFx(document.querySelector('.world-stage'), sceneState(app.state, Date.now(), localHour()), 'world');
+  },
   actions: {
     zoom: (app, el) => { const cv = document.getElementById('world-canvas'); if (!cv) return; const r = cv.getBoundingClientRect(); zoomWorldAt(cam(app), +el.dataset.z, r.width / 2, r.height / 2, r.width, r.height, app.state.world.size); drawMap(app); },
     fit: (app) => { const c = cam(app), S = app.state.world.size; c.zoom = 0; c.x = S / 2; c.y = S / 2; drawMap(app); },

@@ -6,7 +6,7 @@ import { RESOURCES } from '../data/resources.js';
 import { fmt } from '../core/util.js';
 import { thLevel } from '../systems/city.js';
 import { activeCrises, crisisThread, intervene, crisesState } from '../systems/crises.js';
-import { omensState, omenView, omenText, omenTitle, omenReliability, omenSources, verifyOmen, prepareFor, prepCost, verifyCost } from '../systems/omens.js';
+import { omensState, omenView, omenText, omenTitle, omenReliability, omenSources, verifyOmen, prepareFor, prepCost, verifyCost, halfCost, omenSignInfo } from '../systems/omens.js';
 import { reserveState, reserveCap, reserveOf, depositReserve, setReserveRule, releaseFood } from '../systems/reserve.js';
 import { computeMods } from '../systems/modifiers.js';
 import { levelOf } from '../systems/city.js';
@@ -42,6 +42,23 @@ export function crisesCard(s) {
 }
 
 // Almanach : présages en cours, fiabilité, recoupement et préparation
+// v15 — Signes observés : chaque relevé (toutes les 20 min) montre un signe ou rien ; l'estimation se met à jour
+function signsHtml(o) {
+  const g = omenSignInfo(o);
+  if (!g || o.resolved || o.checked != null) return '';
+  const n = (o.signs || []).length, quiet = o.quiet || 0;
+  const v = omenView(o);
+  const dots = [...(o.signs || []).map(() => '<i class="sg on" title="Signe observé">●</i>'), ...Array.from({ length: Math.min(6, quiet) }, () => '<i class="sg" title="Relevé sans signe">○</i>')].join('');
+  return `<div class="omen-signs small"><span>${g.icon} ${esc(g.name)} : ${n ? `${n} signe${n > 1 ? 's' : ''} observé${n > 1 ? 's' : ''}` : 'aucun signe encore'}${quiet ? `, ${quiet} relevé${quiet > 1 ? 's' : ''} sans signe` : ''}</span> <span class="sg-row" aria-hidden="true">${dots}</span>
+    <span class="muted">Estimation : ${Math.round(v.est * 100)} % (${esc(v.band.name.toLowerCase())}). ${esc(g.text)}</span></div>`;
+}
+// Préparation entière ou demi-mesure (moitié du coût : la crise est contenue à sa 1re étape au lieu d'être évitée)
+function prepHtml(s, o, p, pc) {
+  if (o.prepared === true || o.prepared === 'full') return `<span class="small ok">✔ ${esc(p.label)}</span>`;
+  if (o.checked === false) return '';
+  if (o.prepared === 'half') return `<span class="small ok">◐ ${esc(p.label)} à moitié</span><button class="mini primary" data-action="omen-prep" data-id="${o.id}" data-level="full">Compléter (${resChips(halfCost(s, o.key))})</button>`;
+  return `<button class="mini primary" data-action="omen-prep" data-id="${o.id}" data-level="full">${p.icon} ${esc(p.label)} (${resChips(pc)})</button><button class="mini" data-action="omen-prep" data-id="${o.id}" data-level="half" title="Si le fléau frappe, la crise reste contenue à sa première étape">◐ Demi-mesure (${resChips(halfCost(s, o.key))})</button><span class="small muted">${esc(p.text)} Demi-mesure : la crise est contenue au lieu d’être évitée.</span>`;
+}
 export function almanacCard(s, now = Date.now()) {
   if (thLevel(s) < 2) return '';
   const S = omensState(s);
@@ -57,7 +74,7 @@ export function almanacCard(s, now = Date.now()) {
     return `<div class="omen ${o.resolved ? 'past' : ''}"><div class="row between wrap"><b>${omenTitle(o)}</b><span class="small">${v.icon} ${esc(v.label)} · ${outcome}</span></div>
       <div class="small muted">« ${esc(omenText(o))} »</div>
       ${o.resolved ? '' : `<div class="row gap wrap">${v.sure || o.checkAt ? (o.checkAt ? `<span class="small muted">🔭 Un éclaireur vérifie (${countdown(o.checkAt)})</span>` : '') : `<button class="mini" data-action="omen-verify" data-id="${o.id}" data-m="gold">🔮 Astrologues (${resChips(vc)})</button><button class="mini ghost" data-action="omen-verify" data-id="${o.id}" data-m="scout" ${(s.army.scout || 0) < 1 ? 'disabled' : ''}>🔭 Envoyer un éclaireur (30 min)</button>`}
-        ${p ? (o.prepared ? `<span class="small ok">✔ ${esc(p.label)}</span>` : o.checked === false ? '' : `<button class="mini primary" data-action="omen-prep" data-id="${o.id}">${p.icon} ${esc(p.label)} (${resChips(pc)})</button><span class="small muted">${esc(p.text)}</span>`) : ''}</div>`}</div>`;
+        ${p ? prepHtml(s, o, p, pc) : ''}</div>`}${signsHtml(o)}</div>`;
   };
   return `<div class="card almanac"><div class="row between wrap"><h3>🔮 Almanach des présages</h3><span class="small">${band.icon} Fiabilité ${band.name.toLowerCase()} (${Math.round(q * 100)} %)</span></div>
     <p class="small muted">Les fléaux et les tensions du marché s’annoncent 1 à 2 h à l’avance. La fiabilité est la chance qu’un présage se réalise : un sur ${Math.max(2, Math.round(1 / Math.max(0.05, 1 - q)))} environ est faux. Recoupez-le, ou préparez-vous en pariant sur lui.</p>
@@ -91,14 +108,14 @@ export function sideRepercussions(s, now = Date.now()) {
     parts.push(`<div class="q-row rep-side"><div class="q-top"><span>${d.icon} ${esc(d.name)} : ${esc(st.name)}</span>${countdown(c.nextAt)}</div><div class="small"><button class="mini primary" data-action="goto" data-view="goals">Couper la chaîne →</button></div></div>`);
   }
   const o = (s.omens?.list || []).find((x) => !x.resolved && x.kind === 'catastrophe');
-  if (o) { const v = omenView(o); parts.push(`<div class="q-row"><div class="q-top"><span>🔮 ${omenTitle(o)} ?</span>${countdown(o.at)}</div><div class="small muted">${v.icon} ${esc(v.label)}${o.prepared ? ' · préparé' : ''}</div></div>`); }
+  if (o) { const v = omenView(o); parts.push(`<div class="q-row"><div class="q-top"><span>🔮 ${omenTitle(o)} ?</span>${countdown(o.at)}</div><div class="small muted">${v.icon} ${esc(v.label)}${o.prepared === 'half' ? ' · à moitié préparé' : o.prepared ? ' · préparé' : ''}</div></div>`); }
   return parts.length ? `<section class="side-box"><h3>🔗 Répercussions</h3>${parts.join('')}</section>` : '';
 }
 
 export const repActions = {
   'crisis-iv': (app, el) => app.act(() => intervene(app.state, el.dataset.id, el.dataset.iv), (r) => (r.resolved ? 'Crise surmontée' : r.delayed ? 'La suite est repoussée' : 'Intervention faite')),
   'omen-verify': (app, el) => app.act(() => verifyOmen(app.state, el.dataset.id, el.dataset.m), (r) => (r.pending ? 'Un éclaireur part vérifier' : r.truth ? '✅ Les astrologues confirment le présage' : '❌ Les astrologues démentent le présage')),
-  'omen-prep': (app, el) => app.act(() => prepareFor(app.state, el.dataset.id), 'Préparatifs faits'),
+  'omen-prep': (app, el) => app.act(() => prepareFor(app.state, el.dataset.id, Date.now(), el.dataset.level === 'half' ? 'half' : 'full'), (r) => (r.level === 'half' ? 'Demi-mesure prise' : 'Préparatifs faits')),
   'res-dep': (app, el) => app.act(() => depositReserve(app.state, el.dataset.r), (r) => `${fmt(r.n)} ${RESOURCES[el.dataset.r].icon} versés à la réserve`),
   'res-rule': (app, el) => app.act(() => setReserveRule(app.state, el.dataset.rule, el.checked), 'Consigne enregistrée'),
   'res-release': (app) => app.act(() => releaseFood(app.state), (r) => `${fmt(r.n)} 🍖 rendus au royaume`),

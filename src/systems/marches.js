@@ -436,10 +436,12 @@ function arriveBreach(state, m, t, mods, poi) {
     state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + Object.values(res.defLosses).reduce((a, b) => a + b, 0);
   } else if (!out.worthy) parts.push('assaut jugé insignifiant : la garnison n’en tire aucune leçon');
   if (out.evolved.length) parts.push(`la forteresse évolue : ${out.evolved.join(' ; ')}`);
+  if (out.nem?.lines.length) parts.push(out.nem.lines.join(' ; '));
+  if (D.nemesis?.pct > 0 && !D.wounded) parts.push(`${poi.breach.lord} vous attendait avec des renforts contre vos troupes (+${Math.round(D.nemesis.pct * 100)} %)`);
   const text = parts.join('. ') + '.';
   log(state, out.win ? 'good' : 'bad', `🏴 ${out.win ? 'Victoire' : 'Défaite'} contre ${poi.name}. ${text}`, t);
   poi.scouted = true;
-  addReport(state, { t, kind: 'battle', title: `${out.win ? 'Victoire' : 'Défaite'} — ${poi.name}`, x: m.x, y: m.y, win: out.win, result: res, enemies: D.enemies, loot: { ...m.loot }, text, terrain: wTerrain(state.world, m.x, m.y), weather: state.weather.type });
+  addReport(state, { t, kind: 'battle', title: `${out.win ? 'Victoire' : 'Défaite'} — ${poi.name}`, x: m.x, y: m.y, win: out.win, result: res, enemies: D.enemies, loot: { ...m.loot }, text, lord: { id: poi.breach.id, name: poi.breach.lord, scars: [...(poi.breach.nem?.scars || [])], titles: [...(poi.breach.nem?.titles || [])], tier: breachTier(poi.breach).n }, terrain: wTerrain(state.world, m.x, m.y), weather: state.weather.type });
   if (!unitCount(m.units)) return homecoming(state, m, t, true);
   goBack(m, t);
 }

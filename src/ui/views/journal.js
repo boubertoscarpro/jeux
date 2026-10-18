@@ -3,6 +3,7 @@ import { ALL_UNITS, TERRAIN_COMBAT, WEATHER } from '../../data/units.js';
 import { fmt } from '../../core/util.js';
 import { esc, resChips } from '../components.js';
 import { seenTips, openTip } from '../tips.js';
+import { lordFaceSvg } from '../nemesisFace.js';
 
 const TYPE_ICON = { good: '✅', bad: '❌', story: '📖', event: '🌍', combat: '⚔️', explore: '🧭', trade: '🪙', info: 'ℹ️' };
 const time = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -20,6 +21,7 @@ export function reportModal(app, rep) {
   const theirLoss = r ? (def ? r.attLosses : r.defLosses) : null;
   app.modal(`<div class="report-head"><h2>${rep.win ? '🏆' : '💀'} ${esc(rep.title)}</h2>${sealLine(app.state)}</div>
     <div class="muted small">${new Date(rep.t).toLocaleString('fr-FR')}${rep.x !== undefined ? ` · (${rep.x}, ${rep.y})` : ''}${rep.terrain ? ` · ${esc(TERRAIN_COMBAT[rep.terrain]?.name || rep.terrain)}` : ''}${rep.weather ? ` · ${WEATHER[rep.weather]?.icon} ${esc(WEATHER[rep.weather]?.name)}` : ''}</div>
+    ${rep.lord ? `<div class="nemesis report-lord">${lordFaceSvg(rep.lord, 56)}<div><b>${esc(rep.lord.name)}</b>${rep.lord.titles?.length ? `, ${esc(rep.lord.titles[rep.lord.titles.length - 1])}` : ''}<div class="small muted">${rep.lord.scars?.length || 0} cicatrice(s) · ${rep.lord.titles?.length || 0} titre(s)</div></div></div>` : ''}
     ${rep.text ? `<p class="story">${esc(rep.text)}</p>` : ''}
     ${r ? `<div class="cols-2"><div class="card-sub"><h4>Vos pertes</h4>${unitsLine(myLoss)}</div><div class="card-sub"><h4>Pertes ennemies</h4>${unitsLine(theirLoss)}${r.bossDamage ? `<div>Dégâts au boss : <b>${fmt(r.bossDamage)}</b></div>` : ''}</div></div>
       <h4>Facteurs</h4><ul class="notes small">${r.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>

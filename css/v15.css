@@ -1,0 +1,212 @@
+/* ═════════════════════════ v15 · L'Atlas vivant ═════════════════════════
+   Mise en page centrée sur les cartes, barre du haut compacte, tiroirs, correctif des barres qui se chevauchaient.
+   Les cartes elles-mêmes (sol peint, états visibles) sont dessinées par src/ui/atlas.js et src/ui/views/*.js. */
+
+:root {
+  --map-ink: #2c2216;
+  --map-parch: #e9dcb8;
+  --drawer-w: min(400px, calc(100% - 64px));
+}
+
+/* ───── Sous-onglets : plus collants (ils glissaient sur la barre « Construire »), une seule ligne défilante ───── */
+.subnav { position: static; top: auto; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; margin: 0 0 10px; }
+.subnav .subtab { flex: 0 0 auto; white-space: nowrap; }
+
+/* ───── Barre du haut : une ligne de ressources, effets actifs repliés ───── */
+#topbar { row-gap: 6px; }
+.resbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; flex: 1 1 auto; }
+.resbar::-webkit-scrollbar, .top-status::-webkit-scrollbar { display: none; }
+.resbar .res { flex: 0 0 auto; }
+.res-icon .ic, .res-icon svg { width: 20px; height: 20px; }
+.top-status { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.top-status > * { flex: 0 0 auto; }
+.fx-more { position: relative; }
+.fx-more > summary { list-style: none; cursor: pointer; }
+.fx-more > summary::-webkit-details-marker { display: none; }
+.fx-more[open] > summary { box-shadow: 0 0 0 1px var(--gold); }
+.fx-pop { position: fixed; z-index: 40; margin-top: 6px; display: flex; flex-direction: column; gap: 4px; padding: 8px; max-width: min(360px, 90vw);
+  background: var(--panel); border: 1px solid var(--line-l); border-radius: var(--radius); box-shadow: var(--shadow-l); }
+.side-toggle { position: relative; }
+.side-toggle.alert { border-color: var(--bad); }
+.tb-badge { position: absolute; top: -6px; right: -6px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 99px; background: var(--bad); color: #fff; font: 700 11px/17px var(--font); text-align: center; }
+@media (max-width: 900px) {
+  .brand-sub, .brand-castle { display: none; }
+  .top-prestige { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  #topbar { gap: 6px; }
+  .res { padding: 3px 6px; }
+}
+
+/* ───── Écrans « carte » : la colonne de droite devient un tiroir, accessible par 📋 ───── */
+#app.mapmode { grid-template-columns: 84px minmax(0, 1fr); }
+#app.mapmode #side { display: none; }
+#app.mapmode .side-toggle { display: inline-flex; align-items: center; justify-content: center; }
+#app.mapmode.show-side #side { display: block; position: fixed; right: 0; top: 64px; bottom: 0; width: min(340px, 92vw); z-index: 30; box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); }
+@media (max-width: 900px) {
+  #app.mapmode { grid-template-columns: minmax(0, 1fr); }
+  #app.mapmode.show-side #side { bottom: 62px; }
+}
+#app.mapmode #view { padding: 10px 12px; }
+
+/* ───── Scène : la carte occupe toute la hauteur disponible ───── */
+.city-layout, .world-layout { display: block; height: auto; }
+.stage { position: relative; height: 70vh; min-height: 360px; margin-bottom: 12px; border-radius: var(--radius); overflow: hidden;
+  border: 2px solid #4a3d22; box-shadow: inset 0 0 0 1px rgba(226, 184, 74, 0.15), 0 10px 28px rgba(0, 0, 0, 0.45); }
+.stage > .mapvp, .stage > .world-canvas-wrap { position: absolute; inset: 0; height: auto; min-height: 0; margin: 0; border: 0; border-radius: 0; }
+.stage .world-canvas-wrap { padding: 0; }
+
+/* Barre « Construire » et outils : posés sur la carte, une ligne défilante */
+.stage-top { position: absolute; left: 10px; right: 10px; top: 10px; z-index: 5; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.stage-top > * { pointer-events: auto; }
+.stage .build-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; margin: 0; padding: 5px 8px; max-width: 100%; align-self: flex-start;
+  background: rgba(24, 20, 15, 0.86); border: 1px solid #4a3d22; border-radius: var(--radius); backdrop-filter: blur(3px); }
+.stage .build-bar .bb-btn { flex: 0 0 auto; }
+.stage .build-bar > .muted { white-space: nowrap; }
+.stage .city-toolbar { align-self: flex-start; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 8px; margin: 0;
+  background: rgba(24, 20, 15, 0.78); border: 1px solid #3e3428; border-radius: var(--radius); }
+.stage.drawer-open .stage-top { right: calc(var(--drawer-w) + 24px); }
+
+/* Outils de carte : à gauche, en bas (le tiroir occupe la droite) */
+.stage .map-tools { top: auto; right: auto; left: 10px; bottom: 38px; z-index: 5; }
+.stage .map-hint { left: 56px; bottom: 8px; z-index: 4; }
+.stage .map-filters { left: 10px; right: auto; max-width: calc(100% - 20px); }
+.stage.drawer-open .map-filters { max-width: calc(100% - var(--drawer-w) - 44px); }
+.stage .world-mini { z-index: 5; }
+.stage.drawer-open .world-mini { right: calc(var(--drawer-w) + 24px); }
+.stage .map-survey { z-index: 5; }
+
+/* Tiroir de détail */
+.drawer { position: absolute; top: 10px; right: 10px; bottom: 10px; width: var(--drawer-w); z-index: 7; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+.drawer:not(.open) { width: auto; bottom: auto; }
+.drawer-tab { pointer-events: auto; display: inline-flex; gap: 6px; align-items: center; padding: 5px 12px; border-radius: 99px; cursor: pointer;
+  font: 600 13px var(--font); color: var(--ivory); background: rgba(30, 25, 19, 0.92); border: 1px solid var(--bronze-d); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.drawer-tab:hover { border-color: var(--gold); }
+.drawer-body { pointer-events: auto; display: none; width: 100%; flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55); }
+.drawer.open .drawer-body { display: block; }
+
+/* Téléphone : le tiroir devient un panneau du bas */
+@media (max-width: 700px) {
+  :root { --drawer-w: 100%; }
+  .drawer { left: 6px; right: 6px; top: auto; bottom: 6px; width: auto; align-items: stretch; }
+  .drawer.open { height: 58%; }
+  .drawer-tab { align-self: flex-end; }
+  .stage.drawer-open .stage-top, .stage.drawer-open .map-filters { right: 10px; max-width: calc(100% - 20px); }
+  .stage.drawer-open .world-mini { right: 10px; display: none; }
+  .stage .map-tools { bottom: 44px; }
+  .stage .city-toolbar .legend-inline { display: none; }
+}
+
+/* Sous la carte : le reste (agrandissement, fortifications, bilan) */
+.below-map { display: grid; gap: 12px; }
+
+/* Quadrillage : visible seulement en mode construction (placement, déplacement) ou à la demande */
+.stage:not(.building) .city-vp .tile { border-color: transparent; box-shadow: none; }
+.stage.building .city-vp .tile { box-shadow: inset 0 0 0 1px rgba(255, 245, 210, 0.22); }
+
+/* ───── Royaume peint : sol continu (canvas) sous une grille transparente ───── */
+.city-vp { background: #3b4a2a; }
+.ground-slot { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; }
+.ground-slot canvas { width: 100%; height: 100%; display: block; image-rendering: auto; }
+.city-vp .city-grid.painted { position: relative; z-index: 1; background: transparent !important; }
+.city-vp .city-grid.painted .tile { background: transparent !important; border-color: transparent; border-radius: 4px; }
+.city-vp .city-grid.painted .tile.has-b { background: radial-gradient(ellipse 46% 30% at 50% 72%, rgba(80, 62, 36, 0.32), transparent 70%) !important; }
+.city-vp .city-grid.painted .tile:hover { transform: none; box-shadow: inset 0 0 0 2px rgba(255, 236, 170, 0.75); }
+.city-vp .city-grid.painted .tile.sel { box-shadow: inset 0 0 0 3px var(--gold); }
+.city-vp .city-grid.painted .tile.placeable { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35); }
+/* Bâtiments plus présents (≈ +12 %), ombre portée au sud-est */
+.city-grid.painted .b-art { width: 80px; height: 80px; left: -8px; top: -20px; filter: drop-shadow(3px 4px 2px rgba(30, 22, 12, 0.45)); }
+.city-grid.painted .tile.major .b-art { width: 98px; height: 98px; left: -17px; top: -38px; }
+
+/* États visibles (v14 rendue lisible) : feu, eau, ruines — toujours doublés d'une forme, jamais la couleur seule */
+.tile.burning { z-index: 3; }
+.fx-fire { position: absolute; left: 50%; bottom: 18%; width: 46px; height: 46px; transform: translateX(-50%); z-index: 6; pointer-events: none; }
+.fx-fire i { position: absolute; bottom: 0; width: 18px; height: 30px; border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%;
+  background: radial-gradient(ellipse at 50% 80%, #fff3b0 0 18%, #ffb63a 40%, #e6461f 70%, rgba(200, 40, 20, 0) 75%); transform-origin: 50% 100%;
+  animation: v15-flame 0.9s ease-in-out infinite alternate; filter: drop-shadow(0 0 6px rgba(255, 120, 30, 0.8)); }
+.fx-fire i:nth-child(1) { left: 2px; height: 24px; animation-delay: -0.3s; }
+.fx-fire i:nth-child(2) { left: 14px; height: 36px; animation-delay: -0.6s; }
+.fx-fire i:nth-child(3) { left: 26px; height: 26px; animation-delay: -0.1s; }
+.fx-smoke { position: absolute; left: 50%; top: -10px; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; z-index: 5; pointer-events: none;
+  background: radial-gradient(circle, rgba(70, 64, 58, 0.55), rgba(70, 64, 58, 0) 70%); animation: v15-smoke 3s ease-out infinite; }
+@keyframes v15-flame { from { transform: scaleY(0.82) skewX(-4deg); } to { transform: scaleY(1.08) skewX(5deg); } }
+@keyframes v15-smoke { from { transform: translateY(10px) scale(0.6); opacity: 0.8; } to { transform: translateY(-40px) scale(1.6); opacity: 0; } }
+.tile.charred .b-art { filter: grayscale(0.6) brightness(0.72) drop-shadow(3px 4px 2px rgba(30, 22, 12, 0.45)); }
+.tile.flooded { z-index: 2; }
+.fx-water { position: absolute; inset: 6% 2% 2%; z-index: 4; pointer-events: none; border-radius: 40% 40% 30% 30%;
+  background: repeating-linear-gradient(170deg, rgba(120, 175, 215, 0.55) 0 5px, rgba(80, 135, 185, 0.5) 5px 10px);
+  box-shadow: inset 0 0 0 2px rgba(220, 240, 255, 0.45); animation: v15-wave 2.6s linear infinite; }
+@keyframes v15-wave { from { background-position: 0 0; } to { background-position: 40px 0; } }
+
+/* Couches de scène : lumière (heure réelle), météo, signes ; posées sur la carte, jamais cliquables */
+.scene-fx { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+.scene-fx > div { position: absolute; inset: 0; }
+.fx-light { background: var(--lt, transparent); mix-blend-mode: multiply; }
+.light-dawn .fx-light, .light-dusk .fx-light { mix-blend-mode: soft-light; }
+.wx-rain .fx-wx, .wx-storm .fx-wx { background-image: repeating-linear-gradient(105deg, rgba(200, 220, 240, 0) 0 9px, rgba(200, 220, 240, 0.35) 9px 10px); background-size: 140px 140px; animation: v15-rain 0.55s linear infinite; }
+.wx-storm .fx-wx { background-color: rgba(20, 24, 40, 0.18); }
+.wx-snow .fx-wx { background-image:
+    radial-gradient(circle at 23% 31%, rgba(255, 255, 255, 0.85) 0 1.7px, transparent 2.3px), radial-gradient(circle at 71% 12%, rgba(255, 255, 255, 0.7) 0 1.3px, transparent 1.9px),
+    radial-gradient(circle at 47% 77%, rgba(255, 255, 255, 0.8) 0 2px, transparent 2.6px), radial-gradient(circle at 88% 58%, rgba(255, 255, 255, 0.6) 0 1.1px, transparent 1.6px),
+    radial-gradient(circle at 9% 83%, rgba(255, 255, 255, 0.65) 0 1.4px, transparent 2px);
+  background-size: 173px 151px, 211px 197px, 139px 163px, 257px 229px, 191px 181px; background-color: rgba(230, 238, 245, 0.06); animation: v15-snow 9s linear infinite; }
+.wx-fog .fx-wx { background: radial-gradient(ellipse at 30% 40%, rgba(220, 225, 230, 0.35), transparent 60%), radial-gradient(ellipse at 75% 70%, rgba(220, 225, 230, 0.3), transparent 55%); animation: v15-fog 18s ease-in-out infinite alternate; }
+.wx-heat .fx-wx { background: linear-gradient(180deg, rgba(255, 200, 120, 0.12), rgba(255, 160, 60, 0.08)); }
+@keyframes v15-rain { from { background-position: 0 0; } to { background-position: -40px 140px; } }
+@keyframes v15-snow { from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; } to { background-position: 30px 302px, -20px 394px, 25px 326px, -10px 458px, 15px 362px; } }
+@keyframes v15-fog { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+/* Signes des présages : visibles pour qui regarde la carte (et nommés dans la légende) */
+.sign-flood .city-vp .t-river, .sign-flood .fx-sign { }
+.sign-flood .fx-sign { box-shadow: inset 0 0 60px 10px rgba(90, 150, 200, 0.28); }
+.sign-blizzard .fx-sign { box-shadow: inset 0 0 70px 18px rgba(235, 245, 255, 0.45); }
+.sign-tempest .fx-sign { background: radial-gradient(ellipse at 80% 0%, rgba(30, 30, 45, 0.45), transparent 55%); }
+.sign-eruption .fx-sign { background: radial-gradient(ellipse at 100% 100%, rgba(220, 70, 30, 0.3), transparent 50%); }
+.scene-legend { position: absolute; z-index: 6; right: 10px; top: 46px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: min(320px, 60%); pointer-events: none; }
+.stage.drawer-open .scene-legend { right: calc(var(--drawer-w) + 24px); }
+.world-stage .scene-legend { top: 52px; }
+@media (max-width: 700px) { .scene-legend { top: auto; bottom: 46px; right: 8px; } .stage.drawer-open .scene-legend { display: none; } }
+.sl { font: 600 12px var(--font); padding: 2px 8px; border-radius: 99px; background: rgba(24, 20, 15, 0.86); border: 1px solid var(--line-l); color: var(--ivory); }
+.sl-bad { border-color: var(--bad); }
+.sl-water { border-color: var(--blue); }
+.sl-dry { border-color: #c9a64a; }
+.sl-sign { border-style: dashed; border-color: var(--blue); }
+
+/* Animations figées : préférence du joueur, du système, ou mode économie */
+html.saver .fx-wx, html.saver .fx-fire i, html.saver .fx-smoke, html.saver .fx-water { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .fx-wx, .fx-fire i, .fx-smoke, .fx-water { animation: none !important; } }
+html.reduce-motion .fx-smoke { opacity: 0.6; transform: translateY(-10px); }
+
+/* ───── Une seule langue d'icônes : glyphes SVG (trait d'encre, couleur du texte), emojis restants harmonisés ───── */
+.gl-wrap { display: inline-flex; vertical-align: -0.16em; margin-right: 0.08em; }
+.gl-wrap .gl { width: 1.08em; height: 1.08em; }
+h2 .gl-wrap, h3 .gl-wrap { color: var(--gold); }
+.subtab .gl-wrap, .drawer-tab .gl-wrap { color: var(--bronze-l); }
+.subtab.active .gl-wrap { color: var(--gold); }
+.btn.primary .gl-wrap, .mini.primary .gl-wrap { color: inherit; }
+.emo { display: inline-block; width: 1.15em; text-align: center; font-family: var(--emoji, inherit); filter: saturate(0.72) sepia(0.12); vertical-align: -0.05em; }
+
+/* v15 — Signes des présages dans l'almanach */
+.omen-signs { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin-top: 4px; padding: 4px 8px; border-left: 2px solid var(--gold, #c9a54a); background: rgba(255, 255, 255, 0.03); border-radius: 4px; }
+.omen-signs .sg-row { letter-spacing: 2px; }
+.omen-signs .sg { font-style: normal; opacity: 0.55; }
+.omen-signs .sg.on { opacity: 1; color: var(--gold, #c9a54a); }
+
+/* v15 — Némésis : portrait du seigneur */
+.nemesis { display: flex; gap: 10px; align-items: flex-start; }
+.nemesis .lord-face { flex: none; border-radius: 10px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4); }
+.nemesis h4 { margin: 0 0 2px; }
+.report-lord { margin: 6px 0; }
+
+/* v15 — « Exploration auto » à droite de la colonne d'outils (elle recouvrait le bouton mini-carte) */
+.stage .map-survey { left: 56px; bottom: 38px; }
+
+/* v15 — voile sous la barre de la carte : les étiquettes de bâtiments ne transparaissent plus entre les deux lignes */
+.stage-top { isolation: isolate; }
+.stage-top::before { content: ''; position: absolute; inset: -10px -10px -18px -10px; z-index: -1; pointer-events: none;
+  background: linear-gradient(rgba(18, 14, 10, 0.72) 60%, rgba(18, 14, 10, 0)); }
+
+/* v15 — Téléphone : première ligne = légende (gauche) + onglet du tiroir (droite) ; barres de la carte en dessous */
+@media (max-width: 700px) {
+  .stage .scene-legend, .world-stage .scene-legend { top: 10px; bottom: auto; left: 10px; right: auto; max-width: calc(100% - 190px); flex-direction: row; flex-wrap: nowrap; align-items: flex-start; overflow-x: auto; scrollbar-width: none; pointer-events: auto; }
+  .scene-legend .sl { flex: 0 0 auto; white-space: nowrap; }
+  .stage-top, .stage .map-filters { top: 46px; }
+  .stage .map-hint { display: none; }
+}

@@ -55,10 +55,13 @@ const path = require('path');
     const tr = document.querySelector('#side [data-action="cp-training"]');
     if (!tr) out.push('bouton entraînement absent'); else { const army = JSON.stringify(s.army); tr.click(); await wait(50); if (JSON.stringify(s.army) !== army) out.push('entraînement : pertes réelles'); if (!s.campaign.flags.training) out.push('entraînement non validé'); }
     a.closeModal(); a.render();
-    const n0 = document.querySelectorAll('#side .advice').length;
-    document.querySelector('#side [data-action="adv-snooze"]')?.click(); await wait(400);
-    document.querySelector('#side [data-action="adv-dismiss"]')?.click(); await wait(400);
+    // v15 : un seul conseiller (bouton de la navigation) ; sa fenêtre porte la liste rapide des conseils
+    document.querySelector('#nav [data-action="advisor"]')?.click(); await wait(100);
+    const n0 = document.querySelectorAll('.modal .advice').length;
+    document.querySelector('.modal [data-action="adv-snooze"]')?.click(); await wait(400);
+    document.querySelector('.modal [data-action="adv-dismiss"]')?.click(); await wait(400);
     if (!n0) out.push('conseiller vide');
+    a.closeModal();
     const cl = document.querySelector('#side [data-action="claim-quest"]');
     if (cl) { const id = cl.dataset.id; cl.click(); await wait(400); if (!s.campaign.claimed[id]) out.push('réclamation échouée ' + id); }
     s.meta.tipsOff = true;

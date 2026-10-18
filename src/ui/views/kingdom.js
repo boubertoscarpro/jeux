@@ -99,6 +99,10 @@ export default {
         <div class="card"><h2>🖥️ Affichage et confort</h2>
           <p class="muted small">Ces réglages sont enregistrés avec la partie. « Auto » suit la préférence de votre système (réduction des animations).</p>
           <div class="form-row"><label>Animations</label><div class="seg">${[['auto', 'Auto'], ['reduced', 'Réduites'], ['full', 'Complètes']].map(([k, l]) => `<button class="mini ${(s.meta.motion || 'auto') === k ? 'selected' : ''}" data-action="pref-motion" data-k="${k}">${l}</button>`).join('')}</div></div>
+          <div class="form-row"><label>Qualité graphique</label><div class="seg">${[['low', 'Basse'], ['medium', 'Moyenne'], ['high', 'Élevée']].map(([k, l]) => `<button class="mini ${(s.meta.gfx || 'medium') === k ? 'selected' : ''}" data-action="pref-gfx" data-k="${k}">${l}</button>`).join('')}</div></div>
+          <p class="small muted">Basse : cartes moins détaillées (pas d’arbres ni de montagnes dessinés), idéale pour un appareil ancien. Élevée : terrain plus fin et transitions adoucies.</p>
+          <div class="form-row"><label>Économie d’énergie</label><div class="seg">${[[false, 'Non'], [true, 'Oui']].map(([k, l]) => `<button class="mini ${!!s.meta.saver === k ? 'selected' : ''}" data-action="pref-saver" data-k="${k}">${l}</button>`).join('')}</div></div>
+          <p class="small muted">Aucune animation continue (météo, flammes, eau) et carte du monde redessinée seulement quand elle change : utile sur batterie.</p>
           <div class="form-row"><label>Densité</label><div class="seg">${[['normal', 'Confortable'], ['compact', 'Compacte']].map(([k, l]) => `<button class="mini ${(s.meta.density || 'normal') === k ? 'selected' : ''}" data-action="pref-density" data-k="${k}">${l}</button>`).join('')}</div></div>
           <div class="form-row"><label>Aides</label><div class="seg"><button class="mini ${s.meta.tipsOff ? '' : 'selected'}" data-action="tips-toggle">${s.meta.tipsOff ? 'Fiches désactivées' : 'Fiches de tutoriel actives'}</button></div></div>
         </div>
@@ -127,6 +131,8 @@ export default {
     'apply-cos': (app, el) => app.act(() => applyCosmetic(app.state, el.dataset.k)),
     'save-now': (app) => app.save(true),
     'pref-motion': (app, el) => { app.state.meta.motion = el.dataset.k; app.applyPrefs(); app.render(); app.save(); },
+    'pref-gfx': (app, el) => { app.state.meta.gfx = el.dataset.k; app.render(); app.save(); },
+    'pref-saver': (app, el) => { app.state.meta.saver = el.dataset.k === 'true'; app.applyPrefs(); app.render(); app.save(); },
     'pref-density': (app, el) => { app.state.meta.density = el.dataset.k; app.applyPrefs(); app.render(); app.save(); },
     'tips-toggle': (app) => { app.state.meta.tipsOff = !app.state.meta.tipsOff; if (!app.state.meta.tipsOff) app.state.meta.tipsSeen = {}; app.render(); },
     'import-file': (app, el) => {

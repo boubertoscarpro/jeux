@@ -4,6 +4,9 @@ import { BREACH_TIERS, tierOf, BREACH_MIN_MERIT, BREACH_DOCTRINES, BREACH_PROGRE
 import { SPEEDUPS } from '../data/speedups.js';
 import { RARITIES } from '../data/heroes.js';
 import { breachDefense, nextStep, rewardPreview, breachState } from '../systems/breach.js';
+import { nemesisWarning, nemesisEpithet } from '../systems/nemesis.js';
+import { NEMESIS, NEMESIS_SCARS } from '../data/nemesis.js';
+import { lordFaceSvg } from './nemesisFace.js';
 import { armyPower } from '../systems/army.js';
 import { speedupText, combatRoom } from '../systems/speedups.js';
 import { fmt, fmtTime } from '../core/util.js';
@@ -28,7 +31,16 @@ export function breachPanel(app, poi) {
   const hist = (b.history || []).slice(0, 5).map((h) => `<li class="${h.win ? 'ok' : 'bad'}">${h.win ? 'Victoire' : 'Défaite'} au niv. ${h.level} · ${h.sent} soldats, ${h.lost} perdus · mérite ${pct(h.merit)}${h.merit < BREACH_MIN_MERIT ? ' (indigne)' : ''}${h.evolved ? ` → <b>${esc(h.evolved)}</b>` : ''} <span class="muted">${new Date(h.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span></li>`).join('');
   const seen = Object.entries(b.seen || {}).filter(([, v]) => v >= 0.2).map(([c, v]) => `${c === 'cavalry' ? 'cavaliers' : c === 'ranged' ? 'tireurs' : c === 'infantry' ? 'fantassins' : c} (${pct(v)})`);
   const B = breachState(s);
-  return `<div class="panel-sub br-sheet" style="--c:${t.color}">
+  // v15 — Némésis : portrait, cicatrices, titres, ce qu'il prépare contre vous
+  const nm = b.nem || { scars: [], titles: [], met: 0, revenges: 0 };
+  const warn = nemesisWarning(b, now);
+  const scarNames = nm.scars.map((k) => NEMESIS_SCARS.find((x) => x.key === k)?.name).filter(Boolean);
+  const nemesis = `<div class="panel-sub nemesis">${lordFaceSvg({ name: b.lord, scars: nm.scars, titles: nm.titles, tier: t.n }, 64)}<div>
+      <h4>${esc(nemesisEpithet(b))}</h4>
+      <div class="small">${nm.met ? `${nm.met} assaut${nm.met > 1 ? 's' : ''} retenu${nm.met > 1 ? 's' : ''}` : 'Ne vous connaît pas encore'}${scarNames.length ? ` · cicatrices : ${esc(scarNames.join(', '))}` : ''}${nm.titles.length ? ` · titres : ${nm.titles.map((x) => `« ${esc(x)} »`).join(', ')}` : ''}</div>
+      ${warn ? `<div class="small ${warn.pct > 0 ? 'warn-text' : 'muted'}">${esc(warn.text)}</div><div class="small muted">${esc(warn.hint)}</div>` : ''}
+      ${nm.titles.length ? `<div class="small ok">Revanche possible : le vaincre lui arrache « ${esc(nm.titles[nm.titles.length - 1])} » et rapporte +${Math.round(NEMESIS.revengeLoot * 100)} % de butin.</div>` : ''}</div></div>`;
+  return `${nemesis}<div class="panel-sub br-sheet" style="--c:${t.color}">
       <div class="row between"><h4>${esc(t.name)} · niveau ${b.level}/${BREACH_MAX_LEVEL}</h4>${tiers}</div>
       <div class="small">Seigneur : <b>${esc(b.lord)}</b>${D.commander ? ' (présent en personne : +10 % attaque, +10 moral)' : ''} · cycle ${(b.cycle || 0) + 1}</div>
       <div class="small">Puissance estimée : <b>${fmt(power)}</b> · murs +${pct(D.fort)} de défense · formation : ${FORMATIONS[D.formation].icon} ${esc(FORMATIONS[D.formation].name)}</div>
