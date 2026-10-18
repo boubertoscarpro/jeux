@@ -1,20 +1,20 @@
 {
   "large": {
-    "renderMs": 67.1,
-    "frameMedian": 68.2,
-    "frameP95": 264.3,
+    "renderMs": 150.5,
+    "frameMedian": 36.5,
+    "frameP95": 93.1,
     "tiles": 960
   },
   "moyen": {
-    "renderMs": 101.6,
-    "frameMedian": 18.5,
-    "frameP95": 38.6,
+    "renderMs": 230.6,
+    "frameMedian": 23.3,
+    "frameP95": 59.9,
     "tiles": 960
   },
   "mobile": {
-    "renderMs": 116.2,
-    "frameMedian": 22.7,
-    "frameP95": 58.7,
+    "renderMs": 448.3,
+    "frameMedian": 31.4,
+    "frameP95": 84.9,
     "tiles": 960
   }
 }

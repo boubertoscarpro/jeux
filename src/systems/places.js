@@ -22,11 +22,17 @@ export function freeTileFor(state, type) {
   const taken = new Set(blds(state).map((b) => b.x + ',' + b.y));
   for (const q of state.queues?.build || []) if (q.kind === 'clear') taken.add(q.x + ',' + q.y);
   const gate = { x: Math.floor((r.x0 + r.x1) / 2), y: r.y1 + 1 };
+  // Les lieux s'espacent d'une case (leurs noms ne se chevauchent pas), tant que c'est possible
+  const near = new Set();
+  for (const b of blds(state)) if (BUILDINGS[b.type]?.isPlace) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) near.add((b.x + dx) + ',' + (b.y + dy));
   let best = null, bd = Infinity;
   for (let pass = 0; pass < 2 && !best; pass++) {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (taken.has(x + ',' + y) || state.city.terrain[y * W + x] !== 'plain') continue;
       if (x === gate.x && y <= gate.y + 1) continue; // le chemin devant la porte reste libre
+      // Première passe : second anneau des faubourgs (le premier longe la muraille et ses douves dessinées), espacés
+      const ring = Math.max(r.x0 - x, x - r.x1, r.y0 - y, y - r.y1);
+      if (pass === 0 && (near.has(x + ',' + y) || ring < 2)) continue; // ni contre la muraille, sous l'inscription de la porte
       const z = zoneAt(state, x, y, r);
       if (!zoneAllows(type, z) || (pass === 0 && z !== 'faubourg')) continue;
       const d = Math.hypot(x - gate.x, y - gate.y) + x * 1e-4 + y * 1e-6;

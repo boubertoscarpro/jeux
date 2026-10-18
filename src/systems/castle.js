@@ -293,6 +293,9 @@ export function vacantLots(state) {
   const out = [];
   for (const type of LOT_TYPES) {
     if (!BUILDINGS[type] || countType(state, type) > 0) continue;
+    // Seulement ce qui est à portée (débloqué, ou au prochain niveau de l'hôtel de ville) : sinon la cour d'une
+    // nouvelle partie se couvre de panneaux. Les autres lieux restent dans la liste Lieux, « à bâtir ».
+    if ((BUILDINGS[type].req?.townhall || 1) > thOf(state) + 1) continue;
     const prefKeep = ruleOf(type) === 'keep' || ['barracks', 'warehouse'].includes(type);
     const anchor = prefKeep ? center : gate;
     let best = null, bd = Infinity;
