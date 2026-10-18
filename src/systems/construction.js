@@ -146,6 +146,8 @@ export function planConstruction(state, item) {
   const planned = (state.queues.planned ||= []);
   if (planned.length >= PLAN_MAX) return { ok: false, reason: `Au plus ${PLAN_MAX} chantiers planifiés` };
   if (item.kind === 'upgrade' && planned.some((p) => p.kind === 'upgrade' && p.bid === item.bid)) return { ok: false, reason: 'Déjà planifié' };
+  // Une amélioration impossible par nature (niveau maximal : lieux v16, bâtiments au plafond) n'occupe pas la file
+  if (item.kind === 'upgrade') { const b = state.city.buildings[item.bid]; const d = b && BUILDINGS[b.type]; if (b && d && b.level >= d.maxLevel) return { ok: false, reason: 'Niveau maximum atteint' }; }
   if (item.kind === 'build' && planned.some((p) => p.kind === 'build' && p.x === item.x && p.y === item.y)) return { ok: false, reason: 'Emplacement déjà réservé' };
   planned.push({ id: uid('pl'), ...item });
   return { ok: true, planned: true };

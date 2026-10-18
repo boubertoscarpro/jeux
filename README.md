@@ -21,14 +21,14 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
-> **v16 — Le Château et ses Faubourgs** : on entre dans son propre château.
-> - **Zones** : la cour du donjon (intra-muros), la muraille et les douves, les faubourgs, la campagne. Certains bâtiments ne se bâtissent que dedans (bibliothèque, forge…) ou que dehors (fermes, mines…) ; d'autres gagnent ou perdent selon leur place.
-> - **Muraille et douves dessinées** : de la palissade à la forteresse selon son niveau, avec tours, porte, pont-levis et bannières à vos armoiries. L'enceinte s'agrandit au prix de sa longueur : compacte, elle défend mieux.
-> - **Raids par zone** : les pillards frappent d'abord les faubourgs et la campagne ; la cour reste à l'abri tant que la muraille tient. Le feu ne traverse pas les douves, la crue peut les faire déborder.
-> - **La ville devient le menu** : cliquez un bâtiment (anneau Ouvrir · Améliorer · Accélérer · Infos), les lieux à bâtir portent un panneau, le menu de gauche n'a plus que 5 entrées, et **Lieux** (touche / ou Ctrl + K) liste tous les écrans au clavier.
-> - **Défense par flancs, raid qu'on voit venir, silhouette du château selon l'hôtel de ville, décorations utiles.**
+> **v16 — Le Château** : tout part du royaume. Le château et sa ville sont l'écran principal, et l'accès à toutes les fonctions.
+> - **Affichage fixe dans les coins** : blason, niveau et puissance en haut à gauche (avec le sélecteur de domaine) ; ressources sur une ligne, jauges et infobulles au centre ; saison, météo, Éclats, notifications et réglages à droite ; activités limitées dans le temps en médaillons sur le bord droit ; quêtes suivies, conseiller et alertes sur le bord gauche ; fil du royaume, chantiers et marches, boutons Construire · Armée · Guilde · Rapports · Lieux et le globe « Monde » en bas.
+> - **Fenêtres par-dessus la carte** : chaque écran s'ouvre depuis son lieu (bâtiment, carte ou affichage fixe), avec son nom, son niveau, ses onglets, Améliorer, Retour et ✕ ; la carte reste floutée derrière. Raccourcis M, B, A, Q, R, L et Échap.
+> - **Chaque fonction a sa place** : nouveaux lieux (Ambassade, Cabinet du cartographe, Place du héraut, Lice des tournois, Scriptorium) posés d'eux-mêmes ; bulles au-dessus des bâtiments (récompense, entrepôt plein, bibliothèque au repos…) ; héros gouverneurs à leur poste ; panneau Construire en bas, par catégorie.
+> - **Avant-postes en petits châteaux** : une ville à visiter, une enceinte, huit bâtiments (champs, grenier, atelier, dépôt, camp d'entraînement, tour de guet, comptoir, chapelle), trois agrandissements, et une **vocation** (agricole, industrielle, militaire, commerciale, savoir) qui donne à l'avant-poste un rôle dans le royaume.
+> - **Le château** : zones (cour du donjon, muraille, douves, faubourgs, campagne), muraille et douves dessinées selon leur niveau, raids par zone, feu arrêté par les douves, défense par flancs, raid qu'on voit venir, décorations utiles.
 >
-> Aucune nouvelle monnaie, aucune ressource produite. Voir [`docs/AUDIT_V16.md`](docs/AUDIT_V16.md) et [`docs/V16.md`](docs/V16.md).
+> Aucune nouvelle monnaie, aucune ressource produite en masse, aucun avantage payant. Voir [`docs/AUDIT_V16.md`](docs/AUDIT_V16.md) et [`docs/V16.md`](docs/V16.md).
 >
 > **v15 — L'Atlas vivant** : la carte devient l'instrument principal du royaume.
 > - **Cartes en grand** : royaume et monde occupent tout l'écran ; les détails s'ouvrent dans un tiroir (panneau du bas sur téléphone).

@@ -116,3 +116,13 @@ test('Bulles : peu nombreuses, triées par importance, une par bâtiment, chacun
   s.heroes[0].assignment = { type: 'governor', sector: 'wood' };
   assert.deepEqual(heroPosts(s).get('mill').map((p) => p.sector), ['wood']);
 });
+
+test('Lieux : un lieu (niveau maximal) ne peut pas être planifié en amélioration et n’encombre pas la file', async () => {
+  const { planConstruction } = await import('../src/systems/construction.js');
+  const s = createNewState({ seed: 'plan', now: T0 });
+  const r = planConstruction(s, { kind: 'upgrade', bid: 'p_scriptorium' });
+  assert.equal(r.ok, false);
+  assert.equal((s.queues.planned || []).length, 0);
+  const th = Object.values(s.city.buildings).find((b) => b.type === 'townhall');
+  assert.ok(planConstruction(s, { kind: 'upgrade', bid: th.id }).ok, 'les autres restent planifiables');
+});

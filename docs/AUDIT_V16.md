@@ -107,7 +107,7 @@ La table est dans `src/data/places.js`. Un test vérifie que **chaque écran a u
 - Une enceinte, une muraille (0 à 10) et des douves (0 à 5), dessinées comme au château.
 - Sa garnison, et son hôtel de ville secondaire : le **niveau de l'avant-poste**, de 1 à 5, comme avant.
 
-**Bâtiments d'avant-poste** (niveau au plus égal à celui de l'avant-poste ; 2 + niveau emplacements) :
+**Bâtiments d'avant-poste** (niveau au plus égal à celui de l'avant-poste ; 2 + niveau + agrandissements emplacements) :
 
 | Bâtiment | Vocation | Effet par niveau (sur cet avant-poste) |
 |---|---|---|
@@ -121,6 +121,17 @@ La table est dans `src/data/places.js`. Un test vérifie que **chaque écran a u
 | Chapelle | Savoir et stabilité | Stabilité cible de la province +3 |
 
 - **Vocation.** La catégorie qui cumule le plus de niveaux de bâtiments, à partir de 3, devient la vocation de l'avant-poste (« Avant-poste agricole »…) : ses bâtiments de cette catégorie gagnent +25 %. On l'oriente par ses constructions, sans choix imposé.
+- **Rôle de chaque vocation dans le royaume** (pour donner plus de rôles aux avant-postes, bornés) :
+
+| Vocation | Rôle |
+|---|---|
+| Agricole | Grenier de la région : en famine, stabilité +5 au lieu de la perte de colons |
+| Industrielle | Scieries, carrières, mines et entrepôts. Il approvisionne les chantiers du château : vitesse de construction +1 % (au plus +3 % pour tous les avant-postes industriels) |
+| Militaire | Il couvre ses voisins : les menaces sur les avant-postes à 4 cases ou moins frappent 20 % moins souvent |
+| Commerciale | Relais des caravanes : entretien en or de l'avant-poste ÷ 2 |
+| Savoir | Il apaise la région : stabilité cible +5 pour les avant-postes à 4 cases ou moins (lui compris) |
+
+- **Égalité** entre deux catégories : aucune vocation (on la tranche en bâtissant).
 - **Muraille et douves de l'avant-poste.** Chance qu'une menace frappe ×(1 − 0,05 × muraille − 0,04 × douves), au plus −60 %.
 - **Bornes.** La production d'un avant-poste ne gagne jamais plus de +50 % par ses bâtiments.
 - **Coûts.** Payés depuis les stocks du royaume ; un chantier à la fois par avant-poste.

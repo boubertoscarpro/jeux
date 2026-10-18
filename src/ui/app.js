@@ -261,7 +261,8 @@ export class App {
     const p = PLACES[pk];
     const b = p?.kind === 'building' ? placeBuilding(this.state, pk) : null;
     if (this.ui.win) this.closeWin(false);
-    if (b) {
+    if (viewId === 'city') { this.ui.map = 'city'; this.ui.hudHl = 'build-mode'; this.toast('Bâtissez depuis le bouton « Construire » en bas à droite (touche B).', 'info'); }
+    else if (b) {
       this.ui.map = 'city'; this.ui.citySel = { x: b.x, y: b.y }; this.ui.ringOpen = true; this.ui.cityFocus = { x: b.x, y: b.y };
       this.ui.flashTile = { x: b.x, y: b.y, until: Date.now() + 4000 };
       this.toast(`Ouvrez « ${BUILDINGS[b.type].name} » dans votre château : bouton « Ouvrir ».`, 'info');

@@ -1,5 +1,5 @@
 // Captures comparables v16 (avant / après) : royaume en début, milieu et fin de partie, vue d'ensemble, raid en
-// approche, et mesure du rendu de la carte du royaume au niveau maximal d'agrandissement.
+// approche, monde, armée, marché, avant-postes (et, en v16, la ville d'un avant-poste), et mesure du rendu de la carte du royaume au niveau maximal d'agrandissement.
 // Usage : npm run build && node tools/v16shots.cjs <dossier> <sauvegarde-milieu.json> <sauvegarde-fin.json>
 // (DIST=chemin/vers/cendrelande.html pour capturer une autre version)
 let chromium;
@@ -84,6 +84,18 @@ async function loadSave(browser, W, H, raw, errors, tag) {
       await r.page.evaluate((v) => { const a = window.cendrelande; a.closeModal(); a.go(v); }, view);
       await r.page.waitForTimeout(600);
       await shot(r.page, `${OUT}/${name}-${tag}.png`);
+    }
+    // 10) v16 : la ville d'un avant-poste (absente en v15). Bâtiments posés par le script, comme un joueur l'aurait fait.
+    if (await r.page.evaluate(() => !!window.cendrelande.views.outpost)) {
+      await r.page.evaluate(() => {
+        const a = window.cendrelande, k = Object.keys(a.state.territories)[0], T = a.state.territories[k].town;
+        let i = 0;
+        const put = (type, level) => { const hx = Math.floor((T.w - 1) / 2), hy = Math.floor((T.h - 1) / 2); for (let y = 0; y < T.h; y++) for (let x = 0; x < T.w; x++) { if (T.terrain[y * T.w + x] !== 'plain' || (x === hx && y === hy) || Object.values(T.b).some((b) => b.x === x && b.y === y)) continue; const id = 'shot' + i++; T.b[id] = { id, type, level, x, y }; return; } };
+        put('workshop', 3); put('depot', 2); put('fields', 1); put('camp', 1); T.fort = { wall: 5, moat: 2 };
+        a.closeModal(); a.ui.outpost = k; a.go('outpost');
+      });
+      await r.page.waitForTimeout(500);
+      await shot(r.page, `${OUT}/10-avant-poste-${tag}.png`);
     }
     await r.ctx.close();
   }
