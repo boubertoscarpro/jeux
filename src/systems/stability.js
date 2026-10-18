@@ -12,6 +12,7 @@ import { supplyStab } from './logistics.js';
 import { key } from './world.js';
 import { borderOf } from './hazards.js';
 import { crisisStab } from './crises.js';
+import { townGarrisonDiv, townStabFactors } from './outposts.js';
 
 export const STAB_DEFAULT = 70;
 export const STAB_DRIFT = 5;              // points par heure vers la cible
@@ -36,7 +37,8 @@ export const stabLevel = (v) => STAB_LEVELS.find((l) => v >= l.min) || STAB_LEVE
 export function stabilityFactors(state, t, now = Date.now(), route = null) {
   const f = [['Base', 60]];
   const g = Object.values(t.garrison || {}).reduce((a, b) => a + b, 0);
-  f.push(g >= GARRISON_PER_LEVEL * (t.level || 1) ? ['Garnison complète : sécurité', 10] : ['Garnison insuffisante : insécurité', -15]);
+  f.push(g >= Math.ceil((GARRISON_PER_LEVEL * (t.level || 1)) / townGarrisonDiv(t)) ? ['Garnison complète : sécurité', 10] : ['Garnison insuffisante : insécurité', -15]);
+  f.push(...townStabFactors(state, t)); // v16 : chapelle, avant-poste du savoir voisin, grenier
   if (t.unpaid) f.push(['Entretien impayé', -20]);
   f.push(state.famine ? ['Famine dans le royaume', -20] : ['Royaume nourri', 5]);
   const tx = TAXES[taxOf(t)];

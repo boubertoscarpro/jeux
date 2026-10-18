@@ -11,6 +11,7 @@ import omensView from './views/omens.js';
 import { profileView, settingsView } from './views/kingdom.js';
 import { bldgView } from './views/city.js';
 import { tileView } from './views/world.js';
+import outpostView from './views/outpost.js';
 import { queuesHtml, queueActions } from './hud.js';
 import { BUILDINGS } from '../data/buildings.js';
 import codexView from './views/codex.js';
@@ -94,8 +95,8 @@ export const VIEWS = GROUPS.flatMap((g) => g.tabs);
 // v16 « Le Château » : plus de menu latéral. La carte (château, monde ou avant-poste) occupe tout l'écran ; chaque
 // écran s'ouvre en fenêtre par-dessus, depuis son lieu (data/places.js), l'affichage fixe ou la liste des Lieux.
 // Les fenêtres internes (fiche d'un bâtiment, case du monde) ne sont pas des écrans du jeu : elles n'ont pas de lieu.
-export const MAP_VIEWS = MAP_SCREENS;
-const INTERNAL = [bldgView, tileView];
+export const MAP_VIEWS = [...MAP_SCREENS, 'outpost'];
+const INTERNAL = [bldgView, tileView, outpostView];
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
 const placeName = (k) => { const p = PLACES[k]; return p ? (p.kind === 'building' ? BUILDINGS[p.type]?.name : p.name) : ''; };
 const placeIcon = (k) => { const p = PLACES[k]; return p ? (p.kind === 'building' ? BUILDINGS[p.type]?.icon : p.icon) : ''; };
@@ -481,7 +482,9 @@ export class App {
     'drawer-close': (app) => { app.ui.phoneDrawer = null; app.renderHud(); },
     fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); } catch { /* refusé par le navigateur */ } },
     'hud-zoom': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-zoom'] || mv?.actions?.zoom)?.(app, el); },
-    domain: (app, el) => { if (el.value) { app.ui.map = 'outpost'; app.ui.outpost = el.value; } else app.ui.map = 'city'; app.ui.win = null; app.ui.winHistory = []; app.mapDirty = true; app.render(); },
+    domain: (app, el) => { if (el.value) { app.ui.map = 'outpost'; app.ui.outpost = el.value; } else app.ui.map = 'city'; app.ui.win = null; app.ui.winHistory = []; app.ui.opSel = null; app.ui.opMove = null; app.ui.buildMode = false; app.mapDirty = true; app.render(); },
+    // Visiter un avant-poste (carte du monde, fiche des territoires)
+    'visit-outpost': (app, el) => { if (!app.state.territories[el.dataset.k]) return; app.closeModal?.(); app.ui.outpost = el.dataset.k; app.ui.opSel = null; app.ui.opMove = null; app.go('outpost'); },
     // « Y aller » : centre le château sur le lieu de l'objectif (ou ouvre l'écran s'il n'a pas de bâtiment)
     'go-place': (app, el) => { const v = el.dataset.view; const pk = SCREEN_PLACE[v]; const b = pk && PLACES[pk].kind === 'building' ? placeBuilding(app.state, pk) : null; if (b) app.highlight(v); else app.go(v); },
     ...queueActions,

@@ -658,7 +658,7 @@ function tilePanel(app) {
     html += `<div class="panel-sub outpost-sub"><h4>🚩 Votre avant-poste ${terr.spec ? '' : '<span class="req small">à spécialiser</span>'}</h4>
       <div class="castle-name">${esc(outpostLabel(terr))} <button class="mini ghost" data-action="rename-outpost" data-k="${key(x, y)}">✎ Renommer</button></div>
       <div class="small">${cat ? `${cat.icon} ${esc(cat.name)} · ` : ''}${sp ? `${sp.icon} ${esc(sp.name)} · ` : ''}Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats · ${stabLevel(stabOf(terr)).icon} stabilité ${Math.round(stabOf(terr))}${terr.revolt ? ' · <span class="bad">révolte</span>' : ''}</div>
-      <button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
+      <button class="mini primary" data-action="visit-outpost" data-k="${key(x, y)}">🏰 Visiter</button> <button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
   } else if (!poi || !['capital', 'town', 'kingdom', 'boss'].includes(POI_TYPES[poi.type].kind)) {
     const c = canClaim(s, x, y, now);
     const bonus = TERRAINS[ter].territory;

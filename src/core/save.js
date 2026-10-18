@@ -1,5 +1,6 @@
 import { initLegacyCampaign } from '../systems/campaign.js';
 import { ensurePlaces } from '../systems/places.js';
+import { ensureTown } from '../systems/outposts.js';
 import { migrateCastle, castleState } from '../systems/castle.js';
 import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
 import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './state.js';
@@ -178,6 +179,8 @@ export function migrate(data) {
   else castleState(data);
   // v16 « Le Château » : les nouveaux lieux sont posés sur des cases libres (rien n'est déplacé ni supprimé)
   ensurePlaces(data);
+  // v16 : chaque avant-poste reçoit sa petite ville (vide, hôtel de ville secondaire au centre) ; rien n'est retiré
+  for (const t of Object.values(data.territories || {})) ensureTown(t);
   data.version = SAVE_VERSION;
   // Une partie chargée ou importée doit d'abord prouver qu'elle tourne (≈1 s) avant de pouvoir remplacer la copie
   // de secours : l'indicateur « démarrage réussi » et la date de copie d'une autre partie ne sont pas repris
