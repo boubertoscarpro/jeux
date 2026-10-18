@@ -274,10 +274,12 @@ html.reduce-motion .op-t::after, html.saver .op-t::after { animation: none !impo
 .t-bubble { position: absolute; left: 50%; top: -26px; transform: translateX(-50%) scale(var(--bz, 1)); transform-origin: 50% 100%; z-index: 6; display: inline-flex; align-items: center; gap: 2px; padding: 2px 7px 2px 5px; border-radius: 12px; background: #fff6dc; color: #1d1812; border: 2px solid #8a6a3e; font-size: 14px; line-height: 1; cursor: pointer; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45); white-space: nowrap; pointer-events: auto; }
 .t-bubble::after { content: ''; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%); border: 6px solid transparent; border-top-color: #8a6a3e; border-bottom: 0; }
 .t-bubble b { font: 700 11px var(--font); min-width: 12px; text-align: center; }
-.t-bubble.phi { border-color: #c0392b; background: #ffe9e4; animation: v16-bob 2.4s ease-in-out infinite; }
+.t-bubble.phi { border-color: #c0392b; background: #ffe9e4; animation: v16-bob 2.4s ease-in-out infinite; will-change: translate; }
+/* Pendant un déplacement de la carte ou en vue éloignée, les bulles ne bougent pas (perf) */
+.city-vp.moving .t-bubble, .city-vp[data-zl="far"] .t-bubble { animation-play-state: paused; }
 .t-bubble:focus-visible { outline: 3px solid #fff3c4; }
 .t-hero { position: absolute; left: 2px; bottom: 16px; z-index: 5; padding: 0 4px; border-radius: 10px; background: rgba(43, 33, 24, 0.92); border: 1px solid #c9a54a; color: #f3d27a; font-size: 12px; line-height: 18px; transform: scale(var(--bz, 1)); transform-origin: 0 100%; }
-@keyframes v16-bob { 0%, 100% { margin-top: 0; } 50% { margin-top: -4px; } }
+@keyframes v16-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
 html.reduce-motion .t-bubble, html.saver .t-bubble { animation: none; }
 @media (prefers-reduced-motion: reduce) { .t-bubble { animation: none; } }
 .city-vp[data-zl="far"] .t-hero { display: none; }

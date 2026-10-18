@@ -312,12 +312,14 @@ export class App {
     const main = this.$('#view');
     this.root.classList.add('mapmode');
     this.root.classList.toggle('win-open', !!this.ui.win);
-    if (!this.ui.win || this.mapDirty !== false || main.dataset.screen !== map.id) {
+    // Sans fenêtre : la carte est redessinée comme avant. Avec une fenêtre : seulement si on l'a demandé (changement de
+    // carte, action sur la carte) ; ouvrir un écran par-dessus une carte à jour ne la redessine pas.
+    if (!this.ui.win || this.mapDirty || main.dataset.screen !== map.id) {
       main.dataset.screen = map.id;
       this.preserveInputs(main, () => { main.innerHTML = `<div class="view view-${map.id}">${map.render(this)}</div>`; });
       map.after?.(this);
       iconize(main);
-      this.mapDirty = !!this.ui.win ? false : true;
+      this.mapDirty = false;
     }
     this.renderHud();
     this.renderWin();
