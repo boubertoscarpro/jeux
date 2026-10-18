@@ -267,7 +267,7 @@ function buildingPanel(app, b, mods) {
       ${Object.keys(prox).length ? `<div class="small ok">✔ Bonus de proximité : ${Object.entries(prox).map(([k, v]) => `${esc(effectName(k))} ${pct(v)}`).join(', ')}</div>` : def.near || def.adjFx ? '<div class="small off">✗ Bonus de proximité inactif</div>' : ''}</div>` : ''}
     ${info && !q ? upgradeBlock(app, b, def, next, info, mods) : ''}
     ${!info ? '<div class="panel-sub">Niveau maximum atteint.</div>' : ''}
-    <div class="row gap">
+    <div class="row gap wrap">
       ${screenButtons(app, b.type, 'btn') || (links[b.type] ? `<button class="btn" data-action="nav" data-view="${links[b.type][0]}">${links[b.type][1]} →</button>` : '')}
       ${b.level > 0 && b.type !== 'townhall' ? (freeMove(s) ? `<button class="btn ghost" data-action="move" data-id="${b.id}" title="Déménagement gratuit (nouvelles zones du château)">Déplacer (gratuit)</button>` : `<button class="btn ghost" data-action="move" data-id="${b.id}" title="Déplacer coûte ${moveCost(b).gold} or">Déplacer (${moveCost(b).gold} 🪙)</button>`) : ''}
       ${b.type !== 'townhall' && !q ? `<button class="btn ghost danger" data-action="demolish" data-id="${b.id}">Démolir</button>` : ''}
@@ -480,13 +480,13 @@ function buildPanel(app, mods, ups) {
   const mode = app.ui.moveId ? `Déplacer : cliquez une case libre${freeMove(s) ? ' (gratuit)' : ''}.` : app.ui.placeType ? `Placer ${esc(BUILDINGS[app.ui.placeType].name)} : cliquez une case. Les % sont le bonus de placement ; ✕ = zone interdite (${esc(ruleText(app.ui.placeType))}).` : app.ui.placeDeco ? 'Placer la décoration : cliquez une case libre.' : 'Choisissez un bâtiment. La grille et les zones sont affichées.';
   return `<div class="build-panel" role="region" aria-label="Construire">
     <div class="bp-head"><nav class="bp-tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, t]) => `<button class="bp-tab ${tab === k ? 'active' : ''}" role="tab" aria-selected="${tab === k}" data-action="build-tab" data-k="${k}">${t.icon} ${t.name}</button>`).join('')}</nav>
-      <div class="bp-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : incendie et zone inondable">🔥 Risques</button><button class="mini" data-action="up-list" title="Améliorations possibles">⬆ ${ups.count}</button>${nextDomainStep(s) ? '<button class="mini" data-action="expand" title="Agrandir le domaine (voir la fiche de l’hôtel de ville)">🗺️ Domaine</button>' : ''}<button class="mini ghost" data-action="build-mode" title="Fermer (Échap)">✕</button></div></div>
+      <div class="bp-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : incendie et zone inondable">🔥 Risques</button><button class="mini" data-action="up-list" title="Améliorations possibles">⬆ ${ups.count}</button><button class="mini" data-action="up-toggle" aria-pressed="${showUpgrades(s)}" title="${showUpgrades(s) ? 'Masquer' : 'Afficher'} les icônes d’amélioration sur la carte">${showUpgrades(s) ? '👁' : '🚫'} ⬆</button>${nextDomainStep(s) ? '<button class="mini" data-action="expand" title="Agrandir le domaine (voir la fiche de l’hôtel de ville)">🗺️ Domaine</button>' : ''}<button class="mini ghost" data-action="build-mode" title="Fermer (Échap)">✕</button></div></div>
     <div class="small bp-hint" role="status">${mode}</div>
     <div class="bp-items">${items}</div>
   </div>`;
 }
 
-export default {
+const cityView = {
   id: 'city', title: 'Royaume', icon: '🏰',
   tick(app) { const st = document.querySelector('.city-stage'); if (st) { updateSceneFx(st, sceneState(app.state, Date.now(), localHour()), 'city'); attachGround(app); } },
   after(app) {
@@ -539,7 +539,7 @@ export default {
   },
   actions: {
     'monument-orient': (app, el) => { if (confirm('Cette orientation est définitive. Confirmer ?')) app.act(() => setOrientation(app.state, el.dataset.k), (r) => `🗿 Monument consacré : ${r.name}`); },
-    'tile-up': (app, el) => { app.ui.citySel = { x: +el.dataset.x, y: +el.dataset.y }; app.ui.placeType = null; app.ui.moveId = null; app.ui.focusUpgrade = true; app.render(); },
+    'tile-up': (app, el) => { app.ui.citySel = { x: +el.dataset.x, y: +el.dataset.y }; app.ui.placeType = null; app.ui.moveId = null; app.ui.focusUpgrade = true; app.ui.ringOpen = false; app.go('bldg'); },
     'up-toggle': (app) => { app.state.meta.showUpgrades = !showUpgrades(app.state); app.render(); app.save(); },
     'up-list': (app) => openUpgradeList(app),
     'rename-castle': (app) => openRenameCastle(app),
@@ -606,3 +606,6 @@ export default {
     deco: (app, el) => app.act(() => placeDeco(app.state, el.dataset.key, +el.dataset.x, +el.dataset.y), 'Décoration placée'),
   },
 };
+// v16 : la fiche d'un bâtiment agit comme la carte du royaume, même ouverte depuis un autre écran
+bldgView.actions = cityView.actions;
+export default cityView;

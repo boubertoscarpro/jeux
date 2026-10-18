@@ -482,6 +482,8 @@ export class App {
     'drawer-close': (app) => { app.ui.phoneDrawer = null; app.renderHud(); },
     fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); } catch { /* refusé par le navigateur */ } },
     'hud-zoom': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-zoom'] || mv?.actions?.zoom)?.(app, el); },
+    'hud-fit': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-fit'] || mv?.actions?.fit)?.(app, el); },
+    'hud-center': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-center'] || mv?.actions?.center)?.(app, el); },
     domain: (app, el) => { if (el.value) { app.ui.map = 'outpost'; app.ui.outpost = el.value; } else app.ui.map = 'city'; app.ui.win = null; app.ui.winHistory = []; app.ui.opSel = null; app.ui.opMove = null; app.ui.buildMode = false; app.mapDirty = true; app.render(); },
     // Visiter un avant-poste (carte du monde, fiche des territoires)
     'visit-outpost': (app, el) => { if (!app.state.territories[el.dataset.k]) return; app.closeModal?.(); app.ui.outpost = el.dataset.k; app.ui.opSel = null; app.ui.opMove = null; app.go('outpost'); },

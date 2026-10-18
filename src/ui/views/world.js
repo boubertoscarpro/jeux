@@ -915,4 +915,6 @@ const worldView = {
     },
   },
 };
+// v16 : la fenêtre d'une case agit comme la carte du monde, même ouverte depuis un autre écran
+tileView.actions = worldView.actions;
 export default worldView;

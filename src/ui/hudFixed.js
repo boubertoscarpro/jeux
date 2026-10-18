@@ -180,7 +180,7 @@ function bottomRight(app) {
   const guildB = app.views.guild?.badge?.(app) || 0;
   const building = app.ui.buildMode;
   return `<div class="hud-br">
-    <div class="hud-zoom">${btn('hud-zoom', '＋', 'Zoomer', '', 'data-z="1.25"')}${btn('hud-zoom', '－', 'Dézoomer', '', 'data-z="0.8"')}</div>
+    <div class="hud-zoom">${app.ui.map === 'outpost' ? '' : `${btn('hud-fit', '⤢', 'Vue d’ensemble')}${btn('hud-center', '⌖', 'Recentrer sur le château')}${btn('hud-zoom', '＋', 'Zoomer', '', 'data-z="1.25"')}${btn('hud-zoom', '－', 'Dézoomer', '', 'data-z="0.8"')}`}</div>
     <div class="hud-actions" role="toolbar" aria-label="Actions">
       <button class="hud-a ${building ? 'on' : ''}" data-action="build-mode" aria-pressed="${!!building}" title="Construire (touche B)" aria-label="Construire"><span>🔨</span><small>Construire</small></button>
       <button class="hud-a" data-action="nav" data-view="army" title="Armée (touche A)" aria-label="Armée"><span>⚔️</span><small>Armée</small></button>

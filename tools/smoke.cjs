@@ -52,17 +52,19 @@ const path = require('path');
     s.campaign.chapter = 4; s.meta.tipsSeen.chapter4 = 1; s.campaign.flags.training = 0;
     for (const id of ['q_clear', 'q_saw', 'q_quarry', 'q_th2', 'c1_house', 'q_farm', 'c2_farm2', 'c2_report', 'c2_surplus', 'q_mill', 'q_chain', 'q_scouts', 'q_explore', 'c3_explore5', 'q_gather', 'c3_road', 'q_barracks', 'q_army']) s.campaign.claimed[id] = 1;
     a.closeModal(); a.render();
-    const tr = document.querySelector('#side [data-action="cp-training"]');
+    // v16 : la mission suivie s'affiche dans la colonne des quêtes (affichage fixe), sinon dans la fenêtre Objectifs
+    let tr = document.querySelector('#hud [data-action="cp-training"]');
+    if (!tr) { a.go('goals'); await wait(50); tr = document.querySelector('#win-root [data-action="cp-training"]'); }
     if (!tr) out.push('bouton entraînement absent'); else { const army = JSON.stringify(s.army); tr.click(); await wait(50); if (JSON.stringify(s.army) !== army) out.push('entraînement : pertes réelles'); if (!s.campaign.flags.training) out.push('entraînement non validé'); }
-    a.closeModal(); a.render();
-    // v15 : un seul conseiller (bouton de la navigation) ; sa fenêtre porte la liste rapide des conseils
-    document.querySelector('#nav [data-action="advisor"]')?.click(); await wait(100);
+    a.closeModal(); a.go('city'); await wait(50);
+    // v16 : le conseiller est dans la colonne des quêtes de l'affichage fixe ; sa fenêtre porte la liste rapide des conseils
+    document.querySelector('#hud [data-action="advisor"]')?.click(); await wait(100);
     const n0 = document.querySelectorAll('.modal .advice').length;
     document.querySelector('.modal [data-action="adv-snooze"]')?.click(); await wait(400);
     document.querySelector('.modal [data-action="adv-dismiss"]')?.click(); await wait(400);
     if (!n0) out.push('conseiller vide');
     a.closeModal();
-    const cl = document.querySelector('#side [data-action="claim-quest"]');
+    const cl = document.querySelector('#hud [data-action="claim-quest"]');
     if (cl) { const id = cl.dataset.id; cl.click(); await wait(400); if (!s.campaign.claimed[id]) out.push('réclamation échouée ' + id); }
     s.meta.tipsOff = true;
     return out;
@@ -72,7 +74,8 @@ const path = require('path');
   ctx = 'cartes';
   await page.evaluate(() => { const a = window.cendrelande; a.closeModal(); a.go('city'); });
   await page.waitForTimeout(100);
-  for (const act of ['city-zoom', 'city-fit', 'city-center']) await page.click(`#city-vp [data-action="${act}"]`);
+  // v16 : zoom, vue d'ensemble et recentrage depuis l'affichage fixe
+  for (const sel of ['[data-action="hud-zoom"][data-z="1.25"]', '[data-action="hud-fit"]', '[data-action="hud-center"]']) await page.click(`#hud ${sel}`);
   const vpBox = await (await page.$('#city-vp')).boundingBox();
   await page.mouse.move(vpBox.x + vpBox.width / 2, vpBox.y + vpBox.height / 2);
   await page.mouse.wheel(0, 400);
@@ -83,10 +86,14 @@ const path = require('path');
   if (!cs || cs.x !== 12 || cs.y !== 7) errors.push('ville : sélection décalée après zoom ' + JSON.stringify(cs));
   await page.evaluate(() => { const a = window.cendrelande; a.ui.citySel = null; a.state.world.revealed.fill(1); a.go('world'); });
   await page.waitForTimeout(150);
-  for (const act of ['zoom', 'fit', 'center', 'mini-toggle', 'mini-toggle']) { await page.click(`.world-canvas-wrap [data-action="${act}"]`); await page.waitForTimeout(400); }
+  await page.click('#hud [data-action="hud-zoom"][data-z="1.25"]'); await page.waitForTimeout(300);
+  for (const act of ['fit', 'center', 'mini-toggle', 'mini-toggle']) { await page.click(`.world-canvas-wrap [data-action="${act}"]`); await page.waitForTimeout(400); }
   await page.selectOption('.map-places', { index: 1 });
   const ws = await page.evaluate(() => window.cendrelande.ui.worldSel);
   if (!ws) errors.push('monde : « Aller à… » ne sélectionne rien');
+  // v16 : « Aller à… » ouvre la fenêtre de la case ; on la ferme pour revenir à la carte
+  await page.evaluate(() => { const a = window.cendrelande; a.globalActions['win-close'](a); });
+  await page.waitForTimeout(100);
   const mb = await (await page.$('#world-mini')).boundingBox();
   await page.mouse.click(mb.x + 10, mb.y + 10);
   const wc = await page.evaluate(() => window.cendrelande.ui.cam);
@@ -99,11 +106,12 @@ const path = require('path');
     const click = (sel) => { const el = document.querySelector(sel); if (!el) { out.push('absent : ' + sel); return false; } el.click(); return true; };
     a.closeModal(); a.go('city'); await wait(100);
     const th = Object.values(s.city.buildings).find((b) => b.type === 'townhall');
-    a.ui.citySel = { x: th.x, y: th.y }; a.render(); await wait(50);
+    a.ui.citySel = { x: th.x, y: th.y }; a.go('bldg'); await wait(50);
     if (click('[data-action="rename-castle"]')) {
       document.getElementById('rename-input').value = '  <b>Fort</b>   Lumière ';
       click('[data-action="rn-save"]'); await wait(50);
       if (a.state.identity.castleName !== 'bFort/b Lumière' && /[<>]/.test(a.state.identity.castleName)) out.push('nom du château non nettoyé');
+      a.globalActions['win-close'](a); await wait(50); // la carte se redessine à la fermeture de la fenêtre
       if (!document.querySelector('.t-name.major')?.textContent.includes('Lumière')) out.push('nom du château absent de la carte');
     }
     // Icône d'amélioration : clic → fiche avec bloc d'amélioration
@@ -113,12 +121,17 @@ const path = require('path');
     const n0 = document.querySelectorAll('.t-up.ready').length;
     document.querySelector('[data-action="upgrade"]:not([disabled])')?.click(); await wait(80);
     if (document.querySelectorAll('.t-up.ready').length > n0) out.push('compteur/icônes non mis à jour après amélioration');
-    click('#topbar [data-action="up-list"]'); await wait(50);
+    // v16 : la liste des améliorations et le masquage des icônes sont dans le panneau Construire
+    a.closeModal(); a.ui.win = null; a.go('city'); a.globalActions['build-mode'](a); await wait(50);
+    click('.build-panel [data-action="up-list"]'); await wait(50);
     if (!document.querySelector('.up-list')) out.push('liste des améliorations absente'); a.closeModal();
-    click('[data-action="up-toggle"]'); await wait(50);
+    click('.build-panel [data-action="up-toggle"]'); await wait(50);
     if (document.querySelector('.t-up')) out.push('icônes encore visibles après masquage');
-    click('[data-action="up-toggle"]'); await wait(50);
-    click('[data-action="help"]'); await wait(50);
+    click('.build-panel [data-action="up-toggle"]'); await wait(50);
+    a.globalActions['build-mode'](a); await wait(30);
+    // v16 : l'aide est dans l'en-tête de la fenêtre du lieu
+    a.go('market'); await wait(50);
+    click('#win-root [data-action="help"]'); await wait(50);
     if (!document.querySelector('.modal h2')?.textContent.includes('Aide') && !document.querySelector('.modal')?.textContent.includes('❓')) out.push('aide absente'); a.closeModal();
     // Temps de rendu de la carte du royaume (agrandie au maximum)
     const t0 = performance.now(); for (let i = 0; i < 5; i++) a.render(); const ms = (performance.now() - t0) / 5;
@@ -127,7 +140,7 @@ const path = require('path');
     s.world.revealed.fill(1);
     const cx = s.world.capital.x, cy = s.world.capital.y;
     let k = null;
-    for (const [dx, dy] of [[3, 0], [0, 3], [-3, 0], [2, 2], [-2, 2]]) { a.ui.worldSel = { x: cx + dx, y: cy + dy }; a.go('world'); await wait(50); const c = document.querySelector('#world-panel [data-action="claim"]'); if (c) { c.click(); await wait(50); k = `${cx + dx},${cy + dy}`; break; } }
+    for (const [dx, dy] of [[3, 0], [0, 3], [-3, 0], [2, 2], [-2, 2]]) { a.ui.worldSel = { x: cx + dx, y: cy + dy }; a.go('tile'); await wait(50); const c = document.querySelector('#win-root [data-action="claim"]:not([disabled])'); if (c) { c.click(); await wait(50); k = `${cx + dx},${cy + dy}`; break; } }
     if (!k || !s.territories[k]?.name) out.push('avant-poste sans nom');
     else {
       a.go('territories'); await wait(50);
@@ -189,7 +202,7 @@ const path = require('path');
     a.go('factions'); await wait(60);
     if (!document.querySelector('.memory-list')) out.push('v10 : mémoire des factions absente');
     s.city.buildings.mon = { id: 'mon', type: 'monument', level: 2, x: cx > 0 ? 2 : 3, y: 2 };
-    a.ui.citySel = { x: s.city.buildings.mon.x, y: 2 }; a.go('city'); await wait(80);
+    a.ui.citySel = { x: s.city.buildings.mon.x, y: 2 }; a.go('bldg'); await wait(80);
     if (!document.querySelector('[data-action="monument-orient"]')) out.push('v10 : choix d’orientation du monument absent');
     a.go('accomplish'); await wait(60);
     if (!document.querySelectorAll('.axis').length) out.push('v10 : accomplissements absents');
@@ -208,16 +221,16 @@ const path = require('path');
     if (!fort) out.push('v11 : aucune forteresse de la Brèche');
     else {
       s.world.revealed[fort.y * s.world.size + fort.x] = 1; fort.scouted = true; fort.clearedUntil = 0;
-      a.ui.worldSel = { x: fort.x, y: fort.y }; a.go('world'); await wait(80);
+      a.ui.worldSel = { x: fort.x, y: fort.y }; a.go('tile'); await wait(80);
       if (!document.querySelector('.br-sheet')) out.push('v11 : fiche de forteresse absente');
-      click('#view [data-action="march"][data-type="attack"]'); await wait(80);
+      click('#win-root [data-action="march"][data-type="attack"]'); await wait(80);
       if (!document.querySelector('#march-preview')) out.push('v11 : fenêtre d’attaque de la Brèche absente');
       a.closeModal();
     }
-    a.go('kingdom'); await wait(60);
+    a.go('profile'); await wait(60);
     const sel = document.querySelector('[data-change="her"][data-k="charge"]');
     if (!sel) out.push('v11 : armoiries absentes'); else { sel.value = 'wolf'; sel.dispatchEvent(new Event('change', { bubbles: true })); await wait(60); if (s.meta.heraldry.charge !== 'wolf') out.push('v11 : armoiries non enregistrées'); }
-    if (!document.querySelector('.brand-coat svg')) out.push('v11 : blason absent de la barre du haut');
+    if (!document.querySelector('.hud-coat svg')) out.push('v11 : blason absent de l’affichage fixe');
     for (const r of Object.keys(s.resources)) s.resources[r] = Math.max(s.resources[r], 50000);
     s.stats.explored = 80;
     a.go('craft'); await wait(60);
@@ -238,13 +251,14 @@ const path = require('path');
   let clicks = 0;
   for (const v of views) {
     ctx = v;
-    await page.evaluate((v) => { window.cendrelande.closeModal(); window.cendrelande.go(v); }, v);
-    const n = await page.evaluate(() => document.querySelectorAll('#view [data-action]').length);
+    // v16 : une carte (château, monde, avant-poste) se teste dans #view, un écran dans le corps de sa fenêtre
+    const SEL = await page.evaluate((v) => { const a = window.cendrelande; a.closeModal(); if (v === 'outpost') a.ui.outpost = Object.keys(a.state.territories)[0]; a.go(v); return ['city', 'world', 'outpost'].includes(v) ? '#view [data-action]' : '#win-root .win-body [data-action]'; }, v);
+    const n = await page.evaluate((sel) => document.querySelectorAll(sel).length, SEL);
     for (let i = 0; i < Math.min(n, 40); i++) {
-      const a = await page.evaluate((i) => { const el = document.querySelectorAll('#view [data-action]')[i]; return el && !el.disabled ? el.dataset.action : null; }, i);
+      const a = await page.evaluate(([i, sel]) => { const el = document.querySelectorAll(sel)[i]; return el && !el.disabled ? el.dataset.action : null; }, [i, SEL]);
       if (!a || SKIP.test(a) || a === 'nav') continue;
       ctx = `${v}:${a}`;
-      await page.evaluate((i) => document.querySelectorAll('#view [data-action]')[i]?.click(), i);
+      await page.evaluate(([i, sel]) => document.querySelectorAll(sel)[i]?.click(), [i, SEL]);
       clicks++;
       await page.evaluate((v) => { window.cendrelande.closeModal(); if (window.cendrelande.ui.view !== v) window.cendrelande.go(v); }, v);
     }
