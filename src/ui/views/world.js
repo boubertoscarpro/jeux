@@ -388,15 +388,16 @@ function focusTile(app, x, y, zoom = null) {
 }
 
 // Met à jour le tiroir de la case sélectionnée sans redessiner tout l'écran (la carte reste en place)
+// v16 « Le Château » : la case choisie s'ouvre en fenêtre par-dessus la carte (ou se rafraîchit si elle l'est déjà)
 function refreshDrawer(app) {
-  const old = document.querySelector('.world-stage .drawer');
-  if (!old) return;
-  const sel = app.ui.worldSel;
-  const tmp = document.createElement('div');
-  tmp.innerHTML = drawerHtml(app, 'world', sel ? `Case (${sel.x}, ${sel.y})` : 'Carte du monde', tilePanel(app), { auto: sel ? `${sel.x},${sel.y}` : '' });
-  old.replaceWith(tmp.firstElementChild);
-  document.querySelector('.world-stage')?.classList.toggle('drawer-open', drawerOpen(app, 'world'));
+  if (!app.ui.worldSel) { if (app.ui.win === 'tile') app.closeWin(false); drawMap(app); return; }
+  if (app.ui.win === 'tile') app.renderWin(); else app.go('tile');
 }
+export const tileView = {
+  id: 'tile', title: 'Case',
+  title_(app) { const sel = app.ui.worldSel; return sel ? `Case (${sel.x}, ${sel.y})` : 'Carte du monde'; },
+  render: (app) => tilePanel(app),
+};
 
 // Contenu de l'infobulle du monde
 function ownerText(s, x, y) {
@@ -657,7 +658,7 @@ function tilePanel(app) {
     html += `<div class="panel-sub outpost-sub"><h4>🚩 Votre avant-poste ${terr.spec ? '' : '<span class="req small">à spécialiser</span>'}</h4>
       <div class="castle-name">${esc(outpostLabel(terr))} <button class="mini ghost" data-action="rename-outpost" data-k="${key(x, y)}">✎ Renommer</button></div>
       <div class="small">${cat ? `${cat.icon} ${esc(cat.name)} · ` : ''}${sp ? `${sp.icon} ${esc(sp.name)} · ` : ''}Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats · ${stabLevel(stabOf(terr)).icon} stabilité ${Math.round(stabOf(terr))}${terr.revolt ? ' · <span class="bad">révolte</span>' : ''}</div>
-      <button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
+      <button class="mini primary" data-action="visit-outpost" data-k="${key(x, y)}">🏰 Visiter</button> <button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
   } else if (!poi || !['capital', 'town', 'kingdom', 'boss'].includes(POI_TYPES[poi.type].kind)) {
     const c = canClaim(s, x, y, now);
     const bonus = TERRAINS[ter].territory;
@@ -859,22 +860,19 @@ const worldView = {
     cam(app);
     const sel = app.ui.worldSel;
     const scene = sceneState(app.state, Date.now(), localHour());
-    const drawer = drawerHtml(app, 'world', sel ? `Case (${sel.x}, ${sel.y})` : 'Carte du monde', tilePanel(app), { auto: sel ? `${sel.x},${sel.y}` : '' });
-    // v15 : la carte occupe toute la scène, le détail de la case passe dans un tiroir
+    void sel;
+    // v16 « Le Château » : la carte occupe tout l'écran ; la case choisie s'ouvre en fenêtre par-dessus
     return `<div class="world-layout">
-      <div class="stage world-stage ${drawerOpen(app, 'world') ? 'drawer-open' : ''} ${sceneClasses(scene)}">
+      <div class="stage world-stage ${sceneClasses(scene)}">
       ${sceneLayersHtml(scene, 'world')}
       <div class="world-canvas-wrap">
         <canvas id="world-canvas" aria-label="Carte du monde : cliquez sur une case pour l’inspecter"></canvas>
         <div class="map-tip" id="world-tip" role="tooltip"></div>
-        <div class="map-tools"><button class="mini" data-action="zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="fit" title="Vue d’ensemble du monde">⤢</button><button class="mini" data-action="center" title="Recentrer sur la capitale (zoom par défaut)">🏰</button>${app.state.boss ? '<button class="mini warn" data-action="goto-boss" title="Boss mondial">🐉</button>' : ''}<button class="mini" data-action="mini-toggle" title="Afficher / masquer la mini-carte">🗺️</button></div>
-        ${surveyButton(app.state)}
-        <div class="map-filters">${Object.entries(MAP_FILTERS).map(([k, l]) => `<button class="chip ${filters(app)[k] ? 'on' : 'off'}" data-action="map-filter" data-k="${k}" aria-pressed="${filters(app)[k]}">${l}</button>`).join('')}
+        <div class="map-filters">${surveyButton(app.state)}<button class="chip" data-action="fit" title="Vue d’ensemble du monde">⤢ Ensemble</button><button class="chip" data-action="center" title="Recentrer sur la capitale">🏰 Capitale</button>${app.state.boss ? '<button class="chip warn" data-action="goto-boss" title="Boss mondial">🐉 Boss</button>' : ''}<button class="chip" data-action="mini-toggle" aria-pressed="${!app.ui.miniOff}" title="Afficher / masquer la mini-carte">🗺️ Mini-carte</button>${Object.entries(MAP_FILTERS).map(([k, l]) => `<button class="chip ${filters(app)[k] ? 'on' : 'off'}" data-action="map-filter" data-k="${k}" aria-pressed="${filters(app)[k]}">${l}</button>`).join('')}
           <select class="map-places" data-change="map-place" aria-label="Aller à un lieu découvert"><option value="">📍 Aller à…</option>${notablePlaces(app.state).map((p) => `<option value="${p.x},${p.y}">${esc(p.label)} · ${Math.round(p.d)} cases</option>`).join('')}</select></div>
         <canvas id="world-mini" class="world-mini" ${app.ui.miniOff ? 'hidden' : ''} title="Mini-carte : cliquez pour vous y rendre"></canvas>
         <div class="map-hint muted small">${app.state.world.size}×${app.state.world.size} · glisser · molette ou pincement pour zoomer</div>
       </div>
-      ${drawer}
       </div>
     </div>`;
   },
@@ -917,4 +915,6 @@ const worldView = {
     },
   },
 };
+// v16 : la fenêtre d'une case agit comme la carte du monde, même ouverte depuis un autre écran
+tileView.actions = worldView.actions;
 export default worldView;

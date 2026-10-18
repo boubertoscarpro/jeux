@@ -37,6 +37,8 @@ function realm(seed = 'c1', lvl = 8) {
 const put = (s, id, type, x, y, level = 1) => (s.city.buildings[id] = { id, type, x, y, level });
 
 // ───────── Zones ─────────
+const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('p_'))); // lieux v16 : ajoutés, jamais retirés
+
 test('Zones : cour 5 × 5 autour de l’hôtel de ville, faubourgs sur 2 cases, campagne au-delà', () => {
   const s = realm();
   const r = rectOf(s);
@@ -296,7 +298,8 @@ test('Migration : une vraie sauvegarde v15 reçoit une enceinte, rien n’est d�
   const old = JSON.parse(raw);
   assert.ok(!old.castle, 'fixture au format v15');
   const s = deserialize(raw);
-  assert.equal(Object.keys(s.city.buildings).length, Object.keys(old.city.buildings).length, 'aucun bâtiment supprimé');
+  assert.equal(Object.keys(noPlaces(s.city.buildings)).length, Object.keys(old.city.buildings).length, 'aucun bâtiment supprimé');
+  assert.ok(['p_scriptorium', 'p_herald', 'p_embassy'].every((k) => s.city.buildings[k]), 'les nouveaux lieux sont posés sur des cases libres');
   for (const [id, b] of Object.entries(old.city.buildings)) { assert.equal(s.city.buildings[id].x, b.x); assert.equal(s.city.buildings[id].level, b.level); }
   assert.deepEqual(s.army, old.army);
   const r = rectOf(s);

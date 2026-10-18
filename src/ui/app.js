@@ -2,7 +2,17 @@ import { repActions } from './repercussions.js';
 import { stageActions } from './stage.js';
 import { iconize } from './glyphs.js';
 import { openPlaces, castleActions } from './castleUi.js';
-import { BUILDING_SCREENS } from '../data/castle.js';
+import { renderHud } from './hudFixed.js';
+import { PLACES, SCREEN_PLACE, MAP_SCREENS } from '../data/places.js';
+import { placeBuilding } from '../systems/places.js';
+import { startUpgrade, upgradeCheck } from '../systems/construction.js';
+import defenseView from './views/defense.js';
+import omensView from './views/omens.js';
+import { profileView, settingsView } from './views/kingdom.js';
+import { bldgView } from './views/city.js';
+import { tileView } from './views/world.js';
+import outpostView from './views/outpost.js';
+import { queuesHtml, queueActions } from './hud.js';
 import { BUILDINGS } from '../data/buildings.js';
 import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
@@ -14,7 +24,7 @@ import { ensureArtDefs } from './art.js';
 import { advance } from '../core/engine.js';
 import { saveGame } from '../core/save.js';
 import { fmtTime } from '../core/util.js';
-import { renderTopbar, renderSide, sideActions, adviceBox } from './hud.js';
+import { sideActions, adviceBox } from './hud.js';
 import { esc, resChips } from './components.js';
 import cityView from './views/city.js';
 import worldView from './views/world.js';
@@ -69,9 +79,9 @@ import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView, omensView] },
   { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView, archaeoView, legendView] },
-  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView] },
+  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView, defenseView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
@@ -79,26 +89,25 @@ export const GROUPS = [
   { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },
   { id: 'g-wheel', title: 'Roue', icon: '🎡', tabs: [wheelView, shardsView] },
   { id: 'g-guild', title: 'Guilde', icon: '🏛️', tabs: [guildView] },
-  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, codexView, statsView, treasuryView, kingdomView] },
+  { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, codexView, statsView, treasuryView, kingdomView, profileView, settingsView] },
 ];
 export const VIEWS = GROUPS.flatMap((g) => g.tabs);
-// v16 : la ville devient le menu. Le menu de gauche n'a plus que 4 entrées (+ le Conseiller) ; les autres groupes
-// s'ouvrent depuis leurs bâtiments, la fenêtre « Lieux » (/ ou Ctrl + K) ou le fil d'Ariane.
-export const NAV_GROUPS = ['g-kingdom', 'g-world', 'g-chron', 'g-events'];
-const NAV_TITLE = { 'g-kingdom': 'Château' };
-const navGroupOf = (g) => (g && NAV_GROUPS.includes(g.id) ? g.id : 'g-kingdom');
-// Bâtiment qui mène à un écran (fil d'Ariane « Château › Marché »)
-const placeOf = (viewId) => { for (const [t, ids] of Object.entries(BUILDING_SCREENS)) if (ids.includes(viewId)) return BUILDINGS[t]; return null; };
-export const MAP_VIEWS = ['city', 'world'];
+// v16 « Le Château » : plus de menu latéral. La carte (château, monde ou avant-poste) occupe tout l'écran ; chaque
+// écran s'ouvre en fenêtre par-dessus, depuis son lieu (data/places.js), l'affichage fixe ou la liste des Lieux.
+// Les fenêtres internes (fiche d'un bâtiment, case du monde) ne sont pas des écrans du jeu : elles n'ont pas de lieu.
+export const MAP_VIEWS = [...MAP_SCREENS, 'outpost'];
+const INTERNAL = [bldgView, tileView, outpostView];
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
+const placeName = (k) => { const p = PLACES[k]; return p ? (p.kind === 'building' ? BUILDINGS[p.type]?.name : p.name) : ''; };
+const placeIcon = (k) => { const p = PLACES[k]; return p ? (p.kind === 'building' ? BUILDINGS[p.type]?.icon : p.icon) : ''; };
 
 export class App {
   constructor(root, state) {
     this.adviceBox = adviceBox; // liste rapide des conseils, affichée dans la fenêtre du conseiller
     this.root = root;
     this.state = state;
-    this.ui = { view: 'city', showAllRes: false, lastTab: {} };
-    this.views = Object.fromEntries(VIEWS.map((v) => [v.id, v]));
+    this.ui = { view: 'city', map: 'city', win: null, winHistory: [], showAllRes: false, lastTab: {} };
+    this.views = Object.fromEntries([...VIEWS, ...INTERNAL].map((v) => [v.id, v]));
     this.dirty = true;
     this.$ = (sel) => root.querySelector(sel);
   }
@@ -117,14 +126,13 @@ export class App {
   }
 
   start() {
+    // v16 : la carte en plein écran, l'affichage fixe par-dessus, puis la fenêtre du lieu ouvert
     this.root.innerHTML = `
-      <header id="topbar"></header>
-      <nav id="nav"></nav>
-      <main id="view"></main>
-      <aside id="side"></aside>`;
+      <main id="view" aria-label="Carte"></main>
+      <div id="hud" class="hud"></div>
+      <div id="win-root"></div>`;
     ensureIconDefs(); ensureArtDefs();
     this.applyPrefs();
-    this.renderNav();
     this.bindEvents();
     bus.on('changed', () => { this.dirty = true; });
     bus.on('toast', ({ text, type }) => this.toast(text, type));
@@ -228,10 +236,11 @@ export class App {
     showTip(this);
     if (this.dirty) this.render();
     else {
-      this.$('#topbar').innerHTML = renderTopbar(this);
-      iconize(this.$('#topbar'));
+      this.renderHud();
       this.updateTimers();
-      this.views[this.ui.view].tick?.(this);
+      // Une carte figée derrière une fenêtre n'a pas besoin de ses animations de seconde en seconde
+      if (!this.ui.win) this.views[this.ui.map]?.tick?.(this);
+      else this.views[this.ui.win]?.tick?.(this);
     }
   }
 
@@ -245,20 +254,25 @@ export class App {
   }
 
   // Tutoriel : met en évidence le menu qui mène à un écran
+  // v16 : le guidage désigne un bâtiment du château (centré, mis en évidence) ou un bouton de l'affichage fixe
   highlight(viewId) {
     this.ui.highlight = viewId;
-    this.renderNav();
-    const g = groupOf(viewId);
-    const pl = placeOf(viewId);
-    if (g && this.ui.view !== viewId) this.toast(NAV_GROUPS.includes(g.id) ? `Ouvrez le menu « ${NAV_TITLE[g.id] || g.title} » mis en évidence.` : `Ouvrez ${pl ? `le bâtiment « ${pl.name} » dans votre château` : 'votre château'} (ou 📍 Lieux, touche /).`, 'info');
+    const pk = SCREEN_PLACE[viewId];
+    const p = PLACES[pk];
+    const b = p?.kind === 'building' ? placeBuilding(this.state, pk) : null;
+    if (this.ui.win) this.closeWin(false);
+    if (viewId === 'city') { this.ui.map = 'city'; this.ui.hudHl = 'build-mode'; this.toast('Bâtissez depuis le bouton « Construire » en bas à droite (touche B).', 'info'); }
+    else if (b) {
+      this.ui.map = 'city'; this.ui.citySel = { x: b.x, y: b.y }; this.ui.ringOpen = true; this.ui.cityFocus = { x: b.x, y: b.y };
+      this.ui.flashTile = { x: b.x, y: b.y, until: Date.now() + 4000 };
+      this.toast(`Ouvrez « ${BUILDINGS[b.type].name} » dans votre château : bouton « Ouvrir ».`, 'info');
+    } else if (p?.kind === 'map') { this.ui.hudHl = 'toggle-map'; this.toast('Ouvrez la carte du monde : bouton « Monde » en bas à droite (touche M).', 'info'); }
+    else if (p?.kind === 'hud') { this.ui.hudHl = pk === 'profile' ? 'profile' : 'settings'; this.toast(pk === 'profile' ? 'Ouvrez votre profil : médaillon en haut à gauche.' : 'Ouvrez les réglages : engrenage en haut à droite.', 'info'); }
+    else { this.ui.hudHl = 'places'; this.toast(`Ce lieu n’est pas encore bâti : ouvrez « Lieux » (touche L) ou cliquez son panneau dans le château.`, 'info'); }
     this.render();
   }
 
-  renderNav() {
-    const hl = this.ui.highlight && navGroupOf(groupOf(this.ui.highlight));
-    this.$('#nav').innerHTML = GROUPS.filter((g) => NAV_GROUPS.includes(g.id)).map((g) => `<button class="nav-btn ${g.id === hl ? 'tut-hl' : ''}" data-action="nav" data-view="${g.id === 'g-kingdom' ? 'city' : g.id}" data-group="${g.id}" title="${esc(NAV_TITLE[g.id] || g.title)}"><span class="nav-icon">${navIcon(g.id, 26) || g.icon}</span><span class="nav-label">${esc(NAV_TITLE[g.id] || g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
-      + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">${navIcon('advisor', 26)}</span><span class="nav-label">Conseiller</span><span class="nav-badge" data-badge="advisor"></span></button>`;
-  }
+  renderNav() { /* v16 : plus de menu latéral (affichage fixe : renderHud) */ }
 
   // Préserve la valeur/le focus des champs lors d'un re-rendu
   preserveInputs(container, fn) {
@@ -277,71 +291,112 @@ export class App {
     if (activeId) { const el = container.querySelector('#' + CSS.escape(activeId)); if (el) el.focus(); }
   }
 
+  renderHud() {
+    const hud = this.$('#hud');
+    if (!hud) return;
+    this.preserveInputs(hud, () => { hud.innerHTML = renderHud(this); });
+    hud.dataset.map = this.ui.map;
+    if (this.ui.hudHl) hud.querySelector(this.ui.hudHl === 'profile' ? '.hud-coat' : this.ui.hudHl === 'settings' ? '[data-view="settings"]' : `[data-action="${this.ui.hudHl}"]`)?.classList.add('tut-hl');
+    iconize(hud);
+  }
+
+  // Rendu : la carte (château, monde, avant-poste) derrière ; l'affichage fixe ; la fenêtre du lieu ouvert. Tant qu'une
+  // fenêtre est ouverte, la carte n'est pas redessinée (elle est floutée derrière) : ouvrir un écran ne coûte que
+  // l'écran lui-même.
   render() {
-    // Pendant l'animation de la Roue, seul le bandeau est rafraîchi
-    if (this.ui.freezeUntil > Date.now()) { this.$('#topbar').innerHTML = renderTopbar(this); this.dirty = true; return; }
+    // Pendant l'animation de la Roue, seul l'affichage fixe est rafraîchi
+    if (this.ui.freezeUntil > Date.now()) { this.renderHud(); this.dirty = true; return; }
     this.dirty = false;
-    const view = this.views[this.ui.view];
-    const group = groupOf(view.id);
-    this.ui.lastTab[group.id] = view.id;
-    this.$('#topbar').innerHTML = renderTopbar(this);
+    const map = this.views[this.ui.map] || this.views.city;
+    this.ui.view = this.ui.win || map.id;
     const main = this.$('#view');
-    main.dataset.screen = view.id; // identité visuelle propre à chaque écran (css/theme.css, « Identités des écrans »)
-    // v15 : écrans « carte » (royaume, monde) : la carte prend toute la place, la colonne de droite devient un tiroir
-    this.root.classList.toggle('mapmode', MAP_VIEWS.includes(view.id));
+    this.root.classList.add('mapmode');
+    this.root.classList.toggle('win-open', !!this.ui.win);
+    // Sans fenêtre : la carte est redessinée comme avant. Avec une fenêtre : seulement si on l'a demandé (changement de
+    // carte, action sur la carte) ; ouvrir un écran par-dessus une carte à jour ne la redessine pas.
+    if (!this.ui.win || this.mapDirty || main.dataset.screen !== map.id) {
+      main.dataset.screen = map.id;
+      this.preserveInputs(main, () => { main.innerHTML = `<div class="view view-${map.id}">${map.render(this)}</div>`; });
+      map.after?.(this);
+      iconize(main);
+      this.mapDirty = false;
+    }
+    this.renderHud();
+    this.renderWin();
+  }
+
+  // Fenêtre du lieu : titre (lieu et niveau), onglets des écrans du lieu, Améliorer, Retour, Aide, fermeture
+  renderWin() {
+    const root = this.$('#win-root');
+    if (!root) return;
+    const id = this.ui.win;
+    if (!id) { root.innerHTML = ''; root.classList.remove('open'); return; }
+    const view = this.views[id];
+    if (!view) { this.ui.win = null; root.innerHTML = ''; return; }
+    const pk = SCREEN_PLACE[id];
+    const p = PLACES[pk];
+    const b = p?.kind === 'building' ? placeBuilding(this.state, pk) : null;
+    const internal = INTERNAL.includes(view);
+    const title = internal ? (view.title_?.(this) || view.title) : b ? `${BUILDINGS[b.type].name}` : p ? placeName(pk) : view.title;
+    const icon = internal ? '' : b ? BUILDINGS[b.type].icon : p ? placeIcon(pk) : view.icon;
+    const lvl = b && BUILDINGS[b.type].maxLevel > 1 ? `<span class="lvl">niv. ${b.level}</span>` : '';
+    const u = b && BUILDINGS[b.type].maxLevel > 1 ? upgradeCheck(this.state, b.id) : null;
+    const tabs = !internal && p ? p.screens.filter((v) => this.views[v] && (v === id || !this.views[v].locked?.(this))) : [];
     const locked = view.locked?.(this);
-    const helpBtn = helpFor(view.id) ? `<button class="subtab help-btn" data-action="help" title="Aide sur cet écran : mécanismes, coûts, prérequis">❓ Aide</button>` : '';
-    // v16 : les onglets verrouillés ne s'affichent plus (la ville montre la progression : terrains vagues, Lieux) ;
-    // fil d'Ariane vers le château pour les écrans ouverts depuis un bâtiment
-    const shown = group.tabs.filter((t) => t.id === view.id || !t.locked?.(this));
-    const pl = !NAV_GROUPS.includes(group.id) ? placeOf(view.id) : null;
-    const crumb = !NAV_GROUPS.includes(group.id) ? `<button class="subtab crumb" data-action="nav" data-view="city" title="Retour au château">🏰 Château ›${pl ? ` ${pl.icon} ${esc(pl.name)}` : ''}</button>` : '';
-    const tabs = shown.length > 1 || helpBtn || crumb ? `<div class="subnav">${crumb}${shown.length > 1 ? shown.map((t) => {
-      const l = t.locked?.(this);
-      const n = t.badge?.(this) || 0;
-      return `<button class="subtab ${t.id === view.id ? 'active' : ''} ${l ? 'locked' : ''} ${t.id === this.ui.highlight ? 'tut-hl' : ''}" data-action="nav" data-view="${t.id}" title="${esc(l || t.title)}">${SUBTAB_ICONS[t.id] ? gameIcon(SUBTAB_ICONS[t.id], 16, t.icon) : t.icon} ${esc(t.title)}${l ? ' 🔒' : ''}${n ? ` <span class="sub-badge">${n}</span>` : ''}</button>`;
-    }).join('') : ''}${helpBtn}</div>` : '';
-    this.preserveInputs(main, () => {
-      main.innerHTML = `${tabs}<div class="view view-${view.id}">${locked ? `<div class="card locked-card"><h2>🔒 ${esc(view.title)}</h2><p>${esc(locked)}</p><p class="muted small">Les systèmes avancés se débloquent au fil de votre progression : ils n’encombrent pas l’interface tant que vous n’en avez pas besoin.</p></div>` : view.render(this)}</div>`;
-    });
+    const help = helpFor(id) ? `<button class="win-ic" data-action="help" title="Aide sur cet écran" aria-label="Aide">❓</button>` : '';
+    root.classList.add('open');
+    const body = locked ? `<div class="card locked-card"><h2>${esc(view.title)}</h2><p>${esc(locked)}</p><p class="muted small">Ce lieu s’ouvrira de lui-même : son panneau dans le château indique la condition.</p></div>` : view.render(this);
+    const html = `<div class="win-backdrop" data-action="win-close"></div>
+      <section class="win" role="dialog" aria-modal="true" aria-labelledby="win-title" data-screen="${id}">
+        <header class="win-head">
+          ${this.ui.winHistory.length ? `<button class="win-ic" data-action="win-back" title="Retour" aria-label="Retour">←</button>` : ''}
+          <h2 id="win-title">${icon} ${esc(title)} ${lvl}</h2>
+          ${u && ['ready', 'queue', 'lack'].includes(u.status) ? `<button class="mini ${u.status === 'ready' ? 'primary' : ''}" data-action="upgrade-place" data-id="${b.id}" ${u.status === 'lack' ? `disabled title="${esc(u.reasons[0] || '')}"` : ''}>⬆ Améliorer</button>` : ''}
+          ${help}<button class="win-ic win-x" data-action="win-close" title="Fermer (Échap)" aria-label="Fermer">✕</button>
+        </header>
+        ${tabs.length > 1 ? `<nav class="win-tabs" role="tablist">${tabs.map((v) => { const t = this.views[v]; const n = t.badge?.(this) || 0; return `<button class="win-tab ${v === id ? 'active' : ''}" role="tab" aria-selected="${v === id}" data-action="nav" data-view="${v}">${t.icon} ${esc(t.title)}${n ? ` <span class="hb hb-num">${n}</span>` : ''}</button>`; }).join('')}</nav>` : ''}
+        <div class="win-body view view-${id}" id="win-body">${body}</div>
+      </section>`;
+    const prev = root.querySelector('#win-body');
+    const keepScroll = prev && root.querySelector('.win')?.dataset.screen === id ? prev.scrollTop : 0;
+    this.preserveInputs(root, () => { root.innerHTML = html; });
+    const nb = root.querySelector('#win-body'); if (nb) nb.scrollTop = keepScroll;
     if (!locked) view.after?.(this);
-    const side = this.$('#side');
-    this.preserveInputs(side, () => { side.innerHTML = renderSide(this); });
-    // v15 : une seule langue d'icônes dans l'interface (glyphes SVG à la place des emojis de tête)
-    iconize(main); iconize(side); iconize(this.$('#topbar'));
-    const ng = navGroupOf(group);
-    this.root.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.group === ng));
-    this.updateBadges();
+    iconize(root);
+    if (this._focusWin) { this._focusWin = false; root.querySelector('.win-x')?.focus(); }
   }
 
-  updateBadges() {
-    // Conseiller unique : pastille = conseils urgents ou importants
-    const ab = this.root.querySelector('[data-badge="advisor"]');
-    if (ab) { let n = 0; try { if ((this.state.meta.advice || 'full') !== 'off') n = adviceList(this.state, Date.now()).filter((r) => r.sev === 'bad' || r.sev === 'warn').length; } catch { n = 0; } ab.textContent = n || ''; ab.classList.toggle('on', !!n); }
-    const sums = {};
-    for (const g of GROUPS) {
-      const n = g.tabs.reduce((a, t) => a + (t.locked?.(this) ? 0 : t.badge?.(this) || 0), 0);
-      const k = navGroupOf(g);
-      sums[k] = (sums[k] || 0) + n;
-    }
-    for (const [k, n] of Object.entries(sums)) {
-      const el = this.root.querySelector(`[data-badge="${k}"]`);
-      if (!el) continue;
-      el.textContent = n ? n : '';
-      el.classList.toggle('on', !!n);
-    }
+  closeWin(render = true) {
+    this.ui.win = null; this.ui.winHistory = [];
+    this.mapDirty = true;
+    if (render) this.render();
   }
 
+  updateBadges() { /* v16 : badges dans l'affichage fixe */ }
+
+  // Ouvre un écran : la carte (château, monde) ou une fenêtre par-dessus. Un lien vers un autre lieu remplace la
+  // fenêtre et garde un bouton Retour.
   go(viewId, sel = {}) {
     const g = GROUPS.find((x) => x.id === viewId);
     if (g) viewId = this.ui.lastTab[g.id] || g.tabs[0].id;
+    if (viewId === 'g-kingdom') viewId = 'city';
     if (!this.views[viewId]) viewId = 'city';
-    this.ui.view = viewId;
     markVisited(this.state, viewId); // missions « consulter … » du parcours guidé
-    if (this.ui.highlight === viewId) { this.ui.highlight = null; this.renderNav(); }
+    if (this.ui.highlight === viewId) { this.ui.highlight = null; this.ui.hudHl = null; }
     Object.assign(this.ui, sel);
+    if (MAP_VIEWS.includes(viewId)) {
+      this.ui.map = viewId; this.ui.win = null; this.ui.winHistory = []; this.mapDirty = true;
+      if (viewId !== 'city') this.ui.buildMode = false;
+    } else {
+      const same = this.ui.win && SCREEN_PLACE[this.ui.win] === SCREEN_PLACE[viewId];
+      if (this.ui.win && !same && this.ui.win !== viewId) this.ui.winHistory.push(this.ui.win);
+      if (this.ui.winHistory.length > 8) this.ui.winHistory.shift();
+      if (!this.ui.win) this._focusWin = true;
+      this.ui.win = viewId;
+      const gg = groupOf(viewId); if (gg) this.ui.lastTab[gg.id] = viewId;
+    }
+    this.ui.phoneDrawer = null;
     this.render();
-    this.$('#view').scrollTop = 0;
   }
 
   // Dépense importante (≥ 60 % du stock d'une ressource) : demande confirmation avant de lancer l'action
@@ -378,8 +433,10 @@ export class App {
         if (key === last.key && now - last.t < 350) return;
         last = { key, t: now };
       }
-      const view = this.views[this.ui.view];
-      const fn = (this.modalActions && this.modalActions[name]) || view.actions?.[name] || sideActions[name] || this.globalActions[name];
+      const winV = this.ui.win ? this.views[this.ui.win] : null;
+      const mapV = this.views[this.ui.map];
+      const inWin = !!el.closest('#win-root');
+      const fn = (this.modalActions && this.modalActions[name]) || (inWin && winV?.actions?.[name]) || mapV?.actions?.[name] || winV?.actions?.[name] || sideActions[name] || this.globalActions[name];
       if ((name === 'goto' || name === 'nav') && this.modalActions) this.closeModal();
       if (fn) { ev.preventDefault?.(); fn(this, el, ev); }
     };
@@ -389,26 +446,53 @@ export class App {
     document.addEventListener('keydown', (ev) => {
       const open = document.getElementById('modal-root')?.classList.contains('open');
       if (ev.key === 'Escape') {
-        if (!open && this.ui.ringOpen) { this.ui.ringOpen = false; this.render(); return; }
-        this.closeModal();
+        if (open) { this.closeModal(); return; }
+        if (this.ui.phoneDrawer) { this.ui.phoneDrawer = null; this.renderHud(); return; }
+        if (this.ui.win) { this.closeWin(); return; }
+        if (this.ui.ringOpen) { this.ui.ringOpen = false; this.render(); return; }
+        if (this.ui.buildMode) { this.ui.buildMode = false; this.ui.placeType = null; this.ui.moveId = null; this.render(); }
         return;
       }
-      // v16 : « Lieux » au clavier (/ ou Ctrl + K), sauf pendant la saisie
+      // v16 : raccourcis (hors saisie) : M monde/château, B construire, A armée, Q quêtes, R rapports, L lieux
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target?.tagName || '') || ev.target?.isContentEditable;
-      if (!typing && !open && (ev.key === '/' || ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k'))) { ev.preventDefault(); openPlaces(this); }
+      if (typing || open || ev.altKey || ev.metaKey || (ev.ctrlKey && ev.key.toLowerCase() !== 'k')) return;
+      const k = ev.key.toLowerCase();
+      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('goals'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this) };
+      if (ev.ctrlKey && k === 'k') { ev.preventDefault(); openPlaces(this); return; }
+      if (map[k]) { ev.preventDefault(); map[k](); }
     });
   }
 
   globalActions = {
     nav: (app, el) => app.go(el.dataset.view),
     'close-modal': (app) => app.closeModal(),
-    'toggle-res': (app) => { app.ui.showAllRes = !app.ui.showAllRes; app.render(); },
-    'toggle-side': (app) => { app.root.classList.toggle('show-side'); },
     advisor: (app) => openAdvisor(app),
     'up-list': (app) => openUpgradeList(app),
-    help: (app) => openHelp(app, app.ui.view, groupOf(app.ui.view)),
+    help: (app) => openHelp(app, app.ui.win || app.ui.map, groupOf(app.ui.win || app.ui.map)),
     'kingdom-info': (app) => app.modal(`<h2>Votre royaume</h2>${kingdomInfoHtml(app.state)}`, {}, 'wide'),
-    notifs: (app) => { app.openNotifications(); app.$('#topbar').innerHTML = renderTopbar(app); },
+    notifs: (app) => { app.openNotifications(); app.renderHud(); },
+    'win-close': (app) => app.closeWin(),
+    'win-back': (app) => { const prev = app.ui.winHistory.pop(); if (prev) { app.ui.win = prev; app.render(); } else app.closeWin(); },
+    'upgrade-place': (app, el) => app.act(() => startUpgrade(app.state, el.dataset.id), 'Amélioration lancée'),
+    'toggle-map': (app) => app.go(app.ui.map === 'city' ? 'world' : 'city'),
+    'build-mode': (app) => { if (app.ui.map !== 'city' || app.ui.win) { app.ui.win = null; app.ui.winHistory = []; app.ui.map = 'city'; } app.ui.buildMode = !app.ui.buildMode; if (!app.ui.buildMode) { app.ui.placeType = null; app.ui.moveId = null; } app.ui.ringOpen = false; app.mapDirty = true; app.render(); },
+    queues: (app) => app.modal(`<h2>⏳ Files du royaume</h2>${queuesHtml(app)}`, {}, 'wide'),
+    'res-more': (app) => { app.ui.resMore = !app.ui.resMore; app.renderHud(); },
+    'act-more': (app) => { app.ui.actMore = !app.ui.actMore; app.renderHud(); },
+    'left-fold': (app) => { app.ui.leftCollapsed = !app.ui.leftCollapsed; app.renderHud(); },
+    'drawer-q': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'q' ? null : 'q'; app.renderHud(); },
+    'drawer-a': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'a' ? null : 'a'; app.renderHud(); },
+    'drawer-close': (app) => { app.ui.phoneDrawer = null; app.renderHud(); },
+    fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); } catch { /* refusé par le navigateur */ } },
+    'hud-zoom': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-zoom'] || mv?.actions?.zoom)?.(app, el); },
+    'hud-fit': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-fit'] || mv?.actions?.fit)?.(app, el); },
+    'hud-center': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-center'] || mv?.actions?.center)?.(app, el); },
+    domain: (app, el) => { if (el.value) { app.ui.map = 'outpost'; app.ui.outpost = el.value; } else app.ui.map = 'city'; app.ui.win = null; app.ui.winHistory = []; app.ui.opSel = null; app.ui.opMove = null; app.ui.buildMode = false; app.mapDirty = true; app.render(); },
+    // Visiter un avant-poste (carte du monde, fiche des territoires)
+    'visit-outpost': (app, el) => { if (!app.state.territories[el.dataset.k]) return; app.closeModal?.(); app.ui.outpost = el.dataset.k; app.ui.opSel = null; app.ui.opMove = null; app.go('outpost'); },
+    // « Y aller » : centre le château sur le lieu de l'objectif (ou ouvre l'écran s'il n'a pas de bâtiment)
+    'go-place': (app, el) => { const v = el.dataset.view; const pk = SCREEN_PLACE[v]; const b = pk && PLACES[pk].kind === 'building' ? placeBuilding(app.state, pk) : null; if (b) app.highlight(v); else app.go(v); },
+    ...queueActions,
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),
     places: (app) => openPlaces(app),
     'goto-tile': castleActions['goto-tile'],

@@ -1,29 +1,29 @@
 {
  "large": {
   "tiles": 960,
-  "renderMs": 62.2,
-  "mainZoom": 10.8,
-  "mainZoomP95": 18.4,
-  "mainPan": 8.8,
-  "mainPanP95": 12.1,
-  "frameSaver": 41.5
+  "renderMs": 55.4,
+  "mainZoom": 10.7,
+  "mainZoomP95": 19.8,
+  "mainPan": 10.7,
+  "mainPanP95": 43.9,
+  "frameSaver": 47.2
  },
  "moyen": {
   "tiles": 960,
-  "renderMs": 66.1,
-  "mainZoom": 9.4,
-  "mainZoomP95": 10.9,
-  "mainPan": 8.8,
-  "mainPanP95": 12.9,
-  "frameSaver": 20.6
+  "renderMs": 86,
+  "mainZoom": 8.4,
+  "mainZoomP95": 13.6,
+  "mainPan": 7.1,
+  "mainPanP95": 19.8,
+  "frameSaver": 21.1
  },
  "mobile": {
   "tiles": 960,
-  "renderMs": 182.8,
-  "mainZoom": 8.6,
-  "mainZoomP95": 34.8,
-  "mainPan": 6.8,
-  "mainPanP95": 10.1,
+  "renderMs": 47.8,
+  "mainZoom": 7.6,
+  "mainZoomP95": 15.9,
+  "mainPan": 6.2,
+  "mainPanP95": 15.2,
   "frameSaver": 16.8
  }
 }

@@ -51,7 +51,7 @@ export function castleUnderSvg(state, { W, H }) {
     parts.push(`<path d="${rectPath(g.X0 - o, g.Y0 - o, g.X1 + o, g.Y1 + o)}" fill="none" stroke="rgba(200,230,255,0.45)" stroke-width="1.5" stroke-dasharray="14 10"/>`);
   }
   const lab = (x, y, text) => `<text x="${x}" y="${y}" class="zone-label">${esc(text)}</text>`;
-  parts.push(lab(g.X0 + 8, g.Y0 + 18, 'Cour du donjon'));
+  parts.push(lab(g.X0 + g.w.th + 14, g.Y0 + g.w.th + 26, 'Cour du donjon'));
   if (fy0 < g.Y0 - 20) parts.push(lab(fx0 + 8, fy0 + 18, 'Faubourgs'));
   if (fx0 > 40) parts.push(lab(8, 18, 'Campagne'));
   return `<svg class="castle-under" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${parts.join('')}</svg>`;

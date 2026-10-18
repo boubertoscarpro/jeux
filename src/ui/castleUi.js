@@ -18,6 +18,8 @@ import { thLevel } from '../systems/city.js';
 import { castleName } from '../systems/identity.js';
 import { esc, costList, countdown } from './components.js';
 import { fmtTime } from '../core/util.js';
+import { PLACES, MAP_SCREENS } from '../data/places.js';
+import { placeBuilding } from '../systems/places.js';
 
 const SIDE_NAME = { n: 'nord', s: 'sud', e: 'est', w: 'ouest' };
 const pctS = (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)} %`;
@@ -58,8 +60,9 @@ export function ringHtml(app, b, lot = null) {
   return `<div class="ring" role="menu" aria-label="${esc(isDeco ? COSMETICS[b.deco]?.name || '' : BUILDINGS[b.type]?.name || '')}">
     ${upBtn}
     <button class="ring-btn r-right" role="menuitem" data-action="${open ? 'nav' : 'ring-info'}" ${open ? `data-view="${open}"` : ''} ${!open && screensOf(b.type).length ? 'title="Écran encore verrouillé : voir Infos"' : ''}>${open ? '🚪' : 'ℹ'}<span>${open ? 'Ouvrir' : 'Infos'}</span></button>
-    <button class="ring-btn r-left" role="menuitem" data-action="ring-info">📜<span>Infos</span></button>
-    <button class="ring-btn r-bottom" role="menuitem" data-action="ring-close" title="Fermer (Échap)">✕<span>Fermer</span></button></div>`;
+    <button class="ring-btn r-left" role="menuitem" data-action="ring-info" title="Informations">📜<span>Infos</span></button>
+    ${!isDeco && b.type !== 'townhall' && b.level > 0 && !q ? `<button class="ring-btn r-bl" role="menuitem" data-action="move" data-id="${b.id}" title="Déplacer">↔<span>Déplacer</span></button>` : ''}
+    <button class="ring-btn r-br" role="menuitem" data-action="ring-close" title="Fermer (Échap)">✕<span>Fermer</span></button></div>`;
 }
 
 // Panneau d'un terrain vague (tiroir)
@@ -156,23 +159,23 @@ export const castleActions = {
 
 // ───────── Fenêtre « Lieux » : tous les écrans et bâtiments, au clavier ─────────
 export function placesList(app) {
+  // v16 : la table des lieux (data/places.js) fait foi ; chaque écran apparaît une fois, sous son lieu principal
   const s = app.state;
   const items = [];
   const seen = new Set();
   const lots = vacantLots(s);
-  for (const [type, ids] of Object.entries(BUILDING_SCREENS)) {
-    const def = BUILDINGS[type];
-    if (!def) continue;
-    const b = Object.values(s.city.buildings).find((x) => x.type === type);
-    const lot = lots.find((l) => l.type === type);
-    for (const id of ids) {
+  for (const [key, p] of Object.entries(PLACES)) {
+    const def = p.kind === 'building' ? BUILDINGS[p.type] : null;
+    if (p.kind === 'building' && !def) continue;
+    const b = def ? placeBuilding(s, key) || Object.values(s.city.buildings).find((x) => x.type === p.type) : null;
+    const lot = def ? lots.find((l) => l.type === p.type) : null;
+    for (const id of p.screens) {
       const v = app.views[id];
-      if (!v) continue;
-      items.push({ key: `${type}:${id}`, view: id, title: v.title, icon: v.icon, place: def.name, placeIcon: def.icon, built: !!b, at: b || lot || null, locked: v.locked?.(app) || null });
+      if (!v || seen.has(id) || MAP_SCREENS.includes(id) && id === 'city') continue;
+      items.push({ key: `${key}:${id}`, view: id, title: v.title, icon: v.icon, place: def ? def.name : p.name, placeIcon: def ? def.icon : p.icon, built: def ? !!b : true, at: b || lot || null, locked: v.locked?.(app) || null });
       seen.add(id);
     }
   }
-  for (const v of Object.values(app.views)) if (!seen.has(v.id) && v.id !== 'city') items.push({ key: v.id, view: v.id, title: v.title, icon: v.icon, place: null, built: true, at: null, locked: v.locked?.(app) || null });
   return items;
 }
 export function openPlaces(app) {

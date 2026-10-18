@@ -35,7 +35,7 @@ function realm(L, seed = 'lv') {
 test('Niveaux : HdV 30, bâtiments emblématiques 25, ordinaires au moins 20 ; bâtiments spéciaux inchangés', () => {
   assert.equal(BUILDINGS.townhall.maxLevel, 30);
   for (const t of EMBLEMATIC.slice(1)) assert.equal(BUILDINGS[t].maxLevel, 25, t);
-  for (const [t, d] of Object.entries(BUILDINGS)) if (d.cat !== 'unique' && !['road', 'moat', 'guildhall'].includes(t)) assert.ok(d.maxLevel >= 20, t);
+  for (const [t, d] of Object.entries(BUILDINGS)) if (d.cat !== 'unique' && d.cat !== 'place' && !['road', 'moat', 'guildhall'].includes(t)) assert.ok(d.maxLevel >= 20, t);
   assert.equal(BUILDINGS.monument.maxLevel, 5);
   assert.equal(BUILDINGS.moat.maxLevel, 10);
 });

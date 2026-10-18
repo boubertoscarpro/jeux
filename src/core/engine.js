@@ -1,4 +1,5 @@
 import { npcTick } from '../systems/npcs.js';
+import { ensurePlaces } from '../systems/places.js';
 import { castleTick } from '../systems/castle.js';
 import { chronicle } from '../systems/chronicle.js';
 import { feat } from '../systems/log.js';
@@ -219,6 +220,7 @@ export function advance(state, now = Date.now()) {
 
 // v16 : réparation de la muraille, passage d'un palier de silhouette (moment marquant : chronique et annonce)
 function castleWorldTick(state, t, dt) {
+  for (const p of ensurePlaces(state)) log(state, 'good', `🏛️ Un nouveau lieu ouvre ses portes : ${p.name}.`, t);
   const st = castleTick(state, t, dt / 3600);
   if (st) {
     chronicle(state, `🏰 ${state.meta.kingdomName} devient ${st.name.toLowerCase()} : ${st.text}`, t);

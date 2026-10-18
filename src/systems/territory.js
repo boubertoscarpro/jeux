@@ -21,6 +21,7 @@ import { recordLoss } from './losses.js';
 import { shardState } from './shards.js';
 import { toast } from './log.js';
 import { logisticsNetwork, deliveredProd, logisticsUpkeepTick } from './logistics.js';
+import { ensureTown, townGarrisonDiv, townUpkeep, townProdMult, townOwnProd, townFx, townThreatMult, townGlobalMods, townTick } from './outposts.js';
 
 export function territoryCost(state) {
   const n = Object.keys(state.territories).length;
@@ -53,6 +54,7 @@ export function claimTerritory(state, x, y, now = Date.now()) {
   const terrain = wTerrain(state.world, x, y);
   const t = { id: uid('op'), name: null, x, y, terrain, since: now, spec: null, level: 1, garrison: {} };
   t.name = defaultOutpostName(state, t);
+  ensureTown(t); // v16 : chaque avant-poste a sa petite ville
   state.territories[key(x, y)] = t;
   guildProgress(state, 'outposts', 1);
   log(state, 'good', `🚩 Avant-poste « ${t.name} » établi en (${x}, ${y}).`, now);
@@ -97,7 +99,8 @@ export function specAffinity(state, t, specId = t.spec) {
 export const specCategory = (specId) => SPEC_CATS[SPEC_INFO[specId]?.cat] || null;
 
 export const specOf = (t) => (t.spec ? (TERRITORY_SPECS[t.terrain] || []).find((s) => s.id === t.spec) : null);
-export const garrisonNeed = (t) => GARRISON_PER_LEVEL * (t.level || 1);
+// v16 : le camp d'entraînement de l'avant-poste fait valoir chaque soldat davantage
+export const garrisonNeed = (t) => Math.ceil((GARRISON_PER_LEVEL * (t.level || 1)) / townGarrisonDiv(t));
 
 // État d'un avant-poste : efficacité (0 à 1) et raisons
 export function outpostStatus(state, t, now = Date.now()) {
@@ -125,12 +128,16 @@ export function outpostStatus(state, t, now = Date.now()) {
 export function territoryMods(state, now = Date.now()) {
   const m = {};
   const add = (k, v) => { m[k] = (m[k] || 0) + v; };
+  const effs = new Map();
   for (const t of Object.values(state.territories || {})) {
     const st = outpostStatus(state, t, now);
+    effs.set(t, st.eff);
     if (st.eff >= 1) for (const [k, v] of Object.entries(TERRAINS[t.terrain]?.territory || {})) add(k, v);
     const sp = specOf(t);
     if (sp?.mods && st.eff > 0) { const aff = specAffinity(state, t).mult; for (const [k, v] of Object.entries(sp.mods)) add(k, v * (t.level || 1) * st.eff * aff); }
   }
+  // v16 : tours de guet, comptoirs et avant-postes industriels (bornés)
+  for (const [k, v] of Object.entries(townGlobalMods(state, (t) => effs.get(t) || 0))) add(k, v);
   return m;
 }
 
@@ -216,7 +223,9 @@ export function outpostReport(state, k, now = Date.now()) {
   const aff = sp ? specAffinity(state, t).mult : 1;
   const lvl = t.level || 1;
   let prod = {};
-  if (sp?.prod) for (const [r, v] of Object.entries(sp.prod)) prod[r] = v * lvl * st.eff * aff;
+  const fx = townFx(t);
+  if (sp?.prod) for (const [r, v] of Object.entries(sp.prod)) prod[r] = v * lvl * st.eff * aff * townProdMult(t, r, fx);
+  for (const [r, v] of Object.entries(townOwnProd(t, fx))) prod[r] = (prod[r] || 0) + v * st.eff;
   const route = logisticsNetwork(state, now)[k] || null;
   const raw = prod;
   prod = deliveredProd(raw, route);
@@ -226,7 +235,7 @@ export function outpostReport(state, k, now = Date.now()) {
 }
 
 export function outpostUpkeep(t) {
-  return Object.fromEntries(Object.entries(UPKEEP_PER_LEVEL).map(([r, v]) => [r, v * (t.level || 1)]));
+  return townUpkeep(t, Object.fromEntries(Object.entries(UPKEEP_PER_LEVEL).map(([r, v]) => [r, v * (t.level || 1)])));
 }
 
 // Tick (chaque minute de jeu) : production, entretien, menaces
@@ -244,12 +253,16 @@ export function territoryTick(state, dtSec, now) {
     if (!t.unpaid) for (const [r, v] of Object.entries(due)) state.resources[r] -= v;
     // Stabilité de la province (dérive vers sa cible) et impôts
     stabilityTick(state, t, h, now, net[k]);
+    // v16 : chantier de la ville de l'avant-poste
+    if (t.town?.job) townTick(state, t, now);
     // Production
     const st = outpostStatus(state, t, now);
     const sp = specOf(t);
     const aff = sp ? specAffinity(state, t).mult : 1;
+    const fx = townFx(t);
+    if (st.eff > 0) for (const [r, v] of Object.entries(townOwnProd(t, fx))) addResource(state, r, v * st.eff * h, mods, isCapped(r) ? storageCap(state, mods, r) : null);
     // Production d'avant-poste : plafonnée par l'entrepôt comme la production de la ville (pas la marge de 150 % des récompenses)
-    if (sp?.prod && st.eff > 0) for (const [r, v] of Object.entries(deliveredProd(Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * h])), net[k] && { ...net[k], cap: net[k].cap * h }))) addResource(state, r, v, mods, isCapped(r) ? storageCap(state, mods, r) : null);
+    if (sp?.prod && st.eff > 0) for (const [r, v] of Object.entries(deliveredProd(Object.fromEntries(Object.entries(sp.prod).map(([r, v]) => [r, v * (t.level || 1) * st.eff * aff * townProdMult(t, r, fx) * h])), net[k] && { ...net[k], cap: net[k].cap * h }))) addResource(state, r, v, mods, isCapped(r) ? storageCap(state, mods, r) : null);
     if (sp?.relicChance && st.eff > 0 && rng.chance(sp.relicChance * (1 + (mods['relic.find'] || 0)) * (t.level || 1) * h * st.eff)) {
       shardState(state).relicFragments++;
       log(state, 'good', `🏺 Les fouilles de ${outpostLabel(t)} mettent au jour un fragment de relique !`, now);
@@ -257,7 +270,7 @@ export function territoryTick(state, dtSec, now) {
     // Menace annoncée par un événement : elle frappe à l'échéance (le joueur a eu le temps de réagir)
     if (t.threatAt && t.threatAt <= now) { delete t.threatAt; outpostThreat(state, k, t, now); continue; }
     // Menace régionale (≈ 3 % + 1,5 %/niveau par heure ; doublée sans garnison suffisante)
-    const p = (0.03 + 0.015 * (t.level || 1)) * (st.garrison < st.need ? 2 : 1) * h;
+    const p = (0.03 + 0.015 * (t.level || 1)) * (st.garrison < st.need ? 2 : 1) * townThreatMult(state, t) * h;
     if (!(t.pillagedUntil > now) && rng.chance(p)) outpostThreat(state, k, t, now);
   }
 }
@@ -267,7 +280,7 @@ export function outpostThreat(state, k, t, now = Date.now()) {
   const sc = (0.6 + 0.35 * (t.level || 1)) * (0.6 + thLevel(state) * 0.12);
   const enemies = Object.fromEntries(Object.entries(th.units).map(([u, n]) => [u, Math.max(1, Math.round(n * sc))]));
   const sp = specOf(t);
-  const def = { units: t.garrison && unitSum(t.garrison) ? t.garrison : { militia: 2 }, mods: { 'combat.def': (sp?.garrisonBonus || 0) + 0.1 + (computeMods(state, now)['garrison.def'] || 0) }, formation: 'shieldwall', label: 'Garnison' };
+  const def = { units: t.garrison && unitSum(t.garrison) ? t.garrison : { militia: 2 }, mods: { 'combat.def': (sp?.garrisonBonus || 0) + 0.1 + (computeMods(state, now)['garrison.def'] || 0) + townFx(t).def }, formation: 'shieldwall', label: 'Garnison' };
   const res = simulateBattle({ units: enemies, mods: {}, label: th.name }, def, { terrain: t.terrain === 'ash' ? 'ruins' : t.terrain, weather: state.weather?.type || 'clear' });
   if (t.garrison) t.garrison = Object.fromEntries(Object.entries(res.defRemaining).filter(([u, n]) => n > 0 && t.garrison[u]));
   const lostUnits = Object.values(res.defLosses).reduce((a, b) => a + b, 0);

@@ -103,3 +103,5 @@ html.saver .wx-rain .fx-wx, html.saver .wx-storm .fx-wx, html.saver .wx-snow .fx
    qualité « faible » (elles n'apportent rien à cette distance et coûtaient un repeint à chaque image) */
 .city-vp.moving [class*="anim-"], .city-vp.moving .t-up, .city-vp[data-zl="far"] [class*="anim-"] { animation-play-state: paused !important; }
 html.gfx-low .city-vp [class*="anim-"], html.gfx-low .city-vp .t-up, html.gfx-low .fx-crowd i { animation: none !important; }
+.ring-btn.r-bl { transform: translate(-46px, 50px); }
+.ring-btn.r-br { transform: translate(46px, 50px); width: 44px; height: 44px; margin: -22px 0 0 -22px; font-size: 14px; }

@@ -17,6 +17,7 @@ import { spawnBoss } from '../src/systems/events.js';
 import { distCap, isRevealed, wTerrain, aroundCapital, worldScale, travelTime, key } from '../src/systems/world.js';
 import { computeMods } from '../src/systems/modifiers.js';
 import { clampCam, zoomAt, fitZoom } from '../src/ui/panzoom.js';
+const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('p_')));
 import { clampWorldCam, zoomWorldAt, notablePlaces, BASE_TILE } from '../src/ui/views/world.js';
 import { supportHtml, SUPPORT_URL } from '../src/ui/creation.js';
 
@@ -45,7 +46,7 @@ test('Royaume : 24×16 dès le départ, plus de cases constructibles, même nomb
   }
   // Les ressources et bâtiments de départ ne changent pas avec la taille
   const s = createNewState({ seed: 1, now: T0 });
-  assert.equal(Object.keys(s.city.buildings).length, 3);
+  assert.equal(Object.values(s.city.buildings).filter((b) => !b.id.startsWith('p_')).length, 3, 'les lieux v16 (accès seulement) mis à part');
   assert.equal(s.resources.wood, 600);
 });
 
@@ -171,7 +172,7 @@ test('Migration v7 → v8 : ville et monde agrandis sans rien déplacer ni perdr
   // Ville : 24+4 × 16+2 (un agrandissement déjà acheté), ancienne zone intacte, bâtiments aux mêmes coordonnées
   assert.equal(st.city.w, 28); assert.equal(st.city.h, 18);
   for (let y = 0; y < old.city.h; y++) for (let x = 0; x < old.city.w; x++) assert.equal(st.city.terrain[y * 28 + x], old.city.terrain[y * old.city.w + x], `${x},${y}`);
-  assert.deepEqual(st.city.buildings, old.city.buildings);
+  assert.deepEqual(noPlaces(st.city.buildings), old.city.buildings);
   assert.deepEqual(st.city.fort, old.city.fort);
   const newRubble = st.city.terrain.filter((t, i) => t === 'rubble' && ((i % 28) >= old.city.w || Math.floor(i / 28) >= old.city.h)).length;
   assert.equal(newRubble, 0, 'aucun décombre (butin) ajouté');

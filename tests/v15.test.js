@@ -31,6 +31,8 @@ function realm(seed, lvl = 8) {
 const omen = (o) => ({ kind: 'catastrophe', key: 'drought', q: 0.6, signs: [], quiet: 0, ...o });
 
 // ───────── Scène ─────────
+const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('p_'))); // lieux v16 : ajoutés, jamais retirés
+
 test('Scène : lumière selon l’heure, bornée et lisible', () => {
   assert.equal(dayLight(12).phase, 'day');
   assert.equal(dayLight(12).a, 0);
@@ -213,7 +215,7 @@ test('Migration : une vraie sauvegarde v14 se charge, joue 2 jours, et se ressau
   const s = deserialize(raw);
   assert.deepEqual(s.army, old.army);
   assert.equal(Math.round(s.resources.gold), Math.round(old.resources.gold));
-  assert.equal(Object.keys(s.city.buildings).length, Object.keys(old.city.buildings).length);
+  assert.equal(Object.keys(noPlaces(s.city.buildings)).length, Object.keys(old.city.buildings).length);
   assert.ok(Array.isArray(omensState(s).list));
   assert.equal(typeof omensState(s).prepHalf, 'object');
   // Les présages v14 en cours reçoivent leurs relevés de signes sans erreur

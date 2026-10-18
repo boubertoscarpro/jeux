@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844" font-family="Inter, sans-serif" role="img" aria-label="Maquette : carte du monde, téléphone 390 × 844">
+<title>Maquette : carte du monde, téléphone 390 × 844</title>
+<rect width="390" height="844" fill="#4d7236"/>
+<rect width="390" height="844" fill="#4d7236"/>
+<rect x="8" y="8" width="48" height="48" rx="8" fill="#efe3c8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="32.0" y="37.0" text-anchor="middle" font-size="12" fill="#1d1812">Blason</text>
+<rect x="62" y="8" width="276" height="48" rx="8" fill="#f2c879" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="200.0" y="37.0" text-anchor="middle" font-size="12" fill="#1d1812">3 ressources</text>
+<rect x="342" y="8" width="40" height="48" rx="8" fill="#f2c879" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="362.0" y="37.0" text-anchor="middle" font-size="12" fill="#1d1812">+</text>
+<rect x="8" y="64" width="374" height="32" rx="8" fill="#efe3c8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="195.0" y="85.0" text-anchor="middle" font-size="12" fill="#1d1812">Filtres · Aller à…</text>
+<rect x="8" y="500" width="120" height="120" rx="8" fill="#b7d0e8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="68.0" y="565.0" text-anchor="middle" font-size="12" fill="#1d1812">Mini-carte</text>
+<rect x="8" y="640" width="52" height="52" rx="8" fill="#b7d0e8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="34.0" y="671.0" text-anchor="middle" font-size="12" fill="#1d1812">Quêtes</text>
+<rect x="330" y="640" width="52" height="52" rx="8" fill="#b7d0e8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="356.0" y="671.0" text-anchor="middle" font-size="12" fill="#1d1812">Activ.</text>
+<rect x="0" y="772" width="390" height="72" rx="8" fill="#e9a39a" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="195.0" y="813.0" text-anchor="middle" font-size="12" fill="#1d1812">Construire · Armée · Rapports · Lieux · Château</text>
+</svg>

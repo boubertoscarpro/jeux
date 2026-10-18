@@ -97,18 +97,21 @@ function queueRow(icon, label, q, cancelAction, extra = '') {
   return `<div class="q-row"><div class="q-top"><span>${icon} ${label}</span>${countdown(q.end)}${extra}${cancelAction ? `<button class="mini ghost" data-action="${cancelAction}" data-id="${q.id}" title="Annuler (80% remboursé)">✕</button>` : ''}</div>${progress(q.start, q.end)}</div>`;
 }
 
-export function renderSide(app) {
+// v16 : files du royaume (bouton des files, en bas au centre de l'affichage fixe)
+export const queuesHtml = (app) => renderSide(app, { queuesOnly: true });
+export const queueActions = {};
+export function renderSide(app, { queuesOnly = false } = {}) {
   const s = app.state;
   const now = Date.now();
   const mods = computeMods(s, now);
   const parts = [];
 
-  const rep = sideRepercussions(s, now);
+  const rep = queuesOnly ? '' : sideRepercussions(s, now);
   if (rep) parts.push(rep);
-  if (s.pending.length) {
+  if (s.pending.length && !queuesOnly) {
     parts.push(`<section class="side-box attention"><h3>⚖️ Décisions (${s.pending.length})</h3>${s.pending.map((p) => { const d = describePending(s, p); return `<button class="btn block warn pending-btn" data-action="open-pending" data-id="${p.id}"><span>${d.icon} ${esc(d.title)}</span>${d.deadline ? countdown(d.deadline) : ''}</button>`; }).join('')}</section>`);
   }
-  if (s.raids.length) {
+  if (s.raids.length && !queuesOnly) {
     parts.push(`<section class="side-box danger"><h3>🚨 Raids en approche</h3>${s.raids.map((r) => `<div class="q-row"><div class="q-top"><span>${esc(r.name)}</span>${countdown(r.arrive)}</div>
       <div class="muted small">${r.seen ? Object.entries(r.army).map(([u, n]) => `${n} ${esc(UNITS[u]?.name || u)}`).join(', ') : 'Composition inconnue (Tour de garde niv. 3)'}</div></div>`).join('')}
       <div class="muted small">Gardez vos troupes en ville et renforcez la muraille.</div></section>`);
@@ -154,8 +157,7 @@ export function renderSide(app) {
     }).join('')}</section>`);
   }
   // v15 : le conseiller n'apparaît qu'une fois (bouton « Conseiller » de la navigation, avec un compteur)
-  parts.push(chapterBox(s, now));
-  parts.push(missionBox(s, now));
+  if (!queuesOnly) { parts.push(chapterBox(s, now)); parts.push(missionBox(s, now)); }
   return parts.join('');
 }
 
