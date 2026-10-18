@@ -1,4 +1,5 @@
 import { repActions } from './repercussions.js';
+import { stageActions } from './stage.js';
 import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
 import { RESOURCES } from '../data/resources.js';
@@ -58,7 +59,7 @@ import { openUpgradeList } from './upgrades.js';
 import { helpFor, openHelp } from './help.js';
 import { showTip } from './tips.js';
 import { markVisited, campaignTick } from '../systems/campaign.js';
-import { pruneAdvice } from '../systems/guide.js';
+import { pruneAdvice, adviceList } from '../systems/guide.js';
 import { questTick } from '../systems/questlines.js';
 import { missionsTick } from '../systems/missions.js';
 
@@ -77,6 +78,7 @@ export const GROUPS = [
   { id: 'g-chron', title: 'Chronique', icon: '📜', tabs: [journalView, accomplishView, historyView, codexView, statsView, treasuryView, kingdomView] },
 ];
 export const VIEWS = GROUPS.flatMap((g) => g.tabs);
+export const MAP_VIEWS = ['city', 'world'];
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
 
 export class App {
@@ -96,6 +98,8 @@ export class App {
     const reduce = m.motion === 'reduced' || (m.motion !== 'full' && sysReduce);
     document.documentElement.classList.toggle('reduce-motion', reduce);
     document.documentElement.classList.toggle('compact', m.density === 'compact');
+    // v15 : mode économie d'énergie (aucune animation continue, carte redessinée seulement si elle change)
+    document.documentElement.classList.toggle('saver', !!m.saver);
   }
 
   start() {
@@ -237,7 +241,7 @@ export class App {
   renderNav() {
     const hl = this.ui.highlight && groupOf(this.ui.highlight)?.id;
     this.$('#nav').innerHTML = GROUPS.map((g) => `<button class="nav-btn ${g.id === hl ? 'tut-hl' : ''}" data-action="nav" data-view="${g.id}" title="${esc(g.title)}"><span class="nav-icon">${navIcon(g.id, 26) || g.icon}</span><span class="nav-label">${esc(g.title)}</span><span class="nav-badge" data-badge="${g.id}"></span></button>`).join('')
-      + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">${navIcon('advisor', 26)}</span><span class="nav-label">Conseiller</span></button>`;
+      + `<button class="nav-btn advisor-btn" data-action="advisor" title="Conseiller du royaume"><span class="nav-icon">${navIcon('advisor', 26)}</span><span class="nav-label">Conseiller</span><span class="nav-badge" data-badge="advisor"></span></button>`;
   }
 
   // Préserve la valeur/le focus des champs lors d'un re-rendu
@@ -267,6 +271,8 @@ export class App {
     this.$('#topbar').innerHTML = renderTopbar(this);
     const main = this.$('#view');
     main.dataset.screen = view.id; // identité visuelle propre à chaque écran (css/theme.css, « Identités des écrans »)
+    // v15 : écrans « carte » (royaume, monde) : la carte prend toute la place, la colonne de droite devient un tiroir
+    this.root.classList.toggle('mapmode', MAP_VIEWS.includes(view.id));
     const locked = view.locked?.(this);
     const helpBtn = helpFor(view.id) ? `<button class="subtab help-btn" data-action="help" title="Aide sur cet écran : mécanismes, coûts, prérequis">❓ Aide</button>` : '';
     const tabs = group.tabs.length > 1 || helpBtn ? `<div class="subnav">${group.tabs.length > 1 ? group.tabs.map((t) => {
@@ -285,6 +291,9 @@ export class App {
   }
 
   updateBadges() {
+    // Conseiller unique : pastille = conseils urgents ou importants
+    const ab = this.root.querySelector('[data-badge="advisor"]');
+    if (ab) { let n = 0; try { if ((this.state.meta.advice || 'full') !== 'off') n = adviceList(this.state, Date.now()).filter((r) => r.sev === 'bad' || r.sev === 'warn').length; } catch { n = 0; } ab.textContent = n || ''; ab.classList.toggle('on', !!n); }
     for (const g of GROUPS) {
       const el = this.root.querySelector(`[data-badge="${g.id}"]`);
       if (!el) continue;
@@ -363,6 +372,7 @@ export class App {
     notifs: (app) => { app.openNotifications(); app.$('#topbar').innerHTML = renderTopbar(app); },
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),
     ...repActions,
+    ...stageActions,
   };
 
   modal(html, actions = {}, cls = '') {

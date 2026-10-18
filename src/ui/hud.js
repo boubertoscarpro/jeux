@@ -82,14 +82,14 @@ export function renderTopbar(app) {
       ${(() => { const n = upgradeCount(s, mods); return `<button class="chip chip-up ${n ? 'on' : ''}" data-action="up-list" title="Améliorations réalisables maintenant (bâtiments, fortifications, avant-postes) — ouvrir la liste">${upIcon('ready')} ${n} amélioration${n > 1 ? 's' : ''}</button>`; })()}
       <button class="chip chip-bell ${(s.notifications || []).some((n) => !n.read) ? 'on' : ''}" data-action="notifs" title="Notifications">🔔${(s.notifications || []).filter((n) => !n.read).length || ''}</button>
     </div>
-    <button class="res-more side-toggle" data-action="toggle-side" title="Files & objectifs">📋</button>
+    ${(() => { const n = s.pending.length + (s.crises?.active?.length || 0); return `<button class="res-more side-toggle ${n ? 'alert' : ''}" data-action="toggle-side" title="Files, décisions et objectifs${n ? ` — ${n} à voir` : ''}" aria-label="Files, décisions et objectifs">📋${n ? `<span class="tb-badge">${n}</span>` : ''}</button>`; })()}
     <div class="top-status">
       ${(() => { const a = activePolicy(s, now), p = policyState(s); return a && a !== 'balanced' ? `<button class="chip" data-action="nav" data-view="policy" title="Priorité royale">${POLICIES[a].icon} ${esc(POLICIES[a].name)}</button>` : p.pending ? `<button class="chip" data-action="nav" data-view="policy" title="Réorganisation en cours">⏳ ${esc(POLICIES[p.pending].name)}</button>` : ''; })()}
       <span class="chip" title="${esc(calendar(s, now).season.desc)}">${calendar(s, now).season.icon} An ${calendar(s, now).year} · ${esc(calendar(s, now).season.name)}</span>
       <span class="chip" title="${esc(w.note)}">${w.icon} ${esc(w.name)} · ${countdown(s.weather.until)}</span>
       ${s.catastrophe && s.catastrophe.until > now ? `<span class="chip chip-bad" title="${esc(CATASTROPHES[s.catastrophe.key].text)}">${CATASTROPHES[s.catastrophe.key].icon} ${esc(CATASTROPHES[s.catastrophe.key].name)} · ${countdown(s.catastrophe.until)}</span>` : ''}
       ${s.famine ? '<span class="chip chip-bad" title="Plus de nourriture : moral −30, formation impossible">⚠️ Famine</span>' : ''}
-      ${events}${buffs}
+      ${(() => { const n = s.events.filter((e) => e.end > now).length + s.buffs.filter((b) => b.until > now).length; return n ? `<details class="fx-more"><summary class="chip" title="Événements du monde et bonus temporaires en cours">✨ ${n} effet${n > 1 ? 's' : ''} actif${n > 1 ? 's' : ''}</summary><div class="fx-pop">${events}${buffs}</div></details>` : ''; })()}
     </div>`;
 }
 
@@ -153,7 +153,7 @@ export function renderSide(app) {
       return `<div class="q-row"><div class="q-top"><span>${EXPEDITION_TYPES[t.type].icon} ${esc(t.name)}${t.repeat ? ' 🔁' : ''}</span>${countdown(end)}</div><div class="muted small">${{ out: 'En route', work: 'Au travail', back: 'Retour' }[t.status]}${t.status === 'work' && t.accum ? ` · ≈ ${Math.round(t.accum)}` : ''}</div>${progress(start, end)}</div>`;
     }).join('')}</section>`);
   }
-  parts.push(adviceBox(s, now));
+  // v15 : le conseiller n'apparaît qu'une fois (bouton « Conseiller » de la navigation, avec un compteur)
   parts.push(chapterBox(s, now));
   parts.push(missionBox(s, now));
   return parts.join('');

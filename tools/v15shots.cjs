@@ -7,7 +7,10 @@ const fs = require('fs');
 const OUT = process.argv[2];
 const MID = fs.readFileSync(process.argv[3], 'utf8');
 const SIZES = [[1400, 900, 'large'], [1024, 640, 'moyen'], [390, 844, 'mobile']];
-const URL = 'file://' + path.resolve(__dirname, '../dist/cendrelande.html');
+const URL = 'file://' + path.resolve(process.env.DIST || path.resolve(__dirname, '../dist/cendrelande.html'));
+// Avant chaque capture : fenêtres et notifications fermées (le hasard du moment ne doit pas fausser la comparaison)
+const calm = (page) => page.evaluate(() => { const a = window.cendrelande; if (a) { a.ui.freezeUntil = 0; if (a.state.live) a.state.live.unseenReport = null; a.closeModal(); } const t = document.getElementById('toasts'); if (t) t.innerHTML = ''; });
+const shot = async (page, file) => { await calm(page); await page.waitForTimeout(150); await page.screenshot({ path: file }); };
 
 (async () => {
   const browser = await chromium.launch();
@@ -25,7 +28,7 @@ const URL = 'file://' + path.resolve(__dirname, '../dist/cendrelande.html');
     await page.waitForTimeout(500);
     await page.evaluate(() => { const a = window.cendrelande; a.state.meta.tipsOff = true; a.closeModal(); a.go('city'); });
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${OUT}/02-royaume-debut-${tag}.png` });
+    await shot(page, `${OUT}/02-royaume-debut-${tag}.png`);
     await page.close();
     // Partie avancée (vraie sauvegarde v14 produite par le joueur simulé, profil Actif, 3 jours)
     const ctx = await browser.newContext({ viewport: { width: W, height: H } });
@@ -36,11 +39,11 @@ const URL = 'file://' + path.resolve(__dirname, '../dist/cendrelande.html');
     await page.waitForTimeout(800);
     await page.evaluate(() => { const a = window.cendrelande; a.state.meta.tipsOff = true; a.closeModal(); a.go('city'); });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: `${OUT}/03-royaume-milieu-${tag}.png` });
+    await shot(page, `${OUT}/03-royaume-milieu-${tag}.png`);
     // 4) Carte du monde + mesure du rendu
     await page.evaluate(() => window.cendrelande.go('world'));
     await page.waitForTimeout(700);
-    await page.screenshot({ path: `${OUT}/04-monde-${tag}.png` });
+    await shot(page, `${OUT}/04-monde-${tag}.png`);
     perf[tag] = await page.evaluate(async () => {
       const cv = document.querySelector('#view canvas');
       if (!cv) return null;
@@ -66,10 +69,10 @@ const URL = 'file://' + path.resolve(__dirname, '../dist/cendrelande.html');
       a.go('city');
     });
     await page.waitForTimeout(500);
-    await page.screenshot({ path: `${OUT}/05a-crise-royaume-${tag}.png` });
+    await shot(page, `${OUT}/05a-crise-royaume-${tag}.png`);
     await page.evaluate(() => window.cendrelande.go('goals'));
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${OUT}/05b-crise-fil-${tag}.png` });
+    await shot(page, `${OUT}/05b-crise-fil-${tag}.png`);
     // 6) Combat : dernier rapport de bataille
     await page.evaluate(() => { const a = window.cendrelande; a.go('journal'); });
     await page.waitForTimeout(300);
@@ -79,10 +82,10 @@ const URL = 'file://' + path.resolve(__dirname, '../dist/cendrelande.html');
     // 7) Forge  8) Conseil
     await page.evaluate(() => { const a = window.cendrelande; a.closeModal(); a.go('craft'); });
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${OUT}/07-forge-${tag}.png` });
+    await shot(page, `${OUT}/07-forge-${tag}.png`);
     await page.evaluate(() => window.cendrelande.go('council'));
     await page.waitForTimeout(400);
-    await page.screenshot({ path: `${OUT}/08-conseil-${tag}.png` });
+    await shot(page, `${OUT}/08-conseil-${tag}.png`);
     await ctx.close();
   }
   await browser.close();

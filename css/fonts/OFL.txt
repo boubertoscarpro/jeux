@@ -1,0 +1,8 @@
+Cinzel — Copyright 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)
+Inter — Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
+
+These Font Software are licensed under the SIL Open Font License, Version 1.1.
+The license is available with a FAQ at: https://openfontlicense.org
+
+Fichiers obtenus depuis Google Fonts (sous-ensemble latin, fichiers variables) et embarqués dans la version compilée
+du jeu (dist/cendrelande.html) sous forme de données, sans modification.

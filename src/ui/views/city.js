@@ -1,3 +1,7 @@
+import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
+import { sceneState, groundKey } from '../../systems/scene.js';
+import { paintCityGround, gfxOf } from '../atlas.js';
+import { sceneLayersHtml, sceneClasses, updateSceneFx, localHour } from '../sceneFx.js';
 import { fireRisk, riskBand, floodZone } from '../../systems/hazards.js';
 import { speedupLine } from '../speedups.js';
 import { BUILDINGS, BUILDING_CATEGORIES, levelProdFactor } from '../../data/buildings.js';
@@ -47,7 +51,10 @@ function cityCtx(app, mods) {
   // v14 : aperçu des risques (incendie selon le voisinage, zone inondable) — calculé seulement s'il est affiché
   const risk = app.ui.cityRisk ? new Map(Object.values(s.city.buildings).map((b) => [b.id, riskBand(fireRisk(s, b))])) : null;
   const flood = app.ui.cityRisk ? new Set(floodZone(s).map((b) => b.id)) : null;
-  return { s, mods, at, q, up, planned, risk, flood, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  // v15 : ce que la carte doit montrer (feu, crue, sécheresse, saison, signes), d'après l'état réel
+  const scene = sceneState(s, Date.now(), localHour());
+  const burning = new Set(scene.burning), flooded = new Set(scene.floodIds), charred = new Set(scene.damaged);
+  return { s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -63,7 +70,8 @@ function tileHtml(app, x, y, ctx) {
   const q = b ? ctx.q.get(b.id) : ctx.q.get(`c:${x},${y}`);
   const cls = ['tile', 't-' + t];
   if (t === 'plain') cls.push('v' + plainVariant(x, y));
-  let inner = terrainSvg(b ? (t === 'plain' ? '' : t) : t, x, y);
+  // v15 : le terrain est peint d'un seul tenant sous la grille (src/ui/atlas.js) ; la case ne porte que le bâtiment
+  let inner = '';
   let hint = '';
   let label = TERRAIN_NAME[t];
   if (b) {
@@ -86,6 +94,9 @@ function tileHtml(app, x, y, ctx) {
       if (b.starved) { cls.push('st-alert'); inner += '<span class="t-flag warn" title="Manque de matières premières">!</span>'; }
       if (b.damaged) { cls.push('st-alert'); inner += '<span class="t-flag fire" title="Endommagé : production −50 %">🔥</span>'; }
       if (b.paused) inner += '<span class="t-flag pause" title="Chaîne en pause">⏸</span>';
+      // v15 : état visible : bâtiment en feu (flammes, fumée), sous l'eau (crue), ruines fumantes (endommagé)
+      if (ctx.burning.has(b.id)) { cls.push('burning'); inner += `<span class="fx-fire" aria-hidden="true"><i></i><i></i><i></i></span><span class="fx-smoke" aria-hidden="true"></span>`; }
+      else if (ctx.charred.has(b.id)) cls.push('charred');
       if (ctx.risk) {
         const rb = ctx.risk.get(b.id);
         if (rb && rb !== 'none') { cls.push('risk-' + rb); inner += `<span class="t-risk ${rb}" title="Risque d’incendie ${RISK_NAME[rb]}">🔥</span>`; }
@@ -106,6 +117,7 @@ function tileHtml(app, x, y, ctx) {
       cls.push('placeable');
     }
   }
+  if (b && ctx.flooded.has(b.id)) { cls.push('flooded'); inner += '<span class="fx-water" aria-hidden="true"></span>'; }
   if (selected) cls.push('sel');
   const fl = app.ui.flashTile;
   if (fl && fl.x === x && fl.y === y && fl.until > Date.now()) cls.push('flash-good');
@@ -349,18 +361,30 @@ function bindCityTip(app, vp) {
   vp.addEventListener('pointerleave', () => { tip()?.classList.remove('on'); cur = ''; });
 }
 
+// v15 : sol peint (mis en cache tant que terrain, saison et sécheresse ne changent pas)
+function attachGround(app) {
+  const slot = document.querySelector('#city-vp .ground-slot');
+  if (!slot) return;
+  const s = app.state, scene = sceneState(s, Date.now(), localHour()), q = gfxOf(s);
+  const cv = paintCityGround(s, scene, groundKey(s, scene, q), q);
+  if (cv.parentElement !== slot) { slot.innerHTML = ''; slot.appendChild(cv); }
+}
+
 export default {
   id: 'city', title: 'Royaume', icon: '🏰',
+  tick(app) { const st = document.querySelector('.city-stage'); if (st) { updateSceneFx(st, sceneState(app.state, Date.now(), localHour()), 'city'); attachGround(app); } },
   after(app) {
     const vp = document.getElementById('city-vp');
     if (!vp) return;
+    fitStage();
+    attachGround(app);
     const cam0 = cityCam(app);
     if (!cam0.init) centerOnTown(app, vp);
     if (cam0.centerOn) { centerOnTown(app, vp, cam0.centerOn); cam0.centerOn = null; }
     bindPanZoom(vp, { getCam: () => cityCam(app), zMin: CITY_ZMIN, zMax: CITY_ZMAX, onChange: (cam) => onCityCam(vp, cam) });
     bindCityTip(app, vp);
     if (app.ui.focusUpgrade) { document.getElementById('up-block')?.scrollIntoView({ block: 'nearest' }); app.ui.focusUpgrade = false; }
-    if (!app._cityResize) { app._cityResize = true; window.addEventListener('resize', () => document.getElementById('city-vp')?._apply?.()); }
+    if (!app._cityResize) { app._cityResize = true; window.addEventListener('resize', () => { fitStage(); document.getElementById('city-vp')?._apply?.(); }); }
   },
   render(app) {
     const s = app.state;
@@ -397,9 +421,21 @@ export default {
     const grid = parts.join('');
     const ups = upgradeSummary(s, mods);
     const cam = cityCam(app);
+    const selKey = app.ui.moveId ? 'move:' + app.ui.moveId : app.ui.placeType ? 'place:' + app.ui.placeType : sel ? `sel:${sel.x},${sel.y}` : '';
+    const panelLabel = app.ui.moveId ? 'Déplacer' : app.ui.placeType ? 'Placer' : sel ? 'Détails' : 'Votre royaume';
+    const drawer = drawerHtml(app, 'city', panelLabel, panel, { auto: selKey });
+    // v15 : la carte occupe toute la scène ; barre « Construire » et outils posés dessus ; détail en tiroir
     return `<div class="city-layout">
-      <div class="city-main">
-        <div class="build-bar card"><span class="muted small">Construire :</span>${Object.entries(BUILDINGS).filter(([, d]) => d.grid !== false && d.cat !== 'unique').map(([t, d]) => {
+      <div class="stage city-stage ${drawerOpen(app, 'city') ? 'drawer-open' : ''} ${app.ui.placeType || app.ui.moveId ? 'building' : ''} ${sceneClasses(ctx.scene)}">
+        ${sceneLayersHtml(ctx.scene, 'city')}
+        <div class="mapvp city-vp" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--bz:${Math.min(2.2, Math.max(1, 0.95 / cam.z))}">
+          <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="ground-slot" style="width:${s.city.w * CITY_TILE}px;height:${s.city.h * CITY_TILE}px"></div><div class="city-grid painted ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div></div>
+          <div class="map-tip" id="city-tip" role="tooltip"></div>
+          <div class="map-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : îlots inflammables et zone inondable">🔥</button><button class="mini" data-action="city-zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="city-zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="city-fit" title="Vue d’ensemble du royaume">⤢</button><button class="mini" data-action="city-center" title="Recentrer sur l’hôtel de ville (zoom par défaut)">🏛️</button></div>
+          <div class="map-hint muted small">${app.ui.cityRisk ? 'Risques : 🔥 incendie (bois serré = élevé ; pierre, routes, rivière, caserne ou tour de garde proches le réduisent) · 🌊 zone inondable' : `${s.city.w}×${s.city.h} · glisser pour déplacer · molette pour zoomer · survol : détails`}</div>
+        </div>
+        <div class="stage-top">
+        <div class="build-bar"><span class="muted small">Construire :</span>${Object.entries(BUILDINGS).filter(([, d]) => d.grid !== false && d.cat !== 'unique').map(([t, d]) => {
           const req = buildRequirement(s, t);
           return `<button class="bb-btn ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? 'disabled' : ''} title="${esc(d.name)}${req ? ' — ' + esc(req) : ' — ' + esc(d.desc)}" aria-label="${esc(d.name)}">${buildingIcon(t, 30)}</button>`;
         }).join('')}${app.ui.citySel || app.ui.placeType || app.ui.moveId ? '<button class="mini ghost" data-action="cancel-mode">✕ Annuler</button>' : ''}</div>
@@ -408,18 +444,15 @@ export default {
           <button class="mini ghost" data-action="up-toggle" aria-pressed="${showUpgrades(s)}" title="Afficher ou masquer les icônes d’amélioration sur la carte">${showUpgrades(s) ? '👁 Icônes affichées' : '🚫 Icônes masquées'}</button>
           <span class="muted small legend-inline"><span class="lg lg-ready"></span> améliorable <span class="lg lg-blocked"></span> bloquée <span class="lg lg-build"></span> chantier <span class="lg lg-alert"></span> action requise</span>
         </div>
-        <div class="mapvp city-vp" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--bz:${Math.min(2.2, Math.max(1, 0.95 / cam.z))}">
-          <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="city-grid ${s.meta.theme || ''}" style="--cw:${s.city.w}">${grid}</div></div>
-          <div class="map-tip" id="city-tip" role="tooltip"></div>
-          <div class="map-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : îlots inflammables et zone inondable">🔥</button><button class="mini" data-action="city-zoom" data-z="1.25" title="Zoomer">＋</button><button class="mini" data-action="city-zoom" data-z="0.8" title="Dézoomer">－</button><button class="mini" data-action="city-fit" title="Vue d’ensemble du royaume">⤢</button><button class="mini" data-action="city-center" title="Recentrer sur l’hôtel de ville (zoom par défaut)">🏛️</button></div>
-          <div class="map-hint muted small">${app.ui.cityRisk ? 'Risques : 🔥 incendie (bois serré = élevé ; pierre, routes, rivière, caserne ou tour de garde proches le réduisent) · 🌊 zone inondable' : `${s.city.w}×${s.city.h} · glisser pour déplacer · molette pour zoomer · survol : détails`}</div>
         </div>
+        ${drawer}
+      </div>
+      <div class="below-map">
         ${(() => { const st = nextDomainStep(s); return st ? `<div class="card domain-card"><h3>🗺️ Agrandir le domaine <span class="muted small">${s.city.w}×${s.city.h} cases</span></h3><div class="small muted">Étape « ${esc(st.name)} » : +${DOMAIN_GROW.w} colonnes à l’est et +${DOMAIN_GROW.h} rangées au sud de terrain vierge à aménager (forêts, montagnes, quelques décombres, rivière).</div><div class="b-opt-foot">${costList(st.cost, s)} <span class="small ${thLevel(s) >= st.th ? 'ok' : 'req'}">HdV ${st.th}</span><button class="mini primary" data-action="expand">Agrandir</button></div></div>` : ''; })()}
         <div class="card"><h3>🧱 Fortifications</h3><div class="fort-row">${fortPanel(app, mods)}</div></div>
         <div class="card"><h3>📊 Bilan horaire</h3><div class="net-grid">${Object.entries(net).filter(([, v]) => Math.abs(v) > 0.05).sort((a, b) => b[1] - a[1]).map(([r, v]) => `<div class="net ${v < 0 ? 'neg' : ''}">${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)} <b>${v > 0 ? '+' : ''}${fmt(v)}</b></div>`).join('')}</div>
           <p class="muted small">Capacité : ${fmt(cap)} · Protégé des pillages : ${fmt(protectedAmount(s, mods))} par ressource. Les ressources rares et l’or ne sont pas plafonnés.</p></div>
       </div>
-      <div class="city-panel card">${panel}</div>
     </div>`;
   },
   actions: {

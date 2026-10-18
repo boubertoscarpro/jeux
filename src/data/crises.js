@@ -15,6 +15,19 @@ export const OMEN = {
   verifyGoldPerTh: 30,       // « Consulter les astrologues » : réponse immédiate
   scoutMin: 30,              // « Envoyer un éclaireur » : un éclaireur absent 30 min, gratuit
   keep: 8,                   // présages conservés dans l'almanach (passés compris)
+  // v15 — Signes : toutes les 20 min entre l'annonce et l'échéance, un signe peut apparaître (visible sur la carte du
+  // royaume). Un présage vrai en produit plus souvent qu'un faux : la fiabilité affichée est recalculée (règle de Bayes),
+  // elle reste donc une vraie probabilité.
+  signEveryMin: 20,
+  signLikelihood: { true: 0.55, false: 0.18 },
+};
+// Signes visibles par fléau (texte de l'almanach ; dessin : src/ui/atlas.js)
+export const SIGNS = {
+  drought: { name: 'Champs qui jaunissent', icon: '🌾', text: 'Des taches sèches apparaissent dans les champs, les puits baissent.' },
+  flood: { name: 'Rivière qui gonfle', icon: '🌊', text: 'La rivière monte et lèche ses berges.' },
+  blizzard: { name: 'Givre précoce', icon: '❄️', text: 'Un givre inhabituel blanchit les bords du royaume.' },
+  tempest: { name: 'Ciel lourd', icon: '🌩️', text: 'De lourds nuages s’amoncellent à l’horizon.' },
+  eruption: { name: 'Grondements', icon: '🌋', text: 'La terre tremble et une lueur rougit l’horizon.' },
 };
 export const reliabilityBand = (q) => (q >= 0.75 ? { key: 'high', name: 'Forte', icon: '🟢' } : q >= 0.62 ? { key: 'mid', name: 'Moyenne', icon: '🟡' } : { key: 'low', name: 'Faible', icon: '🟠' });
 
@@ -36,7 +49,9 @@ export const CATASTROPHE_OMEN_TEXT = {
 };
 
 // Préparations : payées sur la foi d'un présage (même s'il se révèle faux). Une catastrophe préparée frappe quand même,
-// mais ne dégénère pas en crise ; la crue n'abîme presque rien.
+// mais ne dégénère pas en crise ; la crue n'abîme presque rien. v15 : demi-mesure à moitié prix (la crise est contenue à
+// sa première étape, la crue fait 60 % des dégâts), complétable ensuite en préparation entière (l'autre moitié).
+export const HALF_PREP = { share: 0.5, floodGuard: 0.6 };
 export const PREPARATIONS = {
   drought: { label: 'Creuser des citernes', icon: '🪣', costPerTh: { stone: 60, wood: 40 }, text: 'La sécheresse ne tournera pas à la crise.' },
   flood: { label: 'Monter des sacs de sable', icon: '🧱', costPerTh: { wood: 60, cloth: 4 }, text: 'Dégâts de la crue divisés par 4, et pas de crise.', floodGuard: 0.25 },
