@@ -195,8 +195,8 @@ export const sideActions = {
   'raid-stop': (app, el) => app.confirm('<h2>Arrêter les raids en série ?</h2><p>Aucune nouvelle attaque ne partira. Une attaque déjà en route va au bout et rentre normalement. 80 % de l’intendance des attaques non menées est rendue.</p>', 'Arrêter', () => app.act(() => cancelRaidOrder(app.state, el.dataset.id), 'Raids en série arrêtés')),
   'claim-quest': (app, el) => app.act(() => claimMission(app.state, el.dataset.id), 'Récompense obtenue !'),
   'claim-chapter': (app, el) => app.act(() => claimChapter(app.state, +el.dataset.n), 'Chapitre terminé : récompense obtenue !'),
-  'adv-snooze': (app, el) => app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'),
-  'adv-dismiss': (app, el) => app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'),
+  'adv-snooze': (app, el) => { app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'); refreshAdvice(app); },
+  'adv-dismiss': (app, el) => { app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'); refreshAdvice(app); },
   'cp-training': (app) => runTraining(app),
   'dm-claim': (app, el) => app.act(() => claimDynMission(app.state, el.dataset.id), (r) => `Mission accomplie : ${r.text}`),
   // Ouvre l'écran d'une mission dynamique, avec la case ou le lieu concerné déjà sélectionné
@@ -211,6 +211,8 @@ export const sideActions = {
   'open-pending': (app, el) => openPending(app, el.dataset.id),
 };
 
+// v15 : la liste rapide vit dans la fenêtre du conseiller (bouton unique de la navigation) ; on la remet à jour sur place
+function refreshAdvice(app) { const box = document.querySelector('.modal .advice-box'); if (box) box.outerHTML = adviceBox(app.state); }
 // Conseiller du tableau de bord (niveau réglable : complet, réduit, désactivé)
 const SEV_ICON = { bad: '🔴', warn: '🟠', next: '📖', info: '🔵', good: '🟢' };
 export function adviceBox(s, now = Date.now()) {
@@ -219,11 +221,11 @@ export function adviceBox(s, now = Date.now()) {
   let list;
   try { list = adviceList(s, now); } catch (e) { console.error(e); list = []; }
   const shown = list.slice(0, level === 'reduced' ? 2 : 3);
-  return `<section class="side-box advice-box"><h3>🧙‍♂️ Conseiller${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
+  return `<section class="side-box advice-box"><h3>📌 Conseils du moment${list.length > shown.length ? ` <span class="muted small">+${list.length - shown.length}</span>` : ''}</h3>
     ${shown.map((r) => `<div class="advice sev-${r.sev}"><div class="small">${SEV_ICON[r.sev] || ''} ${esc(r.text)}</div>
       <div class="advice-foot">${r.apply ? `<button class="mini primary" data-action="adv-apply" data-r="${esc(r.apply)}" title="Appliquer ce conseil maintenant">${esc(r.applyLabel || 'Appliquer')}</button>` : ''}${r.action ? `<button class="mini" data-action="${r.action}">${r.action === 'up-list' ? 'Voir' : 'Lancer'}</button>` : r.goto ? `<button class="mini" data-action="goto" data-view="${r.goto}">Y aller</button>` : ''}
       <button class="mini ghost" data-action="adv-snooze" data-id="${esc(r.id)}" title="Masquer 4 h">⏰</button>${r.sev !== 'bad' ? `<button class="mini ghost" data-action="adv-dismiss" data-id="${esc(r.id)}" title="Ne plus afficher ce conseil">✕</button>` : ''}</div></div>`).join('') || '<div class="muted small">Rien d’urgent. Votre royaume tourne bien.</div>'}
-    <button class="btn block ghost small" data-action="advisor">Analyse détaillée →</button></section>`;
+    </section>`;
 }
 
 // Chapitre en cours du parcours guidé

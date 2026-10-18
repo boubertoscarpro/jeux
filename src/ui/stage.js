@@ -25,7 +25,7 @@ export function drawerHtml(app, key, label, body, { auto = false } = {}) {
   const open = d[key] === true;
   return `<aside class="drawer ${open ? 'open' : ''}" data-drawer="${key}">
     <button class="drawer-tab" data-action="drawer" data-k="${key}" aria-expanded="${open}" title="${open ? 'Replier' : 'Déplier'} le panneau « ${esc(label)} »">${open ? '›' : '‹'} <span>${esc(label)}</span></button>
-    <div class="drawer-body card">${body}</div></aside>`;
+    <div class="drawer-body card" id="${key}-panel">${body}</div></aside>`;
 }
 
 export const stageActions = {

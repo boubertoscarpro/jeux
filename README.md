@@ -21,6 +21,16 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v15 — L'Atlas vivant** : la carte devient l'instrument principal du royaume.
+> - **Cartes en grand** : royaume et monde occupent tout l'écran ; les détails s'ouvrent dans un tiroir (panneau du bas sur téléphone).
+> - **Cartes peintes** : sol du royaume et terrain du monde peints sans aucune image externe, brouillard à l'encre, mini-carte cadrée sur la zone connue. Réglages « Qualité graphique » et « Économie d'énergie ».
+> - **Le monde montre son état** : météo, lumière de l'heure réelle, incendies, crues, sécheresse, signes des présages, frontières en guerre, toujours nommés dans une légende.
+> - **Signes des présages** : un relevé toutes les 20 min affine la fiabilité ; une **demi-mesure** (moitié du prix) contient la crise à sa première étape.
+> - **Némésis de la Brèche** : chaque seigneur a un visage, des cicatrices, des titres, et s'adapte (au plus +20 %) à votre armée habituelle. Prenez votre revanche.
+> - Polices et icônes embarquées : le jeu fonctionne entièrement hors ligne.
+>
+> Aucune nouvelle monnaie, aucune ressource produite. Voir [`docs/AUDIT_V15.md`](docs/AUDIT_V15.md) et [`docs/V15.md`](docs/V15.md).
+>
 > **v14 — Répercussions** : le royaume voit venir ses fléaux et choisit où couper la chaîne.
 > - **Présages** : sécheresse, crue, blizzard et tensions du marché sont annoncés 1 à 2 h à l'avance, avec une fiabilité affichée (une part est fausse). On peut les recouper ou se préparer.
 > - **Crises en cascade** : une sécheresse renchérit le pain, fâche les villages au conseil, puis soulève une province. Chaque étape propose des interventions chiffrées.

@@ -194,3 +194,19 @@ h2 .gl-wrap, h3 .gl-wrap { color: var(--gold); }
 .nemesis .lord-face { flex: none; border-radius: 10px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4); }
 .nemesis h4 { margin: 0 0 2px; }
 .report-lord { margin: 6px 0; }
+
+/* v15 — « Exploration auto » à droite de la colonne d'outils (elle recouvrait le bouton mini-carte) */
+.stage .map-survey { left: 56px; bottom: 38px; }
+
+/* v15 — voile sous la barre de la carte : les étiquettes de bâtiments ne transparaissent plus entre les deux lignes */
+.stage-top { isolation: isolate; }
+.stage-top::before { content: ''; position: absolute; inset: -10px -10px -18px -10px; z-index: -1; pointer-events: none;
+  background: linear-gradient(rgba(18, 14, 10, 0.72) 60%, rgba(18, 14, 10, 0)); }
+
+/* v15 — Téléphone : première ligne = légende (gauche) + onglet du tiroir (droite) ; barres de la carte en dessous */
+@media (max-width: 700px) {
+  .stage .scene-legend, .world-stage .scene-legend { top: 10px; bottom: auto; left: 10px; right: auto; max-width: calc(100% - 190px); flex-direction: row; flex-wrap: nowrap; align-items: flex-start; overflow-x: auto; scrollbar-width: none; pointer-events: auto; }
+  .scene-legend .sl { flex: 0 0 auto; white-space: nowrap; }
+  .stage-top, .stage .map-filters { top: 46px; }
+  .stage .map-hint { display: none; }
+}

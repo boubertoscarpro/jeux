@@ -11,7 +11,7 @@ import { ensureArtDefs } from './art.js';
 import { advance } from '../core/engine.js';
 import { saveGame } from '../core/save.js';
 import { fmtTime } from '../core/util.js';
-import { renderTopbar, renderSide, sideActions } from './hud.js';
+import { renderTopbar, renderSide, sideActions, adviceBox } from './hud.js';
 import { esc, resChips } from './components.js';
 import cityView from './views/city.js';
 import worldView from './views/world.js';
@@ -84,6 +84,7 @@ const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewI
 
 export class App {
   constructor(root, state) {
+    this.adviceBox = adviceBox; // liste rapide des conseils, affichée dans la fenêtre du conseiller
     this.root = root;
     this.state = state;
     this.ui = { view: 'city', showAllRes: false, lastTab: {} };

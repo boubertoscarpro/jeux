@@ -83,6 +83,7 @@ function signTick(state, o, now) {
   while (o.nextSign <= Math.min(now, o.at) && guard++ < 20) {
     if (rng.chance(o.truth ? L.true : L.false)) {
       o.signs.push({ t: o.nextSign });
+      const st = omensState(state).stats; st.signs = (st.signs || 0) + 1;
       log(state, 'event', `${SIGNS[o.key].icon} Signe : ${SIGNS[o.key].text} (présage « ${omenTitle(o)} », fiabilité estimée ${Math.round(omenEstimate(o) * 100)} %).`, o.nextSign);
     } else o.quiet = (o.quiet || 0) + 1;
     o.nextSign += OMEN.signEveryMin * MIN;
@@ -137,6 +138,7 @@ export function prepareFor(state, id, now = Date.now(), level = 'full') {
   const until = o.at + 6 * H;
   if (level === 'half') {
     o.prepared = 'half';
+    S.stats.half = (S.stats.half || 0) + 1;
     S.prepHalf[o.key] = Math.max(S.prepHalf[o.key] || 0, until);
     log(state, 'info', `${p.icon} ${p.label} (à moitié) : si le fléau frappe, la crise sera contenue à sa première étape.`, now);
   } else {

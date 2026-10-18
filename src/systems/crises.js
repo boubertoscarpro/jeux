@@ -172,7 +172,7 @@ export function crisisTick(state, now = Date.now()) {
         // La garde accourt : maîtrisé après la première vague (sans frais)
         if (c.guarded && def.stages[c.stage + 1]?.spread) { c.how = 'La garde a maîtrisé le feu'; enterStage(state, c, def.stages.findIndex((s) => !s.spread), t); continue; }
       }
-      if (c.contained && c.stage === 0) { c.how = 'Préparatifs partiels : crise contenue'; end(state, c, 'resolved', t); continue; }
+      if (c.contained && c.stage === 0) { c.how = 'Préparatifs partiels : crise contenue'; const st0 = crisesState(state).stats; st0.contained = (st0.contained || 0) + 1; end(state, c, 'resolved', t); continue; }
       if (c.stage >= def.stages.length - 1) end(state, c, 'endured', t);
       else enterStage(state, c, c.stage + 1, t);
     }
