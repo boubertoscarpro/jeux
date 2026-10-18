@@ -1,0 +1,29 @@
+{
+ "large": {
+  "tiles": 960,
+  "renderMs": 201.9,
+  "mainZoom": 9.2,
+  "mainZoomP95": 16.1,
+  "mainPan": 8.5,
+  "mainPanP95": 10,
+  "frameSaver": 37.1
+ },
+ "moyen": {
+  "tiles": 960,
+  "renderMs": 58.4,
+  "mainZoom": 8.6,
+  "mainZoomP95": 12.7,
+  "mainPan": 8.5,
+  "mainPanP95": 11.6,
+  "frameSaver": 18.1
+ },
+ "mobile": {
+  "tiles": 960,
+  "renderMs": 199.8,
+  "mainZoom": 10.2,
+  "mainZoomP95": 25,
+  "mainPan": 7.8,
+  "mainPanP95": 24.2,
+  "frameSaver": 16.7
+ }
+}

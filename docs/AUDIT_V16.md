@@ -24,6 +24,12 @@
 | 7 | **Les icônes d'amélioration couvrent la vue d'ensemble** (constat nouveau). | **Confirmé** (05) : 92 pastilles « amélioration » au zoom global. Elles masquent les bâtiments eux-mêmes. | 🟡 |
 | 8 | **Les décorations n'ont aucun effet** (constat nouveau). | **Confirmé** : `placeDeco` pose un emoji sur une case, sans aucun effet de jeu. | 🟡 |
 
+**Correction du constat 6, après mesure fine** (voir [`V16.md`](V16.md) § 4).
+- Ces 74,7 ms sont l'**intervalle entre images** dans Chromium **sans GPU**, celui de l'environnement de test.
+- Même au repos, la scène y coûte environ 55 ms par image : chaque animation (bâtiments, météo) déclenche une composition logicielle de tout l'écran.
+- Le **travail du fil principal** par image (script, style, mise en page, enregistrement de la peinture) était de 8,5 à 10,2 ms en v15. C'est sous le budget de 16,7 ms : un portable avec GPU tient donc les 60 images/s.
+- `--bz` n'était qu'une petite part du coût. Il est tout de même réécrit par paliers en v16.
+
 ## 2. Plan des zones
 
 **Principe.** Le royaume s'organise en anneaux autour de l'**enceinte**, un rectangle de cases centré sur l'hôtel de ville.
