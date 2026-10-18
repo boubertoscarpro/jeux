@@ -873,7 +873,13 @@ const worldView = {
     </div>`;
   },
   after(app) { fitStage(); bindCanvas(app); requestAnimationFrame(() => drawMap(app)); },
-  tick(app) { drawMap(app); updateSceneFx(document.querySelector('.world-stage'), sceneState(app.state, Date.now(), localHour()), 'world'); },
+  tick(app) {
+    // Mode économie : sans mouvement sur la carte (marches, raids, caravanes, expéditions), un redessin toutes les 10 s
+    const s = app.state, moving = s.marches.length || s.raids.length || s.caravans.length || (s.expeditions || []).some((e) => e.status !== 'idle');
+    app._wt = (app._wt || 0) + 1;
+    if (s.meta.saver && !moving && app._wt % 10) return;
+    drawMap(app); updateSceneFx(document.querySelector('.world-stage'), sceneState(app.state, Date.now(), localHour()), 'world');
+  },
   actions: {
     zoom: (app, el) => { const cv = document.getElementById('world-canvas'); if (!cv) return; const r = cv.getBoundingClientRect(); zoomWorldAt(cam(app), +el.dataset.z, r.width / 2, r.height / 2, r.width, r.height, app.state.world.size); drawMap(app); },
     fit: (app) => { const c = cam(app), S = app.state.world.size; c.zoom = 0; c.x = S / 2; c.y = S / 2; drawMap(app); },

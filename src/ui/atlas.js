@@ -350,25 +350,22 @@ export function fogCanvas(w, revealedN, quality) {
   cv.width = S * res; cv.height = S * res;
   const c = cv.getContext('2d');
   const img = c.createImageData(cv.width, cv.height), d = img.data;
-  const R = (x, y) => (x < 0 || y < 0 || x >= S || y >= S ? false : isRevealed(w, x, y));
+  // Champ « connu » lissé (interpolation bilinéaire entre centres de cases) puis déformé par un bruit à basse
+  // fréquence : les zones inconnues deviennent des taches d'encre aux bords organiques au lieu de rectangles.
+  const known = new Uint8Array(S * S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) known[y * S + x] = isRevealed(w, x, y) ? 1 : 0;
+  const K = (x, y) => (x < 0 || y < 0 || x >= S || y >= S ? 0 : known[y * S + x]);
   for (let py = 0; py < cv.height; py++) {
-    const fy = (py + 0.5) / res, ty = Math.floor(fy);
+    const fy = (py + 0.5) / res;
     for (let px = 0; px < cv.width; px++) {
-      const fx = (px + 0.5) / res, tx = Math.floor(fx);
-      let a;
+      const fx = (px + 0.5) / res;
       const n = fbm(fx * 0.8, fy * 0.8, 91);
-      if (!R(tx, ty)) a = 0.93 + n * 0.07;
-      else {
-        // Distance à la case inconnue la plus proche (voisinage 3 × 3), déformée par le bruit : bord d'encre irrégulier
-        let dmin = 2;
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          if (R(tx + dx, ty + dy)) continue;
-          const ex = Math.max(tx + dx - fx, 0, fx - (tx + dx + 1)), ey = Math.max(ty + dy - fy, 0, fy - (ty + dy + 1));
-          dmin = Math.min(dmin, Math.hypot(ex, ey));
-        }
-        const edge = 0.55 + (n - 0.5) * 0.5;
-        a = dmin >= edge ? 0 : 0.9 * (1 - dmin / edge) ** 1.4;
-      }
+      const wx = fx + (vnoise(fx * 0.45, fy * 0.45, 31) - 0.5) * 1.3 - 0.5, wy = fy + (vnoise(fx * 0.45, fy * 0.45, 57) - 0.5) * 1.3 - 0.5;
+      const xi = Math.floor(wx), yi = Math.floor(wy), u = wx - xi, v = wy - yi;
+      const k = K(xi, yi) * (1 - u) * (1 - v) + K(xi + 1, yi) * u * (1 - v) + K(xi, yi + 1) * (1 - u) * v + K(xi + 1, yi + 1) * u * v;
+      // Seuil bruité puis transition courte : encre dense dans l'inconnu, voile qui s'éclaircit vers le connu
+      const t = Math.max(0, Math.min(1, (k - 0.32 - (n - 0.5) * 0.3) / 0.36));
+      const a = (1 - t * t * (3 - 2 * t)) * (0.9 + n * 0.08);
       const i = (py * cv.width + px) * 4;
       const tone = 0.85 + n * 0.3;
       d[i] = 34 * tone; d[i + 1] = 27 * tone; d[i + 2] = 20 * tone; d[i + 3] = Math.round(a * 255);

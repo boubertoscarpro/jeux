@@ -173,3 +173,12 @@
 html.saver .fx-wx, html.saver .fx-fire i, html.saver .fx-smoke, html.saver .fx-water { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .fx-wx, .fx-fire i, .fx-smoke, .fx-water { animation: none !important; } }
 html.reduce-motion .fx-smoke { opacity: 0.6; transform: translateY(-10px); }
+
+/* ───── Une seule langue d'icônes : glyphes SVG (trait d'encre, couleur du texte), emojis restants harmonisés ───── */
+.gl-wrap { display: inline-flex; vertical-align: -0.16em; margin-right: 0.08em; }
+.gl-wrap .gl { width: 1.08em; height: 1.08em; }
+h2 .gl-wrap, h3 .gl-wrap { color: var(--gold); }
+.subtab .gl-wrap, .drawer-tab .gl-wrap { color: var(--bronze-l); }
+.subtab.active .gl-wrap { color: var(--gold); }
+.btn.primary .gl-wrap, .mini.primary .gl-wrap { color: inherit; }
+.emo { display: inline-block; width: 1.15em; text-align: center; font-family: var(--emoji, inherit); filter: saturate(0.72) sepia(0.12); vertical-align: -0.05em; }

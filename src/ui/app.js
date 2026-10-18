@@ -1,5 +1,6 @@
 import { repActions } from './repercussions.js';
 import { stageActions } from './stage.js';
+import { iconize } from './glyphs.js';
 import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
 import { RESOURCES } from '../data/resources.js';
@@ -215,6 +216,7 @@ export class App {
     if (this.dirty) this.render();
     else {
       this.$('#topbar').innerHTML = renderTopbar(this);
+      iconize(this.$('#topbar'));
       this.updateTimers();
       this.views[this.ui.view].tick?.(this);
     }
@@ -286,6 +288,8 @@ export class App {
     if (!locked) view.after?.(this);
     const side = this.$('#side');
     this.preserveInputs(side, () => { side.innerHTML = renderSide(this); });
+    // v15 : une seule langue d'icônes dans l'interface (glyphes SVG à la place des emojis de tête)
+    iconize(main); iconize(side); iconize(this.$('#topbar'));
     this.root.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === group.id));
     this.updateBadges();
   }
@@ -380,6 +384,7 @@ export class App {
     const root = document.getElementById('modal-root');
     root.innerHTML = `<div class="modal-backdrop" data-action="close-modal"></div><div class="modal ${cls}" role="dialog"><button class="modal-x" data-action="close-modal" aria-label="Fermer">✕</button>${html}</div>`;
     root.classList.add('open');
+    iconize(root);
   }
   // Fenêtre de confirmation (actions destructrices ou irréversibles)
   confirm(html, okLabel, onOk, danger = true) {
