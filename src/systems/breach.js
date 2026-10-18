@@ -15,6 +15,8 @@ import { rng } from '../core/rng.js';
 import { spawnPoi, findFreeTile, reveal, key } from './world.js';
 import { log, feat } from './log.js';
 import { chronicle } from './chronicle.js';
+import { nemesisReinforcement, nemesisAfterBattle } from './nemesis.js';
+import { NEMESIS } from '../data/nemesis.js';
 
 const MIN = 60000;
 const unitPower = (u) => { const d = ALL_UNITS[u]; return (d.atk + d.def) * Math.sqrt(d.hp / 30); };
@@ -99,11 +101,14 @@ export function breachDefense(state, poi, now = Date.now()) {
   const doc = BREACH_DOCTRINES[b.doctrine];
   const full = breachComposition(b);
   const wounded = b.garrison && b.restoreAt > now;
+  // v15 — Némésis : contre-unités recrutées contre votre classe dominante (au plus +20 % de puissance)
+  const nem = nemesisReinforcement(b, powerOf(b), now);
+  if (!wounded) for (const [u, n] of Object.entries(nem.units)) full[u] = (full[u] || 0) + n;
   const enemies = wounded ? b.garrison : full;
   const fort = Math.round(fortOf(b) * 100) / 100;
   const enemyMods = { 'combat.atk': 0.02 * b.level, 'combat.def': 0.02 * b.level };
   if (tier.n >= 4) for (const [k, v] of Object.entries(BREACH_LORD.aura)) enemyMods[k] = (enemyMods[k] || 0) + v;
-  return { enemies, full, wounded, fort, enemyMods, formation: breachFormation(tier.n, b.doctrine), tier, doctrine: doc, commander: tier.n >= 4 ? b.lord : null };
+  return { enemies, full, wounded, fort, enemyMods, formation: breachFormation(tier.n, b.doctrine), tier, doctrine: doc, commander: tier.n >= 4 ? b.lord : null, nemesis: nem };
 }
 
 export const breachRuined = (poi, now) => poi.clearedUntil > now;
@@ -202,6 +207,14 @@ export function onBreachBattle(state, poi, res, ctx, now = Date.now()) {
     if (worthy && !(b.lastLossAt > now - BREACH_PROGRESS.lossCooldownMin * MIN)) { evolved = addProgress(b, BREACH_PROGRESS.loss); b.lastLossAt = now; }
     else if (!worthy) b.ignored++;
   }
+  // v15 — Némésis : le seigneur retient les assauts méritants (cicatrices, titres, mémoire de votre armée)
+  let nem = null;
+  if (worthy) {
+    nem = nemesisAfterBattle(b, { win, units: ctx.units }, now);
+    if (nem.revenge && rewards) for (const r of Object.keys(rewards.res)) rewards.res[r] = Math.round(rewards.res[r] * (1 + NEMESIS.revengeLoot));
+    if (nem.title) chronicle(state, `🏴 ${b.lord} repousse votre assaut et se fait désormais appeler « ${nem.title} ».`, now);
+    if (nem.revenge) chronicle(state, `⚔️ Revanche sur ${b.lord} : le titre « ${nem.revenge} » lui est arraché.`, now);
+  }
   poi.danger = Math.min(6, 1 + Math.floor((b.level - 1) / 3));
   poi.name = fortName(b);
   if (evolved.length) b.changes.unshift({ t: now, text: evolved.join(' ; ') });
@@ -210,7 +223,7 @@ export function onBreachBattle(state, poi, res, ctx, now = Date.now()) {
   b.history.unshift(entry);
   b.history.length = Math.min(b.history.length, 12);
   if (evolved.length && tierOf(b.level).n > tier.n) feat('🏴', `${poi.name}`, `La forteresse devient ${tierOf(b.level).name.toLowerCase()}.`, 'bad');
-  return { worthy, merit, evolved, rewards, win };
+  return { worthy, merit, evolved, rewards, win, nem };
 }
 
 // Récompenses d'une victoire (butin courant, rares, objets, XP, passe-temps)

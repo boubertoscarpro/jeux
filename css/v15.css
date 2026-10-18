@@ -182,3 +182,15 @@ h2 .gl-wrap, h3 .gl-wrap { color: var(--gold); }
 .subtab.active .gl-wrap { color: var(--gold); }
 .btn.primary .gl-wrap, .mini.primary .gl-wrap { color: inherit; }
 .emo { display: inline-block; width: 1.15em; text-align: center; font-family: var(--emoji, inherit); filter: saturate(0.72) sepia(0.12); vertical-align: -0.05em; }
+
+/* v15 — Signes des présages dans l'almanach */
+.omen-signs { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; margin-top: 4px; padding: 4px 8px; border-left: 2px solid var(--gold, #c9a54a); background: rgba(255, 255, 255, 0.03); border-radius: 4px; }
+.omen-signs .sg-row { letter-spacing: 2px; }
+.omen-signs .sg { font-style: normal; opacity: 0.55; }
+.omen-signs .sg.on { opacity: 1; color: var(--gold, #c9a54a); }
+
+/* v15 — Némésis : portrait du seigneur */
+.nemesis { display: flex; gap: 10px; align-items: flex-start; }
+.nemesis .lord-face { flex: none; border-radius: 10px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4); }
+.nemesis h4 { margin: 0 0 2px; }
+.report-lord { margin: 6px 0; }

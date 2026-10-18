@@ -3,7 +3,7 @@
 // il intervient dans une crise avec l'option la moins chère qu'il peut payer, en préférant la réserve.
 import { RESERVE } from '../src/data/crises.js';
 import { crisesState, crisisThread, intervene } from '../src/systems/crises.js';
-import { omensState, verifyOmen, prepareFor, prepCost, verifyCost } from '../src/systems/omens.js';
+import { omensState, verifyOmen, prepareFor, prepCost, verifyCost, halfCost, omenEstimate } from '../src/systems/omens.js';
 import { reserveState, setReserveRule, depositReserve, reserveRoom } from '../src/systems/reserve.js';
 import { storageCap } from '../src/systems/economy.js';
 
@@ -37,7 +37,10 @@ export function v14Bot(s, profileKey, t, mods) {
       if ((s.army.scout || 0) > 2) verifyOmen(s, o.id, 'scout', t);
       else if (affordable(s, verifyCost(s), 3)) verifyOmen(s, o.id, 'gold', t);
     }
-    const c = prepCost(s, o.key);
-    if (c && !o.prepared && (o.checked === true || (o.checked == null && o.q >= 0.7)) && affordable(s, c)) prepareFor(s, o.id, t);
+    // v15 : l'estimation tient compte des signes observés ; préparation entière si l'on est presque sûr, demi-mesure sinon
+    const c = prepCost(s, o.key), est = o.checked === true ? 1 : o.checked === false ? 0 : omenEstimate(o);
+    if (!c || o.prepared === true || o.prepared === 'full') continue;
+    if (est >= 0.8 && affordable(s, o.prepared === 'half' ? halfCost(s, o.key) : c)) prepareFor(s, o.id, t, 'full');
+    else if (!o.prepared && est >= 0.6 && affordable(s, halfCost(s, o.key))) prepareFor(s, o.id, t, 'half');
   }
 }

@@ -6,6 +6,7 @@ import { UNITS, ALL_UNITS, FORMATIONS, TERRAIN_COMBAT } from '../../data/units.j
 import { RESOURCES } from '../../data/resources.js';
 import { CONSUMABLES } from '../../data/items.js';
 import { breachPanel, drawBreachFort } from '../breach.js';
+import { lordFaceImage } from '../nemesisFace.js';
 import { drawWorldMarks, drawHamlet, marksPanel } from '../worldmarks.js';
 import { breachDefense } from '../../systems/breach.js';
 import { BREACH_MIN_MERIT } from '../../data/breach.js';
@@ -235,6 +236,11 @@ export function drawMap(app) {
       : !cleared && (def.dungeon || p.type === 'lostCity') ? `rgba(190,150,255,${0.35 + 0.35 * pulse})` : !cleared && p.danger >= 4 ? `rgba(255,90,70,${0.25 + 0.3 * pulse})` : null;
     const rb = def.kind === 'breach' && p.breach ? Math.max(8, Math.min(38, T * 0.46)) * (1 + 0.08 * (Math.floor((p.breach.level - 1) / 5))) : 0;
     if (rb) drawBreachFort(ctx, px, py, rb, p.breach, { cleared });
+    // v15 — Portrait du seigneur au-dessus de sa forteresse (vue rapprochée)
+    if (rb >= 16 && !cleared) {
+      const face = lordFaceImage({ name: p.breach.lord, scars: p.breach.nem?.scars, titles: p.breach.nem?.titles, tier: 1 + Math.floor((p.breach.level - 1) / 5) });
+      if (face) { const fs = Math.round(rb * 1.1); ctx.drawImage(face, px + rb * 0.9, py - rb * 1.6, fs, fs); }
+    }
     else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
     if (p.danger > 0 && def.kind !== 'boss' && def.kind !== 'breach' && T > 16) {
