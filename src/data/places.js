@@ -1,7 +1,7 @@
 // v16 « Le Château » — Table des lieux : chaque écran du jeu a un lieu dans le royaume (ou dans l'affichage fixe).
 // kind : 'building' (un bâtiment de la ville, existant ou nouveau lieu), 'map' (le globe : carte du monde),
 // 'hud' (médaillon du profil, réglages). screens : identifiants des écrans (src/ui/views), le premier s'ouvre d'abord.
-// Les lieux « nouveaux » (place: true dans buildings.js) sont de simples points d'accès : aucune production, aucun
+// Les lieux « nouveaux » (isPlace: true dans buildings.js) sont de simples points d'accès : aucune production, aucun
 // effet, posés gratuitement quand leur fonction s'ouvre (systems/places.js).
 export const PLACES = {
   townhall: { kind: 'building', type: 'townhall', screens: ['goals', 'policy', 'council', 'projects'] },

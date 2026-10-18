@@ -18,7 +18,7 @@ export function levelOf(s, type) {
   return buildingsOf(s, type).reduce((m, b) => Math.max(m, b.level), 0);
 }
 export const thLevel = (s) => levelOf(s, 'townhall');
-export const totalLevels = (s) => allBuildings(s).reduce((a, b) => a + (b.deco || BUILDINGS[b.type]?.place ? 0 : b.level), 0) + Object.values(s.city.fort).reduce((a, b) => a + b, 0);
+export const totalLevels = (s) => allBuildings(s).reduce((a, b) => a + (b.deco || BUILDINGS[b.type]?.isPlace ? 0 : b.level), 0) + Object.values(s.city.fort).reduce((a, b) => a + b, 0);
 
 export const terrainAt = (s, x, y) => (x < 0 || y < 0 || x >= s.city.w || y >= s.city.h ? null : s.city.terrain[y * s.city.w + x]);
 export const buildingAt = (s, x, y) => allBuildings(s).find((b) => b.x === x && b.y === y) || null;

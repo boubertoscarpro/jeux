@@ -28,6 +28,8 @@ const free = (s, type, skip = 0) => { let k = 0; for (let y = 0; y < s.city.h; y
 const claimNear = (s, dx, dy) => { s.world.revealed.fill(1); return claimTerritory(s, s.world.capital.x + dx, s.world.capital.y + dy, T0); };
 const build = (s, type, n = 1) => { for (let i = 0; i < n; i++) { const p = free(s, type); assert.ok(startBuild(s, type, p.x, p.y, T0).ok, type); advance(s, T0 + H); s.meta.lastTick = T0; } };
 
+const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('p_'))); // lieux v16 : ajoutés, jamais retirés
+
 test('Noms : validation commune (vide, espaces, HTML, longueur)', () => {
   assert.equal(sanitizeName('   ').ok, false);
   assert.equal(sanitizeName('A').ok, false);
@@ -90,7 +92,7 @@ test('Migration v8 → v9 : identité ajoutée, avant-postes nommés, rien de pe
   assert.equal(castleName(st), 'Château de Vieux-Royaume', 'nom par défaut issu du royaume, pas d’un autre');
   assert.ok(st.identity.playerId.startsWith('pl_'));
   for (const t of Object.values(st.territories)) assert.ok(t.id && t.name, 'avant-poste ancien : identifiant et nom par défaut');
-  assert.deepEqual(st.city.buildings, old.city.buildings);
+  assert.deepEqual(noPlaces(st.city.buildings), noPlaces(old.city.buildings));
   assert.equal(st.resources.wood, old.resources.wood);
   assert.deepEqual(Object.keys(st.territories), Object.keys(old.territories));
   assert.ok(st.questlines && Array.isArray(st.missions.active));

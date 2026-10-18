@@ -162,7 +162,7 @@ export function breachChance(state) {
 }
 // Bâtiments exposés à l'incendie des pillards : hors les murs d'abord ; la cour seulement si la muraille a cédé
 export function raidTargets(state, breached) {
-  const ok = (b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco', 'warehouse'].includes(b.type);
+  const ok = (b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco', 'warehouse'].includes(b.type) && BUILDINGS[b.type]?.cat !== 'place';
   const outside = blds(state).filter((b) => ok(b) && zoneAt(state, b.x, b.y) !== 'keep');
   if (!breached) return outside;
   return blds(state).filter(ok);

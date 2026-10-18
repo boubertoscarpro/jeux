@@ -130,7 +130,7 @@ function leftCol(app) {
   let o = null; try { o = objectives(s, now); } catch { o = null; }
   const tracked = o ? [...o.main, ...o.secondary].filter((m) => !m.claimed).slice(0, 3) : [];
   const qb = objectivesBadge(s);
-  let adv = 0; try { if ((s.meta.advice || 'full') !== 'off') adv = adviceList(s, now).filter((r) => r.sev === 'bad' || r.sev === 'warn').length; } catch { adv = 0; }
+  let adv = 0, top = null; try { if ((s.meta.advice || 'full') !== 'off') { const l = adviceList(s, now); adv = l.filter((r) => r.sev === 'bad' || r.sev === 'warn').length; top = l.find((r) => r.sev === 'bad') || l.find((r) => r.sev === 'warn') || l[0] || null; } } catch { adv = 0; }
   const alerts = [];
   for (const r of s.raids || []) alerts.push(`<button class="hud-alert bad" data-action="nav" data-view="defense"><b>🚨 Raid : ${esc(r.name)}</b><span>arrive dans ${countdown(r.arrive)}</span></button>`);
   for (const c of s.crises?.active || []) alerts.push(`<button class="hud-alert warn" data-action="nav" data-view="omens"><b>${CRISES[c.type]?.icon || '🔗'} Crise : ${esc(CRISES[c.type]?.name || '')}</b><span>étape suivante ${countdown(c.nextAt)}</span></button>`);
@@ -142,7 +142,7 @@ function leftCol(app) {
       <div class="small">${esc(m.desc || '')}</div>${m.target ? `<span class="hud-qbar"><i style="width:${Math.min(100, Math.round(((m.cur || 0) / m.target) * 100))}%"></i></span>` : ''}
       <div class="row gap">${m.done ? `<button class="mini primary" data-action="claim-quest" data-id="${esc(String(m.id))}">Réclamer</button>` : m.action ? `<button class="mini" data-action="${m.action}">Lancer</button>` : `<button class="mini" data-action="go-place" data-view="${esc(m.view || 'goals')}">Y aller</button>`}</div></details>`).join('')}
     ${!collapsed && o?.chapter?.complete && !o.chapter.rewardClaimed ? `<button class="hud-alert good" data-action="claim-chapter" data-n="${o.chapter.n}"><b>🏆 Chapitre terminé</b><span>Réclamer la récompense</span></button>` : ''}
-    ${btn('advisor', '🧙', 'Conseiller du royaume', badge(adv ? '!' : 0, 'conseils importants'), 'data-advisor="1"')}
+    ${collapsed ? btn('advisor', '🧙', 'Conseiller du royaume', badge(adv ? '!' : 0, 'conseils importants')) : `<button class="hud-adv" data-action="advisor" title="Conseiller du royaume : tous les conseils" aria-label="Conseiller du royaume${adv ? ` : ${adv} conseils importants` : ''}"><span class="adv-pt" aria-hidden="true">🧙</span><span class="adv-tx"><b>Conseiller</b><small>${esc(top ? (top.text.length > 70 ? top.text.slice(0, 68) + '…' : top.text) : 'Le royaume se porte bien.')}</small></span>${badge(adv ? '!' : 0, 'conseils importants')}</button>`}
     ${collapsed ? (alerts.length ? `<span class="hb hb-urgent" aria-label="${alerts.length} alertes">!</span>` : '') : alerts.join('')}
   </div>`;
 }

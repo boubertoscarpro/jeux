@@ -63,4 +63,4 @@ export function placeBuilding(state, placeKey) {
 // Tous les lieux (bâtiments) qui mènent à un écran
 export const placesOfScreen = (viewId) => Object.entries(PLACES).filter(([, p]) => p.screens.includes(viewId)).map(([k]) => k);
 // Types de bâtiments qui sont le lieu PRINCIPAL d'au moins un écran (les terrains vagues ne montrent que ceux-là)
-export const PRIMARY_PLACE_TYPES = [...new Set(Object.values(SCREEN_PLACE).map((k) => PLACES[k]).filter((p) => p.kind === 'building' && !BUILDINGS[p.type]?.place).map((p) => p.type))];
+export const PRIMARY_PLACE_TYPES = [...new Set(Object.values(SCREEN_PLACE).map((k) => PLACES[k]).filter((p) => p.kind === 'building' && !BUILDINGS[p.type]?.isPlace).map((p) => p.type))];

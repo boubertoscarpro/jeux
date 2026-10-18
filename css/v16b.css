@@ -6,6 +6,8 @@
 #view .stage { height: 100% !important; border-radius: 0; border: 0; margin: 0; }
 #view .stage-top, #view .drawer, #view .below-map, #view .map-tools, #view .map-hint, #view .scene-legend { display: none !important; }
 #app.win-open #view { filter: blur(3px) brightness(0.62); pointer-events: none; }
+/* Une fenêtre ouverte : les colonnes latérales s'effacent (le haut et le bas restent) */
+#app.win-open .hud-l, #app.win-open .hud-r, #app.win-open .hud-bl, #app.win-open .hud-zoom { display: none; }
 html.saver #app.win-open #view, html.gfx-low #app.win-open #view { filter: brightness(0.5); }
 
 /* ───── Affichage fixe ───── */
@@ -70,6 +72,11 @@ html.saver #app.win-open #view, html.gfx-low #app.win-open #view { filter: brigh
 .hud-q.done summary { color: #9fe0a8; }
 .hud-qbar { display: block; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); margin: 4px 0; overflow: hidden; }
 .hud-qbar i { display: block; height: 100%; background: var(--gold); }
+.hud-adv { position: relative; display: flex; align-items: center; gap: 8px; text-align: left; padding: 6px 8px; border-radius: 8px; border: 1px solid #5a4630; background: rgba(40, 32, 24, 0.95); color: var(--ivory); cursor: pointer; }
+.hud-adv .adv-pt { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; border: 2px solid #c9a54a; background: radial-gradient(circle at 35% 30%, #4a3a26, #1d1812); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.hud-adv .adv-tx { display: flex; flex-direction: column; min-width: 0; font-size: 12px; }
+.hud-adv .adv-tx small { color: var(--ivory-dim, #b9ae97); font-size: 11px; line-height: 1.25; }
+.hud-adv .hb { top: -5px; right: -5px; }
 .hud-alert { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; padding: 6px 8px; border-radius: 8px; border: 1px solid #8a6a3e; background: rgba(60, 45, 25, 0.95); color: var(--ivory); cursor: pointer; font-size: 12px; }
 .hud-alert.bad { border-color: #e2574a; background: rgba(80, 20, 15, 0.95); }
 .hud-alert.warn { border-color: #e29a4a; }
@@ -101,16 +108,19 @@ html.saver #app.win-open #view, html.gfx-low #app.win-open #view { filter: brigh
 .hud-zoom .hud-btn { width: 32px; height: 32px; min-width: 32px; opacity: 0.85; font-size: 15px; }
 .hud-actions { display: flex; align-items: flex-end; gap: 6px; padding: 6px; }
 .hud-a { position: relative; width: 58px; height: 58px; border-radius: 50%; border: 2px solid #8a6a3e; background: radial-gradient(circle at 35% 30%, #4a3a26, #1d1812); color: var(--ivory); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
-.hud-a span { font-size: 20px; line-height: 1; }
+.hud-a > span:not(.hb) { font-size: 20px; line-height: 1; }
+.hud .hb { font-size: 11px; line-height: 18px; }
 .hud-a small, .hud-globe small { font-size: 9.5px; font-weight: 600; }
 .hud-a.on { border-color: #fff3c4; box-shadow: 0 0 0 2px #c9a54a; }
 .hud-globe { width: 76px; height: 76px; border-radius: 50%; border: 3px solid #c9a54a; background: radial-gradient(circle at 35% 30%, #3e6b8f, #12304a); color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5); }
 .hud[data-map="world"] .hud-globe, .hud[data-map="outpost"] .hud-globe { background: radial-gradient(circle at 35% 30%, #6b5a3e, #2b2118); }
-.hud-globe span { font-size: 30px; line-height: 1; }
+.hud-globe > span:not(.hb) { font-size: 30px; line-height: 1; }
 .hud-fab, .hud-drawer { display: none; }
 
 /* Carte du monde : filtres sous le profil, mini-carte en bas à gauche */
-#view .world-stage .map-filters { position: absolute; top: 134px; left: 12px; right: auto; max-width: min(560px, calc(100% - 100px)); z-index: 5; }
+#view .world-stage .map-filters { position: absolute; top: 108px; left: 12px; right: auto; width: auto; max-width: min(640px, calc(100% - 110px)); display: flex; flex-wrap: nowrap; gap: 4px; overflow-x: auto; scrollbar-width: thin; padding: 4px; border-radius: 10px; background: rgba(22, 18, 14, 0.85); z-index: 5; }
+#view .world-stage .map-filters > * { flex: 0 0 auto; }
+.hud[data-map="world"] .hud-l { top: 160px; max-height: calc(100% - 290px); }
 #view .world-stage .world-mini, #view .stage.drawer-open .world-mini { position: absolute; left: 12px; right: auto; bottom: 104px; top: auto; display: block; z-index: 5; }
 #view .world-stage .map-survey { position: static; display: inline-flex; flex-direction: row; padding: 2px 8px; font-size: 12px; }
 
@@ -118,8 +128,9 @@ html.saver #app.win-open #view, html.gfx-low #app.win-open #view { filter: brigh
 #win-root { position: absolute; inset: 0; z-index: 40; display: none; }
 #win-root.open { display: block; }
 .win-backdrop { position: absolute; inset: 0; background: rgba(10, 8, 6, 0.35); }
-.win { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(1100px, calc(100% - 180px)); max-height: calc(100% - 150px); display: flex; flex-direction: column;
+.win { position: absolute; left: 50%; top: 104px; transform: translateX(-50%); width: min(1100px, calc(100% - 180px)); max-height: calc(100% - 210px); display: flex; flex-direction: column;
   background: linear-gradient(180deg, #2a2219, #1d1812); border: 2px solid #8a6a3e; border-radius: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(255, 230, 170, 0.08); }
+.win-head, .win-tabs { flex-shrink: 0; }
 .win-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #5a4630; background: linear-gradient(180deg, #3a2d1f, #2a2018); border-radius: 12px 12px 0 0; }
 .win-head h2 { flex: 1; margin: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .win-head .lvl { font: 600 12px var(--font); color: var(--ivory-dim, #b9ae97); }
@@ -185,6 +196,7 @@ html.saver #app.win-open #view, html.gfx-low #app.win-open #view { filter: brigh
   .build-panel { bottom: 140px; }
   .bp-tools .mini { padding: 3px 6px; }
   #view .world-stage .map-filters { top: 100px; left: 6px; max-width: calc(100% - 12px); }
+  .hud[data-map="world"] .hud-l { top: auto; }
   #view .world-stage .world-mini { bottom: 240px; left: 66px; }
 }
 /* Animations nouvelles coupées */
