@@ -90,3 +90,29 @@ test('Lieux : la marque « lieu » ne se confond pas avec la contrainte de place
   s.city.buildings.fx = { id: 'fx', type: 'fishery', level: 3, x: 0, y: 0 };
   assert.equal(totalLevels(s), before + 3);
 });
+
+test('Bulles : peu nombreuses, triées par importance, une par bâtiment, chacune mène à un écran ; héros à leur poste', async () => {
+  const { cityBubbles, heroPosts, BUBBLE_MAX } = await import('../src/systems/bubbles.js');
+  const { computeMods } = await import('../src/systems/modifiers.js');
+  const s = createNewState({ seed: 'bulles', now: T0 });
+  const put = (id, type, x, y, level = 3) => { s.city.buildings[id] = { id, type, level, x, y }; };
+  put('lib', 'library', 1, 1); put('bar', 'barracks', 2, 1); put('wh', 'warehouse', 3, 1); put('tav', 'tavern', 4, 1); put('frg', 'forge', 5, 1); put('wt', 'watchtower', 6, 1); put('mill', 'sawmill', 7, 1);
+  s.queues.research = []; s.queues.train = []; s.queues.craft = [];
+  const mods = computeMods(s, T0);
+  s.resources.wood = 1e9; // déborde
+  s.raids = [{ id: 'r', name: 'Crocs', arrive: T0 + H, army: {} }];
+  const list = cityBubbles(s, mods, T0);
+  assert.ok(list.length <= BUBBLE_MAX);
+  for (let i = 1; i < list.length; i++) assert.ok(list[i - 1].prio >= list[i].prio, 'triées');
+  assert.equal(new Set(list.map((b) => b.bid)).size, list.length, 'une par bâtiment');
+  assert.equal(list[0].id, 'raid');
+  assert.ok(list.some((b) => b.id === 'full' && b.bid === 'wh'));
+  const ids = new Set(VIEWS.map((v) => v.id));
+  for (const b of list) { assert.ok(ids.has(b.view), b.view); assert.ok(b.mark && b.text); }
+  // Rien en cours ni à signaler : pas de bulle de raid ni de stock plein
+  s.raids = []; s.resources.wood = 0;
+  assert.ok(!cityBubbles(s, mods, T0).some((b) => b.id === 'raid' || b.id === 'full'));
+  // Héros gouverneur : montré sur le bâtiment de son secteur
+  s.heroes[0].assignment = { type: 'governor', sector: 'wood' };
+  assert.deepEqual(heroPosts(s).get('mill').map((p) => p.sector), ['wood']);
+});

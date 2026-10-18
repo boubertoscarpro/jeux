@@ -23,6 +23,7 @@ import { ERAS, eraOf, TH_MILESTONES, thRequirements } from '../../data/eras.js';
 import { ensureArtDefs, buildingSvg, buildingIcon, terrainSvg, plainVariant, roadSvg, upIcon } from '../art.js';
 import { openUpgradeList, openRenameCastle } from '../upgrades.js';
 import { castleUnderSvg, castleOverSvg } from '../castleArt.js';
+import { cityBubbles, heroPosts } from '../../systems/bubbles.js';
 import { ringHtml, lotPanel, zoneBlock, castleCard, castleActions, screenButtons, openPlaces } from '../castleUi.js';
 import { ruleText } from '../../systems/castle.js';
 import { vacantLots, zoneAt, castleStage, wallStyle, freeMoveActive as freeMove } from '../../systems/castle.js';
@@ -64,7 +65,11 @@ function cityCtx(app, mods) {
   const lots = new Map(vacantLots(s).map((l) => [l.x + ',' + l.y, l]));
   const crafting = (s.queues.craft || []).length > 0;
   const crowd = Math.min(5, (s.caravans || []).length * 2 + ((s.market?.trades || 0) > 0 ? 1 : 0));
-  return { s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  // v16 : bulles (ce qui attend le joueur) et héros à leur poste, sauf en mode Construire
+  const quiet = app.ui.buildMode || app.ui.placeType || app.ui.moveId;
+  const bubbles = new Map(quiet ? [] : cityBubbles(s, mods).map((b) => [b.bid, b]));
+  const posts = quiet ? new Map() : heroPosts(s);
+  return { s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -101,6 +106,10 @@ function tileHtml(app, x, y, ctx) {
         else if (u.status === 'lack' || u.status === 'queue') inner += `<span class="t-up blocked" data-action="tile-up" data-x="${x}" data-y="${y}" title="${esc(u.reasons[0] || 'Amélioration bloquée')}">${upIcon('lack')}</span>`;
       }
       if (ctx.planned.has(b.id)) inner += '<span class="t-flag plan" title="Amélioration planifiée">🗓</span>';
+      const bub = ctx.bubbles.get(b.id);
+      if (bub) inner += `<span class="t-bubble p${bub.prio >= 6 ? 'hi' : 'lo'}" role="button" tabindex="0" data-action="nav" data-view="${bub.view}" title="${esc(bub.text)}" aria-label="${esc(bub.text)}"><span aria-hidden="true">${bub.icon}</span><b>${esc(bub.mark)}</b></span>`;
+      const post = ctx.posts.get(b.id);
+      if (post) inner += `<span class="t-hero" title="Gouverneur : ${esc(post.map((p) => p.name).join(', '))}" aria-label="Gouverneur : ${esc(post.map((p) => p.name).join(', '))}">🧙${post.length > 1 ? post.length : ''}</span>`;
       if (b.starved) { cls.push('st-alert'); inner += '<span class="t-flag warn" title="Manque de matières premières">!</span>'; }
       if (b.damaged) { cls.push('st-alert'); inner += '<span class="t-flag fire" title="Endommagé : production −50 %">🔥</span>'; }
       if (b.paused) inner += '<span class="t-flag pause" title="Chaîne en pause">⏸</span>';
