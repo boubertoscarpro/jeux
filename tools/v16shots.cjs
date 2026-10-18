@@ -79,6 +79,12 @@ async function loadSave(browser, W, H, raw, errors, tag) {
       times.sort((x, y) => x - y);
       return { renderMs: Math.round(rt[3] * 10) / 10, frameMedian: Math.round(times[30] * 10) / 10, frameP95: Math.round(times[57] * 10) / 10, tiles: a.state.city.w * a.state.city.h };
     });
+    // 6) Carte du monde, 7) Armée, 8) Marché, 9) Avant-postes (mêmes commandes avant et après)
+    for (const [view, name] of [['world', '06-monde'], ['army', '07-armee'], ['market', '08-marche'], ['territories', '09-avant-postes']]) {
+      await r.page.evaluate((v) => { const a = window.cendrelande; a.closeModal(); a.go(v); }, view);
+      await r.page.waitForTimeout(600);
+      await shot(r.page, `${OUT}/${name}-${tag}.png`);
+    }
     await r.ctx.close();
   }
   await browser.close();

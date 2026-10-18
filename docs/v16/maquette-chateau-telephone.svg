@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" width="390" height="844" font-family="Inter, sans-serif" role="img" aria-label="Maquette : écran du château, téléphone 390 × 844">
+<title>Maquette : écran du château, téléphone 390 × 844</title>
+<rect width="390" height="844" fill="#5e7a3c"/>
+<rect x="120" y="330" width="150" height="140" fill="none" stroke="#7a7268" stroke-width="10"/><text x="195" y="405" text-anchor="middle" font-size="13" fill="#1d1812">Château</text>
+<rect x="8" y="8" width="48" height="48" rx="8" fill="#efe3c8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="32.0" y="37.0" text-anchor="middle" font-size="12" fill="#1d1812">Blason</text>
+<rect x="62" y="8" width="276" height="48" rx="8" fill="#f2c879" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="200.0" y="37.0" text-anchor="middle" font-size="12" fill="#1d1812">3 ressources principales</text>
+<rect x="342" y="8" width="40" height="48" rx="8" fill="#f2c879" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="362.0" y="37.0" text-anchor="middle" font-size="12" fill="#1d1812">+</text>
+<rect x="8" y="64" width="120" height="28" rx="8" fill="#efe3c8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="68.0" y="83.0" text-anchor="middle" font-size="12" fill="#1d1812">Domaine ▾</text>
+<rect x="8" y="580" width="52" height="52" rx="8" fill="#b7d0e8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="34.0" y="611.0" text-anchor="middle" font-size="12" fill="#1d1812">Quêtes</text>
+<rect x="330" y="580" width="52" height="52" rx="8" fill="#b7d0e8" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="356.0" y="611.0" text-anchor="middle" font-size="12" fill="#1d1812">Activ.</text>
+<rect x="8" y="640" width="374" height="40" rx="8" fill="#f2c879" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="195.0" y="665.0" text-anchor="middle" font-size="12" fill="#1d1812">Chantiers 1/2 · Marches 0/2</text>
+<rect x="0" y="772" width="390" height="72" rx="8" fill="#e9a39a" fill-opacity="0.92" stroke="#1d1812" stroke-width="2"/>
+<text x="195.0" y="813.0" text-anchor="middle" font-size="12" fill="#1d1812">Construire · Armée · Rapports · Lieux · Globe</text>
+</svg>
