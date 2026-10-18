@@ -1,4 +1,5 @@
 import { initLegacyCampaign } from '../systems/campaign.js';
+import { migrateCastle, castleState } from '../systems/castle.js';
 import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
 import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './state.js';
 import { extendWorld } from '../systems/worldgen.js';
@@ -165,11 +166,15 @@ export function migrate(data) {
   // d'un autre royaume ; les avant-postes sans nom reçoivent un nom par défaut
   if (data.meta && typeof data.meta === 'object') ensureIdentity(data);
   const needCampaign = !data.campaign || typeof data.campaign !== 'object';
+  // v16 : une partie sans enceinte reçoit une enceinte tracée autour de ses bâtiments (après fill)
+  const needCastle = !data.castle || typeof data.castle !== 'object';
   const fresh = createNewState({ seed: data?.meta?.seed || 1, now: data?.meta?.lastTick || Date.now() });
   fill(data, fresh);
   if (needCampaign) { data.campaign = fresh.campaign; initLegacyCampaign(data, data.meta.lastTick || Date.now()); }
   const fixes = sanitize(data, createNewState({ seed: 1, now: Date.now() }));
   ensureIdentity(data); // noms invalides (modifiés à la main) → noms par défaut
+  if (needCastle) { const mc = migrateCastle(data, data.meta.lastTick || Date.now()); data.meta.castleMigrated = mc; }
+  else castleState(data);
   data.version = SAVE_VERSION;
   // Une partie chargée ou importée doit d'abord prouver qu'elle tourne (≈1 s) avant de pouvoir remplacer la copie
   // de secours : l'indicateur « démarrage réussi » et la date de copie d'une autre partie ne sont pas repris

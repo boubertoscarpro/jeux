@@ -19,6 +19,9 @@ import { raidWillingness, allyReinforcements, changeRelation } from './factions.
 import { UNITS } from '../data/units.js';
 import { bumpRep, recordMax } from './reputation.js';
 import { chronicle } from './chronicle.js';
+import { pay } from './economy.js';
+import { pickRaidFlank, flankRevealed, flankBonus, useTools, breachChance, raidTargets, pillageShare, siegeDamage } from './castle.js';
+import { FLANKS, DEFENSE_TOOLS } from '../data/castle.js';
 
 export const PROTECTION_TH = 4;
 // Trêve après un raid (6 h, contre 3 auparavant) et répit supplémentaire après un pillage : les raids restent un
@@ -98,7 +101,8 @@ export function rivalTick(state, now) {
   const warn = raidWarning(state, mods);
   state.raidCooldown = now + warn + RAID_TRUCE_H * 3600 * 1000; // trêve après chaque raid
   feat('⚔️', `Raid en approche : ${p.name}`, 'Renforcez la garnison, montez les murailles ou évacuez les réserves.', 'bad');
-  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0 });
+  // v16 : flanc visé (le plus faible une fois sur deux), connu à l'avance avec une tour de garde niv. 5
+  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0, flank: pickRaidFlank(state, () => rng.random()), flankSeen: flankRevealed(state) });
   if (p.anger) p.anger--;
   log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre ${castleName(state)} ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);
   toast(`🚨 Raid en approche : ${p.name}`, 'bad');
@@ -115,9 +119,14 @@ export function resolveRaid(state, raid, t) {
   const allies = allyReinforcements(state);
   if (allies) for (const [u, n] of Object.entries(allies)) defenders[u] = (defenders[u] || 0) + n;
   const def = Object.keys(defenders).length && Object.values(defenders).some((n) => n > 0) ? defenders : { militia: 5 };
+  // v16 : défense par flancs (part de la garnison sur le flanc attaqué) et outils de défense posés sur ce flanc
+  const flank = FLANKS[raid.flank] ? raid.flank : 'front';
+  const fb = flankBonus(state, flank);
+  const tools = useTools(state, flank, (c) => pay(state, c));
+  const defMods = { ...mods, 'combat.def': (mods['combat.def'] || 0) + (mods['city.def'] || 0) + fb + (tools.mods['combat.def'] || 0), 'combat.atk': (mods['combat.atk'] || 0) + (tools.mods['combat.atk'] || 0) };
   const res = simulateBattle(
     { units: raid.army, mods: { 'combat.atk': 0.05 }, formation: 'assault', label: raid.name },
-    { units: def, mods: { ...mods, 'combat.def': (mods['combat.def'] || 0) + (mods['city.def'] || 0) }, fort, formation: 'shieldwall', supply: (state.resources.bread || 0) > 50, famine: state.famine, label: 'Garnison' },
+    { units: def, mods: defMods, fort, formation: 'shieldwall', supply: (state.resources.bread || 0) > 50, famine: state.famine, label: 'Garnison' },
     { terrain: 'city', weather: state.weather.type },
   );
   // Pertes de la garnison
@@ -126,6 +135,9 @@ export function resolveRaid(state, raid, t) {
   for (const u of ['spy']) if (state.army[u]) newArmy[u] = state.army[u];
   state.army = newArmy;
   const win = res.winner === 'defender';
+  // v16 : la muraille tient-elle ? (sans muraille, rien n'arrête les pillards)
+  const breached = !win && rng.chance(breachChance(state));
+  siegeDamage(state, { win, breached });
   let text;
   if (win) {
     state.stats.raidsRepelled++;
@@ -139,9 +151,10 @@ export function resolveRaid(state, raid, t) {
     log(state, 'good', `🛡️ ${text}`, t);
   } else {
     const prot = protectedAmount(state, mods);
+    const share = pillageShare(state, breached);
     const stolen = {};
     for (const r of BASE_RES) {
-      const v = Math.floor(Math.max(0, (state.resources[r] || 0) - prot) * 0.3);
+      const v = Math.floor(Math.max(0, (state.resources[r] || 0) - prot) * share);
       if (v > 0) { stolen[r] = v; state.resources[r] -= v; }
     }
     recordLoss(state, 'raid', stolen, t);
@@ -154,15 +167,19 @@ export function resolveRaid(state, raid, t) {
     state.stats.raidsLost = (state.stats.raidsLost || 0) + 1;
     log(state, 'bad', `🔥 ${text}`, t);
     // Une fois sur deux, les assaillants incendient un bâtiment (production −50 % jusqu'à réparation)
-    const targets = allBuildings(state).filter((b) => b.level > 0 && !b.damaged && !['townhall', 'road', 'deco', 'warehouse'].includes(b.type));
+    // v16 : les pillards frappent d'abord hors les murs ; la cour seulement si la muraille a cédé
+    const targets = raidTargets(state, breached);
     const burnt = [];
     if (targets.length && rng.chance(0.5)) { const b = rng.pick(targets); b.damaged = true; burnt.push(BUILDINGS[b.type]?.name || b.type); }
     if (burnt.length) text += ` Bâtiments incendiés (production −50 % jusqu’à réparation) : ${burnt.join(', ')}.`;
+    if (levelOf(state, 'wall') > 0) text += breached ? ' La muraille a cédé : la cour du donjon n’était plus à l’abri.' : ` La muraille a tenu : la cour du donjon est restée à l’abri${share < 0.3 ? ' et l’entrepôt intra-muros a limité le pillage' : ''}.`;
+    else text += ' Sans muraille, rien n’a arrêté les pillards.';
   }
   const nDef = Object.values(def).reduce((a, b) => a + b, 0);
   const prep = `Préparation : ${nDef} défenseurs${allies ? ' (dont renforts alliés)' : ''}, muraille +${Math.round(fort * 100)} % de défense, ${(state.resources.bread || 0) > 50 ? 'rations de pain distribuées' : 'pas de pain (moral réduit)'}${mods['city.def'] ? `, défense de la ville +${Math.round(mods['city.def'] * 100)} %` : ''}.`;
-  text = `${text} ${prep}`;
-  state.reports.unshift({ id: uid('rep'), t, kind: 'defense', title: `${win ? 'Défense réussie' : 'Ville pillée'} — ${raid.name}`, win, result: res, enemies: raid.army, text, terrain: 'city', weather: state.weather.type, defense: true, read: false });
+  const flankTxt = ` Assaut sur le ${FLANKS[flank].name.toLowerCase()} : ${fb > 0 ? `défense +${Math.round(fb * 100)} % (troupes bien placées)` : fb < 0 ? `défense ${Math.round(fb * 100)} % (flanc dégarni)` : 'répartition neutre'}${tools.used.length ? `, ${tools.used.map((k) => DEFENSE_TOOLS[k].name.toLowerCase()).join(' et ')} engagé${tools.used.length > 1 ? 's' : ''}` : ''}.`;
+  text = `${text} ${prep}${flankTxt}`;
+  state.reports.unshift({ id: uid('rep'), t, kind: 'defense', title: `${win ? 'Défense réussie' : 'Ville pillée'} — ${raid.name}`, win, flank, breached, result: res, enemies: raid.army, text, terrain: 'city', weather: state.weather.type, defense: true, read: false });
   if (state.reports.length > 60) state.reports.length = 60;
 }
 

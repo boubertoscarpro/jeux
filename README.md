@@ -21,6 +21,15 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v16 — Le Château et ses Faubourgs** : on entre dans son propre château.
+> - **Zones** : la cour du donjon (intra-muros), la muraille et les douves, les faubourgs, la campagne. Certains bâtiments ne se bâtissent que dedans (bibliothèque, forge…) ou que dehors (fermes, mines…) ; d'autres gagnent ou perdent selon leur place.
+> - **Muraille et douves dessinées** : de la palissade à la forteresse selon son niveau, avec tours, porte, pont-levis et bannières à vos armoiries. L'enceinte s'agrandit au prix de sa longueur : compacte, elle défend mieux.
+> - **Raids par zone** : les pillards frappent d'abord les faubourgs et la campagne ; la cour reste à l'abri tant que la muraille tient. Le feu ne traverse pas les douves, la crue peut les faire déborder.
+> - **La ville devient le menu** : cliquez un bâtiment (anneau Ouvrir · Améliorer · Accélérer · Infos), les lieux à bâtir portent un panneau, le menu de gauche n'a plus que 5 entrées, et **Lieux** (touche / ou Ctrl + K) liste tous les écrans au clavier.
+> - **Défense par flancs, raid qu'on voit venir, silhouette du château selon l'hôtel de ville, décorations utiles.**
+>
+> Aucune nouvelle monnaie, aucune ressource produite. Voir [`docs/AUDIT_V16.md`](docs/AUDIT_V16.md) et [`docs/V16.md`](docs/V16.md).
+>
 > **v15 — L'Atlas vivant** : la carte devient l'instrument principal du royaume.
 > - **Cartes en grand** : royaume et monde occupent tout l'écran ; les détails s'ouvrent dans un tiroir (panneau du bas sur téléphone).
 > - **Cartes peintes** : sol du royaume et terrain du monde peints sans aucune image externe, brouillard à l'encre, mini-carte cadrée sur la zone connue. Réglages « Qualité graphique » et « Économie d'énergie ».

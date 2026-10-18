@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../data/buildings.js';
+import { castleMods } from './castle.js';
 import { TECHS } from '../data/techs.js';
 import { WORLD_EVENTS } from '../data/events.js';
 import { WEATHER } from '../data/units.js';
@@ -51,6 +52,8 @@ export function computeMods(state, now = Date.now()) {
   merge(m, rivalryMods(state, now));
   // Monument dynastique (selon son orientation et ses étapes achevées)
   merge(m, monumentMods(state));
+  // v16 : château (périmètre et dégâts de la muraille, effets de zone, décorations utiles)
+  merge(m, castleMods(state));
   // Bâtiments
   for (const b of allBuildings(state)) {
     if (b.level <= 0) continue;

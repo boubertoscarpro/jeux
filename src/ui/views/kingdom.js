@@ -131,7 +131,7 @@ export default {
     'apply-cos': (app, el) => app.act(() => applyCosmetic(app.state, el.dataset.k)),
     'save-now': (app) => app.save(true),
     'pref-motion': (app, el) => { app.state.meta.motion = el.dataset.k; app.applyPrefs(); app.render(); app.save(); },
-    'pref-gfx': (app, el) => { app.state.meta.gfx = el.dataset.k; app.render(); app.save(); },
+    'pref-gfx': (app, el) => { app.state.meta.gfx = el.dataset.k; app.applyPrefs(); app.render(); app.save(); },
     'pref-saver': (app, el) => { app.state.meta.saver = el.dataset.k === 'true'; app.applyPrefs(); app.render(); app.save(); },
     'pref-density': (app, el) => { app.state.meta.density = el.dataset.k; app.applyPrefs(); app.render(); app.save(); },
     'tips-toggle': (app) => { app.state.meta.tipsOff = !app.state.meta.tipsOff; if (!app.state.meta.tipsOff) app.state.meta.tipsSeen = {}; app.render(); },

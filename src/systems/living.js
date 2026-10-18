@@ -13,7 +13,7 @@ import { computeMods } from './modifiers.js';
 import { log, toast } from './log.js';
 import { omenTick, isPrepared } from './omens.js';
 import { openCrisis, crisisMods, crisisPrice } from './crises.js';
-import { floodDamage, pickFireStart, guardNear } from './hazards.js';
+import { floodDamage, pickFireStart, guardNear, moatOverflows } from './hazards.js';
 import { CRISES, PREPARATIONS, HALF_PREP } from '../data/crises.js';
 
 // Modificateurs de la saison et de la catastrophe en cours
@@ -107,7 +107,10 @@ export function startCatastrophe(state, k, now) {
   const prepared = isPrepared(state, k, now); // 'full', 'half' (v15) ou false
   if (c.flood) {
     // Zone inondable : seuls les bâtiments au bord de la rivière risquent d'être abîmés (sacs de sable : ×0,25 ; à moitié : ×0,6)
-    const n = floodDamage(state, prepared === 'full' ? PREPARATIONS.flood.floodGuard : prepared === 'half' ? HALF_PREP.floodGuard : 1);
+    // v16 : les douves (alimentées par la rivière) peuvent déborder ; les bâtiments au pied de la muraille s'ajoutent
+    const overflow = moatOverflows(state);
+    if (overflow) { (state.castle ||= {}).moatFlood = now + c.duration * 1000; log(state, 'bad', '🌊 Les douves débordent : les bâtiments au pied de la muraille sont dans l’eau.', now); }
+    const n = floodDamage(state, prepared === 'full' ? PREPARATIONS.flood.floodGuard : prepared === 'half' ? HALF_PREP.floodGuard : 1, overflow);
     state.fertileUntil = now + c.duration * 1000 + 3 * 3600000;
     if (n) log(state, 'bad', `🌊 L’inondation endommage ${n} bâtiment(s) au bord de la rivière${prepared ? ' malgré les sacs de sable' : ''}. Les terres seront plus fertiles ensuite (+20% nourriture).`, now);
   }

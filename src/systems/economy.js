@@ -1,4 +1,5 @@
 import { recordLoss } from './losses.js';
+import { zoneProdBonus } from './castle.js';
 import { absorbOverflow } from './reserve.js';
 import { BUILDINGS, levelProdFactor } from '../data/buildings.js';
 import { RESOURCES, isCapped } from '../data/resources.js';
@@ -62,7 +63,7 @@ export function roadConnected(state) {
 // Multiplicateur global d'un bâtiment (adjacence, ouvriers, route, dégâts)
 function buildingBonus(state, b, mods, adj, roads) {
   const sector = SECTOR_OF[b.type];
-  let bonus = adj.total + (sector ? mods['work.' + sector] || 0 : 0);
+  let bonus = adj.total + (sector ? mods['work.' + sector] || 0 : 0) + zoneProdBonus(state, b); // v16 : effet de zone
   if (roads.has(b.id)) bonus += 0.05 + (mods['road.bonus'] || 0);
   return bonus;
 }

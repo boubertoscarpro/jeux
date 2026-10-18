@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../data/buildings.js';
+import { zoneCheck } from './castle.js';
 
 // Requêtes sur la ville
 export const allBuildings = (s) => Object.values(s.city.buildings);
@@ -76,5 +77,8 @@ export function placementCheck(s, type, x, y) {
   if (t !== 'plain') return { ok: false, reason: t === 'rubble' ? 'Déblayez d’abord les décombres.' : 'Terrain non constructible.' };
   if (buildingAt(s, x, y)) return { ok: false, reason: 'Case occupée.' };
   if (def.place === 'river' && !neighbors(s, x, y).some((n) => n.terrain === 'river')) return { ok: false, reason: 'Doit toucher la rivière.' };
+  // v16 : zones du château (cour du donjon, faubourgs, campagne)
+  const z = zoneCheck(s, type, x, y);
+  if (!z.ok) return z;
   return { ok: true };
 }
