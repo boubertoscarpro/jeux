@@ -1,4 +1,7 @@
 import { npcTick } from '../systems/npcs.js';
+import { castleTick } from '../systems/castle.js';
+import { chronicle } from '../systems/chronicle.js';
+import { feat } from '../systems/log.js';
 import { surveyTick } from '../systems/survey.js';
 import { raidTick } from '../systems/raidOrders.js';
 import { crisisTick, famineRelief } from '../systems/crises.js';
@@ -119,6 +122,7 @@ export function processDue(state, t) {
     challengesTick(state, t);
     legendTick(state, t);
     breachTick(state, t);
+    castleWorldTick(state, t, dt);
     commissionsTick(state, t);
     worldMarksTick(state, t);
     codexTick(state, t);
@@ -211,4 +215,13 @@ export function advance(state, now = Date.now()) {
   state.meta.lastTick = now;
   if (changed) bus.emit('changed');
   return changed;
+}
+
+// v16 : réparation de la muraille, passage d'un palier de silhouette (moment marquant : chronique et annonce)
+function castleWorldTick(state, t, dt) {
+  const st = castleTick(state, t, dt / 3600);
+  if (st) {
+    chronicle(state, `🏰 ${state.meta.kingdomName} devient ${st.name.toLowerCase()} : ${st.text}`, t);
+    feat('🏰', `Votre château devient ${st.name.toLowerCase()}`, st.text, 'good');
+  }
 }

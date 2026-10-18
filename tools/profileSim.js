@@ -45,6 +45,7 @@ import { PROJECTS } from '../src/data/projects.js';
 import { projectState, startProject, contribute, startStageWorks } from '../src/systems/projects.js';
 import { v10Bot } from './v10bot.js';
 import { v14Bot } from './v14bot.js';
+import { v16Bot } from './v16bot.js';
 import { nemesisReinforcement } from '../src/systems/nemesis.js';
 import { challengeState } from '../src/systems/challenges.js';
 import { legendState } from '../src/systems/legendary.js';
@@ -196,7 +197,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     t += STEP;
     advance(s, t);
     if (policy && thLevel(s) >= 3 && policyState(s).id !== policy && policyState(s).pending !== policy) setPolicy(s, policy, t);
-    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); if (!globalThis.__noV14) v14Bot(s, profileKey, t, computeMods(s, t)); }
+    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); if (!globalThis.__noV14) v14Bot(s, profileKey, t, computeMods(s, t)); v16Bot(s, profileKey, t); }
     if (s.famine) famineMin += 10;
     if (globalThis.__trace) globalThis.__trace(s, t, i);
     if (globalThis.__trace) globalThis.__trace(s, t, i);

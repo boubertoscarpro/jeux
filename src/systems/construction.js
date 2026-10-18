@@ -1,4 +1,5 @@
 import { BUILDINGS, buildingCost, buildingTime } from '../data/buildings.js';
+import { freeMoveActive } from './castle.js';
 import { COSMETICS, SEASON } from '../data/social.js';
 import { RESOURCES } from '../data/resources.js';
 import { rng } from '../core/rng.js';
@@ -194,7 +195,7 @@ export function moveBuilding(state, bid, x, y) {
   if (state.queues.build.some((q) => q.bid === bid)) return { ok: false, reason: 'Bâtiment en chantier' };
   const pc = placementCheck(state, b.type, x, y);
   if (!pc.ok) return pc;
-  const cost = b.deco ? {} : moveCost(b);
+  const cost = b.deco || freeMoveActive(state) ? {} : moveCost(b); // v16 : déménagement gratuit après migration
   if (!pay(state, cost)) return { ok: false, reason: 'Pas assez d’or', missing: missing(state, cost) };
   b.x = x; b.y = y;
   return { ok: true };

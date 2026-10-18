@@ -5,6 +5,7 @@ import { FIRE, FLOOD, BORDER } from '../data/crises.js';
 import { RIVALS } from '../data/world.js';
 import { rng } from '../core/rng.js';
 import { allBuildings, neighbors } from './city.js';
+import { moatBetween, moatBank, moatOverflowChance } from './castle.js';
 
 export const flammability = (type) => (FIRE.none.includes(type) ? 0 : FIRE.stone.includes(type) ? 0.35 : 1);
 const burnable = (b) => b && b.level > 0 && !b.damaged && flammability(b.type) > 0 && b.type !== 'townhall';
@@ -30,6 +31,7 @@ export function spreadWave(state, fire) {
       if (fire.burnt.length + out.length >= FIRE.maxBurn) return out;
       const nb = n.building;
       if (!nb || out.includes(nb) || fire.burnt.includes(nb.id)) continue;
+      if (moatBetween(state, b, nb)) continue; // v16 : le feu ne traverse pas les douves
       if (rng.chance(igniteChance(state, nb))) { nb.damaged = true; out.push(nb); }
     }
   }
@@ -57,12 +59,19 @@ export function fireRisk(state, b) {
 export const riskBand = (r) => (r >= 0.5 ? 'high' : r >= 0.2 ? 'mid' : r > 0 ? 'low' : 'none');
 
 // Zone inondable : bâtiments voisins de la rivière (hors routes et décor)
-export const floodZone = (state) => allBuildings(state).filter((b) => b.level > 0 && !['road', 'deco'].includes(b.type) && nearRiver(state, b));
+// v16 : si les douves débordent pendant la crue, les bâtiments qui bordent la muraille s'y ajoutent
+export const floodZone = (state, overflow = false) => {
+  const z = allBuildings(state).filter((b) => b.level > 0 && !['road', 'deco'].includes(b.type) && nearRiver(state, b));
+  if (overflow) for (const b of moatBank(state)) if (!z.includes(b)) z.push(b);
+  return z;
+};
+// Les douves, alimentées par la rivière, débordent-elles ? (moins souvent avec des douves larges, jamais au niveau 10)
+export const moatOverflows = (state) => rng.chance(moatOverflowChance(state));
 
 // Dégâts d'une crue : chance FLOOD.damage par bâtiment de la zone, réduite par une préparation (sacs de sable)
-export function floodDamage(state, guard = 1) {
+export function floodDamage(state, guard = 1, overflow = false) {
   let n = 0;
-  for (const b of floodZone(state)) if (!b.damaged && rng.chance(FLOOD.damage * guard)) { b.damaged = true; n++; }
+  for (const b of floodZone(state, overflow)) if (!b.damaged && rng.chance(FLOOD.damage * guard)) { b.damaged = true; n++; }
   return n;
 }
 
