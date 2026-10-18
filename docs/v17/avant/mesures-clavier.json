@@ -1,0 +1,99 @@
+{
+ "firstMap": 1,
+ "total": 1004,
+ "out": {
+  "townhall": {
+   "tab": 295,
+   "x": 11,
+   "y": 7,
+   "keys": 295
+  },
+  "warehouse": {
+   "tab": 335,
+   "x": 10,
+   "y": 8,
+   "keys": 335
+  },
+  "market": {
+   "tab": 11,
+   "x": 10,
+   "y": 0,
+   "keys": 11
+  },
+  "watchtower": {
+   "tab": 12,
+   "x": 11,
+   "y": 0,
+   "keys": 12
+  },
+  "library": {
+   "tab": 13,
+   "x": 12,
+   "y": 0,
+   "keys": 13
+  },
+  "barracks": {
+   "tab": 15,
+   "x": 13,
+   "y": 0,
+   "keys": 15
+  },
+  "tavern": {
+   "tab": 49,
+   "x": 6,
+   "y": 1,
+   "keys": 49
+  },
+  "forge": {
+   "tab": 50,
+   "x": 7,
+   "y": 1,
+   "keys": 50
+  },
+  "quartermaster": {
+   "tab": 286,
+   "x": 2,
+   "y": 7,
+   "keys": 286
+  },
+  "castle": {
+   "tab": 53,
+   "x": 9,
+   "y": 1,
+   "keys": 53
+  },
+  "scriptorium": {
+   "tab": 456,
+   "x": 10,
+   "y": 11,
+   "keys": 456
+  },
+  "herald": {
+   "tab": 459,
+   "x": 13,
+   "y": 11,
+   "keys": 459
+  },
+  "embassy": {
+   "tab": 454,
+   "x": 8,
+   "y": 11,
+   "keys": 454
+  },
+  "cartographer": {
+   "tab": 421,
+   "x": 15,
+   "y": 10,
+   "keys": 421
+  },
+  "lists": {
+   "tab": 373,
+   "x": 7,
+   "y": 9,
+   "keys": 373
+  }
+ },
+ "roving": false,
+ "mean": 219,
+ "max": 459
+}

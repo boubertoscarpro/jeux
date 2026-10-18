@@ -1,0 +1,131 @@
+{
+ "debut-large": {
+  "texts": 32,
+  "marks": 22,
+  "overlaps": 15,
+  "hidden": 1,
+  "useful": 84.6,
+  "examples": [
+   "t-name lot-name|Bibliothèque · à b × t-up ready|",
+   "t-name lot-name|Caserne · à bâtir × t-name major|Château de Cendrel",
+   "t-name major|Château de Cendrel × t-lvl|1",
+   "t-name |Entrepôt × t-lvl|1",
+   "t-name |Maisons × t-lvl|1",
+   "t-name lot-name|Cabinet du cartogr × t-name lot-name|Tour de garde · à "
+  ]
+ },
+ "milieu-large": {
+  "texts": 84,
+  "marks": 95,
+  "overlaps": 62,
+  "hidden": 42,
+  "useful": 81.7,
+  "examples": [
+   "zone-label|Faubourgs × t-name |Intendance militai",
+   "t-name |Ferme × t-up ready|",
+   "t-name |Ferme × t-flag fire|🔥",
+   "t-name |Ferme × t-up ready|",
+   "t-name |Écurie × t-up ready|",
+   "t-name |Tour de garde × t-name |Tour de garde"
+  ]
+ },
+ "fin-large": {
+  "texts": 165,
+  "marks": 201,
+  "overlaps": 172,
+  "hidden": 71,
+  "useful": 81.5,
+  "examples": [
+   "zone-label|Faubourgs × t-name |Armurerie",
+   "zone-label|Faubourgs × t-name |Maisons",
+   "t-name |Ferme × t-up ready|",
+   "t-name |Ferme × t-flag fire|🔥",
+   "t-name |Ferme × t-up ready|",
+   "t-name |Taverne × t-up ready|"
+  ]
+ },
+ "debut-moyen": {
+  "texts": 21,
+  "marks": 14,
+  "overlaps": 9,
+  "hidden": 4,
+  "useful": 74.4,
+  "examples": [
+   "t-name lot-name|Bibliothèque · à b × t-up ready|",
+   "t-name lot-name|Caserne · à bâtir × t-name major|Château de Cendrel",
+   "t-name major|Château de Cendrel × t-lvl|1",
+   "t-name |Entrepôt × t-lvl|1",
+   "t-name |Maisons × t-lvl|1",
+   "t-name lot-name|Cabinet du cartogr × t-name lot-name|Taverne · à bâtir"
+  ]
+ },
+ "milieu-moyen": {
+  "texts": 28,
+  "marks": 27,
+  "overlaps": 13,
+  "hidden": 14,
+  "useful": 68.2,
+  "examples": [
+   "t-name |Boulangerie × t-lvl|1",
+   "t-name |Moulin × t-lvl|2",
+   "t-name |Moulin × t-up ready|",
+   "t-lvl|2 × t-up ready|",
+   "t-name |Tannerie × t-lvl|1",
+   "t-name major|Château de Cendrel × t-lvl|8"
+  ]
+ },
+ "fin-moyen": {
+  "texts": 63,
+  "marks": 71,
+  "overlaps": 56,
+  "hidden": 46,
+  "useful": 68.8,
+  "examples": [
+   "t-name |Intendance militai × t-lvl|6",
+   "t-name |Intendance militai × t-up ready|",
+   "t-lvl|6 × t-up ready|",
+   "t-name |Fonderie × t-up ready|",
+   "t-name |Fonderie × t-flag fire|🔥",
+   "t-name |Boulangerie × t-lvl|6"
+  ]
+ },
+ "debut-mobile": {
+  "texts": 18,
+  "marks": 9,
+  "overlaps": 1,
+  "hidden": 2,
+  "useful": 81.8,
+  "examples": [
+   "t-name major|Château de Cendrel × t-lvl|1"
+  ]
+ },
+ "milieu-mobile": {
+  "texts": 23,
+  "marks": 24,
+  "overlaps": 5,
+  "hidden": 12,
+  "useful": 81.5,
+  "examples": [
+   "t-name major|Donjon × t-lvl|1",
+   "t-name major|Château de Cendrel × t-lvl|8",
+   "t-name major|Château de Cendrel × t-up ready|",
+   "t-name major|Château de Cendrel × t-bubble phi|🍖!",
+   "t-up ready| × t-bubble phi|🍖!"
+  ]
+ },
+ "fin-mobile": {
+  "texts": 38,
+  "marks": 44,
+  "overlaps": 15,
+  "hidden": 17,
+  "useful": 80.3,
+  "examples": [
+   "t-lvl|6 × t-up ready|",
+   "t-name major|Donjon × t-lvl|14",
+   "t-name major|Donjon × t-up ready|",
+   "t-lvl|14 × t-up ready|",
+   "t-lvl|6 × t-up ready|",
+   "t-up ready| × t-flag warn|!"
+  ]
+ }
+}
