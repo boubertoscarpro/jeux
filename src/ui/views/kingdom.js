@@ -37,9 +37,9 @@ function heraldryCard(s) {
         <div class="form-row"><label>Devise</label><input type="text" maxlength="${MOTTO_MAX}" value="${esc(h.motto)}" data-change="her" data-k="motto" placeholder="Ex. : Par la pierre et la cendre"></div></div></div></div>`;
 }
 
-export default {
+const kingdomView = {
   id: 'kingdom', title: 'Saison & boutique', icon: '👑',
-  badge: (app) => milestoneList(app.state).filter((m) => m.done).length + SEASON.tiers.filter((t, i) => !app.state.season.claimed[i] && app.state.season.points >= t.pts).length,
+  badge: (app) => SEASON.tiers.filter((t, i) => !app.state.season.claimed[i] && app.state.season.points >= t.pts).length,
   render(app) {
     const s = app.state;
     const mods = computeMods(s);
@@ -47,7 +47,8 @@ export default {
     const st = s.stats;
     const ms = milestoneList(s);
     const keyMods = Object.entries(MOD_NAMES).filter(([k]) => Math.abs(mods[k] || 0) > 0.001);
-    return `<div class="cols-2">
+    const part = this._part || 'season';
+    if (part === 'profile') return `<div class="cols-2">
       <div class="card"><h2>👑 ${esc(s.meta.kingdomName)}</h2>
         <div class="form-row"><label>Nom du royaume</label><input id="k-name" value="${esc(s.meta.kingdomName)}" maxlength="28" aria-label="Nom du royaume"><button class="mini" data-action="rename">OK</button></div>
         ${s.meta.titles?.length ? `<div class="form-row"><label>Titre</label><select data-change="title" id="k-title"><option value="">— Aucun —</option>${s.meta.titles.map((t) => `<option ${s.meta.title === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>` : ''}
@@ -77,25 +78,9 @@ export default {
           <div class="quest-foot">${resChips(m.reward)} +🎖️1 ${m.done ? `<button class="mini good" data-action="milestone" data-id="${m.id}">Réclamer</button>` : ''}</div></div>`).join('')}
       </div></div>
 
-      <div class="card"><h2>🗓️ ${esc(season.name)}</h2><p class="muted small">${esc(season.desc)} Fin dans ${fmtTime(season.remaining)}. Votre royaume conserve sa progression ; la saison apporte classements, titres et cosmétiques.</p>
-        <div class="small">Points de saison : <b>${fmt(season.points)}</b> — gagnés en construisant, recherchant, combattant, explorant, forgeant et contre les boss.</div>
-        <div class="season-track">${SEASON.tiers.map((t, i) => {
-          const ok = season.points >= t.pts;
-          return `<div class="season-tier ${ok ? 'reached' : ''} ${s.season.claimed[i] ? 'claimed' : ''}"><div class="pts">${t.pts}</div><div class="small">${esc(t.label)}</div>${ok && !s.season.claimed[i] ? `<button class="mini good" data-action="season" data-i="${i}">Réclamer</button>` : s.season.claimed[i] ? '<span class="ok small">✔</span>' : ''}</div>`;
-        }).join('')}</div>
-      </div>
-
       ${heraldryCard(s)}
-      <div class="cols-2">
-        <div class="card"><h2>🎨 Boutique cosmétique</h2>
-          <p class="muted small">Aucune puissance à vendre : uniquement de la personnalisation, achetable avec des <b>insignes</b> gagnés en jouant (jalons, saison). Vous avez 🎖️ ${s.meta.insignia || 0}.</p>
-          <div class="shop">${Object.entries(COSMETICS).map(([k, c]) => {
-            const owned = s.meta.owned[k];
-            const active = (c.type === 'banner' && s.meta.banner === c.color) || (c.type === 'theme' && s.meta.theme === k);
-            return `<div class="shop-item ${owned ? 'owned' : ''}">${c.type === 'banner' ? `<span class="banner" style="--banner:${c.color}"></span>` : `<span class="shop-icon">${c.icon || '🎨'}</span>`}
-              <div><b>${esc(c.name)}</b><div class="muted small">${{ banner: 'Bannière', theme: 'Thème de la ville', deco: 'Décoration (à placer sur une case libre)' }[c.type]}</div></div>
-              ${owned ? (c.type === 'deco' ? '<span class="ok small">Possédée</span>' : `<button class="mini ${active ? 'good' : ''}" data-action="apply-cos" data-k="${k}">${active ? 'Actif' : 'Appliquer'}</button>`) : c.seasonal ? '<span class="muted small">Saison</span>' : c.exclusive ? '<span class="tag-ex" title="Roue des Anciens ou événements uniquement">Exclusif</span>' : `<button class="mini" data-action="buy-cos" data-k="${k}">🎖️ ${c.cost}</button>`}</div>`;
-          }).join('')}</div></div>
+`;
+    if (part === 'settings') return `      <div class="cols-2">
         <div class="card"><h2>🖥️ Affichage et confort</h2>
           <p class="muted small">Ces réglages sont enregistrés avec la partie. « Auto » suit la préférence de votre système (réduction des animations).</p>
           <div class="form-row"><label>Animations</label><div class="seg">${[['auto', 'Auto'], ['reduced', 'Réduites'], ['full', 'Complètes']].map(([k, l]) => `<button class="mini ${(s.meta.motion || 'auto') === k ? 'selected' : ''}" data-action="pref-motion" data-k="${k}">${l}</button>`).join('')}</div></div>
@@ -117,6 +102,25 @@ export default {
             <li>Équipez et spécialisez vos héros : intendants ou commandants.</li>
             <li>Espionnez avant d’attaquer : terrain, météo, formation et composition décident des batailles.</li>
           </ul></div>
+      </div>`;
+    return `      <div class="card"><h2>🗓️ ${esc(season.name)}</h2><p class="muted small">${esc(season.desc)} Fin dans ${fmtTime(season.remaining)}. Votre royaume conserve sa progression ; la saison apporte classements, titres et cosmétiques.</p>
+        <div class="small">Points de saison : <b>${fmt(season.points)}</b> — gagnés en construisant, recherchant, combattant, explorant, forgeant et contre les boss.</div>
+        <div class="season-track">${SEASON.tiers.map((t, i) => {
+          const ok = season.points >= t.pts;
+          return `<div class="season-tier ${ok ? 'reached' : ''} ${s.season.claimed[i] ? 'claimed' : ''}"><div class="pts">${t.pts}</div><div class="small">${esc(t.label)}</div>${ok && !s.season.claimed[i] ? `<button class="mini good" data-action="season" data-i="${i}">Réclamer</button>` : s.season.claimed[i] ? '<span class="ok small">✔</span>' : ''}</div>`;
+        }).join('')}</div>
+      </div>
+
+      <div class="cols-2">
+        <div class="card"><h2>🎨 Boutique cosmétique</h2>
+          <p class="muted small">Aucune puissance à vendre : uniquement de la personnalisation, achetable avec des <b>insignes</b> gagnés en jouant (jalons, saison). Vous avez 🎖️ ${s.meta.insignia || 0}.</p>
+          <div class="shop">${Object.entries(COSMETICS).map(([k, c]) => {
+            const owned = s.meta.owned[k];
+            const active = (c.type === 'banner' && s.meta.banner === c.color) || (c.type === 'theme' && s.meta.theme === k);
+            return `<div class="shop-item ${owned ? 'owned' : ''}">${c.type === 'banner' ? `<span class="banner" style="--banner:${c.color}"></span>` : `<span class="shop-icon">${c.icon || '🎨'}</span>`}
+              <div><b>${esc(c.name)}</b><div class="muted small">${{ banner: 'Bannière', theme: 'Thème de la ville', deco: 'Décoration (à placer sur une case libre)' }[c.type]}</div></div>
+              ${owned ? (c.type === 'deco' ? '<span class="ok small">Possédée</span>' : `<button class="mini ${active ? 'good' : ''}" data-action="apply-cos" data-k="${k}">${active ? 'Actif' : 'Appliquer'}</button>`) : c.seasonal ? '<span class="muted small">Saison</span>' : c.exclusive ? '<span class="tag-ex" title="Roue des Anciens ou événements uniquement">Exclusif</span>' : `<button class="mini" data-action="buy-cos" data-k="${k}">🎖️ ${c.cost}</button>`}</div>`;
+          }).join('')}</div></div>
       </div>`;
   },
   actions: {
@@ -161,3 +165,9 @@ export default {
     reset: (app) => app.confirm('<h3>🗑️ Nouvelle partie</h3><p>Effacer définitivement ce royaume et en fonder un nouveau ? Vous pourrez choisir une autre spécialisation, origine et difficulté.</p><p class="small muted">Conseil : téléchargez d’abord votre sauvegarde (.json) si vous voulez pouvoir y revenir.</p>', 'Effacer et recommencer', () => { deleteSave(); app.state = null; location.reload(); }),
   },
 };
+export default kingdomView;
+// v16 « Le Château » : le profil (médaillon aux armoiries) et les réglages (engrenage) reprennent les cartes de cet
+// écran ; mêmes actions
+export const profileView = { ...kingdomView, id: 'profile', title: 'Profil', icon: '🛡️', _part: 'profile', badge: (app) => milestoneList(app.state).filter((m) => m.done).length };
+export const settingsView = { ...kingdomView, id: 'settings', title: 'Réglages', icon: '⚙️', _part: 'settings', badge: null };
+

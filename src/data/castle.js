@@ -106,25 +106,10 @@ export const WALL_STYLES = [
   { from: 18, key: 'fortress', name: 'Forteresse' },
 ];
 
-// La ville devient le menu : bâtiment → écrans (vues de src/ui/views)
-export const BUILDING_SCREENS = {
-  townhall: ['goals', 'challenges', 'policy', 'council', 'projects'],
-  castle: ['army', 'campaigns'],
-  barracks: ['army', 'campaigns'],
-  stable: ['army'],
-  market: ['market', 'convoys', 'shop'],
-  port: ['convoys'],
-  tavern: ['heroes'],
-  forge: ['craft'],
-  armory: ['craft'],
-  library: ['research', 'talents', 'legacy'],
-  laboratory: ['research'],
-  guildhall: ['guild'],
-  warehouse: ['ecoReport', 'steward', 'workers', 'expeditions', 'chains'],
-  watchtower: ['journal'],
-  observatory: ['goals'],
-  sanctuary: ['wheel', 'shards'],
-  monument: ['legacy'],
-};
-// Terrains vagues : bâtiments « menu » montrés sur la carte tant qu'ils ne sont pas construits (ordre d'affichage)
-export const LOT_TYPES = ['castle', 'barracks', 'market', 'tavern', 'library', 'forge', 'warehouse', 'watchtower', 'guildhall', 'laboratory', 'observatory', 'sanctuary'];
+// La ville devient le menu : bâtiment → écrans (dérivé de la table des lieux, data/places.js)
+import { PLACES, SCREEN_PLACE } from './places.js';
+import { BUILDINGS as B_ } from './buildings.js';
+export const BUILDING_SCREENS = Object.fromEntries(Object.values(PLACES).filter((p) => p.kind === 'building').map((p) => [p.type, p.screens]));
+// Terrains vagues : chaque bâtiment qui est le lieu principal d'un écran et n'est pas encore construit (les nouveaux
+// lieux, eux, sont posés d'office ; l'hôtel de ville et l'entrepôt existent dès le départ)
+export const LOT_TYPES = [...new Set(Object.values(SCREEN_PLACE).map((k) => PLACES[k]).filter((p) => p.kind === 'building' && !B_[p.type]?.place).map((p) => p.type))];

@@ -1,4 +1,5 @@
 import { initLegacyCampaign } from '../systems/campaign.js';
+import { ensurePlaces } from '../systems/places.js';
 import { migrateCastle, castleState } from '../systems/castle.js';
 import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
 import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './state.js';
@@ -175,6 +176,8 @@ export function migrate(data) {
   ensureIdentity(data); // noms invalides (modifiés à la main) → noms par défaut
   if (needCastle) { const mc = migrateCastle(data, data.meta.lastTick || Date.now()); data.meta.castleMigrated = mc; }
   else castleState(data);
+  // v16 « Le Château » : les nouveaux lieux sont posés sur des cases libres (rien n'est déplacé ni supprimé)
+  ensurePlaces(data);
   data.version = SAVE_VERSION;
   // Une partie chargée ou importée doit d'abord prouver qu'elle tourne (≈1 s) avant de pouvoir remplacer la copie
   // de secours : l'indicateur « démarrage réussi » et la date de copie d'une autre partie ne sont pas repris

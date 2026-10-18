@@ -14,6 +14,7 @@ export const BUILDING_CATEGORIES = {
   military: 'Militaire',
   civic: 'Civil & savoir',
   unique: 'Merveilles',
+  place: 'Lieux',
 };
 
 const N = (n) => () => n;
@@ -297,6 +298,29 @@ export const BUILDINGS = {
     cost: { stone: 600, wood: 300, gold: 200 }, time: 120,
     effects: (lvl) => ({ 'wall.bonus': 0.04 * lvl, 'city.def': 0.02 * lvl }),
     maxCount: N(1),
+  },
+
+  // v16 « Le Château » : lieux d'accès (aucune production, aucun effet, un seul niveau ; posés gratuitement quand leur
+  // fonction s'ouvre — voir data/places.js et systems/places.js)
+  embassy: {
+    name: 'Ambassade', icon: '🕊️', cat: 'place', place: true, maxLevel: 1, cost: { gold: 0 }, time: 1,
+    desc: 'Lieu de la diplomatie : factions, relations et traités. Aucune production.', maxCount: N(1),
+  },
+  cartographer: {
+    name: 'Cabinet du cartographe', icon: '🧭', cat: 'place', place: true, maxLevel: 1, cost: { gold: 0 }, time: 1,
+    desc: 'Lieu des voyages : expéditions, fouilles et légendes. Aucune production.', maxCount: N(1),
+  },
+  herald: {
+    name: 'Place du héraut', icon: '📯', cat: 'place', place: true, maxLevel: 1, cost: { gold: 0 }, time: 1,
+    desc: 'Lieu des annonces : événements, boutique d’événement, saison. Aucune production.', maxCount: N(1),
+  },
+  lists: {
+    name: 'Lice des tournois', icon: '🏇', cat: 'place', place: true, maxLevel: 1, cost: { gold: 0 }, time: 1,
+    desc: 'Lieu des défis de maîtrise. Aucune production.', maxCount: N(1),
+  },
+  scriptorium: {
+    name: 'Scriptorium', icon: '📜', cat: 'place', place: true, maxLevel: 1, cost: { gold: 0 }, time: 1,
+    desc: 'Lieu des archives : journal, accomplissements, histoire, statistiques. Aucune production.', maxCount: N(1),
   },
 
   // Merveilles / bâtiments uniques (endgame)

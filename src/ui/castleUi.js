@@ -58,8 +58,9 @@ export function ringHtml(app, b, lot = null) {
   return `<div class="ring" role="menu" aria-label="${esc(isDeco ? COSMETICS[b.deco]?.name || '' : BUILDINGS[b.type]?.name || '')}">
     ${upBtn}
     <button class="ring-btn r-right" role="menuitem" data-action="${open ? 'nav' : 'ring-info'}" ${open ? `data-view="${open}"` : ''} ${!open && screensOf(b.type).length ? 'title="Écran encore verrouillé : voir Infos"' : ''}>${open ? '🚪' : 'ℹ'}<span>${open ? 'Ouvrir' : 'Infos'}</span></button>
-    <button class="ring-btn r-left" role="menuitem" data-action="ring-info">📜<span>Infos</span></button>
-    <button class="ring-btn r-bottom" role="menuitem" data-action="ring-close" title="Fermer (Échap)">✕<span>Fermer</span></button></div>`;
+    <button class="ring-btn r-left" role="menuitem" data-action="ring-info" title="Informations">📜<span>Infos</span></button>
+    ${!isDeco && b.type !== 'townhall' && b.level > 0 && !q ? `<button class="ring-btn r-bl" role="menuitem" data-action="move" data-id="${b.id}" title="Déplacer">↔<span>Déplacer</span></button>` : ''}
+    <button class="ring-btn r-br" role="menuitem" data-action="ring-close" title="Fermer (Échap)">✕<span>Fermer</span></button></div>`;
 }
 
 // Panneau d'un terrain vague (tiroir)

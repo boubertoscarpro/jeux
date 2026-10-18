@@ -226,7 +226,7 @@ const TEMPLATES = [
   {
     id: 'newbuild', tag: 'build', weight: 2,
     offer(s) {
-      const cands = Object.entries(BUILDINGS).filter(([t, d]) => d.grid !== false && d.cat !== 'unique' && t !== 'road' && countOf(s, t) === 0 && !buildRequirement(s, t));
+      const cands = Object.entries(BUILDINGS).filter(([t, d]) => d.grid !== false && d.cat !== 'unique' && !d.place && t !== 'road' && countOf(s, t) === 0 && !buildRequirement(s, t));
       if (!cands.length) return null;
       const [type, d] = cands[Math.floor(rng.random() * cands.length)];
       return { title: `Nouveau chantier : ${d.name}`, icon: d.icon, tag: 'build', kind: 'count', params: { type }, target: 1, desc: `Construisez votre premier(ère) ${d.name.toLowerCase()} : ${d.desc}`, view: 'city', reward: rewardFor(s, { wood: resAmount(s, 0.5), stone: resAmount(s, 0.5) }, { lord: 2 }) };

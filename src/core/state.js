@@ -1,4 +1,5 @@
 import { DEFAULT_HERALDRY } from '../data/heraldry.js';
+import { ensurePlaces } from '../systems/places.js';
 import { newCastle } from '../systems/castle.js';
 import { mulberry32, hashString } from './rng.js';
 import { RESOURCES } from '../data/resources.js';
@@ -201,6 +202,8 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
   place('warehouse', TOWN_X - 1, TOWN_Y + 1, 1);
   // v16 : enceinte de départ (5 × 5 autour de l'hôtel de ville)
   newCastle(state);
+  // v16 : lieux d'accès ouverts dès le départ (Scriptorium, Place du héraut, Ambassade)
+  ensurePlaces(state);
 
   state.world = generateWorld(seed);
   initFactions(state);

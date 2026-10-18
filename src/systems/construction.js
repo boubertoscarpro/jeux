@@ -53,6 +53,7 @@ export function startBuild(state, type, x, y, now = Date.now()) {
   if (!def) return { ok: false, reason: 'Inconnu' };
   const req = buildRequirement(state, type);
   if (req) return { ok: false, reason: req };
+  if (def.place) return { ok: false, reason: 'Ce lieu apparaît de lui-même quand sa fonction s’ouvre.' };
   if (def.grid !== false) {
     const pc = placementCheck(state, type, x, y);
     if (!pc.ok) return pc;

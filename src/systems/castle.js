@@ -8,6 +8,7 @@ import {
   MOAT_FLOOD, FLANKS, ASSAULT_FLANKS, FLANK_RULES, DEFENSE_TOOLS, DECO_FX, CASTLE_STAGES, WALL_STYLES, BUILDING_SCREENS, LOT_TYPES,
 } from '../data/castle.js';
 import { BUILDINGS } from '../data/buildings.js';
+import { PLACES, SCREEN_PLACE } from '../data/places.js';
 
 const H = 3600000;
 const fortLevel = (state, k) => state.city?.fort?.[k] || 0;
@@ -292,8 +293,6 @@ export function vacantLots(state) {
   const out = [];
   for (const type of LOT_TYPES) {
     if (!BUILDINGS[type] || countType(state, type) > 0) continue;
-    // Seulement ce qui est à portée : débloqué, ou débloqué au prochain niveau de l'hôtel de ville
-    if ((BUILDINGS[type].req?.townhall || 1) > thOf(state) + 1) continue;
     const prefKeep = ruleOf(type) === 'keep' || ['barracks', 'warehouse'].includes(type);
     const anchor = prefKeep ? center : gate;
     let best = null, bd = Infinity;
@@ -306,7 +305,7 @@ export function vacantLots(state) {
       const d = Math.hypot(x - anchor.x, y - anchor.y) + (x + y * 0.01) * 1e-4;
       if (d < bd) { bd = d; best = { x, y }; }
     }
-    if (best) { taken.add(best.x + ',' + best.y); out.push({ type, x: best.x, y: best.y, screens: BUILDING_SCREENS[type] || [] }); }
+    if (best) { taken.add(best.x + ',' + best.y); out.push({ type, x: best.x, y: best.y, screens: BUILDING_SCREENS[type] || [], req: BUILDINGS[type].req || null }); }
   }
   return out;
 }
