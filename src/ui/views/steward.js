@@ -21,6 +21,7 @@ function paramField(name, draft, prefix) {
     case 'sector': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt(Object.entries(WORK_SECTORS).map(([k, s]) => [k, `${s.icon} ${s.name}`]), v || 'food')}</select>`;
     case 'unit': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt(Object.entries(UNITS).map(([k, u]) => [k, `${u.icon} ${u.name}`]), v || 'spearman')}</select>`;
     case 'building': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt(CHAIN_BUILDINGS.map((b) => [b, `${BUILDINGS[b].icon} ${BUILDINGS[b].name}`]), v || 'foundry')}</select>`;
+    case 'preset': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt([0, 1, 2].map((i) => [i, `Composition ${i + 1}`]), v || 0)}</select>`;
     case 'season': return `<select id="${id}" data-change="od-field" data-k="${prefix}.${name}">${opt(SEASONS.map((s) => [s.key, `${s.icon} ${s.name}`]), v || 'winter')}</select>`;
     default: return `<input id="${id}" type="number" min="0" value="${v || (name === 'minutes' ? 30 : name === 'count' ? 5 : 1000)}" data-change="od-field" data-k="${prefix}.${name}" class="qty">`;
   }
@@ -33,10 +34,10 @@ function orderBuilder(app) {
   return `<div class="order-builder">
     <div class="form-row"><label>Nom</label><input id="od-name" value="${esc(d.name)}" data-change="od-field" data-k="name"></div>
     <div class="rule-line"><b class="kw">SI</b>
-      <select data-change="od-ctype">${opt(Object.entries(ORDER_CONDITIONS).filter(([, c]) => !c.min || c.min <= lvl).map(([k, c]) => [k, c.label.replace(/^SI |^TOUTES LES N minutes/, (m) => (m.startsWith('SI') ? '' : 'Toutes les N minutes'))]), d.cond.type)}</select>
+      <select data-change="od-ctype">${opt(Object.entries(ORDER_CONDITIONS).filter(([, c]) => !c.loot && (!c.min || c.min <= lvl)).map(([k, c]) => [k, c.label.replace(/^SI |^TOUTES LES N minutes/, (m) => (m.startsWith('SI') ? '' : 'Toutes les N minutes'))]), d.cond.type)}</select>
       ${cdef.params.map((p) => paramField(p, d.cond, 'cond')).join(' ')}</div>
     <div class="rule-line"><b class="kw">ALORS</b>
-      <select data-change="od-atype">${opt(Object.entries(ORDER_ACTIONS).filter(([, a]) => a.min <= lvl).map(([k, a]) => [k, a.label]), d.action.type)}</select>
+      <select data-change="od-atype">${opt(Object.entries(ORDER_ACTIONS).filter(([, a]) => !a.loot && a.min <= lvl).map(([k, a]) => [k, a.label]), d.action.type)}</select>
       ${adef.params.map((p) => paramField(p, d.action, 'action')).join(' ')}</div>
     <div class="form-row"><label>Délai minimal entre deux exécutions</label><input id="od-cd" type="number" min="0" value="${d.cooldown}" data-change="od-field" data-k="cooldown" class="qty"> min</div>
     <div class="muted small">Aperçu : <b>${esc(describeOrder(d))}</b></div>
@@ -79,10 +80,11 @@ export default {
           <label class="small"><input type="checkbox" data-change="auto-defense" ${s.automation.autoDefense !== false ? 'checked' : ''}> Rappeler les marches qui peuvent rentrer avant un raid annoncé</label>` : '<p class="muted small">Au palier 7, vos conseillers réparent les bâtiments et rappellent les troupes en cas de raid.</p>'}
       </div></div>
 
-      <div class="card"><h2>📜 Ordres du royaume <span class="muted small">${s.orders.length}/${slots} ordres</span></h2>
+      <div class="card"><h2>📜 Ordres du royaume <span class="muted small">${s.orders.filter((o) => o.cond?.type !== 'loot').length}/${slots} ordres</span></h2>
         <p class="muted small">Programmez votre royaume sans écrire une ligne de code : <b>SI</b> une condition est vraie <b>ALORS</b> une action s’exécute. Les ordres sont évalués chaque minute, même pendant votre absence, dans l’ordre de la liste.</p>
         ${lvl < 4 ? '<p class="req">Les Ordres du royaume se débloquent au palier 4 (Gestionnaire).</p>' : `
-        <div class="orders">${s.orders.map((o, i) => `<div class="order ${o.enabled ? '' : 'off'} ${i >= slots ? 'over' : ''}">
+        ${s.orders.some((o) => o.cond?.type === 'loot') ? `<p class="small">🗂️ ${s.orders.filter((o) => o.cond?.type === 'loot').length} règle(s) de tri du butin, hors quota : <button class="mini ghost" data-action="goto-rules">gérer dans l’Artisanat › Règles de tri</button></p>` : ''}
+        <div class="orders">${s.orders.filter((o) => o.cond?.type !== 'loot').map((o, i) => `<div class="order ${o.enabled ? '' : 'off'} ${i >= slots ? 'over' : ''}">
           <div class="order-main"><b>${esc(o.name)}</b><div class="small">${esc(describeOrder(o))}</div><div class="small muted">Exécuté ${o.runs} fois${o.lastMsg ? ` · ${esc(o.lastMsg)}` : ''}</div></div>
           <div class="order-ctl"><button class="mini ghost" data-action="order-move" data-id="${o.id}" data-d="-1">▲</button><button class="mini ghost" data-action="order-move" data-id="${o.id}" data-d="1">▼</button>
           <button class="mini ${o.enabled ? 'good' : ''}" data-action="order-toggle" data-id="${o.id}">${o.enabled ? 'Actif' : 'Inactif'}</button><button class="mini ghost danger" data-action="order-del" data-id="${o.id}">✕</button></div></div>`).join('') || '<div class="muted small">Aucun ordre. Partez d’un modèle ci-dessous ou composez le vôtre.</div>'}</div>
@@ -113,10 +115,11 @@ export default {
       const d = JSON.parse(JSON.stringify(app.ui.orderDraft));
       // Valeurs par défaut des paramètres non modifiés
       for (const [part, def] of [['cond', ORDER_CONDITIONS[d.cond.type]], ['action', ORDER_ACTIONS[d.action.type]]]) {
-        for (const p of def.params) if (d[part][p] === undefined) d[part][p] = { res: 'food', sector: 'food', unit: 'spearman', building: 'foundry', season: 'winter', minutes: 30, count: 5, value: 1000 }[p];
+        for (const p of def.params) if (d[part][p] === undefined) d[part][p] = { res: 'food', sector: 'food', unit: 'spearman', building: 'foundry', season: 'winter', minutes: 30, count: 5, value: 1000, preset: 0 }[p];
       }
       app.act(() => addOrder(app.state, d), 'Ordre ajouté');
     },
+    'goto-rules': (app) => { app.ui.craftTab = 'rules'; app.go('craft'); },
     'order-tpl': (app, el) => app.act(() => addOrder(app.state, { ...ORDER_TEMPLATES[+el.dataset.i], cooldown: 10 }), 'Ordre ajouté'),
     'order-toggle': (app, el) => app.act(() => toggleOrder(app.state, el.dataset.id)),
     'order-del': (app, el) => app.act(() => removeOrder(app.state, el.dataset.id)),

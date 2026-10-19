@@ -36,9 +36,9 @@ export function itemCard(item, opts = {}) {
   return `<div class="item-card ${opts.selected ? 'selected' : ''} ${opts.compact ? 'compact' : ''}" style="--rc:${RARITIES[item.rarity].color}" ${opts.action ? `data-action="${opts.action}" data-id="${item.id}"` : ''}>
     <div class="item-head"><span class="item-slot">${SLOTS[item.slot].icon}</span>
       <span class="item-name">${esc(item.name)}${item.plus ? ` <b>+${item.plus}</b>` : ''}</span>
-      ${item.locked ? '<span title="Verrouillé">🔒</span>' : ''}${item.equippedBy ? '<span class="equipped-dot" title="Équipé">●</span>' : ''}</div>
+      ${item.locked ? '<span title="Verrouillé" aria-label="verrouillé">🔒</span>' : ''}${item.reservedFor ? '<span title="Réservé à un héros" aria-label="réservé">📌</span>' : ''}${item.equippedBy ? '<span class="equipped-dot" title="Équipé" aria-label="porté">●</span>' : ''}</div>
     ${opts.compact ? '' : `<div class="item-affixes">${Object.entries(mods).map(([k, v]) => `<div>${esc(fmtAffix(k, v))}</div>`).join('')}</div>
-    <div class="item-foot">${rarityTag(item.rarity)} <span class="muted">niv. ${item.ilvl} · score ${itemScore(item)}</span></div>`}
+    <div class="item-foot">${rarityTag(item.rarity)} <span class="muted" title="Somme brute des effets : n’indique pas l’utilité pour un rôle (voir le gain dans la Taverne)">niv. ${item.ilvl} · Σ ${itemScore(item)}</span></div>`}
   </div>`;
 }
 

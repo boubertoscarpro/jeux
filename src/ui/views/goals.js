@@ -1,3 +1,4 @@
+import { claimableCount } from '../../systems/comfort.js';
 import { crisesCard, almanacCard } from '../repercussions.js';
 import { scenarioDef, scenarioObjectives } from '../../systems/scenarios.js';
 import { fmt } from '../../core/util.js';
@@ -120,6 +121,7 @@ function dashboard(s, o) {
   const se = D.season;
   return `<div class="card"><h2>🧭 Tableau de bord du royaume</h2>
     <div class="dash"><div class="dash-main">${obj}<h4>Prochaines actions conseillées</h4>${recs}
+      ${claimableCount(s) > 1 ? `<button class="btn small good claim-all" data-action="claim-all">🎁 Tout réclamer (${claimableCount(s)})</button>` : ''}
       ${claims.length ? `<h4>🎁 Récompenses à récupérer <span class="muted">${claims.length}</span></h4><div class="dash-alerts">${claims.slice(0, 4).map((c) => `<div class="dash-alert good"><span>✅</span><span class="grow">${esc(c.t)}</span>${c.a}</div>`).join('')}</div>` : D.reward ? `<div class="small muted">Prochaine récompense : ${D.reward.icon} ${esc(D.reward.text)}</div>` : ''}</div>
       <div class="dash-main">${alerts ? `<h4>⚠️ Menaces et décisions</h4><div class="dash-alerts">${alerts}</div>` : '<h4>⚠️ Menaces et décisions</h4><div class="small muted">Aucune menace ni décision en attente.</div>'}
         ${resLine ? `<h4>📦 Pénuries et excédents</h4><div class="dash-res">${resLine}</div>` : ''}

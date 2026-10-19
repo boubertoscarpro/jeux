@@ -1,3 +1,4 @@
+import { armyPresets, presetUnits, saveArmyPreset } from '../../systems/comfort.js';
 import { mapPalette, a11yPrefs } from '../../systems/a11y.js';
 import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
 import { borderOf } from '../../systems/hazards.js';
@@ -736,7 +737,7 @@ function marchDialog(app, type, raid = 0) {
         ${unitsAvail.length ? unitsAvail.map(([u, n]) => `<div class="unit-pick"><span title="${esc(UNITS[u].desc)}">${UNITS[u].icon} ${esc(UNITS[u].name)}</span>
           <input type="number" min="0" max="${n}" value="${md.units[u] || 0}" data-input="mu" data-unit="${u}" id="mu-${u}"> <span class="muted small">/ ${n}</span>
           <button class="mini ghost" data-action="mu-max" data-unit="${u}">max</button></div>`).join('') : '<div class="req">Aucune unité disponible.</div>'}
-        ${['attack', 'gather', 'dungeon', 'boss'].includes(type) && unitsAvail.length ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="mu-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button><button class="mini primary" data-action="mu-auto" title="${type === 'boss' ? 'Contre un boss : toutes les unités de combat (chaque soldat ajoute des dégâts)' : type === 'gather' ? 'Le minimum pour vider le site et repousser une embuscade' : type === 'dungeon' ? 'Le minimum pour franchir toutes les salles restantes' : 'Le minimum pour gagner d’après l’aperçu de combat, plus une marge de sécurité'}">⚖️ Remplissage auto</button><button class="mini ghost" data-action="mu-none">Vider</button></div><div class="small muted" id="mu-auto-note"></div>` : ''}
+        ${['attack', 'gather', 'dungeon', 'boss'].includes(type) && unitsAvail.length ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="mu-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button><button class="mini primary" data-action="mu-auto" title="${type === 'boss' ? 'Contre un boss : toutes les unités de combat (chaque soldat ajoute des dégâts)' : type === 'gather' ? 'Le minimum pour vider le site et repousser une embuscade' : type === 'dungeon' ? 'Le minimum pour franchir toutes les salles restantes' : 'Le minimum pour gagner d’après l’aperçu de combat, plus une marge de sécurité'}">⚖️ Remplissage auto</button><button class="mini ghost" data-action="mu-none">Vider</button></div>${presetRow(s)}<div class="small muted" id="mu-auto-note"></div>` : ''}
         ${type === 'attack' && raidTargetOk(poi) ? raidSection(s, md) : ''}
         <h4>Commandant</h4>
         <select data-change="mh" id="mh"><option value="">— Aucun —</option>${idle.map((h) => `<option value="${h.id}" ${h.id === md.heroId ? 'selected' : ''}>${HERO_CLASSES[h.cls].icon} ${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select>
@@ -810,6 +811,11 @@ function updateMarchPreview(app) {
 }
 
 // Remplit la fenêtre d'envoi avec une composition (les champs et l'aperçu suivent)
+// v18 : compositions d'armée enregistrées (3), chargées en un clic ; « Maintenir la garnison » s'en sert aussi
+function presetRow(s) {
+  const P = armyPresets(s);
+  return `<div class="mu-presets-saved" role="group" aria-label="Compositions enregistrées">${P.map((p, i) => (p ? `<button class="mini" data-action="mu-preset" data-i="${i}" title="${esc(Object.entries(p.units).map(([u, n]) => `${n} ${UNITS[u]?.name || u}`).join(', '))}">${i + 1}. ${esc(p.name)}</button>` : '')).join('')}<button class="mini ghost" data-action="mu-preset-save">💾 Enregistrer cette composition</button></div>`;
+}
 function setDraftUnits(app, units, note) {
   const md = app.ui.marchDraft;
   for (const u of Object.keys(app.state.army)) {
@@ -827,6 +833,18 @@ const marchActions = {
   mu: (app, el) => { app.ui.marchDraft.units[el.dataset.unit] = Math.max(0, Math.min(app.state.army[el.dataset.unit] || 0, +el.value || 0)); updateMarchPreview(app); },
   'mu-half': (app) => setDraftUnits(app, halfOfEach(app.state), 'Moitié de chaque unité.'),
   'mu-none': (app) => setDraftUnits(app, {}, ''),
+  'mu-preset': (app, el) => { const r = presetUnits(app.state, +el.dataset.i); if (!r) return; setDraftUnits(app, r.units, r.short.length ? `Composition chargée ; il manque : ${r.short.join(', ')}.` : 'Composition chargée.'); },
+  'mu-preset-save': (app) => {
+    const P = armyPresets(app.state);
+    const slot = prompt(`Enregistrer dans la composition 1, 2 ou 3 ?${P.map((p, i) => (p ? `\n${i + 1}. ${p.name}` : '')).join('')}`, String(([0, 1, 2].find((k) => !P[k]) ?? 0) + 1));
+    if (slot === null) return;
+    const i = Math.max(1, Math.min(3, +slot || 1)) - 1;
+    const name = prompt('Nom de la composition', P[i]?.name || ['Garnison', 'Raid', 'Récolte'][i]);
+    if (name === null) return;
+    const r = saveArmyPreset(app.state, i, name, app.ui.marchDraft.units);
+    app.toast(r.ok ? `💾 Composition « ${name} » enregistrée` : r.reason || 'Composition vide', r.ok ? 'good' : 'bad');
+    if (r.ok) { app.save(); const box = document.querySelector('.mu-presets-saved'); if (box) box.outerHTML = presetRow(app.state); }
+  },
   'mu-auto': (app) => {
     const r = autoFillAttack(app.state, app.ui.marchDraft);
     if (!r.ok) { const n = document.getElementById('mu-auto-note'); if (n) n.textContent = autoFillNote(app.state, r); return; }

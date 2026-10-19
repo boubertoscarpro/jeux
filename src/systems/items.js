@@ -2,6 +2,7 @@ import { rng } from '../core/rng.js';
 import { uid } from '../core/util.js';
 import { ITEM_BASES, AFFIXES, UNIQUE_ITEMS, SLOTS } from '../data/items.js';
 import { RARITIES, RARITY_ORDER } from '../data/heroes.js';
+import { SOCKETS, GEM_TYPES, ITEM_SETS, SET_CHANCE, SCRAP, SCRAP_UPGRADE_SHARE } from '../data/armory.js';
 
 export const MAX_PLUS = { common: 5, rare: 7, epic: 10, legendary: 12, mythic: 15 };
 
@@ -41,12 +42,23 @@ export function generateItem({ slot = null, rarity = null, ilvl = 1, boost = 0, 
     affixes[stat] = round((affixes[stat] || 0) + v, AFFIXES[stat].pct);
   }
   const prefix = { common: '', rare: '', epic: '', legendary: '', mythic: '' };
-  return { id: uid('it'), base: key, slot: base.slot, name: prefix[rarity] + base.name, rarity, ilvl, plus: 0, affixes, equippedBy: null };
+  const it = { id: uid('it'), base: key, slot: base.slot, name: prefix[rarity] + base.name, rarity, ilvl, plus: 0, affixes, equippedBy: null, sockets: emptySockets(rarity) };
+  // v18 : pièce d'ensemble (rare ou mieux, une fois sur quatre, si le modèle appartient à un ensemble)
+  const sets = setsOfBase(key);
+  if (sets.length && rIdx >= 1 && rng.chance(SET_CHANCE)) it.set = sets.length > 1 ? rng.pick(sets) : sets[0];
+  return it;
 }
+
+// v18 : châsses vides selon la rareté ; ensembles auxquels appartient un modèle
+export const emptySockets = (rarity) => Array.from({ length: SOCKETS[rarity] || 0 }, () => null);
+export const setsOfBase = (baseKey) => Object.entries(ITEM_SETS).filter(([, d]) => d.bases.includes(baseKey)).map(([k]) => k);
+// Gemme taillée : « type:qualité » (qualité 0 à 3)
+export const parseGem = (g) => { const [type, q] = String(g || '').split(':'); return GEM_TYPES[type] && +q >= 0 && +q <= 3 ? { type, q: +q } : null; };
+export function gemMods(g) { const p = parseGem(g); return p ? GEM_TYPES[p.type].mods(p.q) : {}; }
 
 export function createUniqueItem(key) {
   const u = UNIQUE_ITEMS[key];
-  return { id: uid('it'), base: key, unique: true, slot: u.slot, name: u.name, rarity: u.rarity, ilvl: 20, plus: 0, affixes: { ...u.affixes }, equippedBy: null };
+  return { id: uid('it'), base: key, unique: true, slot: u.slot, name: u.name, rarity: u.rarity, ilvl: 20, plus: 0, affixes: { ...u.affixes }, equippedBy: null, sockets: emptySockets(u.rarity) };
 }
 
 // Valeur effective d'un affixe (avec améliorations +N)
@@ -54,16 +66,18 @@ export function affixValue(item, stat) {
   return item.affixes[stat] * (1 + 0.1 * (item.plus || 0));
 }
 
+// Effets d'un objet : affixes (avec +N) et gemmes serties (v18, non multipliées par +N)
 export function itemMods(item) {
   const out = {};
   for (const stat of Object.keys(item.affixes)) out[stat] = affixValue(item, stat);
+  for (const g of item.sockets || []) if (g) for (const [k, v] of Object.entries(gemMods(g))) out[k] = (out[k] || 0) + v;
   return out;
 }
 
 export function fmtAffix(stat, value) {
   const a = AFFIXES[stat];
   if (!a) return `${stat}: ${value}`;
-  if (a.pct) return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1).replace('.0', '')}% ${a.name}`;
+  if (a.pct) return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1).replace('.0', '').replace('.', ',')} % ${a.name}`;
   return `${value >= 0 ? '+' : ''}${Math.round(value)} ${a.name}`;
 }
 
@@ -89,13 +103,18 @@ export function upgradeCost(item, discount = 0) {
   return cost;
 }
 
-// Matériaux rendus au recyclage
+// Matériaux rendus au démantèlement (v18 : révisé) — une part de la recette de l'emplacement, selon la rareté et le
+// niveau d'objet, plus 30 % des matériaux d'amélioration (+N) investis ; cristaux dès l'épique, minerai rare dès le
+// légendaire. Jamais d'or : l'or vient de la vente au Joaillier.
 export function salvageYield(item, bonus = 0) {
   const r = RARITY_ORDER.indexOf(item.rarity);
-  const k = (1 + r) * (1 + item.plus * 0.3) * (1 + bonus);
-  const out = { steel: Math.round(5 * k), leather: Math.round(3 * k), gold: Math.round(30 * k) };
-  if (r >= 2) out.crystals = Math.round(r - 1);
-  if (r >= 3) out.rareOre = Math.round((r - 2) * 2);
+  const k = (1 + r * 0.6) * (1 + ((item.ilvl || 1) - 1) * 0.04) * (1 + bonus);
+  const out = {};
+  const add = (res, v) => { if (v > 0) out[res] = (out[res] || 0) + v; };
+  for (const [res, v] of Object.entries(SCRAP[item.slot] || {})) add(res, Math.round(v * k));
+  for (let p = 0; p < (item.plus || 0); p++) for (const [res, v] of Object.entries(upgradeCost({ ...item, plus: p }))) if (res !== 'gold') add(res, Math.floor(v * SCRAP_UPGRADE_SHARE));
+  if (r >= 2) add('crystals', r - 1);
+  if (r >= 3) add('rareOre', (r - 2) * 2);
   return out;
 }
 

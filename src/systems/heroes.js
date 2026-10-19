@@ -3,6 +3,7 @@ import { uid } from '../core/util.js';
 import { HERO_CLASSES, HERO_NAMES, HERO_EPITHETS, RARITIES, RARITY_ORDER, SECTORS, xpForLevel, HERO_MAX_LEVEL } from '../data/heroes.js';
 import { SLOT_ORDER, AFFIXES } from '../data/items.js';
 import { itemMods } from './items.js';
+import { ITEM_SETS } from '../data/armory.js';
 
 export function createHero({ cls, rarity = 'common', rand = null, name = null, level = 1 } = {}) {
   const r = rand || rng.random;
@@ -52,6 +53,18 @@ export function heroSkills(hero) {
 
 const add = (o, k, v) => { o[k] = (o[k] || 0) + v; };
 
+// v18 : ensembles portés par un héros → { set: nombre de pièces } ; bonus actifs (2 et 4 pièces)
+export function setCounts(items) {
+  const n = {};
+  for (const it of items) if (it?.set && ITEM_SETS[it.set]) n[it.set] = (n[it.set] || 0) + 1;
+  return n;
+}
+export function setBonuses(items) {
+  const out = [];
+  for (const [k, c] of Object.entries(setCounts(items))) for (const t of [2, 4]) if (c >= t && ITEM_SETS[k].bonus[t]) out.push({ set: k, tier: t, ...ITEM_SETS[k].bonus[t] });
+  return out;
+}
+
 // Modificateurs apportés par un héros dans un contexte : 'commander' | 'governor' | 'global'
 export function heroMods(state, hero, ctx) {
   const out = {};
@@ -62,13 +75,16 @@ export function heroMods(state, hero, ctx) {
     if (hero.special) for (const [k, v] of Object.entries(hero.special.mods)) add(out, k, v);
     // Affixes « royaume » des objets équipés : actifs quel que soit le rôle du héros
     for (const item of equippedItems(state, hero)) for (const [stat, v] of Object.entries(itemMods(item))) if (AFFIXES[stat]?.ctx === 'global') add(out, stat, v);
+    for (const b of setBonuses(equippedItems(state, hero))) if (b.ctx === 'global') for (const [k, v] of Object.entries(b.mods)) add(out, k, v);
     return out;
   }
-  for (const item of equippedItems(state, hero)) {
+  const worn = equippedItems(state, hero);
+  for (const item of worn) {
     for (const [stat, v] of Object.entries(itemMods(item))) {
       if (AFFIXES[stat]?.ctx === ctx) add(out, stat, v);
     }
   }
+  for (const b of setBonuses(worn)) if (b.ctx === ctx) for (const [k, v] of Object.entries(b.mods)) add(out, k, v);
   const st = heroStats(state, hero);
   if (ctx === 'commander') {
     add(out, 'combat.atk', st.force * 0.004);
