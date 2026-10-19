@@ -11,7 +11,7 @@ import { BUILDINGS } from '../data/buildings.js';
 import { PLACES, SCREEN_PLACE } from '../data/places.js';
 
 const H = 3600000;
-const fortLevel = (state, k) => state.city?.fort?.[k] || 0;
+export const fortLevel = (state, k) => state.city?.fort?.[k] || 0;
 const thOf = (state) => Object.values(state.city?.buildings || {}).reduce((m, b) => (b.type === 'townhall' ? Math.max(m, b.level) : m), 0);
 const blds = (state) => Object.values(state.city?.buildings || {});
 

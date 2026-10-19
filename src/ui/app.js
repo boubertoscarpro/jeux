@@ -13,6 +13,12 @@ import { bldgView } from './views/city.js';
 import { tileView } from './views/world.js';
 import outpostView from './views/outpost.js';
 import { queuesHtml, queueActions } from './hud.js';
+import { winSummary } from './winSummary.js';
+import { a11yPrefs, setA11y } from '../systems/a11y.js';
+import { nextBuilding } from '../systems/cityNav.js';
+import { snapshotCity, homecoming } from '../systems/homecoming.js';
+import { openKingdomText, kingdomTextActions, bindAnnouncer, openWhy } from './a11yUi.js';
+import { A11Y_DEFAULTS, A11Y_SHOWCASE } from '../data/a11y.js';
 import { BUILDINGS } from '../data/buildings.js';
 import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
@@ -68,6 +74,7 @@ import shardsView from './views/shards.js';
 import adminView from './views/admin.js';
 import { reportHtml } from './views/calendar.js';
 import { notifications } from '../systems/liveEvents.js';
+import { groupNotices, seenOnScreen } from '../systems/notices.js';
 import { openAdvisor } from './advisor.js';
 import { openUpgradeList } from './upgrades.js';
 import { helpFor, openHelp } from './help.js';
@@ -123,12 +130,45 @@ export class App {
     document.documentElement.classList.toggle('saver', !!m.saver);
     // v16 : qualité graphique (faible : aucune animation de bâtiment sur la carte du royaume)
     for (const q of ['low', 'medium', 'high']) document.documentElement.classList.toggle('gfx-' + q, (m.gfx || 'medium') === q);
+    // v17 : accessibilité (taille du texte, contraste élevé, daltonisme, police, météo et nuit, noms, mode simplifié)
+    const a = a11yPrefs(this.state), h = document.documentElement;
+    h.style.setProperty('--text-scale', String(a.textScale));
+    h.classList.toggle('hc', a.contrast);
+    for (const c of ['deut', 'prot', 'trit']) h.classList.toggle('cb-' + c, a.colorVision === c);
+    h.classList.toggle('font-readable', a.font === 'readable');
+    h.classList.toggle('no-weather', !a.weather);
+    h.classList.toggle('no-night', !a.night);
+    h.classList.toggle('show-names', a.showNames);
+    h.classList.toggle('simple', a.simple);
+    h.classList.toggle('hide-ups', m.showUpgrades === false);
+  }
+  // v17 : navigation au clavier sur la carte du royaume
+  cityKeyNext(x, y, key) { return nextBuilding(this.state, x, y, key); }
+  focusCityTile(x, y) {
+    const grid = document.querySelector('#view .city-grid');
+    const el = grid?.querySelector(`.tile[data-x="${x}"][data-y="${y}"]`);
+    if (!el) return;
+    for (const o of grid.querySelectorAll('.tile[tabindex="0"]')) o.setAttribute('tabindex', '-1');
+    el.setAttribute('tabindex', '0');
+    this.ui.cityKeyFocus = { x, y };
+    el.focus({ preventScroll: true });
+    // Le bâtiment choisi reste visible, dans la zone que l'affichage fixe ne couvre pas
+    const vp = document.getElementById('city-vp'), r = el.getBoundingClientRect(), v = vp?.getBoundingClientRect();
+    if (vp && v && (r.left < v.left + 260 || r.right > v.right - 90 || r.top < v.top + 110 || r.bottom > v.bottom - 130)) { this.ui.cityFocus = { x, y }; vp._center?.(x, y); }
+  }
+  // Captures et tests : modes d'accessibilité présentés (null : réglages par défaut)
+  get a11yModes() { return Object.keys(A11Y_SHOWCASE); }
+  applyA11yMode(mode) {
+    this.state.meta.a11y = mode ? { ...A11Y_DEFAULTS, ...A11Y_SHOWCASE[mode] } : { ...A11Y_DEFAULTS };
+    this.applyPrefs(); this.mapDirty = true; this.render();
   }
 
   start() {
     // v16 : la carte en plein écran, l'affichage fixe par-dessus, puis la fenêtre du lieu ouvert
     this.root.innerHTML = `
+      <button class="skip-link" data-action="kingdom-text">Le royaume en texte (alternative à la carte) — touche T</button>
       <main id="view" aria-label="Carte"></main>
+      <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
       <div id="hud" class="hud"></div>
       <div id="win-root"></div>`;
     ensureIconDefs(); ensureArtDefs();
@@ -136,15 +176,23 @@ export class App {
     this.bindEvents();
     bus.on('changed', () => { this.dirty = true; });
     bus.on('toast', ({ text, type }) => this.toast(text, type));
+    bindAnnouncer(this, bus); // v17 : raids, crises, chantiers terminés annoncés aux lecteurs d'écran
     bus.on('feat', (f) => this.feat(f));
     this.booting = true;
     const away = Date.now() - (this.state.meta.lastTick || Date.now());
     const before = { ...this.state.resources };
     const logBefore = this.state.log.length;
+    const cityBefore = snapshotCity(this.state);
     advance(this.state, Date.now());
     this.booting = false;
+    // v17 : le retour du seigneur — ce qui a changé brille quelques secondes sur le château, avant le rapport
+    if (away > 2 * 60 * 1000) {
+      const hc = homecoming(cityBefore, this.state);
+      if (hc.built.length) { this.ui.glow = { ids: hc.built, until: Date.now() + 9000 }; setTimeout(() => { if (this.ui.map === 'city' && !this.ui.win) { this.mapDirty = true; this.render(); } }, 9100); }
+      if (hc.text) setTimeout(() => this.toast(`🏰 ${hc.text}`, 'info'), 300);
+    }
     this.render();
-    if (away > 2 * 60 * 1000) this.absenceReport(away, before, logBefore);
+    if (away > 2 * 60 * 1000) setTimeout(() => this.absenceReport(away, before, logBefore), this.ui.glow ? 2500 : 0);
     const m = this.state.meta;
     if (m.migratedFrom || m.repaired || m.restoredFromBackup) {
       this.modal(`<h2>💾 Sauvegarde mise à jour</h2>${m.migratedFrom ? `<p>Votre partie (format v${m.migratedFrom}) a été convertie au format actuel <b>v${this.state.version}</b>. Rien n’a été perdu : les nouveaux systèmes ont simplement été ajoutés.</p>` : ''}
@@ -213,7 +261,11 @@ export class App {
 
   openNotifications() {
     const list = notifications(this.state);
-    this.modal(`<h2>🔔 Notifications</h2><div class="log">${list.map((n) => `<div class="log-line small ${n.read ? 'muted' : ''}">${n.icon} ${esc(n.text)} <span class="muted">· ${new Date(n.t).toLocaleString('fr-FR')}</span></div>`).join('') || '<p class="muted">Rien pour l’instant.</p>'}</div>
+    // v17 : regroupées (« ×12 »), l'urgent d'abord, puis ce qui demande une action, puis l'informatif
+    const groups = groupNotices(list);
+    const sect = (cls, title) => { const g = groups.filter((x) => x.cls === cls); return g.length ? `<h3 class="notif-h ${cls}">${title}</h3><ul class="notif-list">${g.map((x) => `<li class="${x.unread ? 'unread' : 'muted'}"><span aria-hidden="true">${x.icon}</span> ${esc(x.text)}${x.count > 1 ? ` <b class="notif-n" aria-label="${x.count} fois">×${x.count}</b>` : ''} <span class="muted small">· ${new Date(x.last).toLocaleString('fr-FR')}</span>${x.unread ? ' <span class="sr-only">(non lu)</span>' : ''}</li>`).join('')}</ul>` : ''; };
+    this.modal(`<h2>🔔 Notifications</h2><p class="small muted">${groups.filter((g) => g.unread && g.cls !== 'info').length ? 'À voir en premier : l’urgent, puis ce qui demande une action.' : 'Rien d’urgent : seulement des informations.'}</p>
+      ${sect('urgent', '⚠️ Urgent')}${sect('action', '👉 À faire')}${sect('info', 'ℹ️ Pour information')}${list.length ? '' : '<p class="muted">Rien pour l’instant.</p>'}
       <div class="row gap"><button class="btn" data-action="goto" data-view="event">🎪 Événement</button><button class="btn" data-action="goto" data-view="calendar">📅 Calendrier</button><button class="btn ghost" data-action="close-modal">Fermer</button></div>`, {}, 'wide');
     for (const n of list) n.read = true;
   }
@@ -265,6 +317,8 @@ export class App {
     else if (b) {
       this.ui.map = 'city'; this.ui.citySel = { x: b.x, y: b.y }; this.ui.ringOpen = true; this.ui.cityFocus = { x: b.x, y: b.y };
       this.ui.flashTile = { x: b.x, y: b.y, until: Date.now() + 4000 };
+      this.ui.guide = { x: b.x, y: b.y, until: Date.now() + 9000 }; // v17 : flèche qui pulse au-dessus du lieu
+      setTimeout(() => { if (this.ui.guide?.until <= Date.now() && this.ui.map === 'city' && !this.ui.win) { this.mapDirty = true; this.render(); } }, 9100);
       this.toast(`Ouvrez « ${BUILDINGS[b.type].name} » dans votre château : bouton « Ouvrir ».`, 'info');
     } else if (p?.kind === 'map') { this.ui.hudHl = 'toggle-map'; this.toast('Ouvrez la carte du monde : bouton « Monde » en bas à droite (touche M).', 'info'); }
     else if (p?.kind === 'hud') { this.ui.hudHl = pk === 'profile' ? 'profile' : 'settings'; this.toast(pk === 'profile' ? 'Ouvrez votre profil : médaillon en haut à gauche.' : 'Ouvrez les réglages : engrenage en haut à droite.', 'info'); }
@@ -312,6 +366,8 @@ export class App {
     const main = this.$('#view');
     this.root.classList.add('mapmode');
     this.root.classList.toggle('win-open', !!this.ui.win);
+    // v17 : l'affichage fixe d'abord, pour que le cadrage de la carte connaisse sa zone de sécurité
+    this.renderHud();
     // Sans fenêtre : la carte est redessinée comme avant. Avec une fenêtre : seulement si on l'a demandé (changement de
     // carte, action sur la carte) ; ouvrir un écran par-dessus une carte à jour ne la redessine pas.
     if (!this.ui.win || this.mapDirty || main.dataset.screen !== map.id) {
@@ -321,7 +377,6 @@ export class App {
       iconize(main);
       this.mapDirty = false;
     }
-    this.renderHud();
     this.renderWin();
   }
 
@@ -355,12 +410,18 @@ export class App {
           ${help}<button class="win-ic win-x" data-action="win-close" title="Fermer (Échap)" aria-label="Fermer">✕</button>
         </header>
         ${tabs.length > 1 ? `<nav class="win-tabs" role="tablist">${tabs.map((v) => { const t = this.views[v]; const n = t.badge?.(this) || 0; return `<button class="win-tab ${v === id ? 'active' : ''}" role="tab" aria-selected="${v === id}" data-action="nav" data-view="${v}">${t.icon} ${esc(t.title)}${n ? ` <span class="hb hb-num">${n}</span>` : ''}</button>`; }).join('')}</nav>` : ''}
+        ${!locked && winSummary(this, id) ? `<p class="win-sum" role="note">${esc(winSummary(this, id))}</p>` : ''}
         <div class="win-body view view-${id}" id="win-body">${body}</div>
       </section>`;
     const prev = root.querySelector('#win-body');
     const keepScroll = prev && root.querySelector('.win')?.dataset.screen === id ? prev.scrollTop : 0;
     this.preserveInputs(root, () => { root.innerHTML = html; });
     const nb = root.querySelector('#win-body'); if (nb) nb.scrollTop = keepScroll;
+    // v17 : un seul titre — le premier titre du contenu, s'il répète celui de la fenêtre, n'est plus lu que par les
+    // lecteurs d'écran
+    const h = nb?.querySelector('.card > h2:first-child');
+    const norm = (t) => (t || '').replace(/niv\.?\s*\d+/gi, '').replace(/[^\p{L}\s']/gu, '').trim().toLowerCase();
+    if (h && norm(h.textContent) && norm(h.textContent) === norm(title)) h.classList.add('sr-only');
     if (!locked) view.after?.(this);
     iconize(root);
     if (this._focusWin) { this._focusWin = false; root.querySelector('.win-x')?.focus(); }
@@ -369,7 +430,7 @@ export class App {
   closeWin(render = true) {
     this.ui.win = null; this.ui.winHistory = [];
     this.mapDirty = true;
-    if (render) this.render();
+    if (render) { this.render(); this.restoreFocus('_winReturn'); }
   }
 
   updateBadges() { /* v16 : badges dans l'affichage fixe */ }
@@ -391,7 +452,7 @@ export class App {
       const same = this.ui.win && SCREEN_PLACE[this.ui.win] === SCREEN_PLACE[viewId];
       if (this.ui.win && !same && this.ui.win !== viewId) this.ui.winHistory.push(this.ui.win);
       if (this.ui.winHistory.length > 8) this.ui.winHistory.shift();
-      if (!this.ui.win) this._focusWin = true;
+      if (!this.ui.win) { this._focusWin = true; const ae = document.activeElement; if (ae && !ae.closest?.('#win-root')) this._winReturn = ae; }
       this.ui.win = viewId;
       const gg = groupOf(viewId); if (gg) this.ui.lastTab[gg.id] = viewId;
     }
@@ -445,6 +506,18 @@ export class App {
     document.addEventListener('input', (ev) => handle(ev, 'data-input'));
     document.addEventListener('keydown', (ev) => {
       const open = document.getElementById('modal-root')?.classList.contains('open');
+      // v17 : le focus reste dans la fenêtre de dialogue ou la fenêtre de lieu ouverte (Tab et Maj+Tab bouclent)
+      if (ev.key === 'Tab') {
+        const box = open ? document.querySelector('#modal-root .modal') : this.ui.win ? document.querySelector('#win-root .win') : null;
+        if (box) {
+          const f = [...box.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')].filter((e) => e.getClientRects().length);
+          if (f.length) {
+            const i = f.indexOf(document.activeElement);
+            if (!box.contains(document.activeElement) || (ev.shiftKey && i <= 0) || (!ev.shiftKey && i === f.length - 1)) { ev.preventDefault(); (ev.shiftKey ? f[f.length - 1] : f[0]).focus(); }
+          }
+        }
+        return;
+      }
       if (ev.key === 'Escape') {
         if (open) { this.closeModal(); return; }
         if (this.ui.phoneDrawer) { this.ui.phoneDrawer = null; this.renderHud(); return; }
@@ -457,9 +530,21 @@ export class App {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target?.tagName || '') || ev.target?.isContentEditable;
       if (typing || open || ev.altKey || ev.metaKey || (ev.ctrlKey && ev.key.toLowerCase() !== 'k')) return;
       const k = ev.key.toLowerCase();
-      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('goals'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this) };
+      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('goals'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this), t: () => openKingdomText(this) };
       if (ev.ctrlKey && k === 'k') { ev.preventDefault(); openPlaces(this); return; }
       if (map[k]) { ev.preventDefault(); map[k](); }
+    });
+    // v17 : carte du royaume au clavier — un seul arrêt de tabulation, les flèches vont de bâtiment en bâtiment,
+    // Entrée ouvre l'anneau d'actions, Origine revient à l'hôtel de ville
+    document.addEventListener('keydown', (ev) => {
+      const t = ev.target?.closest?.('#view .city-grid .tile');
+      if (!t || this.ui.win || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      let n = null;
+      if (ev.key === 'Home') { const th = Object.values(this.state.city.buildings).find((b) => b.type === 'townhall'); if (th) n = { x: th.x, y: th.y }; }
+      else n = this.cityKeyNext(+t.dataset.x, +t.dataset.y, ev.key);
+      if (!n) return;
+      ev.preventDefault();
+      this.focusCityTile(n.x, n.y);
     });
   }
 
@@ -479,12 +564,19 @@ export class App {
     queues: (app) => app.modal(`<h2>⏳ Files du royaume</h2>${queuesHtml(app)}`, {}, 'wide'),
     'res-more': (app) => { app.ui.resMore = !app.ui.resMore; app.renderHud(); },
     'act-more': (app) => { app.ui.actMore = !app.ui.actMore; app.renderHud(); },
-    'left-fold': (app) => { app.ui.leftCollapsed = !app.ui.leftCollapsed; app.renderHud(); },
+    'left-fold': (app) => { app.ui.leftCollapsed = !(app.ui.leftCollapsed ?? innerWidth <= 1200); app.renderHud(); },
     'drawer-q': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'q' ? null : 'q'; app.renderHud(); },
     'drawer-a': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'a' ? null : 'a'; app.renderHud(); },
     'drawer-close': (app) => { app.ui.phoneDrawer = null; app.renderHud(); },
     fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); } catch { /* refusé par le navigateur */ } },
     'hud-zoom': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-zoom'] || mv?.actions?.zoom)?.(app, el); },
+    'kingdom-text': (app) => openKingdomText(app),
+    'layer-bar': (app) => { app.ui.layerBar = !app.ui.layerBar; app.renderHud(); },
+    layer: (app, el) => { const k = el.dataset.k || null; app.ui.layer = k && app.ui.layer !== k ? k : null; if (!k) app.ui.layerBar = false; app.mapDirty = true; if (app.ui.map !== 'city') app.go('city'); else app.render(); },
+    timeline: (app) => { app.ui.timelineOpen = !document.querySelector('.hud-timeline:not(.closed)') ? true : false; app.renderHud(); },
+    why: (app, el) => openWhy(app, el.dataset.what, el.dataset.arg),
+    'kt-see': (app, el) => kingdomTextActions['kt-see'](app, el),
+    a11y: (app, el) => { const k = el.dataset.k, v = el.dataset.v; const val = v === 'true' ? true : v === 'false' ? false : /^[\d.]+$/.test(v) ? +v : v; setA11y(app.state, k, val); app.applyPrefs(); app.mapDirty = true; app.render(); app.save(); },
     'hud-fit': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-fit'] || mv?.actions?.fit)?.(app, el); },
     'hud-center': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-center'] || mv?.actions?.center)?.(app, el); },
     domain: (app, el) => { if (el.value) { app.ui.map = 'outpost'; app.ui.outpost = el.value; } else app.ui.map = 'city'; app.ui.win = null; app.ui.winHistory = []; app.ui.opSel = null; app.ui.opMove = null; app.ui.buildMode = false; app.mapDirty = true; app.render(); },
@@ -503,9 +595,12 @@ export class App {
   modal(html, actions = {}, cls = '') {
     this.modalActions = actions;
     const root = document.getElementById('modal-root');
+    if (!root.classList.contains('open') && document.activeElement && !root.contains(document.activeElement)) this._modalReturn = document.activeElement;
     root.innerHTML = `<div class="modal-backdrop" data-action="close-modal"></div><div class="modal ${cls}" role="dialog"><button class="modal-x" data-action="close-modal" aria-label="Fermer">✕</button>${html}</div>`;
     root.classList.add('open');
     iconize(root);
+    root.querySelector('.modal')?.setAttribute('aria-modal', 'true');
+    if (!root.contains(document.activeElement)) root.querySelector('.modal input, .modal button:not(.modal-x), .modal-x')?.focus({ preventScroll: true });
   }
   // Fenêtre de confirmation (actions destructrices ou irréversibles)
   confirm(html, okLabel, onOk, danger = true) {
@@ -516,9 +611,19 @@ export class App {
 
   closeModal() {
     const root = document.getElementById('modal-root');
+    const was = root.classList.contains('open');
     root.classList.remove('open');
     root.innerHTML = '';
     this.modalActions = null;
+    // v17 : le focus revient à l'élément qui a ouvert le dialogue
+    if (was) this.restoreFocus('_modalReturn');
+  }
+  restoreFocus(slot) {
+    const el = this[slot];
+    this[slot] = null;
+    if (el && el.isConnected && el.getClientRects().length) { el.focus({ preventScroll: true }); return; }
+    const k = this.ui.cityKeyFocus;
+    if (k && this.ui.map === 'city') document.querySelector(`#view .city-grid .tile[data-x="${k.x}"][data-y="${k.y}"]`)?.focus({ preventScroll: true });
   }
 
   // Grandes réussites : bandeau (un à la fois, 3 en attente au plus) ; fin de chantier : la case s'illumine.
@@ -549,12 +654,14 @@ export class App {
     if (!box) return;
     // Pas de doublon visible : un message identique déjà affiché n'est pas répété
     if ([...box.children].some((c) => c.textContent === text)) return;
+    // v17 : un message informatif affiché pendant que le joueur regarde compte comme lu (l'urgent reste signalé)
+    if (this.state && !document.hidden) seenOnScreen(this.state, text);
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     el.textContent = text;
     box.appendChild(el);
     setTimeout(() => el.classList.add('show'), 10);
-    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3800);
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, a11yPrefs(this.state).toastSec * 1000 - 200); // v17 : durée réglable
     while (box.children.length > 3) box.firstChild.remove();
   }
 }

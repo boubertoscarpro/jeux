@@ -1,0 +1,74 @@
+{
+ "debut-large": {
+  "texts": 13,
+  "marks": 9,
+  "overlaps": 0,
+  "hidden": 0,
+  "useful": 84,
+  "examples": []
+ },
+ "milieu-large": {
+  "texts": 10,
+  "marks": 31,
+  "overlaps": 0,
+  "hidden": 12,
+  "useful": 78.9,
+  "examples": []
+ },
+ "fin-large": {
+  "texts": 12,
+  "marks": 70,
+  "overlaps": 0,
+  "hidden": 22,
+  "useful": 81.5,
+  "examples": []
+ },
+ "debut-moyen": {
+  "texts": 12,
+  "marks": 8,
+  "overlaps": 0,
+  "hidden": 3,
+  "useful": 80.3,
+  "examples": []
+ },
+ "milieu-moyen": {
+  "texts": 9,
+  "marks": 13,
+  "overlaps": 0,
+  "hidden": 3,
+  "useful": 78.6,
+  "examples": []
+ },
+ "fin-moyen": {
+  "texts": 13,
+  "marks": 36,
+  "overlaps": 0,
+  "hidden": 10,
+  "useful": 78.3,
+  "examples": []
+ },
+ "debut-mobile": {
+  "texts": 11,
+  "marks": 8,
+  "overlaps": 0,
+  "hidden": 1,
+  "useful": 79.3,
+  "examples": []
+ },
+ "milieu-mobile": {
+  "texts": 7,
+  "marks": 8,
+  "overlaps": 0,
+  "hidden": 1,
+  "useful": 78.2,
+  "examples": []
+ },
+ "fin-mobile": {
+  "texts": 9,
+  "marks": 14,
+  "overlaps": 0,
+  "hidden": 7,
+  "useful": 77.3,
+  "examples": []
+ }
+}

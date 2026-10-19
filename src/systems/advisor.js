@@ -1,3 +1,4 @@
+import { stockForecast, inTime } from './wording.js';
 import { omenText } from './omens.js';
 import { surplusPlan, cappedResources } from './surplus.js';
 import { RESOURCES, isCapped } from '../data/resources.js';
@@ -58,7 +59,7 @@ export function analyze(state, now = Date.now()) {
     if (v < -0.5 && RESOURCES[r]) {
       const h = (state.resources[r] || 0) / -v;
       forecasts.push({ res: r, hours: h, rate: v });
-      if (h < 6) push(h < 1 ? 'bad' : 'warn', `Votre stock de ${R(r)} sera épuisé dans ${fmtTime(h * 3600000)} (${fmt(v)}/h).`, r === 'food' ? 'production' : null);
+      if (h < 6) push(h < 1 ? 'bad' : 'warn', stockForecast(R(r), state.resources[r] || 0, v), r === 'food' ? 'production' : 'ecoReport'); // v17 : jamais « épuisé dans 0 s »
     }
   }
   // Équilibre alimentaire
@@ -105,11 +106,11 @@ export function analyze(state, now = Date.now()) {
     }
   }
   // Danger imminent : raids en approche, avant-postes menacés
-  for (const r of state.raids || []) push('bad', `Raid de ${r.name} attendu dans ${fmtTime(r.arrive - now)} : gardez vos troupes au château et renforcez la muraille.`, 'army', { id: 'raid:' + r.id });
+  for (const r of state.raids || []) push('bad', `Raid de ${r.name} attendu ${inTime(r.arrive - now)} : gardez vos troupes au château et renforcez la muraille.`, 'army', { id: 'raid:' + r.id });
   for (const t of Object.values(state.territories || {})) {
     if (t.threatAt > now) {
       const g = Object.values(t.garrison || {}).reduce((a, b) => a + b, 0);
-      push('warn', `Attaque annoncée sur « ${outpostLabel(t)} » dans ${fmtTime(t.threatAt - now)} (garnison ${g}/${garrisonNeed(t)}).`, 'territories', { id: 'threat:' + t.id });
+      push('warn', `Attaque annoncée sur « ${outpostLabel(t)} » ${inTime(t.threatAt - now)} (garnison ${g}/${garrisonNeed(t)}).`, 'territories', { id: 'threat:' + t.id });
     }
   }
   // Provinces agitées : avertissement avant la révolte, avec la cause principale

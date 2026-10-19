@@ -1,0 +1,30 @@
+{
+ "large": {
+  "tiles": 960,
+  "renderMs": 70.2,
+  "mainZoom": 9.8,
+  "mainZoomP95": 22.3,
+  "mainPan": 7.9,
+  "mainPanP95": 12,
+  "frameSaver": 50.4
+ },
+ "moyen": {
+  "tiles": 960,
+  "renderMs": 58.8,
+  "mainZoom": 9.1,
+  "mainZoomP95": 20.2,
+  "mainPan": 7.4,
+  "mainPanP95": 12.1,
+  "frameSaver": 26.7
+ },
+ "mobile": {
+  "tiles": 960,
+  "renderMs": 55.7,
+  "mainZoom": 7.6,
+  "mainZoomP95": 20.9,
+  "mainPan": 6.2,
+  "mainPanP95": 9.9,
+  "frameSaver": 16.7
+ },
+ "note": "Médianes de 3 passages, tools/v16perf.cjs sur la sauvegarde de fin (sv-max), version compilée v17"
+}

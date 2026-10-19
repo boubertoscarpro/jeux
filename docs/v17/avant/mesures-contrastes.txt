@@ -1,0 +1,26 @@
+239 couleurs de texte, 25 sous le seuil
+3.7:1 < 4.5  #cc5a4c  .bad
+3.7:1 < 4.5  #cc5a4c  .down
+4.18:1 < 4.5  #b07c3e  .nav-icon
+4.09:1 < 4.5  #fff  .nav-badge
+4.5:1 < 4.5  #eaf6dd  .good
+3.7:1 < 4.5  #cc5a4c  .danger
+3.7:1 < 4.5  #cc5a4c  .net.neg b
+3.7:1 < 4.5  #cc5a4c  .verdict.bad
+4.09:1 < 4.5  #fff  .sub-badge
+1.02:1 < 4.5  #111  .wh-result-tier
+3.7:1 < 4.5  #cc5a4c  .bad-list li::marker
+1.02:1 < 4.5  #111  .kt-card.sel .kt-pick
+1.59:1 < 4.5  #f3fff6  .t-up.ready
+3.7:1 < 4.5  #cc5a4c  .rep-side .q-top span
+4.32:1 < 4.5  #2f6b2a  .parchment .ok
+3.59:1 < 4.5  #8a6418  .parchment .gold-text
+4.5:1 < 4.5  #eaf6dd  .btn.good
+4.5:1 < 4.5  #eaf6dd  .mini.good
+1.05:1 < 4.5  #1d1812  .br-tier.on
+4.09:1 < 4.5  #fff  .tb-badge
+3.69:1 < 4.5  #fff  .hb-urgent
+2.26:1 < 4.5  #1d1812  .op-t
+1.04:1 < 4.5  rgba(40, 30, 15, 0.45)  .op-t.free .op-plus
+1.05:1 < 4.5  #1d1812  .op-t.free:hover .op-plus
+1.05:1 < 4.5  #1d1812  .op-t.free:focus-visible .op-plus

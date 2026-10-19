@@ -1,3 +1,5 @@
+import { a11yPrefs } from '../../systems/a11y.js';
+import { TEXT_SCALES, TOAST_SECS, COLOR_VISION } from '../../data/a11y.js';
 import { coatSvg, bannerSvg, sealSvg } from '../heraldry.js';
 import { heraldryOf, tinctures, setHeraldry } from '../../systems/heraldry.js';
 import { FIELDS, CHARGES, BANNER_SHAPES, SEAL_SHAPES, MOTTO_MAX } from '../../data/heraldry.js';
@@ -91,6 +93,7 @@ const kingdomView = {
           <div class="form-row"><label>Densité</label><div class="seg">${[['normal', 'Confortable'], ['compact', 'Compacte']].map(([k, l]) => `<button class="mini ${(s.meta.density || 'normal') === k ? 'selected' : ''}" data-action="pref-density" data-k="${k}">${l}</button>`).join('')}</div></div>
           <div class="form-row"><label>Aides</label><div class="seg"><button class="mini ${s.meta.tipsOff ? '' : 'selected'}" data-action="tips-toggle">${s.meta.tipsOff ? 'Fiches désactivées' : 'Fiches de tutoriel actives'}</button></div></div>
         </div>
+        ${a11yCard(s)}
         <div class="card"><h2>💾 Sauvegarde</h2>
           <p class="muted small">Sauvegarde automatique toutes les 15 s dans votre navigateur (avec une copie de secours toutes les 10 min). Format de sauvegarde v${s.version}. Progression hors-ligne : jusqu’à 12 h.</p>
           <div class="row gap wrap"><button class="btn" data-action="tips-toggle">${s.meta.tipsOff ? '📘 Réactiver les conseils' : '📘 Désactiver les conseils'}</button><button class="btn" data-action="save-now">💾 Sauvegarder</button><button class="btn" data-action="save-file">⬇️ Télécharger (.json)</button><button class="btn" data-action="export">📤 Code texte</button><label class="btn">📂 Charger un fichier<input type="file" accept=".json,application/json,text/plain" data-change="import-file" hidden></label><button class="btn" data-action="import">📥 Importer le code</button><button class="btn ghost danger" data-action="reset">🗑️ Nouvelle partie</button></div>
@@ -165,6 +168,27 @@ const kingdomView = {
     reset: (app) => app.confirm('<h3>🗑️ Nouvelle partie</h3><p>Effacer définitivement ce royaume et en fonder un nouveau ? Vous pourrez choisir une autre spécialisation, origine et difficulté.</p><p class="small muted">Conseil : téléchargez d’abord votre sauvegarde (.json) si vous voulez pouvoir y revenir.</p>', 'Effacer et recommencer', () => { deleteSave(); app.state = null; location.reload(); }),
   },
 };
+// v17 : réglages d'accessibilité regroupés (valeurs par défaut sûres, enregistrés avec la partie)
+function a11yCard(s) {
+  const a = a11yPrefs(s);
+  const seg = (k, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button class="mini ${String(a[k]) === String(v) ? 'selected' : ''}" aria-pressed="${String(a[k]) === String(v)}" data-action="a11y" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`;
+  const onoff = (k, on = 'Oui', off = 'Non') => seg(k, [[true, on], [false, off]]);
+  return `<div class="card a11y-card"><h2>♿ Accessibilité</h2>
+    <p class="muted small">Pour lire, voir et jouer confortablement. Chaque réglage s’applique tout de suite et se garde avec la partie.</p>
+    <div class="form-row"><label>Taille du texte</label>${seg('textScale', TEXT_SCALES.map((v) => [v, `${Math.round(v * 100)} %`]))}</div>
+    <div class="form-row"><label>Contraste élevé</label>${onoff('contrast')}</div>
+    <div class="form-row"><label>Couleurs</label>${seg('colorVision', Object.entries(COLOR_VISION))}</div>
+    <p class="small muted">Les modes pour daltoniens changent aussi les couleurs des cartes et des jauges ; flèches, formes et libellés accompagnent toujours les couleurs.</p>
+    <div class="form-row"><label>Police</label>${seg('font', [['default', 'Habituelle'], ['readable', 'Plus lisible']])}</div>
+    <div class="form-row"><label>Météo sur les cartes</label>${onoff('weather', 'Affichée', 'Masquée')}</div>
+    <div class="form-row"><label>Jour et nuit</label>${onoff('night', 'Affichés', 'Toujours le jour')}</div>
+    <div class="form-row"><label>Noms des bâtiments</label>${onoff('showNames', 'Toujours', 'Au survol et de près')}</div>
+    <div class="form-row"><label>Durée des messages</label>${seg('toastSec', TOAST_SECS.map((v) => [v, `${v} s`]))}</div>
+    <div class="form-row"><label>Mode simplifié</label>${onoff('simple', 'Activé', 'Désactivé')}</div>
+    <p class="small muted">Le mode simplifié masque les systèmes avancés que vous n’avez pas encore débloqués (Roue, éclats, décorations, filtres de la carte…). Rien n’est perdu : tout revient en le désactivant. Les animations se règlent plus haut (« Réduites »).</p>
+  </div>`;
+}
+
 export default kingdomView;
 // v16 « Le Château » : le profil (médaillon aux armoiries) et les réglages (engrenage) reprennent les cartes de cet
 // écran ; mêmes actions

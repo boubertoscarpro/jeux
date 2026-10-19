@@ -41,8 +41,8 @@ export function updateSceneFx(stage, scene, kind = 'city') {
   const keep = [...stage.classList].filter((k) => !/^(wx-|light-|sign-|is-winter)/.test(k));
   const next = [...keep, ...sceneClasses(scene).split(' ').filter(Boolean)].join(' ');
   if (stage.className !== next) stage.className = next;
-  const lt = stage.querySelector('.fx-light');
-  if (lt) { const [r, g, b] = scene.light.tint; lt.style.setProperty('--lt', `rgba(${r},${g},${b},${scene.light.a.toFixed(3)})`); }
+  // v17 : la lumière existe aussi dans la carte du royaume (sous les marques) : on met à jour toutes les couches
+  for (const lt of stage.querySelectorAll('.fx-light')) { const [r, g, b] = scene.light.tint; lt.style.setProperty('--lt', `rgba(${r},${g},${b},${scene.light.a.toFixed(3)})`); }
   const old = stage.querySelector('.scene-legend');
   const html = sceneLegend(scene, kind);
   if ((old?.outerHTML || '') !== html) { if (old) old.remove(); if (html) stage.insertAdjacentHTML('beforeend', html); }

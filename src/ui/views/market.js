@@ -14,7 +14,7 @@ function spark(hist, base) {
   const pts = hist.map((v, i) => `${(i / (hist.length - 1)) * w},${h - ((v - min) / (max - min || 1)) * h}`).join(' ');
   const by = h - ((base - min) / (max - min || 1)) * h;
   const up = hist[hist.length - 1] >= hist[0];
-  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><line x1="0" x2="${w}" y1="${by}" y2="${by}" class="spark-base"/><polyline points="${pts}" class="${up ? 'up' : 'down'}"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><line x1="0" x2="${w}" y1="${by}" y2="${by}" class="spark-base"/><polyline points="${pts}" class="${up ? 'up' : 'down'}"/><text x="${w - 1}" y="9" text-anchor="end" class="spark-dir">${up ? '▲' : '▼'}</text></svg><span class="sr-only">${up ? 'tendance en hausse' : 'tendance en baisse'}</span>`;
 }
 
 export default {
@@ -39,7 +39,7 @@ export default {
         const ratio = p / base;
         const sq = quote(s, r, qty, -1, mods), bq = quote(s, r, qty, 1, mods);
         return `<tr><td>${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)}</td><td class="num">${fmt(s.resources[r] || 0)}</td>
-          <td class="num"><b>${p.toFixed(2)}</b> <span class="${ratio > 1.05 ? 'up' : ratio < 0.95 ? 'down' : 'muted'} small">${ratio > 1 ? '+' : ''}${Math.round((ratio - 1) * 100)}%</span></td>
+          <td class="num"><b>${p.toFixed(2)}</b> <span class="trend ${ratio > 1.05 ? 'up' : ratio < 0.95 ? 'down' : 'flat'} small" title="${ratio > 1.05 ? 'Cours au-dessus de la référence' : ratio < 0.95 ? 'Cours au-dessous de la référence' : 'Cours proche de la référence'}">${ratio > 1.05 ? '▲' : ratio < 0.95 ? '▼' : '●'} ${ratio > 1 ? '+' : ''}${Math.round((ratio - 1) * 100)} %<span class="sr-only"> ${ratio > 1.05 ? 'en hausse' : ratio < 0.95 ? 'en baisse' : 'stable'}</span></span></td>
           <td>${spark(s.market.history[r], base)}</td>
           <td><button class="mini" data-action="sell" data-r="${r}" ${!lvl || (s.resources[r] || 0) < qty ? 'disabled' : ''}>+${fmt(sq.total)} 🪙</button></td>
           <td><button class="mini" data-action="buy" data-r="${r}" ${!lvl || s.resources.gold < bq.total ? 'disabled' : ''}>−${fmt(bq.total)} 🪙</button></td></tr>`;

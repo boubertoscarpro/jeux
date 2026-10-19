@@ -108,7 +108,9 @@ export function creationScreen(onStart, prev = {}) {
     root.querySelectorAll('input[name="kt-diff"]').forEach((i) => { i.onchange = () => { keep(); st.difficulty = i.value; render(); }; });
     root.querySelectorAll('input[name="kt-scen"]').forEach((i) => { i.onchange = () => { keep(); st.scenario = i.value; render(); }; });
     const det = root.querySelector('.kt-options');
+    // v17 : options dépliées remontées en haut de l'écran (sinon elles restent sous le pied de page collant)
     det.ontoggle = () => { st.optsOpen = det.open; };
+    det.querySelector('summary').onclick = (e) => { e.preventDefault(); det.open = !det.open; st.optsOpen = det.open; if (det.open) det.scrollIntoView?.({ block: 'start' }); };
     root.querySelector('#intro-review').onclick = () => { keep(); if (st.type) { st.step = 'confirm'; render(); } };
   };
   render();

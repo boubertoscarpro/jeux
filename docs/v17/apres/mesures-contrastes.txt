@@ -1,0 +1,10 @@
+== mode normal
+261 couleurs de texte, 0 sous le seuil
+== mode hc
+261 couleurs de texte, 0 sous le seuil
+== mode cb-deut
+261 couleurs de texte, 0 sous le seuil
+== mode cb-prot
+261 couleurs de texte, 0 sous le seuil
+== mode cb-trit
+261 couleurs de texte, 0 sous le seuil

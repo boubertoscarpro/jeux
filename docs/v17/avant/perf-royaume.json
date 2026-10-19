@@ -1,0 +1,20 @@
+{
+  "large": {
+    "renderMs": 678.7,
+    "frameMedian": 51.6,
+    "frameP95": 716.4,
+    "tiles": 960
+  },
+  "moyen": {
+    "renderMs": 203.9,
+    "frameMedian": 64.9,
+    "frameP95": 190.7,
+    "tiles": 960
+  },
+  "mobile": {
+    "renderMs": 191.7,
+    "frameMedian": 45.3,
+    "frameP95": 75.3,
+    "tiles": 960
+  }
+}

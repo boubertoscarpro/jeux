@@ -119,7 +119,7 @@ export function castleCard(app) {
   return `<div class="card castle-card"><h3>🏰 ${esc(castleName(s))} <span class="muted small">${esc(st.name)}${nextSt ? ` · prochain palier : ${esc(nextSt.name)} (HdV ${nextSt.th})` : ''}</span></h3>
     <div class="castle-cols">
       <div><h4>Enceinte</h4>
-        <div class="small">${rectW(r)} × ${rectH(r)} cases · périmètre <b>${perimeter(r)}</b> segments · facteur de muraille <b>×${wallFactor(s).toFixed(2)}</b> <span class="muted">(maximum ${mx.w} × ${mx.h} pour ce domaine)</span></div>
+        <div class="small">${rectW(r)} × ${rectH(r)} cases · périmètre <b>${perimeter(r)}</b> segments · facteur de muraille <b>×${wallFactor(s).toFixed(2)}</b> <button class="mini ghost why-btn" data-action="why" data-what="def" aria-label="Pourquoi : d’où vient la défense de la ville ?">Pourquoi ?</button> <span class="muted">(maximum ${mx.w} × ${mx.h} pour ce domaine)</span></div>
         <div class="small muted">Compacte = mieux défendue ; étendue = plus de place dans la cour, mais une muraille plus longue à tenir. Agrandir coûte selon les segments ajoutés et le niveau de la muraille.</div>
         <div class="enc-sides">${sides}</div>
         <div class="small">Muraille : <b>${wl ? `${esc(wallStyle(wl).name)} niv. ${wl}` : 'aucune (enceinte projetée)'}</b>${ml ? ` · douves niv. ${ml}` : ''} · chance de brèche si un raid l’emporte : <b>${Math.round(breachChance(s) * 100)} %</b></div>

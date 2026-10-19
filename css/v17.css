@@ -1,0 +1,267 @@
+/* v17 « Clair comme le jour » — lisibilité, accessibilité, calques. Chargé après v16b.css. */
+
+/* ───── Carte du royaume : marques rangées dans leur case, jamais l'une sur l'autre ─────
+   Coin haut gauche : écusson de niveau ; coin haut droit : le signal (un seul) ; bas : le nom (vue rapprochée,
+   survol, focus, sélection ou réglage « Afficher les noms »). Les anciennes marques v10–v16 ne s'affichent plus. */
+.city-vp .t-up, .city-vp .t-lvl, .city-vp .t-flag, .city-vp .t-bubble, .city-vp .t-hero, .city-vp .t-risk { display: none !important; }
+.city-vp .t-crest { position: absolute; left: 2px; top: 2px; z-index: 6; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 4px 4px 7px 7px; font: 700 10px/15px var(--font); text-align: center; color: #f6e7bd; background: #2b2118; border: 1px solid #8a6a3e; pointer-events: none; transform: scale(var(--bz, 1)); transform-origin: top left; opacity: 0.92; }
+.city-vp .t-sig { position: absolute; right: 2px; top: 2px; z-index: 7; display: inline-flex; align-items: center; justify-content: center; gap: 1px; min-width: 20px; height: 20px; padding: 0 3px; border-radius: 10px; font: 700 11px/1 var(--font); color: #1d1812; background: #fff6dc; border: 2px solid #6a4a28; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); cursor: pointer; transform: scale(var(--bz, 1)); transform-origin: top right; }
+.city-vp .t-sig i { font-style: normal; font-size: 12px; line-height: 1; }
+.city-vp .t-sig b { font-size: 10px; }
+.city-vp .t-sig.sig-danger { background: #ffe1da; border-color: #a5261b; }
+.city-vp .t-sig.sig-reward { background: #fff1b8; border-color: #8a6418; }
+.city-vp .t-sig.sig-problem { background: #ffe9c7; border-color: #8a4d12; }
+.city-vp .t-sig.sig-upgrade { background: #dff5e5; border-color: #1f6b3c; color: #10381f; }
+.city-vp .t-sig.sig-idle { background: #e8eef5; border-color: #45607a; }
+.city-vp .t-build { position: absolute; left: auto; right: 2px; top: 2px; z-index: 7; transform: scale(var(--bz, 1)); transform-origin: top right; }
+.city-vp .t-name { top: auto; bottom: 1px; left: 50%; max-width: calc(100% - 2px); transform: translateX(-50%); transform-origin: bottom center; font-size: 10.5px; padding: 0 4px; z-index: 8; display: none; }
+.city-vp .tile.major .t-name { max-width: none; }
+.city-vp[data-zl="near"] .t-name, html.show-names .city-vp:not([data-zl="far"]) .t-name,
+.city-vp .tile:hover .t-name, .city-vp .tile:focus-visible .t-name, .city-vp .tile.sel .t-name { display: block; }
+/* Vue normale : le nom du château seul n'est plus permanent (il reste au survol, au focus, et en vue rapprochée) */
+.city-vp[data-zl="mid"] .t-name.major { display: none; }
+.city-vp[data-zl="mid"] .tile:hover .t-name.major, .city-vp[data-zl="mid"] .tile:focus-visible .t-name.major, .city-vp[data-zl="mid"] .tile.sel .t-name.major, html.show-names .city-vp[data-zl="mid"] .t-name.major { display: block; }
+/* Vue d'ensemble : silhouettes, zones et alertes seulement (danger, récompense) */
+.city-vp[data-zl="far"] .t-crest, .city-vp[data-zl="far"] .t-sig:not(.sig-danger):not(.sig-reward), .city-vp[data-zl="far"] .t-build, .city-vp[data-zl="far"] .t-name { display: none !important; }
+.city-vp[data-zl="far"] .t-sig { transform: scale(min(var(--bz, 1), 2)); }
+/* Le signal survit au masquage des flèches d'amélioration, sauf l'amélioration elle-même */
+html.hide-ups .city-vp .t-sig.sig-upgrade { display: none; }
+/* Plaques « à bâtir » : le panneau suffit ; le nom à la demande */
+.city-vp .t-name.lot-name { display: none; }
+.city-vp[data-zl="near"] .t-name.lot-name, .city-vp .tile.lot:hover .t-name.lot-name, .city-vp .tile.lot:focus-visible .t-name.lot-name, .city-vp .tile.lot.sel .t-name.lot-name { display: block; }
+/* Zones : nommées seulement en vue d'ensemble (sinon le sol les dit) */
+.city-vp:not([data-zl="far"]) .zone-label { display: none; }
+
+/* ───── Le niveau se lit sur le bâtiment : taille par paliers, plus grande qu'en v16 ───── */
+.city-vp .tile.sz-0 .b-art:not(.scaffold) { transform: scale(0.8); }
+.city-vp .tile.sz-1 .b-art:not(.scaffold) { transform: scale(0.9); }
+.city-vp .tile.sz-2 .b-art:not(.scaffold) { transform: scale(1); }
+.city-vp .tile.sz-3 .b-art:not(.scaffold) { transform: scale(1.08); }
+.city-vp .tile.sz-4 .b-art:not(.scaffold) { transform: scale(1.14); }
+.city-vp .tile.sz-5 .b-art:not(.scaffold) { transform: scale(1.2); }
+/* Variantes : orientation et teinte des toits (déterministes par case) */
+.city-vp .tile.var-1:not(.major) .b-art:not(.scaffold) { scale: -1 1; }
+.city-vp .tile.var-2:not(.major) .b-art:not(.scaffold) { filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.35)) hue-rotate(-14deg) saturate(1.08); }
+.city-vp .tile.var-3:not(.major) .b-art:not(.scaffold) { scale: -1 1; filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.35)) hue-rotate(12deg) brightness(1.04); }
+/* Quartiers : un sol commun sous les bâtiments de production identiques et voisins */
+.city-vp .tile.quart::before { content: ''; position: absolute; inset: 4px; border-radius: 10px; background: rgba(214, 186, 120, 0.22); box-shadow: inset 0 0 0 1px rgba(110, 80, 40, 0.35); pointer-events: none; z-index: 0; }
+.city-vp .tile.quart.q-n::before { top: 0; border-top-left-radius: 0; border-top-right-radius: 0; box-shadow: none; }
+.city-vp .tile.quart.q-s::before { bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: none; }
+.city-vp .tile.quart.q-e::before { right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; box-shadow: none; }
+.city-vp .tile.quart.q-w::before { left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: none; }
+
+/* ───── Météo et lumière sous les marques et l'interface (dans la carte, entre le sol et les bâtiments) ───── */
+.city-stage > .scene-fx { display: none; }
+.wx-slot { overflow: hidden; z-index: 1; }
+.wx-slot .scene-fx.in-map { position: absolute; inset: 0; z-index: auto; }
+.wx-slot .fx-wx { inset: -160px 0 0 0 !important; will-change: transform; }
+.wx-rain .wx-slot .fx-wx, .wx-storm .wx-slot .fx-wx { animation: v17-fall-rain 0.6s linear infinite; }
+.wx-snow .wx-slot .fx-wx { background-size: 160px 160px !important; animation: v17-fall-snow 8s linear infinite; }
+@keyframes v17-fall-rain { from { transform: translateY(0); } to { transform: translateY(140px); } }
+@keyframes v17-fall-snow { from { transform: translateY(0); } to { transform: translateY(160px); } }
+.city-vp[data-zl="far"] .wx-slot .fx-wx { opacity: 0.45; }
+.city-vp.moving .wx-slot .fx-wx { animation-play-state: paused; }
+html.reduce-motion .wx-slot .fx-wx, html.saver .wx-slot .fx-wx { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .wx-slot .fx-wx { animation: none !important; } }
+html.no-weather .wx-slot, html.no-weather .scene-fx .fx-wx, html.no-weather .scene-fx .fx-light { display: none !important; }
+.city-vp .city-grid { position: relative; z-index: 1; }
+/* Écusson : en vue normale, un pictogramme de palier (1 à 6 crans) ; le chiffre en vue rapprochée, au survol, au focus */
+.city-vp .t-crest b { display: none; font: inherit; }
+.city-vp .t-crest::before { content: ''; display: block; width: calc(var(--n, 1) * 4px); height: 7px; margin: 4px 0; background: radial-gradient(circle, #f3d27a 1.6px, transparent 2px) 0 0 / 4px 7px repeat-x; }
+.city-vp .t-crest[data-t="0"] { --n: 1; } .city-vp .t-crest[data-t="1"] { --n: 2; } .city-vp .t-crest[data-t="2"] { --n: 3; }
+.city-vp .t-crest[data-t="3"] { --n: 4; } .city-vp .t-crest[data-t="4"] { --n: 5; } .city-vp .t-crest[data-t="5"] { --n: 6; }
+.city-vp[data-zl="near"] .t-crest b, .city-vp .tile:hover .t-crest b, .city-vp .tile:focus-visible .t-crest b, .city-vp .tile.sel .t-crest b, html.show-names .city-vp .t-crest b { display: inline; }
+.city-vp[data-zl="near"] .t-crest::before, .city-vp .tile:hover .t-crest::before, .city-vp .tile:focus-visible .t-crest::before, .city-vp .tile.sel .t-crest::before, html.show-names .city-vp .t-crest::before { display: none; }
+
+/* ───── Plans de ville : aperçu ───── */
+.city-vp .tile.plan-from .b-art { opacity: 0.38; }
+.city-vp .tile.plan-to { box-shadow: inset 0 0 0 3px #fff3c4; border-radius: 8px; background: repeating-linear-gradient(45deg, rgba(255, 243, 196, 0.22) 0 6px, transparent 6px 12px); }
+.city-vp .t-ghost { position: absolute; inset: 10px; display: flex; align-items: center; justify-content: center; opacity: 0.75; pointer-events: none; z-index: 3; }
+.plan-bar { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 26; max-width: calc(100% - 24px); padding: 8px 12px; border-radius: 10px; background: rgba(22, 18, 14, 0.94); border: 1px solid #c9a54a; color: var(--ivory); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+.trend { font-weight: 700; white-space: nowrap; }
+.trend.up { color: #8fe0a4; }
+.trend.down { color: #ffab9f; }
+.plan-slots { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+/* ───── Affichage fixe plus léger ───── */
+.hud-l { width: 214px; background: rgba(22, 18, 14, 0.72); border-color: rgba(90, 70, 48, 0.7); padding: 6px; gap: 5px; }
+.hud-l .hud-q { background: transparent; border-color: rgba(74, 58, 40, 0.8); padding: 4px 6px; }
+.hud-l .hud-q.lead { background: rgba(255, 255, 255, 0.05); border-color: #8a6a3e; }
+.hud-more-q > summary { cursor: pointer; color: var(--ivory-dim); padding: 2px 4px; list-style-position: inside; }
+.hud-more-q[open] { display: flex; flex-direction: column; gap: 5px; }
+.hud-adv { padding: 4px 6px; }
+.hud-adv .adv-pt { width: 32px; height: 32px; font-size: 17px; }
+.hud-adv .adv-tx small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hud-bl { flex-basis: 300px; }
+.feed-line { animation-duration: 9s; background: rgba(22, 18, 14, 0.8); }
+@keyframes v16-feed { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@media (max-width: 1200px) { .hud-l { width: 196px; } }
+.win-sum { flex-shrink: 0; margin: 0; padding: 7px 14px; font-size: 14px; color: #f3e6c4; background: rgba(201, 165, 74, 0.1); border-bottom: 1px solid #4a3a28; }
+/* Tendances : flèche, mot (lecteur d'écran) et motif, jamais la couleur seule */
+.trend.flat { color: var(--ivory-dim); }
+.spark polyline.down { stroke-dasharray: 3 2; }
+.spark .spark-dir { font: 700 8px var(--font); fill: var(--ivory-dim); }
+
+/* ───── Échelle typographique (v17) : 5 tailles, chiffres alignés, 13 px au moins (14 px sur téléphone) ───── */
+:root { --fs-1: 13px; --fs-2: 14px; --fs-3: 16px; --fs-4: 19px; --fs-5: 23px; --text-scale: 1; }
+html { font-size: calc(14px * var(--text-scale)); }
+body { font-variant-numeric: tabular-nums; }
+#hud, #win-root, #modal-root, #toasts { font-size: calc(var(--fs-2) * var(--text-scale)); }
+#hud .small, #win-root .small, #modal-root .small, #hud small, #win-root small, #modal-root small,
+#win-root .muted.small, #win-root .chip, #win-root td, #win-root th, #modal-root td, #modal-root th, #win-root .mini, #modal-root .mini, #hud .mini,
+#win-root .tag, #win-root .badge, #win-root label, #hud .hud-th, #hud .hud-power, #hud .hud-time, .hq, .feed-line, .hud-q summary, .hud-alert, .hud-adv .adv-tx, .hud-adv .adv-tx small,
+.bp-n, .bp-c, .bp-tab, .win-tab, .sl, .toast, #win-root .res-chip, #win-root .cost, #win-root .num, .hres, .hud-cur { font-size: calc(var(--fs-1) * var(--text-scale)) !important; }
+#hud .hb, #win-root .hb { font-size: calc(12px * var(--text-scale)) !important; min-width: 19px; height: 19px; line-height: 19px; }
+.hud-a small, .hud-globe small, .hud-act .act-t { font-size: calc(var(--fs-1) * var(--text-scale)) !important; }
+.hud-a { width: auto; min-width: 62px; padding: 0 6px; border-radius: 30px; }
+#win-root h2, #modal-root h2 { font-size: calc(var(--fs-4) * var(--text-scale)); }
+#win-root h3, #modal-root h3 { font-size: calc(var(--fs-3) * var(--text-scale)); }
+@media (max-width: 700px) {
+  #hud .small, #win-root .small, #modal-root .small, #hud small, #win-root small, #modal-root small,
+  #win-root .muted.small, #win-root .chip, #win-root td, #win-root th, #modal-root td, #modal-root th, #win-root .mini, #modal-root .mini, #hud .mini,
+  #win-root .tag, #win-root .badge, #win-root label, .hq, .feed-line, .hud-q summary, .hud-alert, .bp-n, .bp-c, .bp-tab, .win-tab, .sl, .toast, #win-root .res-chip, #win-root .cost, #win-root .num, .hres, .hud-cur,
+  .hud-a small, .hud-globe small, .hud-act .act-t { font-size: calc(var(--fs-2) * var(--text-scale)) !important; }
+  #hud, #win-root, #modal-root { font-size: calc(15px * var(--text-scale)); }
+  .hud-a { min-width: 0; flex: 1 1 0; padding: 0 2px; }
+}
+
+/* ───── Accessibilité : contraste élevé, daltonisme, police, nuit, mode simplifié ───── */
+/* Couleurs de sens (texte) relevées pour WCAG AA sur les fonds sombres */
+:root { --blood: #f07a6c; --bad: #f07a6c; --forest: #86c070; --good: #86c070; --sig-bad: #a5261b; --sig-good: #1f6b3c; --gauge-good: #8fc06a; --gauge-full: #e2b84a; --gauge-bad: #e2574a; }
+html.hc { --ivory: #ffffff; --ivory-dim: #eae2cf; --muted: #eae2cf; --text: #ffffff; --line: #b39566; --line-l: #d6b77d; --gold: #ffd86b; --stone-900: #000000; --stone-850: #070605; --stone-800: #0d0b08; --stone-700: #15120e; --panel: #0d0b08; --panel2: #15120e; --bg: #000; --bg2: #070605; }
+html.hc .hud-panel, html.hc .hud-tl, html.hc .hud-tc .hres-row, html.hc .hud-tr, html.hc .hud-l, html.hc .hud-bc, html.hc .hud-actions, html.hc .feed-line, html.hc .win, html.hc .modal, html.hc .build-panel { background: #000 !important; border-color: #ffd86b !important; }
+html.hc .muted, html.hc .small.muted { color: #eae2cf !important; }
+html.hc :focus-visible { outline: 3px solid #ffffff !important; outline-offset: 2px; box-shadow: 0 0 0 6px #000; }
+html.hc .city-vp .t-crest, html.hc .city-vp .t-sig { border-width: 2px; border-color: #000; }
+html.hc .city-vp .t-name { background: #000; color: #fff; }
+/* Daltonisme : on remplace le vert et le rouge de sens (texte, jauges, signaux, calques) */
+html.cb-deut, html.cb-prot { --good: #56b4e9; --forest: #56b4e9; --bad: #f0a83c; --blood: #f0a83c; --warn: #f0e442; --amber: #f0e442; --gauge-good: #56b4e9; --gauge-full: #f0e442; --gauge-bad: #e69f00; --sig-bad: #b35a00; --sig-good: #0a5a8f; }
+html.cb-trit { --good: #3cc8a4; --forest: #3cc8a4; --bad: #ff8a5c; --blood: #ff8a5c; --warn: #e79acb; --amber: #e79acb; --gauge-good: #009e73; --gauge-full: #cc79a7; --gauge-bad: #d55e00; --sig-bad: #a64000; --sig-good: #00664a; }
+.hres-g i { background: var(--gauge-good) !important; }
+.hres.full .hres-g i { background: var(--gauge-full) !important; }
+.hres.short .hres-g i { background: var(--gauge-bad) !important; }
+.city-vp .t-sig.sig-danger { border-color: var(--sig-bad); }
+.city-vp .t-sig.sig-upgrade { border-color: var(--sig-good); }
+.trend.up, .ok, .good-text { color: var(--good) !important; }
+.trend.down, .bad, .down { color: var(--bad) !important; }
+.spark polyline.up { stroke: var(--good) !important; }
+.spark polyline.down { stroke: var(--bad) !important; }
+/* Police plus lisible (sans empattement, présente sur le système : rien à télécharger) */
+html.font-readable { --title: Verdana, 'DejaVu Sans', Tahoma, 'Segoe UI', sans-serif; --font: Verdana, 'DejaVu Sans', Tahoma, 'Segoe UI', sans-serif; }
+html.font-readable body, html.font-readable button, html.font-readable input, html.font-readable select { font-family: var(--font); letter-spacing: 0.01em; }
+html.font-readable h1, html.font-readable h2, html.font-readable h3 { font-family: var(--font); letter-spacing: 0; text-transform: none; }
+/* Toujours le jour */
+html.no-night .fx-light { display: none !important; }
+/* Mode simplifié : les systèmes avancés pas encore utiles disparaissent (rien n'est perdu) */
+html.simple .hud-cur, html.simple .hud-r .hud-act[data-view="wheel"], html.simple .hud-r .hud-act[data-view="event"], html.simple .bp-tab[data-k="deco"], html.simple .bp-tab[data-k="places"], html.simple .map-filters .chip[data-action="map-filter"], html.simple .places .place.locked, html.simple .adv-only { display: none !important; }
+
+/* ───── Contrastes (WCAG AA, vérifiés par tests/contrast17.test.js) ───── */
+.nav-badge, .sub-badge, .tb-badge { background: #b3261e !important; color: #fff; --contrast-bg: #b3261e; }
+.hb-urgent { background: #b3261e !important; color: #fff; --contrast-bg: #b3261e; }
+html.cb-deut .hb-urgent, html.cb-prot .hb-urgent, html.cb-trit .hb-urgent { background: #8a3b00 !important; }
+.wh-result-tier { background: color-mix(in srgb, var(--tc) 40%, #f3e6c4); color: #111; --contrast-bg: #c9b6d2; }
+.kt-card.sel .kt-pick { background: color-mix(in srgb, var(--kt) 40%, #f3e6c4); color: #111; --contrast-bg: #c3b4b4; }
+.br-tier.on { background: color-mix(in srgb, var(--c) 45%, #f3e6c4); color: #1d1812; --contrast-bg: #d3b0c8; }
+.t-up.ready { color: #10381f; --contrast-bg: #73e09f; }
+.brand-castle { color: #c9a24c; }
+.nav-icon { color: #d29b55; }
+.parchment .ok { color: #245020; --contrast-bg: #e8dbbd; }
+.parchment .gold-text { color: #634510; --contrast-bg: #e8dbbd; }
+.good, .btn.good, .mini.good { background: linear-gradient(180deg, #3f6831, #2c4c22); color: #f1fbe9; }
+.op-t { --contrast-bg: #a8b07c; }
+.op-t.free .op-plus { color: rgba(30, 22, 10, 0.8); --contrast-bg: #a8b07c; }
+.op-t.free:hover .op-plus, .op-t.free:focus-visible .op-plus { --contrast-bg: #a8b07c; }
+.skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 10px; background: #000; color: #fff; border: 2px solid #ffd86b; font-weight: 700; }
+.skip-link:focus { top: 12px; }
+.why-btn { padding: 1px 8px; }
+.kt-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.kt-list li { padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.hres[role="button"] { cursor: help; }
+table.why th { text-align: left; font-weight: 500; padding-right: 14px; }
+/* Cibles tactiles : 44 × 44 px au moins sur téléphone (affichage fixe, fenêtres, dialogues) */
+@media (max-width: 700px), (pointer: coarse) {
+  #hud button, #hud .hres, #win-root button, #modal-root button, #win-root select, #modal-root select, #hud select { min-height: 44px; min-width: 44px; }
+  .city-vp .t-sig { min-width: 26px; height: 26px; }
+}
+/* Plancher typographique : les petites étiquettes héritées (v10–v16) passent à 13 px (14 px sur téléphone) */
+:is(#hud, #win-root, #modal-root) :is(.res-st, .lvl, h4, .countdown, .req, .tab, .tier, .tag-ex, .emo, .vs, .tag-rot, .rarity, .ok, .muted, .grow, .season-fore, .cal-cd, .kingdom-badge, .wh-rw, .log-line, .bad, .warn-text, .chip, .q-top, .note, .hint, .chapter-pill) { font-size: max(calc(var(--fs-1) * var(--text-scale)), 1em) !important; }
+:is(#hud, #win-root, #modal-root) :is(span, b, i, em, strong, a):not([class]) { font-size: max(calc(var(--fs-1) * var(--text-scale)), 1em); }
+:is(#hud, #win-root, #modal-root) .res-st { font-size: calc(var(--fs-1) * var(--text-scale)) !important; }
+@media (max-width: 700px) {
+  :is(#hud, #win-root, #modal-root) :is(.res-st, .lvl, h4, .countdown, .req, .tab, .tier, .tag-ex, .emo, .vs, .tag-rot, .rarity, .ok, .muted, .grow, .season-fore, .cal-cd, .kingdom-badge, .wh-rw, .log-line, .bad, .warn-text, .chip, .q-top, .note, .hint, p, li, div) { font-size: max(calc(var(--fs-2) * var(--text-scale)), 1em) !important; }
+  :is(#hud, #win-root, #modal-root) :is(span, b, i, em, strong, a):not([class]) { font-size: max(calc(var(--fs-2) * var(--text-scale)), 1em); }
+}
+
+/* ───── Calques d'information : motif + couleur + libellé (lecteurs d'écran), jamais la couleur seule ───── */
+:root { --lay-0: rgba(120, 120, 120, 0.25); --lay-1: rgba(240, 215, 120, 0.45); --lay-2: rgba(230, 140, 50, 0.55); --lay-3: rgba(200, 50, 40, 0.62); }
+html.cb-deut, html.cb-prot { --lay-1: rgba(240, 228, 66, 0.45); --lay-2: rgba(86, 180, 233, 0.55); --lay-3: rgba(0, 114, 178, 0.68); }
+html.cb-trit { --lay-1: rgba(204, 121, 167, 0.4); --lay-2: rgba(230, 159, 0, 0.55); --lay-3: rgba(213, 94, 0, 0.66); }
+.city-stage.layer-on .city-vp .t-sig, .city-stage.layer-on .city-vp .t-crest { display: none !important; }
+.city-vp .t-lay { position: absolute; inset: 3px; border-radius: 8px; z-index: 5; pointer-events: none; border: 2px solid rgba(20, 14, 8, 0.6); }
+.city-vp .lay-0 .t-lay { background: var(--lay-0); }
+.city-vp .lay-1 .t-lay { background: radial-gradient(circle, rgba(20, 14, 8, 0.55) 1.6px, transparent 2.2px) 0 0 / 9px 9px, var(--lay-1); }
+.city-vp .lay-2 .t-lay { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.45) 0 2px, transparent 2px 8px), var(--lay-2); }
+.city-vp .lay-3 .t-lay { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.5) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(20, 14, 8, 0.5) 0 2px, transparent 2px 7px), var(--lay-3); border-width: 3px; }
+.layer-bar { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: auto; }
+.layer-btns { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(22, 18, 14, 0.9); border: 1px solid #5a4630; }
+.layer-btns .hud-btn.on { border-color: #ffd86b; box-shadow: 0 0 0 2px #c9a54a; }
+.layer-legend { max-width: 290px; padding: 8px 10px; border-radius: 12px; background: rgba(22, 18, 14, 0.94); border: 1px solid #8a6a3e; color: var(--ivory); display: flex; flex-direction: column; gap: 3px; }
+.layer-legend ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
+.layer-legend li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.lay-sw { display: inline-block; width: 18px; height: 18px; border-radius: 4px; border: 2px solid rgba(255, 255, 255, 0.6); flex: none; }
+.lay-sw.lay-0 { background: var(--lay-0); }
+.lay-sw.lay-1 { background: radial-gradient(circle, rgba(20, 14, 8, 0.6) 1.4px, transparent 2px) 0 0 / 7px 7px, var(--lay-1); }
+.lay-sw.lay-2 { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.5) 0 2px, transparent 2px 6px), var(--lay-2); }
+.lay-sw.lay-3 { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.55) 0 2px, transparent 2px 5px), repeating-linear-gradient(-45deg, rgba(20, 14, 8, 0.55) 0 2px, transparent 2px 5px), var(--lay-3); }
+
+/* ───── Frise du temps ───── */
+.hud-timeline { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100% - 700px)); min-width: 260px; display: flex; align-items: center; gap: 6px; pointer-events: auto; z-index: 2; }
+.hud-timeline.closed { width: auto; min-width: 0; }
+.hud-timeline .tl-axis { position: relative; flex: 1; height: 34px; border-radius: 10px; background: rgba(22, 18, 14, 0.78); border: 1px solid #5a4630; }
+.tl-axis::before { content: ''; position: absolute; left: 10px; right: 10px; top: 50%; height: 2px; background: rgba(243, 230, 196, 0.35); }
+.tl-now, .tl-end { position: absolute; bottom: -19px; font-size: 13px !important; color: var(--ivory-dim); text-shadow: 0 1px 2px #000; }
+.tl-now { left: 4px; } .tl-end { right: 4px; }
+.tl-pt { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; border: 2px solid #8a6a3e; background: #2b2118; font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; margin-left: 12px; }
+.tl-pt.tl-danger { border-color: #ff8a7a; background: #4a1a14; }
+.tl-pt:focus-visible { outline: 3px solid #fff3c4; }
+.tl-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; color: var(--ivory); background: rgba(22, 18, 14, 0.95); padding: 0 8px; border-radius: 6px; }
+@media (max-width: 1200px) { .hud-timeline { top: 120px; left: auto; right: 84px; transform: none; width: min(420px, calc(100% - 330px)); } }
+@media (max-width: 700px) { .hud-timeline { top: 104px; right: 64px; left: auto; width: auto; } .hud-timeline:not(.closed) { left: 6px; right: 6px; width: auto; min-width: 0; } }
+
+/* ───── Quête guidée : une flèche qui pulse au-dessus du bâtiment ou du bouton (jamais bloquante) ───── */
+.city-vp .tile.guide::after { content: '⬇'; position: absolute; left: 50%; top: -34px; transform: translateX(-50%) scale(var(--bz, 1)); font: 700 26px/1 var(--font); color: #ffd86b; text-shadow: 0 0 4px #000, 0 2px 0 #000; z-index: 9; pointer-events: none; animation: v17-guide 1.1s ease-in-out infinite; }
+.hud .tut-hl { position: relative; }
+.hud .tut-hl::after { content: '⬇'; position: absolute; left: 50%; top: -30px; transform: translateX(-50%); font: 700 22px/1 var(--font); color: #ffd86b; text-shadow: 0 0 4px #000; animation: v17-guide 1.1s ease-in-out infinite; pointer-events: none; }
+.hud-bottom .tut-hl::after { top: -30px; }
+@keyframes v17-guide { 0%, 100% { margin-top: 0; } 50% { margin-top: -8px; } }
+html.reduce-motion .tile.guide::after, html.reduce-motion .hud .tut-hl::after, html.saver .tile.guide::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .tile.guide::after, .hud .tut-hl::after { animation: none; } }
+
+/* ───── Retour du seigneur : les chantiers terminés brillent quelques secondes ───── */
+.city-vp .tile.glow-new .b-art { filter: drop-shadow(0 0 8px #ffe9a0) drop-shadow(0 0 3px #fff6dc); }
+.city-vp .tile.glow-new::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(255, 233, 160, 0.7); pointer-events: none; z-index: 0; }
+
+/* ───── Les remparts vus de face, et le schéma du rapport de raid ───── */
+.rp-svg { width: 100%; max-width: 760px; height: auto; display: block; margin: 6px auto; border-radius: 10px; }
+.rp-svg .rp-name { font: 700 14px var(--font); fill: #fff6dc; paint-order: stroke; stroke: #1d1812; stroke-width: 3.5px; }
+.rp-svg .rp-val { font: 600 13px var(--font); fill: #fff6dc; paint-order: stroke; stroke: #1d1812; stroke-width: 3.5px; }
+.rp-svg .rp-alert { font: 700 14px var(--font); fill: #ffd2c8; paint-order: stroke; stroke: #1d1812; stroke-width: 3.5px; }
+.rp-ctrls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 6px; }
+.rp-ctrl { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border-radius: 8px; border: 1px solid #4a3a28; background: rgba(255, 255, 255, 0.03); }
+.rp-ctrl select { max-width: 100%; }
+.raid-scheme { margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.rs-wall { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 6px; border-radius: 8px; background: #6e665a; border: 2px solid #2b2118; }
+.rs-sec { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-radius: 6px; background: rgba(22, 18, 14, 0.75); text-align: center; }
+.rs-sec.hit { outline: 3px dashed #ff8a7a; outline-offset: -3px; }
+.rs-losses { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.rs-dots { letter-spacing: 2px; }
+.rs-dots.mine { color: #ff9a8f; }
+.rs-dots.theirs { color: #f3e6c4; }
+#app.win-open .layer-bar, #app.win-open .hud-timeline { display: none; }
+@media (max-width: 700px) { .hud-br .layer-bar { position: absolute; right: 8px; bottom: 236px; } .hud-br .layer-bar .layer-legend { max-width: calc(100vw - 24px); } }
+/* Téléphone : la frise et les calques fermés vivent dans le tiroir « Activités » (la carte garde sa place) */
+@media (max-width: 700px) { .hud-timeline.closed, .hud-br .layer-bar.closed { display: none !important; } .hud-drawer .hud-btn { width: auto; padding: 0 10px; } }
+
+/* v17 : un problème partagé par beaucoup de bâtiments — point discret au-delà des 4 premiers (forme ronde, bord foncé) */
+.city-vp .t-sig.sig-dot { min-width: 0; width: 10px; height: 10px; padding: 0; border-width: 2px; right: 6px; top: 6px; cursor: default; }
+@media (max-width: 700px) { .city-vp .t-sig.sig-dot { min-width: 0; width: 12px; height: 12px; } }

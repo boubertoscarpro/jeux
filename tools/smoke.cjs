@@ -115,18 +115,18 @@ const path = require('path');
       if (!document.querySelector('.t-name.major')?.textContent.includes('Lumière')) out.push('nom du château absent de la carte');
     }
     // Icône d'amélioration : clic → fiche avec bloc d'amélioration
-    const ready = document.querySelector('.t-up.ready');
+    const ready = document.querySelector('.t-sig.sig-upgrade');
     if (!ready) out.push('aucune icône « améliorable » malgré des ressources abondantes');
     else { ready.click(); await wait(80); if (!document.getElementById('up-block')) out.push('icône ⬆ : panneau d’amélioration absent'); }
-    const n0 = document.querySelectorAll('.t-up.ready').length;
+    const n0 = document.querySelectorAll('.t-sig.sig-upgrade').length;
     document.querySelector('[data-action="upgrade"]:not([disabled])')?.click(); await wait(80);
-    if (document.querySelectorAll('.t-up.ready').length > n0) out.push('compteur/icônes non mis à jour après amélioration');
+    if (document.querySelectorAll('.t-sig.sig-upgrade').length > n0) out.push('compteur/icônes non mis à jour après amélioration');
     // v16 : la liste des améliorations et le masquage des icônes sont dans le panneau Construire
     a.closeModal(); a.ui.win = null; a.go('city'); a.globalActions['build-mode'](a); await wait(50);
     click('.build-panel [data-action="up-list"]'); await wait(50);
     if (!document.querySelector('.up-list')) out.push('liste des améliorations absente'); a.closeModal();
     click('.build-panel [data-action="up-toggle"]'); await wait(50);
-    if (document.querySelector('.t-up')) out.push('icônes encore visibles après masquage');
+    if (document.querySelector('.t-sig.sig-upgrade')) out.push('icônes encore visibles après masquage');
     click('.build-panel [data-action="up-toggle"]'); await wait(50);
     a.globalActions['build-mode'](a); await wait(30);
     // v16 : l'aide est dans l'en-tête de la fenêtre du lieu
