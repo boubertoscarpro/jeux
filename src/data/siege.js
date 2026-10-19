@@ -10,7 +10,10 @@ export const PROTECTIONS = {
   gate: { name: 'Porte', icon: '🚪', short: 'porte' },
   moat: { name: 'Douves', icon: '🌊', short: 'douves' },
 };
-export const MOAT_PER_LEVEL = 0.04; // part de l'ancien bonus apportée par les douves (buildings.js : 0,04 par niveau)
+export const MOAT_PER_LEVEL = 0.04;
+// Villes d'avant-poste (v16b) : leur muraille réduisait déjà la fréquence des menaces ; en v19 elle protège aussi au
+// combat, modestement (une petite place a un seul front) : +3 % par niveau de muraille, +2 % par niveau de douves
+export const OUTPOST_FORT = { wall: 0.03, moat: 0.02 }; // part de l'ancien bonus apportée par les douves (buildings.js : 0,04 par niveau)
 
 // ───────── Engins ─────────
 // Chaque engin agit sur un flanc ; son effet est dégressif : cap × (1 − e^(−n / k)) (le 50e rapporte bien moins que le

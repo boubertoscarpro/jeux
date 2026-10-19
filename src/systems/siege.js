@@ -392,7 +392,7 @@ function keySentence(r, prot) {
   const counters = Object.values(R.flanks).flatMap((x) => x.waves.flatMap((w) => w.notes.filter((n) => n.kind === 'counter' && n.pct > 0.3)));
   const drop = Object.entries(R.flanks).map(([f, x]) => ({ f, from: x.protBase, to: x.protFinal })).filter((x) => x.from != null).sort((a, b) => (b.from - b.to) - (a.from - a.to))[0];
   if (!r.breached.length) {
-    if (counters.length) { const c = counters.sort((a, b) => b.pct - a.pct)[0]; return `Aucun flanc n’a cédé : ${ENG[c.by].name.toLowerCase()} ont annulé ${pct(c.pct)} de l’effet des ${ENG[c.target].name.toLowerCase()}.`; }
+    if (counters.length) { const c = counters.sort((a, b) => b.pct - a.pct)[0]; return `Aucun flanc n’a cédé : « ${ENG[c.by].name} » contre « ${ENG[c.target].name} », ${pct(c.pct)} de son effet annulé.`; }
     return drop && drop.to > 0.05 ? `Aucun flanc n’a cédé : la protection est restée à +${pct(drop.to)} sur le ${flankName(drop.f)}.` : 'Aucun flanc n’a cédé : la garnison a tenu.';
   }
   const f = r.breached[0];
@@ -493,7 +493,20 @@ export function targetDefense(fort, poi = {}) {
     if (fort >= 0.6) engines.front.portcullis = 2;
     if (fort >= 0.8) { engines.left.hooks = 1; engines.right.hooks = 1; }
   }
-  return { prot, engines, shares: prot.oneFlank ? { left: 0, front: 0.75, right: 0, yard: 0.25 } : { left: 0.2, front: 0.35, right: 0.2, yard: 0.25 } };
+  // Adaptation : la place a retenu les engins de votre dernier assaut (poi.sgMem) et renforce leurs contres
+  let adapt = null;
+  const mem = poi.sgMem;
+  if (mem && n > 0) {
+    const plus = (f, k, v) => { engines[f][k] = (engines[f][k] || 0) + v; };
+    const why = [];
+    if (mem.ram) { plus('front', 'pitch', Math.ceil(mem.ram * 0.6)); why.push('plus de poix à la porte'); }
+    if (mem.ladders) { plus('left', 'stones', Math.ceil(mem.ladders * 0.3)); plus('right', 'stones', Math.ceil(mem.ladders * 0.3)); why.push('plus de pierres aux flancs'); }
+    if (mem.mantlets) { for (const f of FL) plus(f, 'archers', Math.ceil(mem.mantlets * 0.3)); why.push('des archères contre vos mantelets'); }
+    if (mem.fascines) { for (const f of FL) plus(f, 'stakes', Math.ceil(mem.fascines * 0.3)); why.push('des pieux contre vos fascines'); }
+    if (mem.tower) { plus('left', 'hooks', 1 + mem.tower); plus('right', 'hooks', 1 + mem.tower); why.push('des crochets contre votre tour'); }
+    if (why.length) adapt = `elle a retenu votre dernier assaut : ${why.join(', ')}`;
+  }
+  return { prot, engines, adapt, shares: prot.oneFlank ? { left: 0, front: 0.75, right: 0, yard: 0.25 } : { left: 0.2, front: 0.35, right: 0.2, yard: 0.25 } };
 }
 // Ce que le joueur sait d'une place adverse (renseignement imparfait si elle n'est pas espionnée)
 export function targetIntel(fort, poi = {}, scouted = false, seed = 1) {

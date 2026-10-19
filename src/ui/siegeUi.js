@@ -125,6 +125,7 @@ export function siegePlanHtml(app, md, tg, ctx) {
       <button class="mini primary" data-action="sp-advise" title="Effort principal sur le flanc le moins protégé, contres face aux engins annoncés">🧭 Répartition conseillée</button>
       <button class="mini ghost" data-action="sp-clear">Assaut frontal sans engin</button>
       ${Array.from({ length: PLAN_SLOTS }, (_, i) => `<span class="sg-plan">${P[i] ? `<button class="mini" data-action="sp-load" data-i="${i}">${i + 1}. ${esc(P[i].name)}</button>` : `<span class="small muted">${i + 1}. vide</span>`}<button class="mini ghost" data-action="sp-save" data-i="${i}" aria-label="Enregistrer ce plan d’attaque dans l’emplacement ${i + 1}">💾</button></span>`).join('')}</div>
+    ${tg.intel.adapt && tg.scouted ? `<p class="small warn-text">⚠ Adaptation : ${esc(tg.intel.adapt)}.</p>` : ''}
     <div class="small" id="sp-why"></div>
     ${waves}
     <h4>⚖️ Conseil de guerre</h4>${council}
@@ -202,8 +203,8 @@ export function siegeReportHtml(rep) {
       <b>${FLANKS[f].icon} ${esc(FLANKS[f].name)}</b> <span class="sg-state">${icon} ${state}</span>
       ${fought ? `<div class="small">Protection ${pctP(x.protBase || 0)} → <b>${pctP(x.protFinal || 0)}</b></div>
         ${x.waves.filter((w) => sumO(w.engines)).map((w) => `<div class="small">Vague ${w.w + 1} : ${names(w.engines)}</div>`).join('')}
-        ${counters.map((n) => `<div class="small">↯ ${esc(ENG[n.by].name)} annulent ${pct(n.pct)} des ${esc(ENG[n.target].name.toLowerCase())}</div>`).join('')}
-        ${neut.map((n) => `<div class="small">⛨ ${esc(ENG[n.by].name)} neutralisent ${pct(n.pct)} des ${esc(ENG[n.target].name.toLowerCase())}</div>`).join('')}
+        ${counters.map((n) => `<div class="small">↯ ${esc(ENG[n.by].name)} contre ${esc(ENG[n.target].name)} : ${pct(n.pct)} de son effet annulé</div>`).join('')}
+        ${neut.map((n) => `<div class="small">⛨ ${esc(ENG[n.by].name)} contre ${esc(ENG[n.target].name)} : ${pct(n.pct)} neutralisé</div>`).join('')}
         <div class="small muted">${defense ? 'Assaillants' : 'Vous'} : ${unitsTxt(x.fight.units)} · ${defense ? 'défenseurs' : 'garnison'} : ${unitsTxt(x.fight.defenders)}</div>` : ''}
     </div>`;
   };

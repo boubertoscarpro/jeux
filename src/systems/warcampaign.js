@@ -15,6 +15,10 @@ import { fmt } from '../core/util.js';
 import { thLevel, levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
 import { simulateBattle, previewBattle } from './combat.js';
+import { attackFortress, advisedAttackPlan, targetIntel, planEngines, siegeState, hashSeed } from './siege.js';
+import { ATTACK_ENGINES } from '../data/siege.js';
+
+const ENGINE_NAMES = Object.fromEntries(Object.entries(ATTACK_ENGINES).map(([k, d]) => [k, d.name.toLowerCase()]));
 import { factionPower, diplomacy, changeRelation } from './factions.js';
 import { gain } from './economy.js';
 import { bumpRep } from './reputation.js';
@@ -107,11 +111,29 @@ const opSides = (state, units, opKey, enemies, now, heroId = null) => {
   return [{ units, mods, formation: 'assault', label: state.meta.kingdomName }, { units: enemies, mods: {}, fort: op.fort || 0, formation: 'shieldwall', label: RIVALS[a.faction].name }, { terrain: op.terrain, weather: state.weather?.type || 'clear' }];
 };
 
+// v19 : les places fortes de la campagne (fort frontalier, capitale) s'assiègent par flancs et cour ; le général
+// emporte les engins utiles de l'arsenal selon le plan conseillé (contres face aux engins de défense de la place)
+function opSiege(state, sides, opKey, seed, take = false) {
+  const [att, def, ctx] = sides;
+  const fort = OPS[opKey].fort || 0;
+  const intel = targetIntel(fort, {}, true);
+  const plan = advisedAttackPlan(state, intel, { waves: 1 }).plan;
+  const need = planEngines(plan);
+  if (take) { const S = siegeState(state); for (const [k, n] of Object.entries(need)) S.arsenal.attack[k] = Math.max(0, (S.arsenal.attack[k] || 0) - n); }
+  const res = attackFortress(att, def.units, fort, {}, { terrain: ctx.terrain, weather: ctx.weather, enemyMods: def.mods, enemyFormation: def.formation, enemyLabel: def.label, seed }, plan);
+  return { res, need };
+}
 export function previewOp(state, units, now = Date.now(), heroId = bestFreeHero(state)?.id) {
   const key = currentOpKey(state);
   if (!key) return null;
   const en = opEnemies(state, key);
-  return { key, enemies: en, pv: previewBattle(...opSides(state, units, key, en, now, heroId)) };
+  const sides = opSides(state, units, key, en, now, heroId);
+  if (!(OPS[key].fort > 0)) return { key, enemies: en, pv: previewBattle(...sides) };
+  const { res, need } = opSiege(state, sides, key, 1);
+  const lost = Object.values(res.attLosses).reduce((a, b) => a + b, 0), total = Object.values(units).reduce((a, b) => a + b, 0) || 1;
+  const verdict = res.winner === 'attacker' ? (lost / total < 0.25 ? 'Victoire probable' : 'Victoire coûteuse') : lost / total > 0.8 ? 'Défaite probable' : 'Issue incertaine';
+  const eng = Object.entries(need).map(([k, n]) => `${n} ${ENGINE_NAMES[k] || k}`).join(', ');
+  return { key, enemies: en, pv: { ...res, verdict, lossRatio: lost / total, notes: [res.key, eng ? `Engins emportés de l’arsenal : ${eng}.` : 'Aucun engin d’attaque à l’arsenal : assaut sans engin.', ...res.notes] } };
 }
 
 export function chooseFinal(state, key) {
@@ -171,7 +193,15 @@ export function warTick(state, now = Date.now()) {
   const W = warState(state), a = W.active;
   if (!a?.op || a.op.end > now) return false;
   const op = a.op, def = OPS[op.key];
-  const res = simulateBattle(...opSides(state, op.units, op.key, op.enemies, op.end, op.heroId));
+  const sides = opSides(state, op.units, op.key, op.enemies, op.end, op.heroId);
+  let res;
+  if (def.fort > 0) {
+    const sg = opSiege(state, sides, op.key, hashSeed(`${a.faction}:${op.key}:${op.start}`), true);
+    res = sg.res;
+    // Engins récupérés après une victoire (une part), rendus à l'arsenal
+    const S = siegeState(state);
+    for (const [k, n] of Object.entries(res.engines.attack.recovered)) S.arsenal.attack[k] = (S.arsenal.attack[k] || 0) + Math.floor(n);
+  } else res = simulateBattle(...sides);
   for (const [u, n] of Object.entries(op.units)) state.army[u] = (state.army[u] || 0) + Math.max(0, n - (res.attLosses[u] || 0));
   const hero = op.heroId && state.heroes.find((h) => h.id === op.heroId);
   if (hero) { hero.marchId = null; giveXp(state, hero, res.winner === 'attacker' ? 200 : 60, computeMods(state, now)); }

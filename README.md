@@ -21,6 +21,21 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v19 — L'Art du siège** : l'attaque et la défense des places fortes deviennent profondes, lisibles et tactiques.
+> - **Protections** : chaque place fortifiée a une muraille (flancs), une porte (front) et des douves (partout). Cela vaut pour le château, les royaumes et leurs factions, les forteresses de la Brèche, les places des campagnes et les avant-postes. Les camps n'ont pas d'enceinte, et l'interface le dit.
+> - **Engins** : 6 d'attaque (échelles, bélier, mantelets, fascines, flèches incendiaires, tour de siège) et 6 de défense (pierres, poix, archères, pieux, herse, crochets). Chacun a un contre clair et un effet dégressif et plafonné. Ils se fabriquent à l'arsenal (file, capacité, stock minimal entretenu par l'intendant), et une limite s'applique par flanc et par vague.
+> - **Bataille par flancs, vagues et cour** : chaque flanc se résout, puis la cour, avec un bonus par flanc percé. Elle est reproductible et instantanée (0,8 ms pour 4 vagues × 3 flancs + cour).
+> - **Préparer** :
+>   - remparts : glisser-déposer ou clavier ;
+>   - défense et attaque conseillées, 3 plans de chaque ;
+>   - conseil de guerre : victoires sur 5, fourchette de pertes, contres manquants ;
+>   - tour de garde par étapes ;
+>   - rapport flanc par flanc avec une phrase clé et un court rejeu.
+> - **Les ennemis assiègent aussi et s'adaptent** à ce qu'ils ont vu (poix à la porte → par un flanc avec des mantelets), et c'est affiché. Les places retiennent vos assauts.
+> - **Équilibre vérifié par simulation** : un joueur qui ne règle rien garde ses taux de victoire d'avant ; la préparation paie (+16 à +18 points à la capitale) ; aucune stratégie ne domine.
+>
+> Aucune nouvelle monnaie, aucune ressource produite en masse, aucun avantage payant. Voir [`docs/AUDIT_V19.md`](docs/AUDIT_V19.md) et [`docs/V19.md`](docs/V19.md).
+
 > **v18 — L'Armurerie** : l'équipement des héros devient rapide, juste et gratifiant.
 > - **Valeur par rôle** : une pièce est jugée sur ce qu'elle apporte au héros dans son rôle (intendant d'un secteur, commandant de guerre, de récolte ou d'exploration), plus sur une somme d'effets.
 > - **Équiper au mieux, un héros ou toute la troupe** : 3 clics au lieu de 181, avec aperçu du gain pièce par pièce. On peut annuler. Les priorités sont réglables, et les pièces verrouillées 🔒 ou réservées 📌 ne bougent jamais. En option, le butin meilleur est équipé d'office. La comparaison ▲ ▼ s'affiche au survol et au focus, et un badge « Meilleur pour… » marque les pièces utiles.

@@ -366,3 +366,28 @@ test('Performance : un siège complet (4 vagues × 3 flancs + cour) reste instan
   }
   assert.ok((performance.now() - t1) / 20 < 400, 'un raid (lecture de sauvegarde comprise) en moins de 0,4 s');
 });
+
+test('Places fortes de la campagne et avant-postes : protections au combat', async () => {
+  const { outpostFort } = await import('../src/systems/territory.js');
+  const t = { town: { fort: { wall: 3, moat: 2 } } };
+  assert.ok(Math.abs(outpostFort(t) - (0.09 + 0.04)) < 1e-9, 'muraille 3, douves 2 : +13 %');
+  assert.equal(outpostFort({}), 0, 'sans ville fortifiée : rien');
+  // Fort frontalier d'une campagne : assiégé avec les engins conseillés de l'arsenal, qui en sortent
+  const W = await import('../src/systems/warcampaign.js');
+  const s = withWorkshop(load('save-fin'), 5);
+  SG.siegeState(s).arsenal.attack = { ram: 6, ladders: 8, mantlets: 4 };
+  const plan = SG.advisedAttackPlan(s, SG.targetIntel(0.25, {}, true), { waves: 1 }).plan;
+  assert.ok(Object.keys(SG.planEngines(plan)).length > 0, 'le général emporte des engins');
+  assert.equal(typeof W.previewOp, 'function');
+});
+
+test('Places ennemies : elles retiennent votre dernier assaut et renforcent les contres', () => {
+  const D0 = SG.targetDefense(0.5, {});
+  const D1 = SG.targetDefense(0.5, { sgMem: { ram: 8, tower: 1 } });
+  assert.ok(D1.engines.front.pitch > D0.engines.front.pitch, 'plus de poix contre le bélier');
+  assert.ok((D1.engines.left.hooks || 0) > (D0.engines.left.hooks || 0), 'des crochets contre la tour');
+  assert.match(D1.adapt, /dernier assaut/);
+  assert.equal(D0.adapt, null);
+  // Une place sans muraille n'a rien à adapter
+  assert.equal(SG.targetDefense(0, { sgMem: { ram: 8 } }).adapt, null);
+});

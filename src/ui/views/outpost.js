@@ -7,7 +7,7 @@ import {
   ensureTown, townBuildings, hallPos, tileFree, vocationOf, townFx, townSlots, townUsed, townBuildCheck, townBuild, townUpgradeCheck,
   townUpgrade, townFortCheck, townFort, townExpandCheck, townExpand, moveTownBuilding, demolishTownBuilding, catLevels, townThreatMult,
 } from '../../systems/outposts.js';
-import { specOf, outpostReport, upgradeOutpost, fillGarrison } from '../../systems/territory.js';
+import { specOf, outpostReport, upgradeOutpost, fillGarrison, outpostFort } from '../../systems/territory.js';
 import { outpostLabel } from '../../systems/identity.js';
 import { stabLevel, stabOf } from '../../systems/stability.js';
 import { resIcon } from '../icons.js';
@@ -90,7 +90,7 @@ function panel(app, t, k) {
           <div class="small">${sp ? `${sp.icon} ${esc(sp.name)}` : '<span class="req">Spécialisation à choisir (fiche complète)</span>'} · ${stabLevel(stabOf(t)).icon} stabilité ${Math.round(stabOf(t))} · garnison ${rep.st.garrison}/${rep.st.need} ${rep.st.garrison < rep.st.need ? `<button class="mini" data-action="op-garrison">Compléter</button>` : ''}</div>
           <div class="small">Production : ${Object.entries(rep.prod).filter(([, v]) => v > 0).map(([r, v]) => `${resIcon(r, 14, RESOURCES[r]?.icon)} ${fmt(v)}/h`).join(' ') || '—'} · entretien ${Object.entries(rep.upkeep).map(([r, v]) => `${resIcon(r, 14, RESOURCES[r]?.icon)} ${fmt(v)}/h`).join(' ')}</div>
           <div class="small">Vocation : ${voc ? `<b>${VOCATIONS[voc].icon} ${esc(VOCATIONS[voc].name)}</b> — ${esc(VOCATIONS[voc].role)}` : `aucune (${Object.entries(cl).map(([c, n]) => `${CAT_NAME[c]} ${n}`).join(', ') || 'aucun bâtiment'} ; il en faut 3 niveaux, sans égalité)`}</div>
-          <div class="small muted">Menaces : ×${townThreatMult(s, t).toFixed(2)} · ${esc(WALL_NAME[wallTier(T.fort.wall || 0)])}</div>
+          <div class="small muted">Menaces : ×${townThreatMult(s, t).toFixed(2)} · ${esc(WALL_NAME[wallTier(T.fort.wall || 0)])}${outpostFort(t) > 0 ? ` · protection au combat +${Math.round(outpostFort(t) * 100)} % (un seul front)` : ''}</div>
         </div>
         <div>
           ${rep.up.status !== 'max' ? `<div class="op-row"><span>⬆ Avant-poste → ${(t.level || 1) + 1}</span>${rep.up.cost ? costList(rep.up.cost, s) : ''}<button class="mini ${rep.up.status === 'ready' ? 'primary' : ''}" data-action="op-up" ${rep.up.status === 'ready' ? '' : `disabled title="${esc(rep.up.reasons[0] || '')}"`}>Améliorer</button></div>` : '<div class="small">Niveau maximal.</div>'}

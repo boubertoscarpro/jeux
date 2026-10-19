@@ -207,6 +207,8 @@ function marchBattle(state, m, enemies, t, opts = {}) {
       { terrain: terrain === 'ash' ? 'ruins' : terrain, weather: state.weather.type, enemyMods: { 'combat.atk': 0.05 * danger, 'combat.def': 0.05 * danger, ...(opts.enemyMods || {}) }, enemyFormation: opts.enemyFormation, enemyLabel: opts.enemyLabel || 'Ennemi', seed: hashSeed(m.id + ':' + t) },
       m.siegePlan || null,
     );
+    // La place retient les engins de cet assaut et renforcera leurs contres (adaptation, visible au plan de siège)
+    if (poi && m.siegePlan) { const used = planEngines(m.siegePlan); if (Object.keys(used).length) poi.sgMem = used; }
     // Engins : une part revient après un flanc percé ; le reste est perdu
     if (m.engines) { m.enginesBack = Object.fromEntries(Object.entries(res.engines.attack.recovered).map(([k, n]) => [k, Math.floor(n)]).filter(([, n]) => n > 0)); m.engines = null; }
     m.potion = null;
