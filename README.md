@@ -21,6 +21,17 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v18 — L'Armurerie** : l'équipement des héros devient rapide, juste et gratifiant.
+> - **Valeur par rôle** : une pièce est jugée sur ce qu'elle apporte au héros dans son rôle (intendant d'un secteur, commandant de guerre, de récolte ou d'exploration), plus sur une somme d'effets.
+> - **Équiper au mieux, un héros ou toute la troupe** : 3 clics au lieu de 181, avec aperçu du gain pièce par pièce. On peut annuler. Les priorités sont réglables, et les pièces verrouillées 🔒 ou réservées 📌 ne bougent jamais. En option, le butin meilleur est équipé d'office. La comparaison ▲ ▼ s'affiche au survol et au focus, et un badge « Meilleur pour… » marque les pièces utiles.
+> - **Vendre au Joaillier** (or, et des gemmes plafonnées à 6 par jour) **ou démanteler à la forge** (métal et matériaux). À l'unité, par sélection ou en masse avec des filtres, un aperçu et l'annulation : 4 clics au lieu de 889 pour vider l'inventaire.
+> - **Règles de tri** du butin, qui sont des ordres du royaume. Le plafond de 300 objets ne détruit plus rien en silence : ce qui est traité fait l'objet d'un rapport, et ce qui est utile est protégé.
+> - **Gemmes serties** : des châsses sur les objets rares et mieux, 5 gemmes à 4 qualités qu'on taille, fusionne et sertit. Les gemmes sont toujours rendues à la vente.
+> - **Pour l'équipement et les héros** : 4 ensembles, 3 tenues par héros, transmutation du +N, réforge, inventaire avec recherche, tri par gain et sélection multiple, conseils d'affectation de la taverne.
+> - **Confort** : « Tout réclamer », compositions d'armée enregistrées, maintien automatique de l'armée.
+>
+> Aucune nouvelle monnaie, aucune ressource produite en masse, aucun avantage payant. Voir [`docs/AUDIT_V18.md`](docs/AUDIT_V18.md) et [`docs/V18.md`](docs/V18.md).
+
 > **v17 — Clair comme le jour** : la même organisation, en plus lisible et accessible à tous.
 > - **Carte calme** : niveaux de détail selon le zoom, aucun nom permanent (survol, focus, vue rapprochée ou réglage « toujours »), un seul signal par bâtiment par priorité, flèches d'amélioration seulement si payables (6 au plus, masquables). Le niveau se lit sur le dessin (6 tailles, écusson à crans), les voisins varient, les quartiers partagent un sol. Les zones sont dessinées, l'enceinte projetée n'a qu'une plaque, la météo passe sous les marques. En fin de partie : 165 → 12 textes sur la carte, 0 chevauchement.
 > - **Ville aérée** : réorganisation facultative avec aperçu et annulation, 3 plans de ville enregistrables.

@@ -1,0 +1,5 @@
+normal 282 0 
+hc 282 0 
+cb-deut 282 0 
+cb-prot 282 0 
+cb-trit 282 0 

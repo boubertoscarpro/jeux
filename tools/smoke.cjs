@@ -236,6 +236,26 @@ const path = require('path');
     a.ui.craftTab = 'forge'; a.go('craft'); await wait(60);
     click('[data-action="cm-start"]'); await wait(60);
     if (!s.commissions.active) out.push('v11 : commande prestigieuse non acceptée');
+    // v18 « L'Armurerie » : équiper toute la troupe (aperçu, valider, annuler), gemmes, règles, vente en masse, tout réclamer
+    a.ui.craftTab = 'inv'; a.ui.heroTab = 'heroes'; a.go('heroes'); await wait(60);
+    click('[data-action="ae-team"]'); await wait(60);
+    if (!document.querySelector('#modal-root.open')) out.push('v18 : aperçu de l’équipement automatique absent');
+    if (document.querySelector('[data-action="ae-apply"]')) { click('[data-action="ae-apply"]'); await wait(60); click('[data-action="armory-undo"]'); await wait(60); } else a.closeModal();
+    a.ui.heroTab = 'advice'; a.render(); await wait(40);
+    if (!document.querySelector('.advice-list, [data-action="hero-tab"]')) out.push('v18 : conseils de la taverne absents');
+    a.ui.craftTab = 'gems'; a.go('craft'); await wait(60);
+    const bag0 = Object.values(s.armory?.gemBag || {}).reduce((x, y) => x + y, 0);
+    click('[data-action="gem-cut"][data-t="ruby"]'); await wait(60);
+    if (Object.values(s.armory?.gemBag || {}).reduce((x, y) => x + y, 0) !== bag0 + 1) out.push('v18 : taille de gemme sans effet');
+    a.ui.craftTab = 'rules'; a.render(); await wait(40);
+    click('[data-action="rule-tpl"][data-k="a"]'); await wait(60);
+    if (!(s.orders || []).some((o) => o.cond?.type === 'loot')) out.push('v18 : règle de tri non ajoutée');
+    a.ui.craftTab = 'inv'; a.render(); await wait(40);
+    click('[data-action="bulk-open"]'); await wait(60);
+    if (!document.querySelector('.bulk-sum')) out.push('v18 : vente en masse absente');
+    a.closeModal();
+    a.go('goals'); await wait(60);
+    if (document.querySelector('[data-action="claim-all"]')) { click('[data-action="claim-all"]'); await wait(60); }
     a.go('codex'); await wait(60);
     click('.codex-item:not(.locked)'); await wait(60);
     if (!document.querySelector('.codex-detail')) out.push('v11 : fiche du codex absente');

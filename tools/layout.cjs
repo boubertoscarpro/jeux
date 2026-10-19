@@ -41,7 +41,8 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
       const s = window.cendrelande.state, c = s.world.capital;
       if (!Object.keys(s.territories).length) s.territories[`${c.x + 3},${c.y}`] = { id: 'opL', name: 'Fort-Témoin', x: c.x + 3, y: c.y, terrain: 'plain', since: Date.now(), spec: null, level: 2, garrison: {} };
     });
-    const views = await page.evaluate(() => Object.keys(window.cendrelande.views));
+    // v18 : onglets et dialogues de l'armurerie (écran:onglet, écran!bouton à cliquer)
+    const views = [...await page.evaluate(() => Object.keys(window.cendrelande.views)), 'craft:forge', 'craft:gems', 'craft:rules', 'craft:lab', 'heroes:advice', 'craft!bulk-open', 'heroes!ae-team', 'heroes!ae-prio'];
     for (const v of views) {
       ctx = v;
       const ok = await page.evaluate((v) => {
@@ -50,10 +51,15 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
         if (v === 'outpost') { const k = Object.keys(a.state.territories)[0]; if (!k) return false; a.ui.outpost = k; }
         if (v === 'bldg') a.ui.citySel = (() => { const b = Object.values(a.state.city.buildings).find((x) => x.type === 'townhall'); return { x: b.x, y: b.y }; })();
         if (v === 'tile') a.ui.worldSel = { ...a.state.world.capital };
-        a.go(v);
+        const [view, tab] = v.split(/[:!]/);
+        if (v.includes(':')) { a.ui.craftTab = view === 'craft' ? tab : 'inv'; a.ui.heroTab = view === 'heroes' ? tab : 'heroes'; }
+        else { a.ui.craftTab = 'inv'; a.ui.heroTab = 'heroes'; }
+        a.go(view);
         return true;
       }, v);
       if (!ok) continue;
+      if (v.includes('!')) { await page.waitForTimeout(40); await page.click(`[data-action="${v.split('!')[1]}"]`).catch(() => problems.push(`${label} ${W}×${H} · ${v} : bouton absent`)); }
+      if (v.includes("!")) await page.waitForTimeout(400); // fin de l’animation d’ouverture du dialogue
       await page.waitForTimeout(60);
       const r = await page.evaluate((phone) => {
         const out = [];

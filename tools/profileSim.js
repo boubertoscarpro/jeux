@@ -46,6 +46,8 @@ import { projectState, startProject, contribute, startStageWorks } from '../src/
 import { v10Bot } from './v10bot.js';
 import { v14Bot } from './v14bot.js';
 import { v16Bot } from './v16bot.js';
+import { v18Bot } from './v18bot.js';
+import { heroPower } from '../src/systems/heroes.js';
 import { nemesisReinforcement } from '../src/systems/nemesis.js';
 import { challengeState } from '../src/systems/challenges.js';
 import { legendState } from '../src/systems/legendary.js';
@@ -197,7 +199,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     t += STEP;
     advance(s, t);
     if (policy && thLevel(s) >= 3 && policyState(s).id !== policy && policyState(s).pending !== policy) setPolicy(s, policy, t);
-    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); if (!globalThis.__noV14) v14Bot(s, profileKey, t, computeMods(s, t)); v16Bot(s, profileKey, t); }
+    if (isActive(p, t)) { session(s, p, t); if (!globalThis.__noProjects) projectBot(s, t); if (!globalThis.__noV10) v10Bot(s, profileKey, t, bestTile, computeMods(s, t)); if (!globalThis.__noV14) v14Bot(s, profileKey, t, computeMods(s, t)); v16Bot(s, profileKey, t); if (!globalThis.__noV18) v18Bot(s, profileKey, t); }
     if (s.famine) famineMin += 10;
     if (globalThis.__trace) globalThis.__trace(s, t, i);
     if (globalThis.__trace) globalThis.__trace(s, t, i);
@@ -228,7 +230,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     spEarnedMin: Object.entries(s.speedups?.earned || {}).reduce((a, [k, n]) => a + n * ({ speed5: 5, speed15: 15, speed60: 60, speed480: 480 }[k] || 0), 0),
     rspSavedMin: s.speedups?.trainMinutesSaved || 0, crownDone: s.stats.crownProjects || 0,
     qlDone: Object.keys(s.questlines?.done || {}).length, reactions: (s.factionReports || []).length, chronicleN: (s.history || []).length,
-    spSavedMin: s.speedups?.minutesSaved || 0, gemsSpent: s.speedups?.gemsSpent || 0, gemsLeft: Math.floor(s.resources.gems || 0),
+    spSavedMin: s.speedups?.minutesSaved || 0, gemsSpent: s.speedups?.gemsSpent || 0, gemsLeft: Math.floor(s.resources.gems || 0), heroPow: s.heroes.reduce((a, h) => a + heroPower(s, h), 0), items: s.inventory.items.length, worn: s.inventory.items.filter((i) => i.equippedBy).length, goldSold: Math.round(s.armory?.stats?.goldSold || 0), gemsSold: s.armory?.stats?.gemsSold || 0, gemsCut: s.armory?.stats?.gemsCut || 0, scrapped: (s.armory?.stats?.dismantled || 0),
     brWins: s.stats.breachWins || 0, brTier: s.stats.breachTierMax || 0, brLosses: Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.losses, 0),
     brLevel: Math.round(Object.values(s.world.pois).filter((p) => p.breach).reduce((a, p) => a + p.breach.level, 0) / Math.max(1, Object.values(s.world.pois).filter((p) => p.breach).length) * 10) / 10,
     allies: (s.factions || []).filter((f) => ['trade', 'alliance'].includes(f.stance)).length, commissions: Object.keys(s.commissions?.done || {}).length,
@@ -308,7 +310,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'crises', 'crRes', 'crEnd', 'crStage', 'crRevolts', 'burnt', 'fires', 'omens', 'omFalse', 'omVer', 'omPrep', 'reserve', 'resUsed', 'regent', 'absorbed', 'lostProd', 'signs', 'omHalf', 'contained', 'nemMet', 'nemScars', 'nemTitles', 'nemRev', 'nemAdapt', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'heroPow', 'items', 'worn', 'goldSold', 'gemsSold', 'gemsCut', 'scrapped', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'crises', 'crRes', 'crEnd', 'crStage', 'crRevolts', 'burnt', 'fires', 'omens', 'omFalse', 'omVer', 'omPrep', 'reserve', 'resUsed', 'regent', 'absorbed', 'lostProd', 'signs', 'omHalf', 'contained', 'nemMet', 'nemScars', 'nemTitles', 'nemRev', 'nemAdapt', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');
