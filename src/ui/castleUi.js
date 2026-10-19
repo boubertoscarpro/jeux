@@ -5,11 +5,12 @@
 //    réparation, bâtiments mal placés (déménagement gratuit), décorations utiles ;
 //  - fenêtre « Lieux » (touche / ou Ctrl + K) : tous les écrans et bâtiments, recherche, clavier, « Voir sur la carte ».
 import { BUILDINGS } from '../data/buildings.js';
-import { ZONES, FLANKS, ASSAULT_FLANKS, DEFENSE_TOOLS, BUILDING_SCREENS, DECO_FX, FLANK_RULES, CASTLE_STAGES } from '../data/castle.js';
+import { ZONES, BUILDING_SCREENS, DECO_FX, CASTLE_STAGES } from '../data/castle.js';
+import { castleProtections } from '../systems/siege.js';
 import { COSMETICS } from '../data/social.js';
 import {
   rectOf, rectW, rectH, perimeter, wallFactor, zoneAt, ruleText, zoneFx, enlargePreview, enlargeEnceinte, shrinkPreview, shrinkEnceinte,
-  breachChance, setFlanks, flankBonus, setTool, castleState, repairCost, repairWall, misplaced, freeMoveActive, decoEffects, vacantLots,
+  breachChance, castleState, repairCost, repairWall, misplaced, freeMoveActive, decoEffects, vacantLots,
   castleStage, wallStyle, maxDims,
 } from '../systems/castle.js';
 import { pay } from '../systems/economy.js';
@@ -107,13 +108,8 @@ export function castleCard(app) {
       ${p.ok ? `<button class="mini" data-action="enc-grow" data-side="${k}" title="Périmètre ${p.perimeter} → facteur de muraille ×${p.factor.toFixed(2)}${p.trapped.length ? ` — ${p.trapped.length} bâtiment(s) se retrouveraient dans la cour alors qu’ils n’y ont pas leur place` : ''}">＋ ${costList(p.cost, s)}</button>` : `<span class="small muted">${esc(p.reason)}</span>`}
       ${sh.ok ? `<button class="mini ghost" data-action="enc-shrink" data-side="${k}" title="Réduire (gratuit)">－</button>` : ''}</div>`;
   }).join('');
-  const f = C.flanks;
-  const flankRow = Object.entries(FLANKS).map(([k, d]) => `<label class="flank"><span>${d.icon} ${esc(d.name)}</span><input type="range" min="0" max="100" step="5" value="${Math.round((f[k] || 0) * 100)}" data-change="flank" data-k="${k}" aria-label="Part de la garnison : ${esc(d.name)}"><b>${Math.round((f[k] || 0) * 100)} %</b>${ASSAULT_FLANKS.includes(k) ? `<span class="small ${flankBonus(s, k) >= 0 ? 'ok' : 'warn-text'}">si attaqué : ${pctS(flankBonus(s, k))}</span>` : '<span class="small muted">renforce le flanc attaqué à moitié</span>'}</label>`).join('');
   const raid = (s.raids || [])[0];
-  const tools = Object.entries(DEFENSE_TOOLS).map(([k, d]) => `<label class="tool"><span>${d.icon} ${esc(d.name)}</span>
-    <select data-change="tool" data-k="${k}" ${wl < d.needWall ? `disabled title="Muraille niv. ${d.needWall} requise"` : ''} aria-label="${esc(d.name)} : flanc">
-      <option value="">— en réserve —</option>${ASSAULT_FLANKS.map((fl) => `<option value="${fl}" ${C.tools[k] === fl ? 'selected' : ''}>${esc(FLANKS[fl].name)}</option>`).join('')}</select>
-    <span class="small muted">${esc(d.text)} · ${costList(d.cost(Math.max(1, thLevel(s))), s)} par usage${wl < d.needWall ? ` · muraille niv. ${d.needWall}` : ''}</span></label>`).join('');
+  const prot = castleProtections(s);
   const bad = misplaced(s);
   const deco = decoEffects(s);
   return `<div class="card castle-card"><h3>🏰 ${esc(castleName(s))} <span class="muted small">${esc(st.name)}${nextSt ? ` · prochain palier : ${esc(nextSt.name)} (HdV ${nextSt.th})` : ''}</span></h3>
@@ -125,12 +121,11 @@ export function castleCard(app) {
         <div class="small">Muraille : <b>${wl ? `${esc(wallStyle(wl).name)} niv. ${wl}` : 'aucune (enceinte projetée)'}</b>${ml ? ` · douves niv. ${ml}` : ''} · chance de brèche si un raid l’emporte : <b>${Math.round(breachChance(s) * 100)} %</b></div>
         ${C.wallDmg > 0 ? `<div class="panel-sub damaged small">🧱 Muraille abîmée à ${Math.round(C.wallDmg * 100)} % (bonus de muraille ${pctS(-0.25 * C.wallDmg)}) · les maçons réparent 10 % par heure. ${costList(repairCost(s), s)} <button class="mini primary" data-action="wall-repair">Réparer tout de suite</button></div>` : ''}
       </div>
-      <div><h4>Défense par flancs</h4>
-        <div class="small muted">Répartissez la garnison. Les assaillants choisissent un flanc (souvent le plus dégarni) ; une tour de garde niv. ${FLANK_RULES.revealWatchtower} révèle lequel à l’avance.</div>
-        ${raid ? `<div class="small ${raid.flankSeen ? 'warn-text' : 'muted'}">🚨 ${esc(raid.name)} arrive dans ${countdown(raid.arrive)} · ${raid.flankSeen ? `flanc visé : <b>${esc(FLANKS[raid.flank]?.name || '?')}</b>` : 'flanc visé inconnu (tour de garde niv. 5)'}</div>` : ''}
-        <div class="flanks">${flankRow}</div>
-        <div class="row gap"><button class="mini ghost" data-action="flank-reset">Répartition égale</button></div>
-        <h4>Outils de défense</h4><div class="tools">${tools}</div>
+      <div><h4>Défense du château</h4>
+        <div class="small">Protections : muraille <b>+${Math.round(prot.wall * 100)} %</b> (flancs) · porte <b>+${Math.round(prot.gate * 100)} %</b> (front) · douves <b>+${Math.round(prot.moat * 100)} %</b>.${prot.oneFlank ? ' Un seul front (la porte) tant que la muraille est sous le niveau 5.' : ' Trois flancs et la cour.'}</div>
+        ${raid ? `<div class="small warn-text">🚨 ${esc(raid.name)} arrive dans ${countdown(raid.arrive)}.</div>` : ''}
+        <div class="small muted">Garnison, engins de défense posés et arsenal se règlent sur les remparts (écran Défense).</div>
+        <div class="row gap"><button class="mini primary" data-action="nav" data-view="defense">🏰 Les remparts</button></div>
       </div>
     </div>
     ${bad.length ? `<div class="panel-sub small"><b>⚠️ ${bad.length} bâtiment(s) mal placé(s)</b> au regard des zones (ils restent actifs) : ${bad.slice(0, 8).map((b) => `<button class="mini ghost" data-action="goto-tile" data-x="${b.x}" data-y="${b.y}">${esc(BUILDINGS[b.type]?.name || b.type)}</button>`).join(' ')}${bad.length > 8 ? ' …' : ''} ${freeMoveActive(s) ? `<span class="ok">Déménagement gratuit encore ${countdown(C.freeMoveUntil)}.</span>` : ''}</div>` : ''}
@@ -142,17 +137,6 @@ export const castleActions = {
   'enc-grow': (app, el) => app.act(() => enlargeEnceinte(app.state, el.dataset.side, (c) => pay(app.state, c)), (r) => `L’enceinte s’agrandit vers le ${SIDE_NAME[el.dataset.side]}${r.trapped ? ` (${r.trapped} bâtiment(s) mal placé(s) dans la cour)` : ''}`),
   'enc-shrink': (app, el) => app.act(() => shrinkEnceinte(app.state, el.dataset.side), 'Enceinte resserrée'),
   'wall-repair': (app) => app.act(() => repairWall(app.state, (c) => pay(app.state, c)), 'Muraille réparée'),
-  'flank-reset': (app) => app.act(() => setFlanks(app.state, { left: 1, front: 1, right: 1, yard: 1 }), 'Répartition égale'),
-  flank: (app, el) => {
-    const f = { ...castleState(app.state).flanks };
-    const k = el.dataset.k, v = Math.max(0, Math.min(1, +el.value / 100));
-    // Le curseur fixe la part du flanc ; les autres se partagent le reste au prorata
-    const others = Object.keys(f).filter((x) => x !== k), rest = others.reduce((a, x) => a + f[x], 0);
-    for (const x of others) f[x] = rest > 0 ? (f[x] / rest) * (1 - v) : (1 - v) / others.length;
-    f[k] = v;
-    app.act(() => setFlanks(app.state, f), null);
-  },
-  tool: (app, el) => app.act(() => setTool(app.state, el.dataset.k, el.value || null), el.value ? 'Outil posté' : 'Outil remis en réserve'),
   // Voir sur la carte : zoom automatique sur le bâtiment (utile sur téléphone), anneau ouvert
   'goto-tile': (app, el) => { app.closeModal(); app.ui.citySel = { x: +el.dataset.x, y: +el.dataset.y }; app.ui.ringOpen = true; app.ui.cityFocus = { x: +el.dataset.x, y: +el.dataset.y }; app.go('city'); },
 };

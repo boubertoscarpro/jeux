@@ -11,6 +11,8 @@ import { breachPanel, drawBreachFort } from '../breach.js';
 import { lordFaceImage } from '../nemesisFace.js';
 import { drawWorldMarks, drawHamlet, marksPanel } from '../worldmarks.js';
 import { breachDefense } from '../../systems/breach.js';
+import { siegeTarget, siegePlanHtml, siegePlanActions, campNoteHtml } from '../siegeUi.js';
+import { ATTACK_ENGINES, INTEL } from '../../data/siege.js';
 import { BREACH_MIN_MERIT } from '../../data/breach.js';
 import { HERO_CLASSES } from '../../data/heroes.js';
 import { fmt, fmtTime } from '../../core/util.js';
@@ -167,7 +169,8 @@ export function drawMap(app) {
     f = Math.max(0, Math.min(1, f));
     ctx.strokeStyle = col; ctx.globalAlpha = 0.85; ctx.lineWidth = Math.max(2, Math.min(4, T / 10)); ctx.setLineDash([7, 5]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col, icon: MARCH_TYPES[m.type]?.icon || '⚑', angle: m.phase === 'work' ? null : Math.atan2(toward.y - from.y, toward.x - from.x), end, label: `${MARCH_TYPES[m.type]?.name || 'Marche'}${m.phase === 'back' ? ' (retour)' : m.phase === 'work' ? ' (sur place)' : ''}` });
+    const eng = Object.entries(m.engines || m.enginesBack || {}).filter(([, n]) => n > 0);
+    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col, icon: MARCH_TYPES[m.type]?.icon || '⚑', angle: m.phase === 'work' ? null : Math.atan2(toward.y - from.y, toward.x - from.x), end, eng: eng.map(([k]) => ATTACK_ENGINES[k]?.icon).join(''), label: `${MARCH_TYPES[m.type]?.name || 'Marche'}${m.phase === 'back' ? ' (retour)' : m.phase === 'work' ? ' (sur place)' : ''}${eng.length ? ` · ${eng.map(([k, n]) => `${n} ${ATTACK_ENGINES[k]?.icon || ''}`).join(' ')}` : ''}` });
   }
   for (const t of s.expeditions || []) {
     if (t.status === 'idle' || !t.at) continue;
@@ -195,7 +198,8 @@ export function drawMap(app) {
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
     const start = r.start || r.arrive - 10 * 60000;
     const f = Math.max(0, Math.min(1, (now - start) / Math.max(1, r.arrive - start)));
-    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#d62828', icon: '⚔️', angle: Math.atan2(b.y - a.y, b.x - a.x), end: r.arrive, label: `Raid : ${r.name}`, raid: true });
+    const eng = levelOf(s, 'watchtower') >= INTEL.engines ? Object.entries(r.engines || {}).filter(([, n]) => n > 0) : [];
+    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#d62828', icon: '⚔️', angle: Math.atan2(b.y - a.y, b.x - a.x), end: r.arrive, eng: eng.map(([k]) => ATTACK_ENGINES[k]?.icon).join(''), label: `Raid : ${r.name}${eng.length ? ` · ${eng.map(([k, n]) => `${n} ${ATTACK_ENGINES[k]?.icon || ''}`).join(' ')}` : ''}`, raid: true });
   }
   // Réseau logistique : routes des avant-postes vers leur relais (couleur selon le niveau, rouge si dangereuse)
   const net = logisticsNetwork(s, now);
@@ -315,6 +319,8 @@ export function drawMap(app) {
   const tr = Math.max(7, Math.min(15, T * 0.34));
   for (const k of tokens) {
     drawToken(ctx, k.x, k.y, tr, k.col, k.icon, k.angle);
+    // v19 : engins de siège qui accompagnent la colonne (petit cartouche au-dessus du pion)
+    if (k.eng && T >= 10) { const fs = Math.max(10, Math.round(tr * 0.9)); ctx.font = `${fs}px sans-serif`; const wE = ctx.measureText(k.eng).width + 8; ctx.fillStyle = 'rgba(20,14,8,0.85)'; ctx.fillRect(k.x - wE / 2, k.y - tr - fs - 6, wE, fs + 4); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(k.eng, k.x, k.y - tr - fs / 2 - 4); }
     if (T >= 18 && k.end) labels.push({ x: k.x, y: k.y, offset: tr + 4, text: `${k.label} · ${fmtTime(k.end - now)}`, prio: k.raid ? 90 : 50, size: Math.max(10, lsize - 1), color: k.raid ? '#ffd0d0' : '#e8f4ff', bg: k.raid ? 'rgba(90,10,10,0.85)' : 'rgba(10,20,35,0.8)' });
   }
   // Les commandes posées sur la carte (filtres, zoom, mini-carte) ne doivent pas masquer d'étiquette
@@ -748,6 +754,7 @@ function marchDialog(app, type, raid = 0) {
       </div>
       <div id="march-preview"></div>
     </div>
+    ${type === 'attack' ? '<div id="siege-plan"></div>' : ''}
     <div class="row gap end"><button class="btn ghost" data-action="close-modal">Annuler</button><button class="btn primary" data-action="send-march">Envoyer</button></div>`, marchActions, 'wide');
   updateMarchPreview(app);
 }
@@ -779,7 +786,14 @@ function updateMarchPreview(app) {
   if (poi?.breach && md.type === 'attack') { const D = breachDefense(s, poi); enemies = D.enemies; fort = D.fort; enemyMods = D.enemyMods; enemyFormation = D.formation; }
   if (poi && md.type === 'gather' && poi.danger > 0) enemies = poi.enemies;
   if (md.type === 'boss' && s.boss) { enemies = { [BOSSES[s.boss.key].unit]: 1 }; bossHp = s.boss.hp; }
-  if (enemies && Object.keys(units).length) {
+  // v19 : une place fortifiée s'assiège ; le conseil de guerre (sous la fenêtre) remplace l'aperçu simple
+  const sp = document.getElementById('siege-plan');
+  const tg = md.type === 'attack' && poi ? siegeTarget(s, poi, poi.breach ? breachDefense(s, poi) : null) : null;
+  app.ui.siegeTarget = tg;
+  if (sp) sp.innerHTML = tg ? siegePlanHtml(app, md, tg, { mods, poi, terrain: poi.type === 'kingdom' ? 'city' : wTerrain(s.world, md.x, md.y), enemyMods: enemyMods || { 'combat.atk': 0.05 * (poi.danger || 0), 'combat.def': 0.05 * (poi.danger || 0) } }) : POI_TYPES[poi?.type]?.kind === 'danger' ? campNoteHtml() : '';
+  if (!tg && md.siegePlan) md.siegePlan = null;
+  if (tg && enemies && Object.keys(units).length) html += '<div class="small">Place fortifiée : voyez le <b>conseil de guerre</b> sous le plan de siège.</div>';
+  else if (enemies && Object.keys(units).length) {
     if (poi.scouted || md.type === 'boss') {
       const ter = s.world && wTerrain(s.world, md.x, md.y);
       const pv = previewBattle(
@@ -830,6 +844,7 @@ function setDraftUnits(app, units, note) {
   updateMarchPreview(app);
 }
 const marchActions = {
+  ...siegePlanActions((app) => updateMarchPreview(app)),
   mu: (app, el) => { app.ui.marchDraft.units[el.dataset.unit] = Math.max(0, Math.min(app.state.army[el.dataset.unit] || 0, +el.value || 0)); updateMarchPreview(app); },
   'mu-half': (app) => setDraftUnits(app, halfOfEach(app.state), 'Moitié de chaque unité.'),
   'mu-none': (app) => setDraftUnits(app, {}, ''),

@@ -336,7 +336,10 @@ export class App {
     container.querySelectorAll('input[id], select[id], textarea[id]').forEach((el) => { saved[el.id] = el.type === 'checkbox' ? el.checked : el.value; });
     const scroll = container.scrollTop;
     const activeId = active && container.contains(active) ? active.id : null;
+    // v19 : un bouton sans identifiant (− / + des remparts) retrouve le focus par ses données
+    const aKey = active && !activeId && container.contains(active) && active.dataset?.action ? JSON.stringify(active.dataset) : null;
     fn();
+    if (aKey) [...container.querySelectorAll('[data-action]')].find((e) => JSON.stringify(e.dataset) === aKey && !e.disabled)?.focus({ preventScroll: true });
     for (const [id, v] of Object.entries(saved)) {
       const el = container.querySelector('#' + CSS.escape(id));
       if (!el) continue;
@@ -505,6 +508,11 @@ export class App {
     document.addEventListener('click', (ev) => handle(ev, 'data-action'));
     document.addEventListener('change', (ev) => handle(ev, 'data-change'));
     document.addEventListener('input', (ev) => handle(ev, 'data-input'));
+    // v19 : glisser-déposer (engins sur les remparts) ; chaque geste a son équivalent au clavier (− / +)
+    document.addEventListener('dragstart', (ev) => { const el = ev.target.closest?.('[data-drag]'); if (el) { ev.dataTransfer.setData('text/plain', el.dataset.drag); ev.dataTransfer.effectAllowed = 'copy'; } });
+    document.addEventListener('dragover', (ev) => { const el = ev.target.closest?.('[data-drop]'); if (el) { ev.preventDefault(); el.classList.add('drag-over'); } });
+    document.addEventListener('dragleave', (ev) => { const el = ev.target.closest?.('[data-drop]'); if (el && !el.contains(ev.relatedTarget)) el.classList.remove('drag-over'); });
+    document.addEventListener('drop', (ev) => { const el = ev.target.closest?.('[data-drop]'); if (!el) return; ev.preventDefault(); el.classList.remove('drag-over'); el.dataset.payload = ev.dataTransfer.getData('text/plain'); handle(ev, 'data-drop'); });
     document.addEventListener('keydown', (ev) => {
       const open = document.getElementById('modal-root')?.classList.contains('open');
       // v17 : le focus reste dans la fenêtre de dialogue ou la fenêtre de lieu ouverte (Tab et Maj+Tab bouclent)

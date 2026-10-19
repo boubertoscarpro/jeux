@@ -10,7 +10,6 @@ import { uid, fmt } from '../core/util.js';
 import { thLevel, levelOf, allBuildings } from './city.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { computeMods } from './modifiers.js';
-import { simulateBattle } from './combat.js';
 import { armyPower } from './army.js';
 import { armyTotals } from './economy.js';
 import { ENEMY_UNITS } from '../data/units.js';
@@ -21,8 +20,8 @@ import { UNITS } from '../data/units.js';
 import { bumpRep, recordMax } from './reputation.js';
 import { chronicle } from './chronicle.js';
 import { pay } from './economy.js';
-import { pickRaidFlank, flankRevealed, flankBonus, useTools, breachChance, raidTargets, pillageShare, siegeDamage } from './castle.js';
-import { FLANKS, DEFENSE_TOOLS } from '../data/castle.js';
+import { pickRaidFlank, flankRevealed, raidTargets, pillageShare, siegeDamage } from './castle.js';
+import { FLANKS } from '../data/castle.js';
 
 export const PROTECTION_TH = 4;
 // Trêve après un raid (6 h, contre 3 auparavant) et répit supplémentaire après un pillage : les raids restent un
@@ -128,8 +127,6 @@ export function resolveRaid(state, raid, t) {
   const flank = FLANKS[raid.flank] ? raid.flank : 'front';
   const defMods = { ...mods, 'combat.def': (mods['combat.def'] || 0) + (mods['city.def'] || 0) };
   const { res } = defendCastle(state, raid, def, defMods, t, { mods, supply: (state.resources.bread || 0) > 50, famine: state.famine });
-  const fb = 0;
-  const tools = { used: [] };
   // Pertes de la garnison
   const newArmy = { scout: scouts };
   for (const [u, n] of Object.entries(res.defRemaining)) if (UNITS[u] && u !== 'scout') newArmy[u] = n;
@@ -180,8 +177,7 @@ export function resolveRaid(state, raid, t) {
   const prep = `Préparation : ${nDef} défenseurs${allies ? ' (dont renforts alliés)' : ''}, muraille +${Math.round(fort * 100)} % de défense, ${(state.resources.bread || 0) > 50 ? 'rations de pain distribuées' : 'pas de pain (moral réduit)'}${mods['city.def'] ? `, défense de la ville +${Math.round(mods['city.def'] * 100)} %` : ''}.`;
   const flankTxt = ` ${res.key}${raid.adapt ? ` Ils s’étaient adaptés : ${raid.adapt}.` : ''}`;
   text = `${text} ${prep}${flankTxt}`;
-  void fb; void tools; void DEFENSE_TOOLS;
-  state.reports.unshift({ id: uid('rep'), t, kind: 'defense', title: `${win ? 'Défense réussie' : 'Ville pillée'} — ${raid.name}`, win, flank, breached, result: res, siege: { report: res.report, engines: res.engines, key: res.key, breached: res.breached, adapt: raid.adapt || null, style: raid.styleText || null }, enemies: raid.army, enemyEngines: raid.engines || {}, text, terrain: 'city', weather: state.weather.type, defense: true, read: false });
+  state.reports.unshift({ id: uid('rep'), t, kind: 'defense', title: `${win ? 'Défense réussie' : 'Ville pillée'} — ${raid.name}`, win, flank, breached, result: res, siege: { key: res.key, breached: res.breached, adapt: raid.adapt || null, style: raid.styleText || null }, enemies: raid.army, enemyEngines: raid.engines || {}, text, terrain: 'city', weather: state.weather.type, defense: true, read: false });
   if (state.reports.length > 60) state.reports.length = 60;
 }
 

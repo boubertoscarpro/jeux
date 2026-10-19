@@ -25,6 +25,16 @@ const setup2 = (a) => {
   const p = Object.values(s.world.pois).find((x) => x.type === 'kingdom');
   s.raidCooldown = Date.now() + 864e5;
   if (!s.raids.length) s.raids.push({ id: 'shot', rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army: { militia: 400, guard: 120, royalArcher: 300, royalKnight: 150 }, start: Date.now(), arrive: Date.now() + 20 * 60000, seen: true, flank: 'left', flankSeen: true, engines: { ladders: 8, mantlets: 3, fascines: 3 }, mainFlank: 'left', adapt: 'ils ont vu vos pierres sur le flanc gauche : ils apportent des mantelets', plan: { waves: [{ left: { share: 1, engines: { ladders: 8, mantlets: 3, fascines: 3 } }, front: { share: 0, engines: {} }, right: { share: 0, engines: {} } }] } });
+  // v19 : un arsenal garni et des engins de défense posés (sans effet avant la v19)
+  if (s.siege) {
+    Object.assign(s.siege.arsenal.attack, { ladders: 14, ram: 10, mantlets: 8, fascines: 6, fireArrows: 4, tower: 2 });
+    Object.assign(s.siege.arsenal.defense, { stones: 16, pitch: 12, archers: 8, stakes: 6, portcullis: 3, hooks: 4 });
+    s.siege.posted = { left: { stones: 6, archers: 3 }, front: { pitch: 6, portcullis: 2 }, right: { stones: 4, hooks: 2 } };
+    s.siege.minStock = { stones: 12, pitch: 8 };
+    const p2 = Object.values(s.world.pois).find((x) => x.type === 'kingdom');
+    p2.scouted = true;
+    p2.garrison = p2.garrison || { militia: 2400, guard: 900, royalArcher: 1000, royalKnight: 350 };
+  }
   return p;
 };
 const SCENES = [
@@ -35,7 +45,7 @@ const SCENES = [
 ];
 const AFTER = [
   ['05-arsenal', (a) => { a.ui.defTab = 'arsenal'; a.go('defense'); }],
-  ['06-conseil-de-guerre', (a) => { const p = Object.values(a.state.world.pois).find((x) => x.type === 'kingdom'); const w = a.state.world; w.revealed[p.y * w.size + p.x] = 1; a.ui.worldSel = { x: p.x, y: p.y }; a.go('tile'); }, '[data-action="march"][data-type="attack"]', '[data-action="sg-advise"]'],
+  ['06-conseil-de-guerre', (a) => { const p = Object.values(a.state.world.pois).find((x) => x.type === 'kingdom'); const w = a.state.world; w.revealed[p.y * w.size + p.x] = 1; a.ui.worldSel = { x: p.x, y: p.y }; a.go('tile'); }, '[data-action="march"][data-type="attack"]', '[data-action="sp-advise"]', () => document.querySelector('#siege-plan .sg-council, #siege-plan h4:last-of-type')?.scrollIntoView({ block: 'center' })],
 ];
 
 (async () => {
@@ -53,10 +63,11 @@ const AFTER = [
     await page.evaluate((src) => { (0, eval)(`(${src})`)(window.cendrelande); }, setup.toString());
     await page.waitForTimeout(4000); // le premier raid arrive et se résout (rapport de défense)
     await page.evaluate((src) => { (0, eval)(`(${src})`)(window.cendrelande); }, setup2.toString());
-    for (const [name, fn, click, click2] of [...SCENES, ...(BEFORE ? [] : AFTER)]) {
+    for (const [name, fn, click, click2, after] of [...SCENES, ...(BEFORE ? [] : AFTER)]) {
       await page.evaluate((src) => { const a = window.cendrelande; if (a.state.live) a.state.live.unseenReport = null; a.closeModal(); if (a.ui.win) a.closeWin?.(false); (0, eval)(`(${src})`)(a); }, fn.toString());
       await page.waitForTimeout(500);
       for (const c of [click, click2].filter(Boolean)) { await page.click(c).catch((e) => errors.push(`${tag} ${name}: ${e.message.split('\n')[0]}`)); await page.waitForTimeout(500); }
+      if (after) { await page.evaluate((src) => (0, eval)(`(${src})`)(), after.toString()); await page.waitForTimeout(300); }
       await page.evaluate(() => { const t = document.getElementById('toasts'); if (t) t.innerHTML = ''; });
       await page.screenshot({ path: path.join(OUT, `${name}-${tag}.png`) });
     }

@@ -12,6 +12,7 @@ import { levelOf, thLevel } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing } from './economy.js';
 import { log } from './log.js';
+import { a11yPrefs } from './a11y.js';
 
 const FL = ASSAULT_FLANKS; // left, front, right
 const sat = (n, k, cap) => (n > 0 ? cap * (1 - Math.exp(-n / k)) : 0);
@@ -128,12 +129,19 @@ export function cancelEngines(state, side, id) {
 // Pas du monde : fin des productions ; ordre « maintenir le stock »
 export function siegeTick(state, now = Date.now()) {
   const S = siegeState(state);
+  // Un bélier formé comme unité (file de formation d'avant la v19) rejoint l'arsenal
+  if (state.army?.ram > 0) { S.arsenal.attack.ram = (S.arsenal.attack.ram || 0) + state.army.ram; delete state.army.ram; }
   for (const side of ['attack', 'defense']) {
     while (S.queue[side].length && S.queue[side][0].end <= now) {
       const q = S.queue[side].shift();
       S.arsenal[side][q.type] = (S.arsenal[side][q.type] || 0) + q.n;
       log(state, 'good', `${ENG[q.type].icon} ${q.n} × ${ENG[q.type].name} prêt${q.n > 1 ? 's' : ''} à l’arsenal.`, q.end);
     }
+  }
+  // Mode simplifié : la défense conseillée est appliquée d'elle-même quand un nouveau raid est repéré
+  if (a11yPrefs(state).simple) {
+    const raid = (state.raids || []).filter((r) => !r.autoDefended).sort((a, b) => a.arrive - b.arrive)[0];
+    if (raid) { applyDefense(state, advisedDefense(state, raid)); raid.autoDefended = true; }
   }
 }
 export function keepStock(state, now = Date.now()) {

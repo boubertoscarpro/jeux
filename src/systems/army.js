@@ -13,6 +13,7 @@ const UNLOCK_TECH = Object.fromEntries(Object.entries(TECHS).filter(([, t]) => t
 export function unitStatus(state, type) {
   const u = UNITS[type];
   if (u.special) return { ok: false, reason: 'Unité d’élite : Roue des Anciens et événements uniquement' };
+  if (u.engine) return { ok: false, reason: 'Devenu un engin de siège : fabriquez-le à l’arsenal (Défense › Arsenal)' };
   const lvl = levelOf(state, u.building);
   if (lvl === 0) return { ok: false, reason: `${BUILDINGS[u.building].name} requise` };
   if (lvl < u.bLevel) return { ok: false, reason: `${BUILDINGS[u.building].name} niv. ${u.bLevel}` };
