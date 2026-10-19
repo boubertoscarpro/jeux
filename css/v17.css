@@ -259,3 +259,5 @@ html.reduce-motion .tile.guide::after, html.reduce-motion .hud .tut-hl::after, h
 .rs-dots.theirs { color: #f3e6c4; }
 #app.win-open .layer-bar, #app.win-open .hud-timeline { display: none; }
 @media (max-width: 700px) { .hud-br .layer-bar { position: absolute; right: 8px; bottom: 236px; } .hud-br .layer-bar .layer-legend { max-width: calc(100vw - 24px); } }
+/* Téléphone : la frise et les calques fermés vivent dans le tiroir « Activités » (la carte garde sa place) */
+@media (max-width: 700px) { .hud-timeline.closed, .hud-br .layer-bar.closed { display: none !important; } .hud-drawer .hud-btn { width: auto; padding: 0 10px; } }

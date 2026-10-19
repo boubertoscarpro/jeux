@@ -1,0 +1,18 @@
+{
+ "sv-mid.now.json": {
+  "rawNotif": 4,
+  "rawRep": 0,
+  "bell": 0,
+  "reports": 0,
+  "shownTotal": 0,
+  "urgent": 0
+ },
+ "sv-max.json": {
+  "rawNotif": 1,
+  "rawRep": 0,
+  "bell": 0,
+  "reports": 0,
+  "shownTotal": 0,
+  "urgent": 0
+ }
+}

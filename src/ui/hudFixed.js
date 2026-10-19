@@ -245,5 +245,5 @@ export function renderHud(app) {
     ${leftCol(app)}${rightCol(app)}
     <div class="hud-bottom">${bottomLeft(app)}${bottomCenter(app)}${bottomRight(app)}</div>
     ${phoneFabs(app)}
-    ${pd ? `<div class="hud-drawer ${pd === 'q' ? 'left' : 'right'}" role="dialog" aria-label="${pd === 'q' ? 'Quêtes' : 'Activités'}">${pd === 'q' ? leftCol({ ...app, ui: { ...app.ui, leftCollapsed: false } }) : `${topRight(app)}${rightCol({ ...app, ui: { ...app.ui, actMore: true } })}`}<button class="mini" data-action="drawer-close">Fermer</button></div>` : ''}`;
+    ${pd ? `<div class="hud-drawer ${pd === 'q' ? 'left' : 'right'}" role="dialog" aria-label="${pd === 'q' ? 'Quêtes' : 'Activités'}">${pd === 'q' ? leftCol({ ...app, ui: { ...app.ui, leftCollapsed: false } }) : `${topRight(app)}${rightCol({ ...app, ui: { ...app.ui, actMore: true } })}<div class="row gap wrap">${btn('timeline', '⏱️ Frise du temps', 'Frise du temps')}${app.ui.map === 'city' ? btn('layer-bar', '🗺️ Calques', 'Calques d’information') : ''}</div>`}<button class="mini" data-action="drawer-close">Fermer</button></div>` : ''}`;
 }
