@@ -12,7 +12,7 @@
 | Marques de la carte (noms, écussons, flèches, bulles, signaux, étiquettes de zone) qui se chevauchent | idem | début 15 / 9 / 1 ; milieu 62 / 13 / 5 ; **fin 172 / 56 / 15** (grand / moyen / téléphone) |
 | Marques de la carte cachées sous l'affichage fixe | idem | fin 71 / 46 / 17 |
 | Part de l'écran non couverte par l'affichage fixe | idem | 81,5 % (1400 × 900), 68,8 % (1024 × 640), 80,3 % (390 × 844) |
-| Couleurs de texte sous WCAG AA (toutes les feuilles, cascade comprise) | `tools/contrast.mjs` | **24** sur 238 |
+| Couleurs de texte sous WCAG AA (toutes les feuilles, cascade comprise) | `tools/contrast.mjs` | **25** sur 239 |
 | Badges sur les vraies sauvegardes (cloche + Rapports) | lecture des sauvegardes | milieu 11 + 43 ; **fin 24 + 60** |
 | Badges après 1 h de jeu, tout étant lu au départ (moyenne de 4 graines) | `tools/v17notifs.mjs` | milieu 4 ; fin 1 |
 | Touches pour atteindre un lieu-bâtiment au clavier (fin de partie) | `tools/v17keys.cjs` | **219 en moyenne**, 459 au pire (chaque case de 960 est un arrêt de tabulation) |
@@ -30,7 +30,7 @@ Les dix constats de la commande sont confirmés sur les captures et par les mesu
 7. **Badges inflationnistes** — confirmé : 24 notifications et 60 rapports non lus sur la sauvegarde de fin, dont 35 victoires et 25 explorations sans enjeu. Le badge ne signale plus rien.
 8. **Fenêtres** — confirmé : « Marché niv. 6 » dans l'en-tête puis « Marché niv. 6 » en tête de la carte du contenu ; les tendances du marché ne se lisent qu'au rouge et vert de la courbe (le pourcentage est signé, mais petit).
 9. **Textes absurdes** — confirmé : `systems/advisor.js` annonce « sera épuisé dans 0 s » pour un stock déjà vide ; libellés tronqués (« Pavillon de c… ») sans infobulle sur la carte.
-10. **Contrastes** — mesuré : 24 couleurs de texte sous le seuil ; les plus graves : `.t-up.ready` (1,6:1), `.br-tier.on`, `.op-t` ; le rouge `--blood` (#cc5a4c) n'atteint que 3,7:1 sur les fonds sombres, et il sert partout (`.bad`, `.down`, `.danger`, taux négatifs).
+10. **Contrastes** — mesuré : 25 couleurs de texte sous le seuil ; les plus graves : `.t-up.ready` (1,6:1), `.br-tier.on`, `.op-t` ; le rouge `--blood` (#cc5a4c) n'atteint que 3,7:1 sur les fonds sombres, et il sert partout (`.bad`, `.down`, `.danger`, taux négatifs).
 
 **Constats ajoutés**
 11. **Clavier** : chacune des 960 cases de la carte est un arrêt de tabulation ; atteindre la bibliothèque demande des centaines de Tab. Les flèches ne font rien.

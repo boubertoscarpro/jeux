@@ -261,3 +261,7 @@ html.reduce-motion .tile.guide::after, html.reduce-motion .hud .tut-hl::after, h
 @media (max-width: 700px) { .hud-br .layer-bar { position: absolute; right: 8px; bottom: 236px; } .hud-br .layer-bar .layer-legend { max-width: calc(100vw - 24px); } }
 /* Téléphone : la frise et les calques fermés vivent dans le tiroir « Activités » (la carte garde sa place) */
 @media (max-width: 700px) { .hud-timeline.closed, .hud-br .layer-bar.closed { display: none !important; } .hud-drawer .hud-btn { width: auto; padding: 0 10px; } }
+
+/* v17 : un problème partagé par beaucoup de bâtiments — point discret au-delà des 4 premiers (forme ronde, bord foncé) */
+.city-vp .t-sig.sig-dot { min-width: 0; width: 10px; height: 10px; padding: 0; border-width: 2px; right: 6px; top: 6px; cursor: default; }
+@media (max-width: 700px) { .city-vp .t-sig.sig-dot { min-width: 0; width: 12px; height: 12px; } }

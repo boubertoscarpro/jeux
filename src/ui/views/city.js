@@ -13,7 +13,7 @@ import { COSMETICS } from '../../data/social.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { computeMods } from '../../systems/modifiers.js';
 import { buildingRates, netRates, storageCap, protectedAmount, recipeOf, roadConnected, sectorOfBuilding, missing } from '../../systems/economy.js';
-import { repairBuilding, repairCost } from '../../systems/automation.js';
+import { repairBuilding, repairCost, repairAll } from '../../systems/automation.js';
 import { nextDomainStep, expandDomain, DOMAIN_GROW } from '../../systems/domain.js';
 import { WORK_SECTORS } from '../../data/workers.js';
 import { allBuildings, buildingAt, terrainAt, adjacencyBonus, placementCheck, thLevel, levelOf, proximityEffects } from '../../systems/city.js';
@@ -130,13 +130,14 @@ function tileHtml(app, x, y, ctx) {
       if (sg) {
         label += ` — ${SIGNAL_NAME[sg.kind]} : ${sg.text}`;
         const act = sg.action === 'tile-up' ? `data-action="tile-up" data-x="${x}" data-y="${y}"` : sg.view ? `data-action="nav" data-view="${sg.view}"` : '';
-        inner += `<span class="t-sig sig-${sg.kind}" ${act} title="${esc(sg.text)}" aria-hidden="true"><i>${sg.icon}</i>${sg.mark && sg.mark !== '•' && sg.mark !== '!' ? `<b>${esc(sg.mark)}</b>` : ''}</span>`;
+        inner += sg.compact ? `<span class="t-sig sig-${sg.kind} sig-dot" title="${esc(`${sg.text} (comme ${sg.group - 1} autres)`)}" aria-hidden="true"></span>`
+          : `<span class="t-sig sig-${sg.kind}" ${act} title="${esc(sg.text)}" aria-hidden="true"><i>${sg.icon}</i>${sg.mark && sg.mark !== '•' && sg.mark !== '!' ? `<b>${esc(sg.mark)}</b>` : ''}</span>`;
         cls.push('has-sig');
       }
       if (ctx.planned.has(b.id)) label += ' — amélioration planifiée';
       const lv = ctx.layer?.get(b.id);
       if (lv) { cls.push('lay', 'lay-' + lv.band); label += ` — ${LAYERS[app.ui.layer].name} : ${lv.label}`; inner += `<span class="t-lay" aria-hidden="true" title="${esc(lv.label)}"></span>`; }
-      if (b.starved || b.damaged) cls.push('st-alert');
+      if ((b.starved || b.damaged) && !sg?.compact) cls.push('st-alert');
       // v15 : état visible : bâtiment en feu (flammes, fumée), sous l'eau (crue), ruines fumantes (endommagé)
       // v16 : vie du château liée à l'état : fumée de la forge quand elle travaille, foule au marché selon les caravanes
       if (ctx.crafting && (b.type === 'forge' || b.type === 'armory') && !ctx.burning.has(b.id)) { cls.push('working'); inner += '<span class="fx-smoke work" aria-hidden="true"></span>'; }
@@ -204,7 +205,7 @@ function tipHtml(app, x, y) {
   const q = s.queues.build.find((qq) => qq.bid === b.id);
   const r = b.level > 0 ? buildingRates(s, b, mods) : null;
   const state = q ? `${q.kind === 'build' ? 'En construction' : `Amélioration vers le niveau ${q.level}`} · ${fmtTime(q.end - Date.now())}`
-    : b.damaged ? '🔥 Endommagé (production −50 %)' : b.starved ? '⚠️ Manque de matières premières' : b.paused ? '⏸ En pause' : '✔ En activité';
+    : b.damaged ? '🛠️ Endommagé (production −50 %)' : b.starved ? '⚠️ Manque de matières premières' : b.paused ? '⏸ En pause' : '✔ En activité';
   const u = b.type !== 'road' && !q ? upgradeCheck(s, b.id, mods) : null;
   const upLine = !u ? '' : u.status === 'ready' ? `<div class="small ok">⬆ Améliorable vers niv. ${u.next} : ${costList(u.cost, s)}</div>`
     : u.status === 'max' ? '<div class="small muted">Niveau maximum</div>'
@@ -287,7 +288,7 @@ function buildingPanel(app, b, mods) {
     ${zoneBlock(app, b)}
     ${b.type === 'monument' ? monumentBlock(s, b) : ''}
     ${b.type === 'townhall' ? eraBlock(s, b) : ''}
-    ${b.damaged ? `<div class="panel-sub damaged"><b>🔥 Endommagé</b> : production réduite de moitié. ${costList(repairCost(b, mods), s)} <button class="mini primary" data-action="repair" data-id="${b.id}">Réparer</button></div>` : ''}
+    ${b.damaged ? (() => { const dmg = Object.values(s.city.buildings).filter((o) => o.damaged).length; return `<div class="panel-sub damaged"><b>🛠️ Endommagé</b> : production réduite de moitié. ${costList(repairCost(b, mods), s)} <button class="mini primary" data-action="repair" data-id="${b.id}">Réparer</button>${dmg > 1 ? ` <button class="mini" data-action="repair-all" title="Répare tous les bâtiments endommagés tant que les ressources suffisent">Tout réparer (${dmg})</button>` : ''}</div>`; })() : ''}
     ${def.recipes && b.level > 0 ? `<div class="panel-sub"><h4>Recette</h4><select data-change="recipe" data-id="${b.id}">${def.recipes.map((r, i) => `<option value="${i}" ${(b.recipe || 0) === i ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>` : ''}
     ${b.level > 0 && sectorOfBuilding(b.type) && s.workers?.length ? `<div class="small muted">👷 Secteur ${esc(WORK_SECTORS[sectorOfBuilding(b.type)].name)} : ${s.workers.filter((w) => w.job?.sector === sectorOfBuilding(b.type)).length} ouvrier(s) (+${Math.round((mods['work.' + sectorOfBuilding(b.type)] || 0) * 100)}%)</div>` : ''}
     ${b.level > 0 && b.type !== 'road' ? `<div class="small ${roadConnected(s).has(b.id) ? 'ok' : 'muted'}">${roadConnected(s).has(b.id) ? '✔ Relié au réseau de routes (+5%)' : '🟫 Non relié aux routes : une route pavée jusqu’à l’hôtel de ville donne +5%'}</div>` : ''}
@@ -645,6 +646,7 @@ const cityView = {
       app.ui.citySel = null; app.render();
     },
     repair: (app, el) => app.act(() => repairBuilding(app.state, el.dataset.id), 'Bâtiment réparé'),
+    'repair-all': (app) => { app.mapDirty = true; app.act(() => { const n = repairAll(app.state); return n ? { ok: true, n } : { ok: false, reason: 'Ressources insuffisantes pour réparer' }; }, (r) => `${r.n} bâtiment${r.n > 1 ? 's' : ''} réparé${r.n > 1 ? 's' : ''}`); },
     recipe: (app, el) => { app.state.city.buildings[el.dataset.id].recipe = +el.value; app.render(); app.save(); },
     expand: (app) => app.act(() => expandDomain(app.state), 'Le domaine s’agrandit !'),
     'city-zoom': (app, el) => { const vp = document.getElementById('city-vp'); if (!vp) return; zoomAt(cityCam(app), +el.dataset.z, vp.clientWidth / 2, vp.clientHeight / 2, CITY_ZMIN, CITY_ZMAX); vp._apply(); },

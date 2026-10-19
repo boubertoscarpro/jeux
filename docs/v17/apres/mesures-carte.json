@@ -8,19 +8,19 @@
   "examples": []
  },
  "milieu-large": {
-  "texts": 15,
+  "texts": 10,
   "marks": 31,
   "overlaps": 0,
-  "hidden": 13,
-  "useful": 82.1,
+  "hidden": 12,
+  "useful": 78.9,
   "examples": []
  },
  "fin-large": {
-  "texts": 35,
+  "texts": 12,
   "marks": 70,
   "overlaps": 0,
-  "hidden": 21,
-  "useful": 82.7,
+  "hidden": 22,
+  "useful": 81.5,
   "examples": []
  },
  "debut-moyen": {
@@ -36,22 +36,22 @@
   "marks": 13,
   "overlaps": 0,
   "hidden": 3,
-  "useful": 78.8,
+  "useful": 78.6,
   "examples": []
  },
  "fin-moyen": {
-  "texts": 20,
+  "texts": 13,
   "marks": 36,
   "overlaps": 0,
   "hidden": 10,
-  "useful": 76,
+  "useful": 78.3,
   "examples": []
  },
  "debut-mobile": {
   "texts": 11,
-  "marks": 7,
+  "marks": 8,
   "overlaps": 0,
-  "hidden": 0,
+  "hidden": 1,
   "useful": 79.3,
   "examples": []
  },

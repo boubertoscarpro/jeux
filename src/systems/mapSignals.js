@@ -10,6 +10,9 @@ export const SIGNAL_NAME = { danger: 'Danger', reward: 'Récompense', problem: '
 // Flèches d'amélioration : au plus UPGRADE_MAX sur la carte (les plus en retard sur l'hôtel de ville d'abord) ; les autres
 // restent dans la liste des améliorations (compteur ⬆ du panneau Construire)
 export const UPGRADE_MAX = 6;
+// Un même problème (dégâts, manque, pause) sur beaucoup de bâtiments : l'icône reste sur les PROBLEM_MAX plus hauts
+// niveaux, les autres portent un point discret (compact) ; la fiche du bâtiment propose « Tout réparer »
+export const PROBLEM_MAX = 4;
 export function buildingSignals(state, { bubbles = [], upgrades = new Map(), burning = new Set(), flooded = new Set(), showUpgrades = true } = {}) {
   const out = new Map();
   const put = (bid, sig) => { const cur = out.get(bid); if (!cur || SIGNAL_RANK[sig.kind] > SIGNAL_RANK[cur.kind]) out.set(bid, sig); };
@@ -29,6 +32,13 @@ export function buildingSignals(state, { bubbles = [], upgrades = new Map(), bur
   for (const bu of bubbles) {
     const kind = bu.id === 'raid' ? 'danger' : bu.id === 'claim' ? 'reward' : bu.id === 'full' ? 'problem' : 'idle';
     put(bu.bid, { kind, icon: bu.icon, text: bu.text, view: bu.view, mark: bu.mark });
+  }
+  const B = state.city?.buildings || {}, byIcon = new Map();
+  for (const [bid, sg] of out) if (sg.kind === 'problem') byIcon.set(sg.icon, [...(byIcon.get(sg.icon) || []), bid]);
+  for (const ids of byIcon.values()) {
+    if (ids.length <= PROBLEM_MAX) continue;
+    ids.sort((a, b) => (B[b]?.level || 0) - (B[a]?.level || 0) || (a < b ? -1 : 1));
+    for (const bid of ids.slice(PROBLEM_MAX)) out.set(bid, { ...out.get(bid), compact: true, group: ids.length });
   }
   return out;
 }

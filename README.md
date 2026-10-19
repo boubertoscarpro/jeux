@@ -21,6 +21,15 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v17 — Clair comme le jour** : la même organisation, en plus lisible et accessible à tous.
+> - **Carte calme** : niveaux de détail selon le zoom, aucun nom permanent (survol, focus, vue rapprochée ou réglage « toujours »), un seul signal par bâtiment par priorité, flèches d'amélioration seulement si payables (6 au plus, masquables). Le niveau se lit sur le dessin (6 tailles, écusson à crans), les voisins varient, les quartiers partagent un sol. Les zones sont dessinées, l'enceinte projetée n'a qu'une plaque, la météo passe sous les marques. En fin de partie : 165 → 12 textes sur la carte, 0 chevauchement.
+> - **Ville aérée** : réorganisation facultative avec aperçu et annulation, 3 plans de ville enregistrables.
+> - **Affichage et fenêtres** : colonne des quêtes légère, fil de 2 lignes, notifications triées (urgent, à faire, informatif), regroupées et plafonnées à « 9+ ». Un seul titre et une ligne de résumé par fenêtre, tendances en flèches et en mots, plus de « épuisé dans 0 s », texte de 13 px au moins (14 sur téléphone).
+> - **Accessibilité** : 0 contraste sous WCAG AA dans 5 modes. Réglages regroupés : texte 90–150 %, contraste élevé, 3 modes daltoniens qui changent aussi les cartes, police lisible, météo et nuit, durée des messages, noms, mode simplifié. Au clavier : flèches de bâtiment en bâtiment (5 touches en moyenne pour un lieu, 219 avant), Entrée pour l'anneau, focus gardé et rendu. Le royaume se lit en texte, les annonces passent par `aria-live`, les cibles tactiles font 44 px, et « Pourquoi ? » explique production, défense et stabilité.
+> - **Nouveautés** : calques d'information (production, incendie, défense, placement, zones), remparts vus de face et schéma du raid, frise des 8 prochaines heures, quête guidée, tenues de fête, retour du seigneur.
+>
+> Aucune nouvelle monnaie, aucun avantage payant, aucune règle de combat ou d'économie changée. Voir [`docs/AUDIT_V17.md`](docs/AUDIT_V17.md) et [`docs/V17.md`](docs/V17.md).
+
 > **v16 — Le Château** : tout part du royaume. Le château et sa ville sont l'écran principal, et l'accès à toutes les fonctions.
 > - **Affichage fixe dans les coins** : blason, niveau et puissance en haut à gauche (avec le sélecteur de domaine) ; ressources sur une ligne, jauges et infobulles au centre ; saison, météo, Éclats, notifications et réglages à droite ; activités limitées dans le temps en médaillons sur le bord droit ; quêtes suivies, conseiller et alertes sur le bord gauche ; fil du royaume, chantiers et marches, boutons Construire · Armée · Guilde · Rapports · Lieux et le globe « Monde » en bas.
 > - **Fenêtres par-dessus la carte** : chaque écran s'ouvre depuis son lieu (bâtiment, carte ou affichage fixe), avec son nom, son niveau, ses onglets, Améliorer, Retour et ✕ ; la carte reste floutée derrière. Raccourcis M, B, A, Q, R, L et Échap.

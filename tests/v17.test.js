@@ -9,7 +9,7 @@ import { advance } from '../src/core/engine.js';
 import { serialize, deserialize } from '../src/core/save.js';
 import { computeMods } from '../src/systems/modifiers.js';
 import { upgradeSummary } from '../src/systems/construction.js';
-import { buildingSignals, SIGNAL_RANK, UPGRADE_MAX, sizeTier, variantOf, quarterSides } from '../src/systems/mapSignals.js';
+import { buildingSignals, SIGNAL_RANK, UPGRADE_MAX, PROBLEM_MAX, sizeTier, variantOf, quarterSides } from '../src/systems/mapSignals.js';
 import { badges, groupNotices, noticeClass, reportClass, capCount, seenOnScreen, markAllSeen } from '../src/systems/notices.js';
 import { reorgPlan, movesTo, checkLayout, evaluate, applyLayout, undoLayout, savePlan, recallLayout, snapshot } from '../src/systems/cityPlans.js';
 import { nextBuilding, reachable, navTargets } from '../src/systems/cityNav.js';
@@ -265,4 +265,21 @@ test('Tenues de fête et retour du seigneur : liés à l’état réel, sans cul
   assert.match(h.text, /^Pendant votre absence : 1 chantier terminé, 1 raid repoussé\.$/);
   assert.ok(!/manqué|perdu|vite|dépêchez/i.test(h.text));
   assert.equal(homecoming(snapshotCity(s), s).text, '', 'rien de changé : rien à dire');
+});
+
+test('Carte : un même problème sur beaucoup de bâtiments — icône sur les 4 plus hauts niveaux, point discret ailleurs', () => {
+  const s = v16();
+  const bs = Object.values(s.city.buildings).filter((x) => x.level > 0 && x.type !== 'townhall' && x.type !== 'road' && x.type !== 'deco');
+  for (const b of Object.values(s.city.buildings)) b.damaged = false;
+  for (const b of bs.slice(0, 10)) b.damaged = true;
+  const sig = buildingSignals(s, { showUpgrades: false });
+  const dmg = [...sig.entries()].filter(([, x]) => x.icon === '🛠️');
+  assert.equal(dmg.length, 10 - bs.slice(0, 10).filter((b) => sig.get(b.id)?.icon !== '🛠️').length);
+  const full = dmg.filter(([, x]) => !x.compact);
+  assert.equal(full.length, PROBLEM_MAX);
+  const minFull = Math.min(...full.map(([id]) => s.city.buildings[id].level));
+  assert.ok(dmg.filter(([, x]) => x.compact).every(([id, x]) => s.city.buildings[id].level <= minFull && x.group === dmg.length));
+  // Trois bâtiments seulement : tous gardent leur icône
+  for (const b of bs.slice(3)) b.damaged = false;
+  assert.ok([...buildingSignals(s, { showUpgrades: false }).values()].every((x) => !x.compact));
 });
