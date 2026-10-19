@@ -1,3 +1,4 @@
+import { claimAll } from '../systems/comfort.js';
 import { repActions } from './repercussions.js';
 import { stageActions } from './stage.js';
 import { iconize } from './glyphs.js';
@@ -571,6 +572,8 @@ export class App {
     fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); } catch { /* refusé par le navigateur */ } },
     'hud-zoom': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-zoom'] || mv?.actions?.zoom)?.(app, el); },
     'kingdom-text': (app) => openKingdomText(app),
+    // v18 : « Tout réclamer » (tableau de bord, colonne des quêtes)
+    'claim-all': (app) => app.act(() => claimAll(app.state), (r) => `🎁 ${r.n} récompense${r.n > 1 ? 's' : ''} réclamée${r.n > 1 ? 's' : ''}${r.text ? ` : ${r.text}` : ''}`),
     'layer-bar': (app) => { app.ui.layerBar = !app.ui.layerBar; app.renderHud(); },
     layer: (app, el) => { const k = el.dataset.k || null; app.ui.layer = k && app.ui.layer !== k ? k : null; if (!k) app.ui.layerBar = false; app.mapDirty = true; if (app.ui.map !== 'city') app.go('city'); else app.render(); },
     timeline: (app) => { app.ui.timelineOpen = !document.querySelector('.hud-timeline:not(.closed)') ? true : false; app.renderHud(); },

@@ -5,7 +5,8 @@ import { uid, scaleObj } from '../core/util.js';
 import { levelOf } from './city.js';
 import { computeMods } from './modifiers.js';
 import { pay, missing, gain } from './economy.js';
-import { generateItem, upgradeCost, salvageYield, MAX_PLUS, itemScore } from './items.js';
+import { generateItem, upgradeCost, MAX_PLUS } from './items.js';
+import { lootTick, disposeItems, INVENTORY_CAP } from './armory.js';
 import { log } from './log.js';
 import { costMult, applyCostMult } from './kingdom.js';
 import { PLANS } from '../data/recipes.js';
@@ -164,34 +165,23 @@ export function upgradeItem(state, itemId, now = Date.now()) {
   return { ok: true };
 }
 
+// Démanteler un objet (v18 : rend aussi les gemmes serties à l'écrin ; annulable comme une action en masse)
 export function salvageItem(state, itemId, now = Date.now()) {
   const it = state.inventory.items.find((i) => i.id === itemId);
   if (!it) return { ok: false };
   if (it.equippedBy) return { ok: false, reason: 'Objet équipé' };
-  const mods = computeMods(state, now);
-  const y = salvageYield(it, mods['salvage.bonus'] || 0);
-  gain(state, y, mods);
-  state.inventory.items = state.inventory.items.filter((i) => i.id !== itemId);
-  return { ok: true, yield: y };
+  if (it.locked) return { ok: false, reason: 'Objet verrouillé' };
+  const r = disposeItems(state, [itemId], 'dismantle', now, { manual: true, mods: computeMods(state, now) });
+  return r.ok ? { ok: true, yield: r.res } : r;
 }
 
-// Inventaire plafonné : au-delà de 300 objets non équipés et non verrouillés, les plus faibles sont recyclés
-// automatiquement (leurs matériaux sont rendus). Évite une sauvegarde qui grossit sans limite.
-export const INVENTORY_CAP = 300;
+// v18 : plus de recyclage silencieux. À chaque pas du monde, le butin arrivé passe par l'équipement automatique
+// (facultatif) et les règles de tri du joueur ; au-delà de 300 objets, les moins utiles sont démantelés avec un
+// rapport, jamais une pièce portée, verrouillée, réservée ou meilleure pour un héros (systems/armory.js).
+export { INVENTORY_CAP };
 export function inventoryCapTick(state, now = Date.now()) {
-  const items = state.inventory.items;
-  const free = items.filter((i) => !i.equippedBy && !i.locked && !Object.values(state.heroes).some((h) => Object.values(h.equipment || {}).includes(i.id)));
-  if (items.length <= INVENTORY_CAP || !free.length) return 0;
-  const excess = Math.min(free.length, items.length - INVENTORY_CAP);
-  const victims = [...free].sort((a, b) => itemScore(a) - itemScore(b)).slice(0, excess);
-  const mods = computeMods(state, now);
-  const total = {};
-  for (const it of victims) for (const [r, v] of Object.entries(salvageYield(it, mods['salvage.bonus'] || 0))) total[r] = (total[r] || 0) + v;
-  gain(state, total, mods);
-  const ids = new Set(victims.map((i) => i.id));
-  state.inventory.items = items.filter((i) => !ids.has(i.id));
-  log(state, 'info', `🎒 Inventaire plein (${INVENTORY_CAP}) : ${victims.length} objet(s) parmi les plus faibles recyclé(s) automatiquement. Verrouillez 🔒 ceux à garder.`, now);
-  return victims.length;
+  const r = lootTick(state, now, computeMods(state, now));
+  return r?.kind === 'cap' ? r.n : 0;
 }
 
 export function toggleLock(state, itemId) {

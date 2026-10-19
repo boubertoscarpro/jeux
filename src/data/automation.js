@@ -21,6 +21,8 @@ export const ORDER_CONDITIONS = {
   damaged:    { label: 'SI un bâtiment est endommagé', params: [], min: 7 },
   season:     { label: 'SI saison =', params: ['season'] },
   expIdle:    { label: 'SI une équipe d’expédition est au repos', params: [] },
+  // v18 : règles de tri du butin (examinées à l'arrivée de chaque objet, hors quota des ordres, dès le début)
+  loot:       { label: 'SI un objet arrive (rareté ≤, emplacement, utilité)', params: ['rarityMax', 'slot', 'useful'], loot: true, min: 0 },
 };
 
 // Actions des Ordres du royaume (min : palier d'automatisation requis)
@@ -37,6 +39,12 @@ export const ORDER_ACTIONS = {
   repair:     { label: 'réparer les bâtiments', params: [], min: 7 },
   recall:     { label: 'rappeler toutes les marches', params: [], min: 7 },
   research:   { label: 'lancer la recherche prioritaire', params: [], min: 5 },
+  // v18 « L'Armurerie »
+  lootSell:      { label: 'le vendre au Joaillier', params: [], min: 0, loot: true },
+  lootDismantle: { label: 'le démanteler à la forge', params: [], min: 0, loot: true },
+  lootKeep:      { label: 'le garder', params: [], min: 0, loot: true },
+  equipBest:     { label: 'équiper toute la troupe au mieux', params: [], min: 4 },
+  maintain:      { label: 'compléter l’armée jusqu’à la composition', params: ['preset'], min: 5 },
 };
 
 // Modèles prêts à l'emploi
@@ -49,4 +57,6 @@ export const ORDER_TEMPLATES = [
   { name: 'Rappel en cas de raid', cond: { type: 'raid' }, action: { type: 'recall' } },
   { name: 'Acheter du charbon', cond: { type: 'resAbove', res: 'gold', value: 20000 }, action: { type: 'buy', res: 'coal', count: 500 } },
   { name: 'Réparations', cond: { type: 'damaged' }, action: { type: 'repair' } },
+  { name: 'Équiper la troupe chaque heure', cond: { type: 'every', minutes: 60 }, action: { type: 'equipBest' } },
+  { name: 'Maintenir la garnison', cond: { type: 'every', minutes: 30 }, action: { type: 'maintain', preset: 0 } },
 ];

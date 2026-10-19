@@ -1,0 +1,58 @@
+/* v18 « L'Armurerie » : équipement automatique, comparaison, châsses et gemmes, vente en masse, règles de tri.
+   Standards v17 : contrastes AA (le sens passe aussi par ▲ ▼ ● et des mots), cibles de 44 px sur téléphone,
+   focus visible, rien n'est transmis par la couleur seule. */
+.armory-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 10px; }
+.armory-bar .chk, .bulk-filters .chk, .chk { display: inline-flex; align-items: center; gap: 6px; }
+.ae-table-wrap { max-height: 56vh; overflow: auto; }
+.ae-table, .gem-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ae-table td, .ae-table th, .gem-table td, .gem-table th { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.ae-table td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ae-table tr.ae-hero th { background: var(--bg2); color: var(--gold, #e6c37a); font-weight: 700; }
+.ae-mod { display: inline-block; margin: 2px 8px 2px 0; }
+.ae-mod.up, .cmp-rows .up { color: var(--good); }
+.ae-mod.down, .cmp-rows .down { color: var(--bad); }
+.prio-list { list-style: none; padding: 0; margin: 10px 0; }
+.prio-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+/* Comparaison : visible au survol ou au focus ; toujours lue par les lecteurs d'écran */
+.item-wrap { position: relative; }
+.item-wrap .cmp { background: #15120e; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; margin-top: 4px; color: #f3e6c4; }
+.item-wrap:not(:hover):not(:focus-within) .cmp:not(.open) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; padding: 0; border: 0; }
+.cmp-rows { margin: 4px 0 0; padding-left: 0; list-style: none; }
+.cmp.open { display: block; }
+.gain-tag { display: inline-block; font-size: 13px; padding: 1px 6px; border-radius: 9px; border: 1px solid var(--line); margin: 2px 0; }
+.gain-tag.up { color: var(--good); border-color: currentColor; }
+.gain-tag.down { color: var(--bad); border-color: currentColor; }
+.best-badge { display: inline-block; font-size: 13px; font-weight: 700; color: #1d1812; background: #f3d27a; border: 1px solid #8a6418; border-radius: 9px; padding: 1px 7px; margin: 2px 4px 2px 0; }
+.set-tag { display: inline-block; font-size: 13px; color: #f3e6c4; background: #2c2a3a; border: 1px solid #6c6290; border-radius: 9px; padding: 1px 7px; margin: 2px 4px 2px 0; }
+.sockets { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.sock { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding: 2px 7px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); }
+.sock.empty { border-style: dashed; color: var(--muted); }
+.sock .mini { margin-left: 4px; }
+/* Gemmes : une forme et un nom, la couleur n'est qu'un renfort */
+.gem-ruby { color: #ff8f8f; } .gem-sapphire { color: #8fc1ff; } .gem-emerald { color: #7fe0a0; } .gem-topaz { color: #ffd479; } .gem-amethyst { color: #d4a8ff; }
+.gem-table th[scope="row"] { white-space: nowrap; }
+.outfits .outfit { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 4px 0; border-bottom: 1px dashed var(--line); }
+.advice-list { list-style: none; padding: 0; }
+.advice-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.bulk-filters { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0; font-size: 14px; }
+.bulk-sum { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+.bulk-list { max-height: 30vh; overflow: auto; columns: 2 260px; padding-left: 18px; }
+.sel-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: var(--bg2); border: 1px solid var(--gold2, #b08a3e); border-radius: 8px; padding: 6px 10px; margin: 6px 0; position: sticky; top: 0; z-index: 3; }
+.item-wrap .pick { position: absolute; top: 4px; right: 4px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; min-width: 26px; min-height: 26px; }
+.item-wrap .pick input { width: 18px; height: 18px; }
+.item-wrap.picked .item-card { outline: 2px solid var(--gold, #e6c37a); outline-offset: 1px; }
+.item-wrap.picked .pick::after { content: '✔'; font-size: 12px; margin-left: 2px; }
+.inv-tools input[type="search"] { min-width: 180px; }
+.rules { list-style: none; padding: 0; }
+.armory-reports { padding-left: 18px; }
+.item-detail .panel-sub .row { margin: 4px 0; }
+.claim-all { margin: 0 0 8px; }
+.mu-presets-saved { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+html.hc .best-badge { background: #ffd86b; color: #000; border-color: #000; }
+html.hc .item-wrap .cmp, html.hc .sock, html.hc .set-tag { background: #000; border-color: #ffd86b; color: #fff; }
+@media (max-width: 700px) {
+  .armory-bar .btn, .armory-bar label, .sel-bar .mini, .bulk-filters label, .outfit .mini, .advice-list .mini, .sock .mini { min-height: 44px; }
+  .item-wrap .pick { min-width: 44px; min-height: 44px; }
+  .ae-table { font-size: 14px; }
+  .bulk-list { columns: 1; }
+}

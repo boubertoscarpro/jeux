@@ -1,3 +1,5 @@
+import { ITEM_SETS } from '../../data/armory.js';
+import { fmtMod } from '../../data/modLabels.js';
 import { speedupPanel } from '../speedups.js';
 import { ARTIFACTS, ARTIFACT_CATS } from '../../data/artifacts.js';
 import { BOSSES } from '../../data/world.js';
@@ -20,6 +22,7 @@ export default {
         : `<div class="artifact"><div class="a-icon">❔</div><b>???</b><div class="muted small">Indice : ${esc(a.source)}</div></div>`).join('')}</div>`).join('')}</div>
       ${speedupPanel(s)}
       <div class="cols-2"><div class="card"><h2>🗃️ Collections</h2>${sets.map((c) => `<div class="objective ${c.done ? 'done' : ''}"><div class="q-top"><b>${esc(c.name)}</b><span>${c.cur}/${c.max}</span></div><div class="small muted">${esc(c.desc)}</div>${bar(c.cur, c.max)}<div class="small">${c.done ? '✔ ' : ''}Bonus : ${Object.entries(c.mods).map(([k, v]) => `${k} ${v < 1 ? '+' + Math.round(v * 100) + '%' : '+' + v}`).join(', ')}</div></div>`).join('')}
+        <h3>🛡️ Ensembles d’équipement</h3><div class="chips">${Object.entries(ITEM_SETS).map(([k, d]) => `<span class="chip ${s.armory?.setsDone?.[k] ? 'chip-buff' : ''}" title="${esc(`Pièces : ${d.bases.length} modèles ; 2 pièces : ${Object.entries(d.bonus[2].mods).map(([mk, v]) => fmtMod(mk, v)).join(', ')} ; 4 pièces : ${Object.entries(d.bonus[4].mods).map(([mk, v]) => fmtMod(mk, v)).join(', ')}`)}">${s.armory?.setsDone?.[k] ? '✔' : '·'} ${d.icon} ${esc(d.name)}${s.armory?.setsDone?.[k] ? '' : ' (pas encore complet)'}</span>`).join('')}</div>
         <h3>🏆 Trophées de boss</h3><div class="chips">${Object.entries(BOSSES).map(([k, b]) => `<span class="chip ${s.bossTrophies?.[k] ? 'chip-buff' : ''}">${s.bossTrophies?.[k] ? '🏆' : '·'} ${esc(b.name)}</span>`).join('')}</div>
         <h3>🎖️ Titres</h3><div class="chips">${(s.meta.titles || []).map((t) => `<span class="chip">${esc(t)}</span>`).join('') || '<span class="muted small">Aucun titre.</span>'}</div></div>
       <div class="card"><h2>⚖️ Réputations</h2><p class="muted small">Vos actes façonnent votre réputation. Les factions et les cités réagissent : un tyran se voit refuser le commerce, un bienfaiteur attire les familles, un marchand paie moins de taxes…</p>

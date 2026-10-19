@@ -20,6 +20,10 @@ import { recallMarch } from './marches.js';
 import { techStatus, startResearch } from './research.js';
 import { calendar, chronicle } from './chronicle.js';
 import { log } from './log.js';
+import { addLootRule, planAutoEquip, applyAutoEquip } from './armory.js';
+import { maintainArmy } from './comfort.js';
+import { SLOTS } from '../data/items.js';
+import { RARITIES } from '../data/heroes.js';
 
 export { automationLevel };
 export const orderSlots = (state) => AUTOMATION_LEVELS.slice(0, automationLevel(state) + 1).reduce((m, l) => Math.max(m, l.orders || 0), 0);
@@ -81,8 +85,11 @@ export function priorityTick(state, now) {
 
 // ---------- Ordres du royaume ----------
 export function addOrder(state, order) {
+  // v18 : une règle de tri du butin est un ordre comme un autre, mais disponible dès le début et hors quota
+  if (order.cond?.type === 'loot') return addLootRule(state, { ...order.cond, action: order.action?.type, name: order.name });
   if (automationLevel(state) < 4) return { ok: false, reason: 'Palier d’Intendance 4 (Gestionnaire) requis' };
-  if (state.orders.length >= orderSlots(state)) return { ok: false, reason: `Maximum ${orderSlots(state)} ordres à ce palier` };
+  if (state.orders.filter((o) => o.cond?.type !== 'loot').length >= orderSlots(state)) return { ok: false, reason: `Maximum ${orderSlots(state)} ordres à ce palier` };
+  if (ORDER_ACTIONS[order.action?.type]?.loot) return { ok: false, reason: 'Cette action ne s’emploie qu’avec la condition « SI un objet arrive »' };
   const a = ORDER_ACTIONS[order.action?.type];
   const c = ORDER_CONDITIONS[order.cond?.type];
   if (!a || !c) return { ok: false, reason: 'Ordre incomplet' };
@@ -107,12 +114,15 @@ export function describeOrder(o) {
     resBelow: () => `${res(c.res)} < ${fmt(c.value)}`, resAbove: () => `${res(c.res)} > ${fmt(c.value)}`, every: () => `toutes les ${c.minutes} min`,
     idleWorkers: () => `ouvriers inactifs ≥ ${c.value}`, unitBelow: () => `${UNITS[c.unit]?.name || c.unit} en ville < ${c.value}`, raid: () => 'un raid approche',
     damaged: () => 'un bâtiment est endommagé', season: () => `saison = ${c.season}`, expIdle: () => 'une équipe est au repos',
+    loot: () => `un objet arrive (${c.slot ? SLOTS[c.slot]?.name.toLowerCase() + ', ' : ''}${c.rarityMin ? `${RARITIES[c.rarityMin]?.name.toLowerCase()} ou mieux` : `${RARITIES[c.rarityMax]?.name.toLowerCase() || 'toute rareté'} ou moins`}${c.useful === 'useless' ? ', utile à aucun héros' : ''})`,
   }[c.type]?.() || '?';
   const act = {
     assign: () => `affecter ${a.count} ouvriers → ${WORK_SECTORS[a.sector]?.name}`, sellAbove: () => `vendre le ${res(a.res)} au-delà de ${fmt(a.value)}`,
     buy: () => `acheter ${fmt(a.count)} ${res(a.res)}`, train: () => `former ${a.count} ${UNITS[a.unit]?.name}`, relaunch: () => 'relancer les expéditions',
     pauseChain: () => `pause : ${BUILDINGS[a.building]?.name}`, resumeChain: () => `relancer : ${BUILDINGS[a.building]?.name}`, brew: () => `distiller ${a.count} potions de soin`,
     donate: () => `donner ${fmt(a.count)} ${res(a.res)} à la guilde`, repair: () => 'réparer les bâtiments', recall: () => 'rappeler les troupes', research: () => 'lancer la recherche prioritaire',
+    lootSell: () => 'le vendre au Joaillier', lootDismantle: () => 'le démanteler à la forge', lootKeep: () => 'le garder',
+    equipBest: () => 'équiper toute la troupe au mieux', maintain: () => `compléter l’armée (composition ${(+a.preset || 0) + 1})`,
   }[a.type]?.() || '?';
   return `SI ${cond} → ${act}`;
 }
@@ -160,6 +170,8 @@ function runAction(state, o, now) {
       return n ? { ok: true, msg: `${n} groupe(s) rappelé(s)` } : { ok: false, reason: 'personne à rappeler' };
     }
     case 'research': return autoResearch(state, now, true);
+    case 'equipBest': { const plan = planAutoEquip(state); if (!plan.changes.length) return { ok: false, reason: 'chacun porte déjà le mieux' }; const r = applyAutoEquip(state, plan, now); return r.ok ? { ok: true, msg: `${r.n} pièce(s) changée(s)` } : r; }
+    case 'maintain': return maintainArmy(state, +a.preset || 0, now);
     default: return { ok: false, reason: 'action inconnue' };
   }
 }
@@ -168,7 +180,7 @@ const withMsg = (r, f) => (r?.ok ? { ok: true, msg: f(r) } : { ok: false, reason
 export function ordersTick(state, now) {
   if (automationLevel(state) < 4) return;
   const slots = orderSlots(state);
-  state.orders.slice(0, slots).forEach((o) => {
+  state.orders.filter((o) => o.cond?.type !== 'loot').slice(0, slots).forEach((o) => {
     if (!o.enabled) return;
     if (o.cond.type !== 'every' && now - (o.lastRun || 0) < (o.cooldown || 0) * 60000) return;
     if (!checkCond(state, o, now)) return;
