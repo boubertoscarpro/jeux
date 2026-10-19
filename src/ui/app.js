@@ -312,6 +312,8 @@ export class App {
     const main = this.$('#view');
     this.root.classList.add('mapmode');
     this.root.classList.toggle('win-open', !!this.ui.win);
+    // v17 : l'affichage fixe d'abord, pour que le cadrage de la carte connaisse sa zone de sécurité
+    this.renderHud();
     // Sans fenêtre : la carte est redessinée comme avant. Avec une fenêtre : seulement si on l'a demandé (changement de
     // carte, action sur la carte) ; ouvrir un écran par-dessus une carte à jour ne la redessine pas.
     if (!this.ui.win || this.mapDirty || main.dataset.screen !== map.id) {
@@ -321,7 +323,6 @@ export class App {
       iconize(main);
       this.mapDirty = false;
     }
-    this.renderHud();
     this.renderWin();
   }
 

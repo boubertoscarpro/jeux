@@ -1,0 +1,84 @@
+/* v17 « Clair comme le jour » — lisibilité, accessibilité, calques. Chargé après v16b.css. */
+
+/* ───── Carte du royaume : marques rangées dans leur case, jamais l'une sur l'autre ─────
+   Coin haut gauche : écusson de niveau ; coin haut droit : le signal (un seul) ; bas : le nom (vue rapprochée,
+   survol, focus, sélection ou réglage « Afficher les noms »). Les anciennes marques v10–v16 ne s'affichent plus. */
+.city-vp .t-up, .city-vp .t-lvl, .city-vp .t-flag, .city-vp .t-bubble, .city-vp .t-hero, .city-vp .t-risk { display: none !important; }
+.city-vp .t-crest { position: absolute; left: 2px; top: 2px; z-index: 6; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 4px 4px 7px 7px; font: 700 10px/15px var(--font); text-align: center; color: #f6e7bd; background: #2b2118; border: 1px solid #8a6a3e; pointer-events: none; transform: scale(var(--bz, 1)); transform-origin: top left; opacity: 0.92; }
+.city-vp .t-sig { position: absolute; right: 2px; top: 2px; z-index: 7; display: inline-flex; align-items: center; justify-content: center; gap: 1px; min-width: 20px; height: 20px; padding: 0 3px; border-radius: 10px; font: 700 11px/1 var(--font); color: #1d1812; background: #fff6dc; border: 2px solid #6a4a28; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); cursor: pointer; transform: scale(var(--bz, 1)); transform-origin: top right; }
+.city-vp .t-sig i { font-style: normal; font-size: 12px; line-height: 1; }
+.city-vp .t-sig b { font-size: 10px; }
+.city-vp .t-sig.sig-danger { background: #ffe1da; border-color: #a5261b; }
+.city-vp .t-sig.sig-reward { background: #fff1b8; border-color: #8a6418; }
+.city-vp .t-sig.sig-problem { background: #ffe9c7; border-color: #8a4d12; }
+.city-vp .t-sig.sig-upgrade { background: #dff5e5; border-color: #1f6b3c; color: #10381f; }
+.city-vp .t-sig.sig-idle { background: #e8eef5; border-color: #45607a; }
+.city-vp .t-build { position: absolute; left: auto; right: 2px; top: 2px; z-index: 7; transform: scale(var(--bz, 1)); transform-origin: top right; }
+.city-vp .t-name { top: auto; bottom: 1px; left: 50%; max-width: calc(100% - 2px); transform: translateX(-50%); transform-origin: bottom center; font-size: 10.5px; padding: 0 4px; z-index: 8; display: none; }
+.city-vp .tile.major .t-name { max-width: none; }
+.city-vp[data-zl="near"] .t-name, html.show-names .city-vp:not([data-zl="far"]) .t-name,
+.city-vp .tile:hover .t-name, .city-vp .tile:focus-visible .t-name, .city-vp .tile.sel .t-name { display: block; }
+/* Vue normale : le nom du château seul n'est plus permanent (il reste au survol, au focus, et en vue rapprochée) */
+.city-vp[data-zl="mid"] .t-name.major { display: none; }
+.city-vp[data-zl="mid"] .tile:hover .t-name.major, .city-vp[data-zl="mid"] .tile:focus-visible .t-name.major, .city-vp[data-zl="mid"] .tile.sel .t-name.major, html.show-names .city-vp[data-zl="mid"] .t-name.major { display: block; }
+/* Vue d'ensemble : silhouettes, zones et alertes seulement (danger, récompense) */
+.city-vp[data-zl="far"] .t-crest, .city-vp[data-zl="far"] .t-sig:not(.sig-danger):not(.sig-reward), .city-vp[data-zl="far"] .t-build, .city-vp[data-zl="far"] .t-name { display: none !important; }
+.city-vp[data-zl="far"] .t-sig { transform: scale(min(var(--bz, 1), 2)); }
+/* Le signal survit au masquage des flèches d'amélioration, sauf l'amélioration elle-même */
+html.hide-ups .city-vp .t-sig.sig-upgrade { display: none; }
+/* Plaques « à bâtir » : le panneau suffit ; le nom à la demande */
+.city-vp .t-name.lot-name { display: none; }
+.city-vp[data-zl="near"] .t-name.lot-name, .city-vp .tile.lot:hover .t-name.lot-name, .city-vp .tile.lot:focus-visible .t-name.lot-name, .city-vp .tile.lot.sel .t-name.lot-name { display: block; }
+/* Zones : nommées seulement en vue d'ensemble (sinon le sol les dit) */
+.city-vp:not([data-zl="far"]) .zone-label { display: none; }
+
+/* ───── Le niveau se lit sur le bâtiment : taille par paliers, plus grande qu'en v16 ───── */
+.city-vp .tile.sz-0 .b-art:not(.scaffold) { transform: scale(0.8); }
+.city-vp .tile.sz-1 .b-art:not(.scaffold) { transform: scale(0.9); }
+.city-vp .tile.sz-2 .b-art:not(.scaffold) { transform: scale(1); }
+.city-vp .tile.sz-3 .b-art:not(.scaffold) { transform: scale(1.08); }
+.city-vp .tile.sz-4 .b-art:not(.scaffold) { transform: scale(1.14); }
+.city-vp .tile.sz-5 .b-art:not(.scaffold) { transform: scale(1.2); }
+/* Variantes : orientation et teinte des toits (déterministes par case) */
+.city-vp .tile.var-1:not(.major) .b-art:not(.scaffold) { scale: -1 1; }
+.city-vp .tile.var-2:not(.major) .b-art:not(.scaffold) { filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.35)) hue-rotate(-14deg) saturate(1.08); }
+.city-vp .tile.var-3:not(.major) .b-art:not(.scaffold) { scale: -1 1; filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.35)) hue-rotate(12deg) brightness(1.04); }
+/* Quartiers : un sol commun sous les bâtiments de production identiques et voisins */
+.city-vp .tile.quart::before { content: ''; position: absolute; inset: 4px; border-radius: 10px; background: rgba(214, 186, 120, 0.22); box-shadow: inset 0 0 0 1px rgba(110, 80, 40, 0.35); pointer-events: none; z-index: 0; }
+.city-vp .tile.quart.q-n::before { top: 0; border-top-left-radius: 0; border-top-right-radius: 0; box-shadow: none; }
+.city-vp .tile.quart.q-s::before { bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: none; }
+.city-vp .tile.quart.q-e::before { right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; box-shadow: none; }
+.city-vp .tile.quart.q-w::before { left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: none; }
+
+/* ───── Météo et lumière sous les marques et l'interface (dans la carte, entre le sol et les bâtiments) ───── */
+.city-stage > .scene-fx { display: none; }
+.wx-slot { overflow: hidden; z-index: 1; }
+.wx-slot .scene-fx.in-map { position: absolute; inset: 0; z-index: auto; }
+.wx-slot .fx-wx { inset: -160px 0 0 0 !important; will-change: transform; }
+.wx-rain .wx-slot .fx-wx, .wx-storm .wx-slot .fx-wx { animation: v17-fall-rain 0.6s linear infinite; }
+.wx-snow .wx-slot .fx-wx { background-size: 160px 160px !important; animation: v17-fall-snow 8s linear infinite; }
+@keyframes v17-fall-rain { from { transform: translateY(0); } to { transform: translateY(140px); } }
+@keyframes v17-fall-snow { from { transform: translateY(0); } to { transform: translateY(160px); } }
+.city-vp[data-zl="far"] .wx-slot .fx-wx { opacity: 0.45; }
+.city-vp.moving .wx-slot .fx-wx { animation-play-state: paused; }
+html.reduce-motion .wx-slot .fx-wx, html.saver .wx-slot .fx-wx { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .wx-slot .fx-wx { animation: none !important; } }
+html.no-weather .wx-slot, html.no-weather .scene-fx .fx-wx, html.no-weather .scene-fx .fx-light { display: none !important; }
+.city-vp .city-grid { position: relative; z-index: 1; }
+/* Écusson : en vue normale, un pictogramme de palier (1 à 6 crans) ; le chiffre en vue rapprochée, au survol, au focus */
+.city-vp .t-crest b { display: none; font: inherit; }
+.city-vp .t-crest::before { content: ''; display: block; width: calc(var(--n, 1) * 4px); height: 7px; margin: 4px 0; background: radial-gradient(circle, #f3d27a 1.6px, transparent 2px) 0 0 / 4px 7px repeat-x; }
+.city-vp .t-crest[data-t="0"] { --n: 1; } .city-vp .t-crest[data-t="1"] { --n: 2; } .city-vp .t-crest[data-t="2"] { --n: 3; }
+.city-vp .t-crest[data-t="3"] { --n: 4; } .city-vp .t-crest[data-t="4"] { --n: 5; } .city-vp .t-crest[data-t="5"] { --n: 6; }
+.city-vp[data-zl="near"] .t-crest b, .city-vp .tile:hover .t-crest b, .city-vp .tile:focus-visible .t-crest b, .city-vp .tile.sel .t-crest b, html.show-names .city-vp .t-crest b { display: inline; }
+.city-vp[data-zl="near"] .t-crest::before, .city-vp .tile:hover .t-crest::before, .city-vp .tile:focus-visible .t-crest::before, .city-vp .tile.sel .t-crest::before, html.show-names .city-vp .t-crest::before { display: none; }
+
+/* ───── Plans de ville : aperçu ───── */
+.city-vp .tile.plan-from .b-art { opacity: 0.38; }
+.city-vp .tile.plan-to { box-shadow: inset 0 0 0 3px #fff3c4; border-radius: 8px; background: repeating-linear-gradient(45deg, rgba(255, 243, 196, 0.22) 0 6px, transparent 6px 12px); }
+.city-vp .t-ghost { position: absolute; inset: 10px; display: flex; align-items: center; justify-content: center; opacity: 0.75; pointer-events: none; z-index: 3; }
+.plan-bar { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 26; max-width: calc(100% - 24px); padding: 8px 12px; border-radius: 10px; background: rgba(22, 18, 14, 0.94); border: 1px solid #c9a54a; color: var(--ivory); font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+.trend { font-weight: 700; white-space: nowrap; }
+.trend.up { color: #8fe0a4; }
+.trend.down { color: #ffab9f; }
+.plan-slots { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }

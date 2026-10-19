@@ -23,7 +23,10 @@ import { ERAS, eraOf, TH_MILESTONES, thRequirements } from '../../data/eras.js';
 import { ensureArtDefs, buildingSvg, buildingIcon, terrainSvg, plainVariant, roadSvg, upIcon } from '../art.js';
 import { openUpgradeList, openRenameCastle } from '../upgrades.js';
 import { castleUnderSvg, castleOverSvg } from '../castleArt.js';
+import { openPlans } from '../plansUi.js';
 import { cityBubbles, heroPosts } from '../../systems/bubbles.js';
+import { buildingSignals, SIGNAL_NAME, sizeTier, variantOf, quarterSides } from '../../systems/mapSignals.js';
+import { SHORT_NAMES } from '../../data/labels.js';
 import { ringHtml, lotPanel, zoneBlock, castleCard, castleActions, screenButtons, openPlaces } from '../castleUi.js';
 import { ruleText } from '../../systems/castle.js';
 import { vacantLots, zoneAt, castleStage, wallStyle, freeMoveActive as freeMove } from '../../systems/castle.js';
@@ -53,7 +56,7 @@ function cityCtx(app, mods) {
   const q = new Map();
   for (const it of s.queues.build) q.set(it.kind === 'clear' ? `c:${it.x},${it.y}` : it.bid, it);
   const up = new Map();
-  if (showUpgrades(s)) for (const u of upgradeSummary(s, mods).list) if (!u.fort) up.set(u.bid, u);
+  for (const u of upgradeSummary(s, mods).list) if (!u.fort) up.set(u.bid, u);
   const planned = new Set((s.queues.planned || []).map((p) => p.bid).filter(Boolean));
   // v14 : aperçu des risques (incendie selon le voisinage, zone inondable) — calculé seulement s'il est affiché
   const risk = app.ui.cityRisk ? new Map(Object.values(s.city.buildings).map((b) => [b.id, riskBand(fireRisk(s, b))])) : null;
@@ -69,7 +72,12 @@ function cityCtx(app, mods) {
   const quiet = app.ui.buildMode || app.ui.placeType || app.ui.moveId;
   const bubbles = new Map(quiet ? [] : cityBubbles(s, mods).map((b) => [b.bid, b]));
   const posts = quiet ? new Map() : heroPosts(s);
-  return { s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  // v17 : aperçu d'un plan de ville (cases d'arrivée en pointillé, bâtiments qui partent estompés)
+  const pv = app.ui.planPreview;
+  const planTo = new Map(), planFrom = new Set();
+  if (pv) for (const [id, [px, py]] of Object.entries(pv)) { const b = s.city.buildings[id]; if (b && (b.x !== px || b.y !== py)) { planTo.set(px + ',' + py, b.type); planFrom.add(id); } }
+  const signals = quiet ? new Map() : buildingSignals(s, { bubbles: [...bubbles.values()], upgrades: up, burning, flooded, showUpgrades: showUpgrades(s) });
+  return { planTo, planFrom, s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, signals, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -95,24 +103,31 @@ function tileHtml(app, x, y, ctx) {
     if (b.type === 'road') inner += roadSvg(roadMask(ctx, x, y));
     else if (b.type === 'deco') inner += `<span class="t-deco">${COSMETICS[b.deco]?.icon || ''}</span>`;
     else {
+      // v17 : le niveau se lit sur le dessin (taille par paliers) ; deux bâtiments voisins identiques ne se ressemblent
+      // pas (variante d'orientation et de teinte) ; les bâtiments de production voisins forment un quartier
       inner += buildingSvg(b.type, b.level, 'b-art', b.type === 'monument' ? ORIENTS[b.orient]?.color : null);
+      cls.push('sz-' + sizeTier(b.level), 'var-' + variantOf(x, y));
+      const qs = quarterSides(ctx.at, b);
+      if (qs) { cls.push('quart'); for (const c of qs) cls.push('q-' + c); }
       const major = b.type === 'townhall' || b.type === 'castle' || b.type === 'monument';
       if (major) cls.push('major');
-      inner += `<span class="t-name ${major ? 'major' : ''}">${esc(b.type === 'townhall' ? castleName(s) : bName(b))}</span>`;
-      if (b.level > 0) inner += `<span class="t-lvl" aria-hidden="true">${b.level}</span>`;
-      const u = ctx.up.get(b.id);
-      if (u && !q) {
-        if (u.status === 'ready') { cls.push('st-ready'); inner += `<span class="t-up ready" data-action="tile-up" data-x="${x}" data-y="${y}" title="Amélioration possible : cliquez pour voir le coût">${upIcon('ready')}</span>`; }
-        else if (u.status === 'lack' || u.status === 'queue') inner += `<span class="t-up blocked" data-action="tile-up" data-x="${x}" data-y="${y}" title="${esc(u.reasons[0] || 'Amélioration bloquée')}">${upIcon('lack')}</span>`;
-      }
-      if (ctx.planned.has(b.id)) inner += '<span class="t-flag plan" title="Amélioration planifiée">🗓</span>';
-      const bub = ctx.bubbles.get(b.id);
-      if (bub) inner += `<span class="t-bubble p${bub.prio >= 6 ? 'hi' : 'lo'}" role="button" tabindex="0" data-action="nav" data-view="${bub.view}" title="${esc(bub.text)}" aria-label="${esc(bub.text)}"><span aria-hidden="true">${bub.icon}</span><b>${esc(bub.mark)}</b></span>`;
+      const full = b.type === 'townhall' ? castleName(s) : bName(b);
       const post = ctx.posts.get(b.id);
-      if (post) inner += `<span class="t-hero" title="Gouverneur : ${esc(post.map((p) => p.name).join(', '))}" aria-label="Gouverneur : ${esc(post.map((p) => p.name).join(', '))}">🧙${post.length > 1 ? post.length : ''}</span>`;
-      if (b.starved) { cls.push('st-alert'); inner += '<span class="t-flag warn" title="Manque de matières premières">!</span>'; }
-      if (b.damaged) { cls.push('st-alert'); inner += '<span class="t-flag fire" title="Endommagé : production −50 %">🔥</span>'; }
-      if (b.paused) inner += '<span class="t-flag pause" title="Chaîne en pause">⏸</span>';
+      // Nom : jamais permanent (vue rapprochée, survol, toucher, focus, ou réglage « Afficher les noms ») ; court, le nom
+      // complet dans l'infobulle et l'étiquette lue
+      inner += `<span class="t-name ${major ? 'major' : ''}" title="${esc(full)}">${post ? '🧙 ' : ''}${esc(b.type === 'townhall' ? full : SHORT_NAMES[b.type] || full)}</span>`;
+      if (b.level > 0) inner += `<span class="t-crest" data-t="${sizeTier(b.level)}" aria-hidden="true"><b>${b.level}</b></span>`;
+      if (post) label += ` — gouverneur : ${post.map((p) => p.name).join(', ')}`;
+      // v17 : un seul signal par bâtiment, par priorité (danger, récompense, problème, amélioration payable, repos)
+      const sg = !q ? ctx.signals.get(b.id) : null;
+      if (sg) {
+        label += ` — ${SIGNAL_NAME[sg.kind]} : ${sg.text}`;
+        const act = sg.action === 'tile-up' ? `data-action="tile-up" data-x="${x}" data-y="${y}"` : sg.view ? `data-action="nav" data-view="${sg.view}"` : '';
+        inner += `<span class="t-sig sig-${sg.kind}" ${act} title="${esc(sg.text)}" aria-hidden="true"><i>${sg.icon}</i>${sg.mark && sg.mark !== '•' && sg.mark !== '!' ? `<b>${esc(sg.mark)}</b>` : ''}</span>`;
+        cls.push('has-sig');
+      }
+      if (ctx.planned.has(b.id)) label += ' — amélioration planifiée';
+      if (b.starved || b.damaged) cls.push('st-alert');
       // v15 : état visible : bâtiment en feu (flammes, fumée), sous l'eau (crue), ruines fumantes (endommagé)
       // v16 : vie du château liée à l'état : fumée de la forge quand elle travaille, foule au marché selon les caravanes
       if (ctx.crafting && (b.type === 'forge' || b.type === 'armory') && !ctx.burning.has(b.id)) { cls.push('working'); inner += '<span class="fx-smoke work" aria-hidden="true"></span>'; }
@@ -121,8 +136,8 @@ function tileHtml(app, x, y, ctx) {
       else if (ctx.charred.has(b.id)) cls.push('charred');
       if (ctx.risk) {
         const rb = ctx.risk.get(b.id);
-        if (rb && rb !== 'none') { cls.push('risk-' + rb); inner += `<span class="t-risk ${rb}" title="Risque d’incendie ${RISK_NAME[rb]}">🔥</span>`; }
-        if (ctx.flood.has(b.id)) { cls.push('risk-flood'); inner += '<span class="t-risk flood" title="Zone inondable : une crue peut l’endommager">🌊</span>'; }
+        if (rb && rb !== 'none') { cls.push('risk-' + rb); label += ` — risque d’incendie ${RISK_NAME[rb]}`; }
+        if (ctx.flood.has(b.id)) { cls.push('risk-flood'); label += ' — zone inondable'; }
       }
     }
   }
@@ -151,6 +166,9 @@ function tileHtml(app, x, y, ctx) {
       label += ` — ${pc.reason}`;
     }
   }
+  if (b && ctx.planFrom.has(b.id)) { cls.push('plan-from'); label += ' — part dans le plan'; }
+  const pto = ctx.planTo.get(x + ',' + y);
+  if (pto) { cls.push('plan-to'); inner += `<span class="t-ghost" aria-hidden="true">${buildingIcon(pto, 40)}</span>`; label += ` — ${BUILDINGS[pto].name} arrive ici dans le plan`; }
   if (b && ctx.flooded.has(b.id)) { cls.push('flooded'); inner += '<span class="fx-water" aria-hidden="true"></span>'; }
   if (selected) cls.push('sel');
   const fl = app.ui.flashTile;
@@ -354,7 +372,7 @@ export const CITY_SCALE = 1.3;
 const CITY_ZMIN = 0.25, CITY_ZMAX = 2.8;
 // Niveaux de détail : vue globale (far), intermédiaire (mid), rapprochée (near). Les pastilles d'état gardent une
 // taille lisible quel que soit le zoom (--bz compense l'échelle), les noms n'apparaissent qu'en vue rapprochée.
-export const cityZoomLevel = (z) => (z < 0.55 ? 'far' : z < 1.05 ? 'mid' : 'near');
+export const cityZoomLevel = (z) => (z < 0.55 ? 'far' : z < 1.6 ? 'mid' : 'near'); // v17 : la vue par défaut (×1,3) est la vue normale
 
 function onCityCam(vp, cam) {
   const zl = cityZoomLevel(cam.z);
@@ -380,13 +398,27 @@ function placeRing(vp, cam) {
   const top = Math.min(vp._ringTop, vp.clientHeight - m);
   r.style.transform = `translate(${Math.max(m, Math.min(vp.clientWidth - m, x))}px, ${Math.max(top, Math.min(vp.clientHeight - m, y))}px)`;
 }
+// Zone de sécurité de la caméra : la carte moins les blocs de l'affichage fixe (colonne des quêtes, haut, bas)
+export function safeZone(vp) {
+  const r = vp.getBoundingClientRect();
+  const box = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width && b.height ? b : null; };
+  let left = r.left, right = r.right, top = r.top, bottom = r.bottom;
+  const tl = box('#hud .hud-top'); if (tl) top = Math.max(top, Math.min(tl.bottom, r.top + r.height * 0.3));
+  const bt = box('#hud .hud-bottom'); if (bt) bottom = Math.min(bottom, Math.max(bt.top, r.bottom - r.height * 0.35));
+  const lc = box('#hud .hud-l'); if (lc && lc.width < r.width * 0.4) left = Math.max(left, lc.right);
+  const rc = box('#hud .hud-r'); if (rc && rc.width < r.width * 0.3) right = Math.min(right, rc.left);
+  if (right - left < 120) { left = r.left; right = r.right; }
+  return { cx: (left + right) / 2 - r.left, cy: (top + bottom) / 2 - r.top, left: left - r.left, right: right - r.left, top: top - r.top, bottom: bottom - r.top };
+}
 function cityCam(app) { return (app.ui.cityCam ||= { x: 0, y: 0, z: CITY_SCALE, init: false }); }
 function centerOnTown(app, vp, at = null) {
   const cam = cityCam(app);
   const th = at || Object.values(app.state.city.buildings).find((b) => b.type === 'townhall');
   if (!at) cam.z = (window.innerWidth < 700 ? 0.8 : 1) * CITY_SCALE;
   else cam.z = Math.max(cam.z, 0.9 * CITY_SCALE);
-  if (th) { cam.x = vp.clientWidth / 2 - (th.x + 0.5) * CITY_TILE * cam.z; cam.y = vp.clientHeight / 2 - (th.y + 0.5) * CITY_TILE * cam.z; }
+  // v17 : zone de sécurité — le sujet est centré dans la partie de la carte que l'affichage fixe ne couvre pas
+  const sz = safeZone(vp);
+  if (th) { cam.x = sz.cx - (th.x + 0.5) * CITY_TILE * cam.z; cam.y = sz.cy - (th.y + 0.5) * CITY_TILE * cam.z; }
   cam.init = true;
 }
 
@@ -480,7 +512,7 @@ function buildPanel(app, mods, ups) {
   const mode = app.ui.moveId ? `Déplacer : cliquez une case libre${freeMove(s) ? ' (gratuit)' : ''}.` : app.ui.placeType ? `Placer ${esc(BUILDINGS[app.ui.placeType].name)} : cliquez une case. Les % sont le bonus de placement ; ✕ = zone interdite (${esc(ruleText(app.ui.placeType))}).` : app.ui.placeDeco ? 'Placer la décoration : cliquez une case libre.' : 'Choisissez un bâtiment. La grille et les zones sont affichées.';
   return `<div class="build-panel" role="region" aria-label="Construire">
     <div class="bp-head"><nav class="bp-tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, t]) => `<button class="bp-tab ${tab === k ? 'active' : ''}" role="tab" aria-selected="${tab === k}" data-action="build-tab" data-k="${k}">${t.icon} ${t.name}</button>`).join('')}</nav>
-      <div class="bp-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : incendie et zone inondable">🔥 Risques</button><button class="mini" data-action="up-list" title="Améliorations possibles">⬆ ${ups.count}</button><button class="mini" data-action="up-toggle" aria-pressed="${showUpgrades(s)}" title="${showUpgrades(s) ? 'Masquer' : 'Afficher'} les icônes d’amélioration sur la carte">${showUpgrades(s) ? '👁' : '🚫'} ⬆</button>${nextDomainStep(s) ? '<button class="mini" data-action="expand" title="Agrandir le domaine (voir la fiche de l’hôtel de ville)">🗺️ Domaine</button>' : ''}<button class="mini ghost" data-action="build-mode" title="Fermer (Échap)">✕</button></div></div>
+      <div class="bp-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : incendie et zone inondable">🔥 Risques</button><button class="mini" data-action="up-list" title="Améliorations possibles">⬆ ${ups.count}</button><button class="mini" data-action="plans" title="Réorganiser la ville, plans enregistrés (aperçu et annulation)">📐 Plans</button><button class="mini" data-action="up-toggle" aria-pressed="${showUpgrades(s)}" title="${showUpgrades(s) ? 'Masquer' : 'Afficher'} les icônes d’amélioration sur la carte">${showUpgrades(s) ? '👁' : '🚫'} ⬆</button>${nextDomainStep(s) ? '<button class="mini" data-action="expand" title="Agrandir le domaine (voir la fiche de l’hôtel de ville)">🗺️ Domaine</button>' : ''}<button class="mini ghost" data-action="build-mode" title="Fermer (Échap)">✕</button></div></div>
     <div class="small bp-hint" role="status">${mode}</div>
     <div class="bp-items">${items}</div>
   </div>`;
@@ -529,17 +561,20 @@ const cityView = {
       <div class="stage city-stage ${building ? 'building' : ''} ${sceneClasses(ctx.scene)}">
         ${sceneLayersHtml(ctx.scene, 'city')}
         <div class="mapvp city-vp" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--bz:${(Math.round(Math.min(2.2, Math.max(1, 0.95 / cam.z)) * 10) / 10).toFixed(1)}">
-          <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="ground-slot" style="width:${W}px;height:${Hh}px"></div><div class="castle-slot under">${castleUnderSvg(s, { W, H: Hh })}</div><div class="city-grid painted ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}" style="--cw:${s.city.w}">${grid}</div><div class="castle-slot over">${castleOverSvg(s, { W, H: Hh, night, raid, garrison, carts })}</div></div>
+          <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="ground-slot" style="width:${W}px;height:${Hh}px"></div><div class="castle-slot under">${castleUnderSvg(s, { W, H: Hh })}</div><div class="castle-slot wx-slot" style="width:${W}px;height:${Hh}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div><div class="city-grid painted ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}" style="--cw:${s.city.w}">${grid}</div><div class="castle-slot over">${castleOverSvg(s, { W, H: Hh, night, raid, garrison, carts })}</div></div>
           <div class="ring-wrap" id="city-ring" data-x="${sel ? sel.x : ''}" data-y="${sel ? sel.y : ''}">${ring}</div>
           <div class="map-tip" id="city-tip" role="tooltip"></div>
         </div>
         ${building ? buildPanel(app, mods, ups) : ''}
+        ${app.ui.planPreview ? `<div class="plan-bar" role="status">📐 Aperçu du plan : les cases en pointillé montrent les nouvelles places. <button class="mini primary" data-action="plans">Appliquer ou modifier</button> <button class="mini ghost" data-action="plan-close">Fermer l’aperçu</button></div>` : ''}
       </div>
     </div>`;
   },
   actions: {
     'monument-orient': (app, el) => { if (confirm('Cette orientation est définitive. Confirmer ?')) app.act(() => setOrientation(app.state, el.dataset.k), (r) => `🗿 Monument consacré : ${r.name}`); },
     'tile-up': (app, el) => { app.ui.citySel = { x: +el.dataset.x, y: +el.dataset.y }; app.ui.placeType = null; app.ui.moveId = null; app.ui.focusUpgrade = true; app.ui.ringOpen = false; app.go('bldg'); },
+    plans: (app) => openPlans(app, app.ui.planPreview || null),
+    'plan-close': (app) => { app.ui.planPreview = null; app.mapDirty = true; app.render(); },
     'up-toggle': (app) => { app.state.meta.showUpgrades = !showUpgrades(app.state); app.render(); app.save(); },
     'up-list': (app) => openUpgradeList(app),
     'rename-castle': (app) => openRenameCastle(app),

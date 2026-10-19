@@ -41,8 +41,12 @@ export function castleUnderSvg(state, { W, H }) {
   // Limite des faubourgs (pointillé discret) et noms des zones : l'information ne passe pas que par la couleur
   const fd = FAUBOURG_DEPTH * T;
   const fx0 = Math.max(0, g.X0 - fd), fy0 = Math.max(0, g.Y0 - fd), fx1 = Math.min(W, g.X1 + fd), fy1 = Math.min(H, g.Y1 + fd);
-  parts.push(`<path d="${rectPath(fx0, fy0, fx1, fy1)}" fill="rgba(240,220,170,0.07)" stroke="rgba(250,235,200,0.55)" stroke-width="2" stroke-dasharray="10 8"/>`);
-  parts.push(`<path d="${rectPath(g.X0, g.Y0, g.X1, g.Y1)}" fill="rgba(200,170,110,0.13)"/>`);
+  // v17 : les zones se reconnaissent à leur sol (pavés dans la cour, terre battue dans les faubourgs ; la campagne garde
+  // ses prés et ses champs) ; leur nom n'apparaît qu'en vue d'ensemble
+  parts.push(`<defs><pattern id="v17-pave" width="32" height="24" patternUnits="userSpaceOnUse"><rect width="32" height="24" fill="#a8977a"/><path d="M0 .5H32M0 12.5H32M8 0V12M24 0V12M0 12V24M16 12V24" stroke="#6f6250" stroke-width="1.2"/></pattern>`
+    + `<pattern id="v17-terre" width="28" height="28" patternUnits="userSpaceOnUse"><rect width="28" height="28" fill="#9c8360"/><circle cx="6" cy="7" r="1.3" fill="#7b6446"/><circle cx="19" cy="17" r="1.1" fill="#7b6446"/><circle cx="23" cy="5" r="0.9" fill="#b49a72"/><path d="M2 22q6-3 11 0" stroke="#866d4c" fill="none" stroke-width="1"/></pattern></defs>`);
+  parts.push(`<path class="zone-ground faubourg" d="${rectPath(fx0, fy0, fx1, fy1)} ${rectPath(g.X0, g.Y0, g.X1, g.Y1)}" fill="url(#v17-terre)" fill-rule="evenodd" opacity="0.42"/>`);
+  parts.push(`<path class="zone-ground keep" d="${rectPath(g.X0, g.Y0, g.X1, g.Y1)}" fill="url(#v17-pave)" opacity="0.62"/>`);
   // Douves : alimentées par la rivière, plus larges à chaque niveau
   if (g.mw) {
     const o = g.w.th / 2 + 3 + g.mw / 2;
@@ -80,8 +84,10 @@ export function castleOverSvg(state, { W, H, night = false, raid = null, garriso
   const gw = T * 0.9; // largeur de la porte
   if (g.style.key === 'stakes') {
     // Enceinte projetée : piquets, porte marquée
-    parts.push(`<path d="${wall}" fill="none" stroke="#e6cf9a" stroke-width="3" stroke-dasharray="4 10" stroke-linecap="round"/>`);
-    parts.push(`<text x="${g.gateX}" y="${g.Y1 + 22}" class="wall-label" text-anchor="middle">Enceinte projetée — bâtissez la muraille</text>`);
+    // v17 : tracé fantôme sur le sol, une seule plaque (au-dessus de la cour, loin des plaques « à bâtir » de la porte)
+    parts.push(`<path d="${wall}" fill="none" stroke="rgba(240,224,180,0.75)" stroke-width="6" stroke-dasharray="2 12" stroke-linecap="round"/>`);
+    const cx = (g.X0 + g.X1) / 2;
+    parts.push(`<g class="castle-plate"><title>Enceinte projetée : bâtissez la muraille (onglet Militaire du panneau Construire)</title><rect x="${cx - 70}" y="${g.Y0 - 26}" width="140" height="20" rx="5" fill="rgba(36,28,20,0.9)" stroke="#c9a36a"/><text x="${cx}" y="${g.Y0 - 12}" class="wall-label" text-anchor="middle">Enceinte projetée</text></g>`);
   } else {
     // Ombre, corps, chemin de ronde (créneaux), porte
     parts.push(`<path d="${wall}" fill="none" stroke="rgba(0,0,0,0.35)" stroke-width="${g.w.th + 6}" transform="translate(3 4)"/>`);
