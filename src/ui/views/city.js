@@ -27,6 +27,7 @@ import { openPlans } from '../plansUi.js';
 import { cityBubbles, heroPosts } from '../../systems/bubbles.js';
 import { buildingSignals, SIGNAL_NAME, sizeTier, variantOf, quarterSides } from '../../systems/mapSignals.js';
 import { SHORT_NAMES } from '../../data/labels.js';
+import { LAYERS, layerValues } from '../../systems/layers.js';
 import { ringHtml, lotPanel, zoneBlock, castleCard, castleActions, screenButtons, openPlaces } from '../castleUi.js';
 import { ruleText } from '../../systems/castle.js';
 import { vacantLots, zoneAt, castleStage, wallStyle, freeMoveActive as freeMove } from '../../systems/castle.js';
@@ -76,11 +77,14 @@ function cityCtx(app, mods) {
   const pv = app.ui.planPreview;
   const planTo = new Map(), planFrom = new Set();
   if (pv) for (const [id, [px, py]] of Object.entries(pv)) { const b = s.city.buildings[id]; if (b && (b.x !== px || b.y !== py)) { planTo.set(px + ',' + py, b.type); planFrom.add(id); } }
+  // v17 : calque d'information choisi (production, incendie, défense, placement, zones)
+  const layer = app.ui.layer && LAYERS[app.ui.layer] ? layerValues(s, app.ui.layer, mods) : null;
   const signals = quiet ? new Map() : buildingSignals(s, { bubbles: [...bubbles.values()], upgrades: up, burning, flooded, showUpgrades: showUpgrades(s) });
   // v17 : une seule case de la carte dans l'ordre de tabulation (la dernière choisie au clavier, sinon l'hôtel de ville)
   const kf = app.ui.cityKeyFocus || app.ui.citySel || Object.values(s.city.buildings).find((b) => b.type === 'townhall');
   const rove = kf ? kf.x + ',' + kf.y : '';
-  return { rove, planTo, planFrom, s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, signals, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  const glow = app.ui.glow && app.ui.glow.until > Date.now() ? new Set(app.ui.glow.ids) : null;
+  return { glow, layer, rove, planTo, planFrom, s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, signals, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -130,6 +134,8 @@ function tileHtml(app, x, y, ctx) {
         cls.push('has-sig');
       }
       if (ctx.planned.has(b.id)) label += ' — amélioration planifiée';
+      const lv = ctx.layer?.get(b.id);
+      if (lv) { cls.push('lay', 'lay-' + lv.band); label += ` — ${LAYERS[app.ui.layer].name} : ${lv.label}`; inner += `<span class="t-lay" aria-hidden="true" title="${esc(lv.label)}"></span>`; }
       if (b.starved || b.damaged) cls.push('st-alert');
       // v15 : état visible : bâtiment en feu (flammes, fumée), sous l'eau (crue), ruines fumantes (endommagé)
       // v16 : vie du château liée à l'état : fumée de la forge quand elle travaille, foule au marché selon les caravanes
@@ -169,6 +175,9 @@ function tileHtml(app, x, y, ctx) {
       label += ` — ${pc.reason}`;
     }
   }
+  const gd = app.ui.guide;
+  if (gd && gd.x === x && gd.y === y && gd.until > Date.now()) { cls.push('guide'); label += ' — c’est ici'; }
+  if (b && ctx.glow?.has(b.id)) cls.push('glow-new');
   if (b && ctx.planFrom.has(b.id)) { cls.push('plan-from'); label += ' — part dans le plan'; }
   const pto = ctx.planTo.get(x + ',' + y);
   if (pto) { cls.push('plan-to'); inner += `<span class="t-ghost" aria-hidden="true">${buildingIcon(pto, 40)}</span>`; label += ` — ${BUILDINGS[pto].name} arrive ici dans le plan`; }
@@ -562,7 +571,7 @@ const cityView = {
     const carts = (s.caravans || []).length;
     const building = app.ui.buildMode || app.ui.placeType || app.ui.moveId;
     return `<div class="city-layout">
-      <div class="stage city-stage ${building ? 'building' : ''} ${sceneClasses(ctx.scene)}">
+      <div class="stage city-stage ${app.ui.layer ? 'layer-on' : ''} ${building ? 'building' : ''} ${sceneClasses(ctx.scene)}">
         ${sceneLayersHtml(ctx.scene, 'city')}
         <div class="mapvp city-vp" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--bz:${(Math.round(Math.min(2.2, Math.max(1, 0.95 / cam.z)) * 10) / 10).toFixed(1)}">
           <div class="mapvp-inner" style="transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})"><div class="ground-slot" style="width:${W}px;height:${Hh}px"></div><div class="castle-slot under">${castleUnderSvg(s, { W, H: Hh })}</div><div class="castle-slot wx-slot" style="width:${W}px;height:${Hh}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div><div class="city-grid painted ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}" style="--cw:${s.city.w}">${grid}</div><div class="castle-slot over">${castleOverSvg(s, { W, H: Hh, night, raid, garrison, carts })}</div></div>

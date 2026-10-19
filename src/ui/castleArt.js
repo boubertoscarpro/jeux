@@ -5,6 +5,7 @@
 //    forteresse), tours, porte et pont-levis, bannières aux armoiries, gardes selon la garnison, torches la nuit,
 //    brèches et échafaudages selon les dégâts, charrettes selon les convois, colonne ennemie d'un raid.
 // Tout est lu dans l'état (systems/castle.js) : rien n'est modifié ici.
+import { festiveDress } from '../systems/festive.js';
 import { rectOf, wallStyle, castleStage, flankShare } from '../systems/castle.js';
 import { FAUBOURG_DEPTH, FLANKS } from '../data/castle.js';
 import { heraldryOf, colorOf } from '../systems/heraldry.js';
@@ -148,6 +149,20 @@ export function castleOverSvg(state, { W, H, night = false, raid = null, garriso
   }
   // Raid en approche : colonne ennemie au bord de la carte, du côté d'où elle vient ; flanc visé si connu
   if (raid) parts.push(raidColumn(state, raid, g, { W, H }));
+  // v17 : tenues de fête, liées à l'état réel (saison, événement en cours, raid repoussé) — guirlande de fanions le
+  // long du chemin de ronde nord et lanternes aux tours ; jamais sur les cases, purement décoratif
+  if (g.style.key !== 'stakes') {
+    const dress = festiveDress(state, now);
+    const y = g.Y0 - g.w.th / 2 - 2, n = Math.max(6, Math.round((g.X1 - g.X0) / 26));
+    let flags = '';
+    for (let i = 0; i < n; i++) {
+      const x = g.X0 + 14 + ((g.X1 - g.X0 - 28) * (i + 0.5)) / n;
+      const sag = Math.sin(((i + 0.5) / n) * Math.PI) * 9;
+      flags += `<path d="M${(x - 5).toFixed(1)} ${(y + sag).toFixed(1)}l5 9l5 -9z" fill="${dress.colors[i % dress.colors.length]}" stroke="rgba(20,14,8,0.7)" stroke-width="0.8"/>`;
+    }
+    parts.push(`<g class="festive festive-${dress.key}"><title>${esc(dress.name)} (${esc(dress.reason)})</title><path d="M${g.X0 + 14} ${y}Q${(g.X0 + g.X1) / 2} ${y + 20} ${g.X1 - 14} ${y}" fill="none" stroke="rgba(40,28,16,0.8)" stroke-width="1.4"/>${flags}</g>`);
+    if (dress.key === 'winter' || dress.key === 'event' || night) for (const [x, yy] of [[g.X0, g.Y0], [g.X1, g.Y0], [g.X0, g.Y1], [g.X1, g.Y1]]) parts.push(`<circle class="festive-lamp" cx="${x}" cy="${yy - g.w.th}" r="4.5" fill="${dress.colors[0]}" stroke="#3a2a18" stroke-width="1"/>`);
+  }
   return `<svg class="castle-over" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${parts.join('')}</svg>`;
 }
 

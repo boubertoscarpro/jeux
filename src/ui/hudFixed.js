@@ -2,6 +2,8 @@
 // la vue d'un avant-poste : le centre reste libre pour la carte. Mêmes positions partout ; seuls quelques boutons
 // changent de sens (le globe devient « Retour au château »).
 // Badges : un point = nouveauté, un chiffre = quantité, « ! » = urgence (toujours écrits, jamais la couleur seule).
+import { LAYERS, layerValues, layerSummary } from '../systems/layers.js';
+import { timeline, TIMELINE_HOURS } from '../systems/timeline.js';
 import { inTime } from '../systems/wording.js';
 import { badges, capCount } from '../systems/notices.js';
 import { coatSvg } from './heraldry.js';
@@ -177,6 +179,35 @@ function bottomCenter(app) {
   </div>`;
 }
 
+// ───────── v17 : calques d'information (au-dessus du zoom, sur la carte du royaume) ─────────
+function layerBar(app) {
+  const cur = app.ui.layer;
+  if (!app.ui.layerBar && !cur) return `<div class="layer-bar closed">${btn('layer-bar', '🗺️', 'Calques d’information (production, incendie, défense, placement, zones)', '', 'aria-expanded="false"')}</div>`;
+  let legend = '';
+  if (cur && LAYERS[cur]) {
+    let n = [0, 0, 0, 0]; try { n = layerSummary(layerValues(app.state, cur, computeMods(app.state))); } catch { /* légende sans comptes */ }
+    legend = `<div class="layer-legend" role="note"><b>${LAYERS[cur].icon} ${esc(LAYERS[cur].name)}</b><span class="small">${esc(LAYERS[cur].desc)}</span><ul>${LAYERS[cur].legend.map((l, i) => `<li><i class="lay-sw lay-${i}" aria-hidden="true"></i>${esc(l)} <span class="muted">(${n[i]})</span></li>`).join('')}</ul></div>`;
+  }
+  return `<div class="layer-bar" role="toolbar" aria-label="Calques d’information">${legend}<div class="layer-btns">${Object.entries(LAYERS).map(([k, l]) => `<button class="hud-btn ${cur === k ? 'on' : ''}" data-action="layer" data-k="${k}" aria-pressed="${cur === k}" title="${esc(l.name)}" aria-label="Calque : ${esc(l.name)}">${l.icon}</button>`).join('')}${btn('layer', '✕', 'Fermer les calques', '', 'data-k=""')}</div></div>`;
+}
+
+// ───────── v17 : la frise du temps (sous les ressources, repliable) ─────────
+function timelineBar(app) {
+  const s = app.state, now = Date.now();
+  if (app.ui.map === 'outpost') return '';
+  let items = []; try { items = timeline(s, now); } catch { items = []; }
+  const open = app.ui.timelineOpen ?? (typeof innerWidth === 'number' && innerWidth > 700);
+  if (!open) return `<div class="hud-timeline closed">${btn('timeline', '⏱️', `Frise du temps : ${items.length} à venir dans les ${TIMELINE_HOURS} h`, items.length ? badge(items.length, 'à venir') : '', 'aria-expanded="false"')}</div>`;
+  const span = TIMELINE_HOURS * 3600e3;
+  let last = -100;
+  const pts = items.slice(0, 10).map((e) => { let p = ((e.t - now) / span) * 100; if (p - last < 7) p = last + 7; last = p; return { ...e, p: Math.min(97, p) }; });
+  return `<div class="hud-timeline" role="region" aria-label="Frise du temps : les ${TIMELINE_HOURS} prochaines heures">
+    ${btn('timeline', '⏱️', 'Replier la frise du temps', '', 'aria-expanded="true"')}
+    <div class="tl-axis"><span class="tl-now" aria-hidden="true">maintenant</span><span class="tl-end" aria-hidden="true">+${TIMELINE_HOURS} h</span>
+      ${pts.length ? pts.map((e) => `<button class="tl-pt tl-${e.kind}" style="left:${e.p.toFixed(1)}%" ${e.view ? `data-action="nav" data-view="${e.view}"` : 'data-action="queues"'} title="${esc(`${inTime(e.t - now)} : ${e.text}${e.more ? ` (et ${e.more} autres)` : ''}`)}" aria-label="${esc(`${inTime(e.t - now)} : ${e.text}${e.more ? `, et ${e.more} autres` : ''}`)}"><span aria-hidden="true">${e.icon}</span></button>`).join('') : `<span class="tl-empty small">Rien dans les ${TIMELINE_HOURS} prochaines heures.</span>`}</div>
+  </div>`;
+}
+
 // ───────── Bas droite : barre d'actions et globe ─────────
 function bottomRight(app) {
   const s = app.state;
@@ -185,6 +216,7 @@ function bottomRight(app) {
   const guildB = app.views.guild?.badge?.(app) || 0;
   const building = app.ui.buildMode;
   return `<div class="hud-br">
+    ${app.ui.map === 'city' ? layerBar(app) : ''}
     <div class="hud-zoom">${app.ui.map === 'outpost' ? '' : `${btn('hud-fit', '⤢', 'Vue d’ensemble')}${btn('hud-center', '⌖', 'Recentrer sur le château')}${btn('hud-zoom', '＋', 'Zoomer', '', 'data-z="1.25"')}${btn('hud-zoom', '－', 'Dézoomer', '', 'data-z="0.8"')}`}</div>
     <div class="hud-actions" role="toolbar" aria-label="Actions">
       <button class="hud-a ${building ? 'on' : ''}" data-action="build-mode" aria-pressed="${!!building}" title="Construire (touche B)" aria-label="Construire"><span>🔨</span><small>Construire</small></button>
@@ -208,6 +240,7 @@ function phoneFabs(app) {
 export function renderHud(app) {
   const pd = app.ui.phoneDrawer;
   return `<div class="hud-top">${topLeft(app)}${topCenter(app)}${topRight(app)}</div>
+    ${timelineBar(app)}
     ${leftCol(app)}${rightCol(app)}
     <div class="hud-bottom">${bottomLeft(app)}${bottomCenter(app)}${bottomRight(app)}</div>
     ${phoneFabs(app)}

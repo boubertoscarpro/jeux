@@ -193,3 +193,76 @@ test('Migration : une vraie sauvegarde v16 se charge, joue 2 h, garde tout, reç
   const again = deserialize(serialize(s));
   assert.deepEqual(Object.keys(again.city.buildings).sort(), Object.keys(s.city.buildings).sort());
 });
+
+// ───────── Innovations ─────────
+test('Calques : production, incendie, défense, placement, zones — un palier 0 à 3 et un libellé par bâtiment', async () => {
+  const { LAYERS, layerValues, layerSummary } = await import('../src/systems/layers.js');
+  const s = v16();
+  const mods = computeMods(s);
+  const built = Object.values(s.city.buildings).filter((b) => b.level > 0 && b.type !== 'road' && b.type !== 'deco');
+  for (const k of Object.keys(LAYERS)) {
+    const v = layerValues(s, k, mods);
+    assert.equal(v.size, built.length, k);
+    for (const x of v.values()) { assert.ok([0, 1, 2, 3].includes(x.band), k); assert.ok(x.label, k); }
+    assert.equal(layerSummary(v).reduce((a, b) => a + b, 0), built.length);
+    assert.equal(LAYERS[k].legend.length, 4);
+  }
+  // La cour derrière une muraille est « à l'abri », la campagne « exposée »
+  s.city.fort.wall = 3;
+  const def = layerValues(s, 'defense', mods);
+  const th = Object.values(s.city.buildings).find((b) => b.type === 'townhall');
+  assert.equal(def.get(th.id).band, 3);
+});
+
+test('Remparts : vue de face fidèle aux flancs v16, outils et flanc visé ; schéma du rapport de raid', async () => {
+  const { rampartView, raidScheme } = await import('../src/systems/ramparts.js');
+  const { setFlanks, setTool } = await import('../src/systems/castle.js');
+  const s = v16();
+  s.city.fort.wall = 6;
+  setFlanks(s, { left: 2, front: 1, right: 1, yard: 0 });
+  setTool(s, 'stones', 'left');
+  const v = rampartView(s, { flank: 'left', flankSeen: true });
+  const left = v.flanks.find((f) => f.key === 'left'), right = v.flanks.find((f) => f.key === 'right');
+  assert.ok(left.bonus > 0 && right.bonus < 0, 'flanc garni : bonus ; flanc dégarni : malus');
+  assert.ok(Math.abs(left.bonus) <= 0.15);
+  assert.deepEqual(left.tools.map((t) => t.key), ['stones']);
+  assert.ok(left.targeted && !right.targeted);
+  assert.equal(Math.round(v.flanks.reduce((a, f) => a + f.share, 0) * 100), 100);
+  const sc = raidScheme({ flank: 'front', breached: true, win: false, result: { defLosses: { spearman: 40 }, attLosses: { militia: 10 } } });
+  assert.equal(sc.flank, 'front'); assert.ok(sc.breached);
+  assert.equal(sc.mine, 40); assert.equal(sc.theirs, 10);
+  assert.ok(sc.mineHeads > sc.theirsHeads && sc.mineHeads <= 10);
+});
+
+test('Frise du temps : ce qui arrive dans les 8 h, dans l’ordre, regroupé, sans rien au-delà', async () => {
+  const { timeline } = await import('../src/systems/timeline.js');
+  const s = createNewState({ seed: 'frise', now: T0 });
+  s.queues.train = [1, 2, 3].map((i) => ({ id: 't' + i, unit: 'spearman', count: 10, start: T0, end: T0 + i * H }));
+  s.raids = [{ id: 'r', name: 'Crocs', arrive: T0 + 0.5 * H, army: {} }];
+  s.queues.build = [{ id: 'b', kind: 'upgrade', type: 'farm', level: 3, start: T0, end: T0 + 20 * H }];
+  const t = timeline(s, T0);
+  assert.equal(t[0].kind, 'danger');
+  assert.equal(t.filter((e) => e.kind === 'army').length, 1, 'trois formations, une seule place');
+  assert.equal(t.find((e) => e.kind === 'army').more, 2);
+  assert.ok(!t.some((e) => e.kind === 'build'), 'le chantier de 20 h n’apparaît pas');
+  for (let i = 1; i < t.length; i++) assert.ok(t[i].t >= t[i - 1].t);
+});
+
+test('Tenues de fête et retour du seigneur : liés à l’état réel, sans culpabilité', async () => {
+  const { festiveDress } = await import('../src/systems/festive.js');
+  const { snapshotCity, homecoming } = await import('../src/systems/homecoming.js');
+  const s = createNewState({ seed: 'fete', now: T0 });
+  assert.ok(['spring', 'summer', 'autumn', 'winter'].includes(festiveDress(s, T0).key));
+  s.reports.unshift({ id: 'w', kind: 'defense', win: true, t: T0 - H, read: false });
+  assert.equal(festiveDress(s, T0).key, 'victory');
+  const before = snapshotCity(s);
+  const b = Object.values(s.city.buildings).find((x) => x.type === 'warehouse');
+  b.level++;
+  s.reports.unshift({ id: 'd2', kind: 'defense', win: true, t: T0 });
+  const h = homecoming(before, s);
+  assert.deepEqual(h.built, [b.id]);
+  assert.equal(h.raidsWon, 1);
+  assert.match(h.text, /^Pendant votre absence : 1 chantier terminé, 1 raid repoussé\.$/);
+  assert.ok(!/manqué|perdu|vite|dépêchez/i.test(h.text));
+  assert.equal(homecoming(snapshotCity(s), s).text, '', 'rien de changé : rien à dire');
+});

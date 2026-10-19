@@ -191,3 +191,69 @@ table.why th { text-align: left; font-weight: 500; padding-right: 14px; }
   :is(#hud, #win-root, #modal-root) :is(.res-st, .lvl, h4, .countdown, .req, .tab, .tier, .tag-ex, .emo, .vs, .tag-rot, .rarity, .ok, .muted, .grow, .season-fore, .cal-cd, .kingdom-badge, .wh-rw, .log-line, .bad, .warn-text, .chip, .q-top, .note, .hint, p, li, div) { font-size: max(calc(var(--fs-2) * var(--text-scale)), 1em) !important; }
   :is(#hud, #win-root, #modal-root) :is(span, b, i, em, strong, a):not([class]) { font-size: max(calc(var(--fs-2) * var(--text-scale)), 1em); }
 }
+
+/* ───── Calques d'information : motif + couleur + libellé (lecteurs d'écran), jamais la couleur seule ───── */
+:root { --lay-0: rgba(120, 120, 120, 0.25); --lay-1: rgba(240, 215, 120, 0.45); --lay-2: rgba(230, 140, 50, 0.55); --lay-3: rgba(200, 50, 40, 0.62); }
+html.cb-deut, html.cb-prot { --lay-1: rgba(240, 228, 66, 0.45); --lay-2: rgba(86, 180, 233, 0.55); --lay-3: rgba(0, 114, 178, 0.68); }
+html.cb-trit { --lay-1: rgba(204, 121, 167, 0.4); --lay-2: rgba(230, 159, 0, 0.55); --lay-3: rgba(213, 94, 0, 0.66); }
+.city-stage.layer-on .city-vp .t-sig, .city-stage.layer-on .city-vp .t-crest { display: none !important; }
+.city-vp .t-lay { position: absolute; inset: 3px; border-radius: 8px; z-index: 5; pointer-events: none; border: 2px solid rgba(20, 14, 8, 0.6); }
+.city-vp .lay-0 .t-lay { background: var(--lay-0); }
+.city-vp .lay-1 .t-lay { background: radial-gradient(circle, rgba(20, 14, 8, 0.55) 1.6px, transparent 2.2px) 0 0 / 9px 9px, var(--lay-1); }
+.city-vp .lay-2 .t-lay { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.45) 0 2px, transparent 2px 8px), var(--lay-2); }
+.city-vp .lay-3 .t-lay { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.5) 0 2px, transparent 2px 7px), repeating-linear-gradient(-45deg, rgba(20, 14, 8, 0.5) 0 2px, transparent 2px 7px), var(--lay-3); border-width: 3px; }
+.layer-bar { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: auto; }
+.layer-btns { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(22, 18, 14, 0.9); border: 1px solid #5a4630; }
+.layer-btns .hud-btn.on { border-color: #ffd86b; box-shadow: 0 0 0 2px #c9a54a; }
+.layer-legend { max-width: 290px; padding: 8px 10px; border-radius: 12px; background: rgba(22, 18, 14, 0.94); border: 1px solid #8a6a3e; color: var(--ivory); display: flex; flex-direction: column; gap: 3px; }
+.layer-legend ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; }
+.layer-legend li { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.lay-sw { display: inline-block; width: 18px; height: 18px; border-radius: 4px; border: 2px solid rgba(255, 255, 255, 0.6); flex: none; }
+.lay-sw.lay-0 { background: var(--lay-0); }
+.lay-sw.lay-1 { background: radial-gradient(circle, rgba(20, 14, 8, 0.6) 1.4px, transparent 2px) 0 0 / 7px 7px, var(--lay-1); }
+.lay-sw.lay-2 { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.5) 0 2px, transparent 2px 6px), var(--lay-2); }
+.lay-sw.lay-3 { background: repeating-linear-gradient(45deg, rgba(20, 14, 8, 0.55) 0 2px, transparent 2px 5px), repeating-linear-gradient(-45deg, rgba(20, 14, 8, 0.55) 0 2px, transparent 2px 5px), var(--lay-3); }
+
+/* ───── Frise du temps ───── */
+.hud-timeline { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100% - 700px)); min-width: 260px; display: flex; align-items: center; gap: 6px; pointer-events: auto; z-index: 2; }
+.hud-timeline.closed { width: auto; min-width: 0; }
+.hud-timeline .tl-axis { position: relative; flex: 1; height: 34px; border-radius: 10px; background: rgba(22, 18, 14, 0.78); border: 1px solid #5a4630; }
+.tl-axis::before { content: ''; position: absolute; left: 10px; right: 10px; top: 50%; height: 2px; background: rgba(243, 230, 196, 0.35); }
+.tl-now, .tl-end { position: absolute; bottom: -19px; font-size: 13px !important; color: var(--ivory-dim); text-shadow: 0 1px 2px #000; }
+.tl-now { left: 4px; } .tl-end { right: 4px; }
+.tl-pt { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 26px; height: 26px; border-radius: 50%; border: 2px solid #8a6a3e; background: #2b2118; font-size: 13px; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; margin-left: 12px; }
+.tl-pt.tl-danger { border-color: #ff8a7a; background: #4a1a14; }
+.tl-pt:focus-visible { outline: 3px solid #fff3c4; }
+.tl-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); white-space: nowrap; color: var(--ivory); background: rgba(22, 18, 14, 0.95); padding: 0 8px; border-radius: 6px; }
+@media (max-width: 1200px) { .hud-timeline { top: 120px; left: auto; right: 84px; transform: none; width: min(420px, calc(100% - 330px)); } }
+@media (max-width: 700px) { .hud-timeline { top: 104px; right: 64px; left: auto; width: auto; } .hud-timeline:not(.closed) { left: 6px; right: 6px; width: auto; min-width: 0; } }
+
+/* ───── Quête guidée : une flèche qui pulse au-dessus du bâtiment ou du bouton (jamais bloquante) ───── */
+.city-vp .tile.guide::after { content: '⬇'; position: absolute; left: 50%; top: -34px; transform: translateX(-50%) scale(var(--bz, 1)); font: 700 26px/1 var(--font); color: #ffd86b; text-shadow: 0 0 4px #000, 0 2px 0 #000; z-index: 9; pointer-events: none; animation: v17-guide 1.1s ease-in-out infinite; }
+.hud .tut-hl { position: relative; }
+.hud .tut-hl::after { content: '⬇'; position: absolute; left: 50%; top: -30px; transform: translateX(-50%); font: 700 22px/1 var(--font); color: #ffd86b; text-shadow: 0 0 4px #000; animation: v17-guide 1.1s ease-in-out infinite; pointer-events: none; }
+.hud-bottom .tut-hl::after { top: -30px; }
+@keyframes v17-guide { 0%, 100% { margin-top: 0; } 50% { margin-top: -8px; } }
+html.reduce-motion .tile.guide::after, html.reduce-motion .hud .tut-hl::after, html.saver .tile.guide::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .tile.guide::after, .hud .tut-hl::after { animation: none; } }
+
+/* ───── Retour du seigneur : les chantiers terminés brillent quelques secondes ───── */
+.city-vp .tile.glow-new .b-art { filter: drop-shadow(0 0 8px #ffe9a0) drop-shadow(0 0 3px #fff6dc); }
+.city-vp .tile.glow-new::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; box-shadow: 0 0 0 3px rgba(255, 233, 160, 0.7); pointer-events: none; z-index: 0; }
+
+/* ───── Les remparts vus de face, et le schéma du rapport de raid ───── */
+.rp-svg { width: 100%; max-width: 760px; height: auto; display: block; margin: 6px auto; border-radius: 10px; }
+.rp-svg .rp-name { font: 700 14px var(--font); fill: #fff6dc; paint-order: stroke; stroke: #1d1812; stroke-width: 3.5px; }
+.rp-svg .rp-val { font: 600 13px var(--font); fill: #fff6dc; paint-order: stroke; stroke: #1d1812; stroke-width: 3.5px; }
+.rp-svg .rp-alert { font: 700 14px var(--font); fill: #ffd2c8; paint-order: stroke; stroke: #1d1812; stroke-width: 3.5px; }
+.rp-ctrls { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 6px; }
+.rp-ctrl { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border-radius: 8px; border: 1px solid #4a3a28; background: rgba(255, 255, 255, 0.03); }
+.rp-ctrl select { max-width: 100%; }
+.raid-scheme { margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.rs-wall { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 6px; border-radius: 8px; background: #6e665a; border: 2px solid #2b2118; }
+.rs-sec { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-radius: 6px; background: rgba(22, 18, 14, 0.75); text-align: center; }
+.rs-sec.hit { outline: 3px dashed #ff8a7a; outline-offset: -3px; }
+.rs-losses { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.rs-dots { letter-spacing: 2px; }
+.rs-dots.mine { color: #ff9a8f; }
+.rs-dots.theirs { color: #f3e6c4; }

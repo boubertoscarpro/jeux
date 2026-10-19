@@ -16,6 +16,7 @@ import { queuesHtml, queueActions } from './hud.js';
 import { winSummary } from './winSummary.js';
 import { a11yPrefs, setA11y } from '../systems/a11y.js';
 import { nextBuilding } from '../systems/cityNav.js';
+import { snapshotCity, homecoming } from '../systems/homecoming.js';
 import { openKingdomText, kingdomTextActions, bindAnnouncer, openWhy } from './a11yUi.js';
 import { A11Y_DEFAULTS, A11Y_SHOWCASE } from '../data/a11y.js';
 import { BUILDINGS } from '../data/buildings.js';
@@ -181,10 +182,17 @@ export class App {
     const away = Date.now() - (this.state.meta.lastTick || Date.now());
     const before = { ...this.state.resources };
     const logBefore = this.state.log.length;
+    const cityBefore = snapshotCity(this.state);
     advance(this.state, Date.now());
     this.booting = false;
+    // v17 : le retour du seigneur — ce qui a changé brille quelques secondes sur le château, avant le rapport
+    if (away > 2 * 60 * 1000) {
+      const hc = homecoming(cityBefore, this.state);
+      if (hc.built.length) { this.ui.glow = { ids: hc.built, until: Date.now() + 9000 }; setTimeout(() => { if (this.ui.map === 'city' && !this.ui.win) { this.mapDirty = true; this.render(); } }, 9100); }
+      if (hc.text) setTimeout(() => this.toast(`🏰 ${hc.text}`, 'info'), 300);
+    }
     this.render();
-    if (away > 2 * 60 * 1000) this.absenceReport(away, before, logBefore);
+    if (away > 2 * 60 * 1000) setTimeout(() => this.absenceReport(away, before, logBefore), this.ui.glow ? 2500 : 0);
     const m = this.state.meta;
     if (m.migratedFrom || m.repaired || m.restoredFromBackup) {
       this.modal(`<h2>💾 Sauvegarde mise à jour</h2>${m.migratedFrom ? `<p>Votre partie (format v${m.migratedFrom}) a été convertie au format actuel <b>v${this.state.version}</b>. Rien n’a été perdu : les nouveaux systèmes ont simplement été ajoutés.</p>` : ''}
@@ -309,6 +317,8 @@ export class App {
     else if (b) {
       this.ui.map = 'city'; this.ui.citySel = { x: b.x, y: b.y }; this.ui.ringOpen = true; this.ui.cityFocus = { x: b.x, y: b.y };
       this.ui.flashTile = { x: b.x, y: b.y, until: Date.now() + 4000 };
+      this.ui.guide = { x: b.x, y: b.y, until: Date.now() + 9000 }; // v17 : flèche qui pulse au-dessus du lieu
+      setTimeout(() => { if (this.ui.guide?.until <= Date.now() && this.ui.map === 'city' && !this.ui.win) { this.mapDirty = true; this.render(); } }, 9100);
       this.toast(`Ouvrez « ${BUILDINGS[b.type].name} » dans votre château : bouton « Ouvrir ».`, 'info');
     } else if (p?.kind === 'map') { this.ui.hudHl = 'toggle-map'; this.toast('Ouvrez la carte du monde : bouton « Monde » en bas à droite (touche M).', 'info'); }
     else if (p?.kind === 'hud') { this.ui.hudHl = pk === 'profile' ? 'profile' : 'settings'; this.toast(pk === 'profile' ? 'Ouvrez votre profil : médaillon en haut à gauche.' : 'Ouvrez les réglages : engrenage en haut à droite.', 'info'); }
@@ -561,6 +571,9 @@ export class App {
     fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); } catch { /* refusé par le navigateur */ } },
     'hud-zoom': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-zoom'] || mv?.actions?.zoom)?.(app, el); },
     'kingdom-text': (app) => openKingdomText(app),
+    'layer-bar': (app) => { app.ui.layerBar = !app.ui.layerBar; app.renderHud(); },
+    layer: (app, el) => { const k = el.dataset.k || null; app.ui.layer = k && app.ui.layer !== k ? k : null; if (!k) app.ui.layerBar = false; app.mapDirty = true; if (app.ui.map !== 'city') app.go('city'); else app.render(); },
+    timeline: (app) => { app.ui.timelineOpen = !(app.ui.timelineOpen ?? innerWidth > 700); app.renderHud(); },
     why: (app, el) => openWhy(app, el.dataset.what, el.dataset.arg),
     'kt-see': (app, el) => kingdomTextActions['kt-see'](app, el),
     a11y: (app, el) => { const k = el.dataset.k, v = el.dataset.v; const val = v === 'true' ? true : v === 'false' ? false : /^[\d.]+$/.test(v) ? +v : v; setA11y(app.state, k, val); app.applyPrefs(); app.mapDirty = true; app.render(); app.save(); },
