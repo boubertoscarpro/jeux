@@ -1,3 +1,4 @@
+import { raidEngines, defendCastle } from './siege.js';
 import { fortifyFactor, noteHostile } from './reactions.js';
 import { recordLoss } from './losses.js';
 import { castleName } from './identity.js';
@@ -67,7 +68,7 @@ export function onRivalDefeated(state, poi, now) {
 }
 
 // Armée de raid : calibrée sur la puissance totale du joueur (préparer sa défense permet de gagner)
-function raidArmy(state, poi, now) {
+export function raidArmy(state, poi, now) {
   const mix = { militia: 0.35, guard: 0.1, royalArcher: 0.3, royalKnight: 0.25 };
   const target = Math.max(250 * thLevel(state), armyPower(armyTotals(state)) * rng.float(0.6, 1.0) * (0.9 + 0.08 * poi.rival)) * warWeakness(state, now) * raidPenalty(state, poi.rival, now);
   const out = {};
@@ -102,7 +103,11 @@ export function rivalTick(state, now) {
   state.raidCooldown = now + warn + RAID_TRUCE_H * 3600 * 1000; // trêve après chaque raid
   feat('⚔️', `Raid en approche : ${p.name}`, 'Renforcez la garnison, montez les murailles ou évacuez les réserves.', 'bad');
   // v16 : flanc visé (le plus faible une fois sur deux), connu à l'avance avec une tour de garde niv. 5
-  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0, flank: pickRaidFlank(state, () => rng.random()), flankSeen: flankRevealed(state) });
+  // v19 : les raids assiègent — engins (une part de la puissance), vagues et flanc principal ; adaptation aux
+  // remparts vus lors des raids précédents de ce seigneur
+  const flank = pickRaidFlank(state, () => rng.random());
+  const sg = raidEngines(state, p, army, now, flank);
+  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army: sg.army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0, flank: sg.mainFlank || flank, flankSeen: flankRevealed(state), plan: sg.plan, engines: sg.engines, style: sg.style, styleText: sg.styleText, adapt: sg.adapt, mainFlank: sg.mainFlank });
   if (p.anger) p.anger--;
   log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre ${castleName(state)} ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);
   toast(`🚨 Raid en approche : ${p.name}`, 'bad');
@@ -119,24 +124,20 @@ export function resolveRaid(state, raid, t) {
   const allies = allyReinforcements(state);
   if (allies) for (const [u, n] of Object.entries(allies)) defenders[u] = (defenders[u] || 0) + n;
   const def = Object.keys(defenders).length && Object.values(defenders).some((n) => n > 0) ? defenders : { militia: 5 };
-  // v16 : défense par flancs (part de la garnison sur le flanc attaqué) et outils de défense posés sur ce flanc
+  // v19 : défense par flancs, vagues et cour, avec les engins posés sur les remparts (systems/siege.js)
   const flank = FLANKS[raid.flank] ? raid.flank : 'front';
-  const fb = flankBonus(state, flank);
-  const tools = useTools(state, flank, (c) => pay(state, c));
-  const defMods = { ...mods, 'combat.def': (mods['combat.def'] || 0) + (mods['city.def'] || 0) + fb + (tools.mods['combat.def'] || 0), 'combat.atk': (mods['combat.atk'] || 0) + (tools.mods['combat.atk'] || 0) };
-  const res = simulateBattle(
-    { units: raid.army, mods: { 'combat.atk': 0.05 }, formation: 'assault', label: raid.name },
-    { units: def, mods: defMods, fort, formation: 'shieldwall', supply: (state.resources.bread || 0) > 50, famine: state.famine, label: 'Garnison' },
-    { terrain: 'city', weather: state.weather.type },
-  );
+  const defMods = { ...mods, 'combat.def': (mods['combat.def'] || 0) + (mods['city.def'] || 0) };
+  const { res } = defendCastle(state, raid, def, defMods, t, { mods, supply: (state.resources.bread || 0) > 50, famine: state.famine });
+  const fb = 0;
+  const tools = { used: [] };
   // Pertes de la garnison
   const newArmy = { scout: scouts };
   for (const [u, n] of Object.entries(res.defRemaining)) if (UNITS[u] && u !== 'scout') newArmy[u] = n;
   for (const u of ['spy']) if (state.army[u]) newArmy[u] = state.army[u];
   state.army = newArmy;
   const win = res.winner === 'defender';
-  // v16 : la muraille tient-elle ? (sans muraille, rien n'arrête les pillards)
-  const breached = !win && rng.chance(breachChance(state));
+  // v19 : la muraille a cédé si au moins un flanc a été percé
+  const breached = res.breached.length > 0 && !win;
   siegeDamage(state, { win, breached });
   let text;
   if (win) {
@@ -177,9 +178,10 @@ export function resolveRaid(state, raid, t) {
   }
   const nDef = Object.values(def).reduce((a, b) => a + b, 0);
   const prep = `Préparation : ${nDef} défenseurs${allies ? ' (dont renforts alliés)' : ''}, muraille +${Math.round(fort * 100)} % de défense, ${(state.resources.bread || 0) > 50 ? 'rations de pain distribuées' : 'pas de pain (moral réduit)'}${mods['city.def'] ? `, défense de la ville +${Math.round(mods['city.def'] * 100)} %` : ''}.`;
-  const flankTxt = ` Assaut sur le ${FLANKS[flank].name.toLowerCase()} : ${fb > 0 ? `défense +${Math.round(fb * 100)} % (troupes bien placées)` : fb < 0 ? `défense ${Math.round(fb * 100)} % (flanc dégarni)` : 'répartition neutre'}${tools.used.length ? `, ${tools.used.map((k) => DEFENSE_TOOLS[k].name.toLowerCase()).join(' et ')} engagé${tools.used.length > 1 ? 's' : ''}` : ''}.`;
+  const flankTxt = ` ${res.key}${raid.adapt ? ` Ils s’étaient adaptés : ${raid.adapt}.` : ''}`;
   text = `${text} ${prep}${flankTxt}`;
-  state.reports.unshift({ id: uid('rep'), t, kind: 'defense', title: `${win ? 'Défense réussie' : 'Ville pillée'} — ${raid.name}`, win, flank, breached, result: res, enemies: raid.army, text, terrain: 'city', weather: state.weather.type, defense: true, read: false });
+  void fb; void tools; void DEFENSE_TOOLS;
+  state.reports.unshift({ id: uid('rep'), t, kind: 'defense', title: `${win ? 'Défense réussie' : 'Ville pillée'} — ${raid.name}`, win, flank, breached, result: res, siege: { report: res.report, engines: res.engines, key: res.key, breached: res.breached, adapt: raid.adapt || null, style: raid.styleText || null }, enemies: raid.army, enemyEngines: raid.engines || {}, text, terrain: 'city', weather: state.weather.type, defense: true, read: false });
   if (state.reports.length > 60) state.reports.length = 60;
 }
 
