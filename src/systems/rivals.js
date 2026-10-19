@@ -20,7 +20,7 @@ import { UNITS } from '../data/units.js';
 import { bumpRep, recordMax } from './reputation.js';
 import { chronicle } from './chronicle.js';
 import { pay } from './economy.js';
-import { pickRaidFlank, flankRevealed, raidTargets, pillageShare, siegeDamage } from './castle.js';
+import { pickRaidFlank, flankRevealed, raidTargets, pillageShare, siegeDamage, breachChance } from './castle.js';
 import { FLANKS } from '../data/castle.js';
 
 export const PROTECTION_TH = 4;
@@ -133,8 +133,10 @@ export function resolveRaid(state, raid, t) {
   for (const u of ['spy']) if (state.army[u]) newArmy[u] = state.army[u];
   state.army = newArmy;
   const win = res.winner === 'defender';
-  // v19 : la muraille a cédé si au moins un flanc a été percé
-  const breached = res.breached.length > 0 && !win;
+  // v19 : la cour est prise dès qu'un flanc cède ; l'intérieur (bâtiments de la cour, entrepôt intra-muros) n'est
+  // livré qu'à une percée sur deux flancs ou plus, sinon avec la chance de brèche de la v16 (les défenseurs se replient
+  // dans le donjon) : un royaume battu ne perd pas plus qu'avant
+  const breached = !win && res.breached.length > 0 && (res.breached.length >= 2 || rng.chance(breachChance(state)));
   siegeDamage(state, { win, breached });
   let text;
   if (win) {
@@ -170,7 +172,7 @@ export function resolveRaid(state, raid, t) {
     const burnt = [];
     if (targets.length && rng.chance(0.5)) { const b = rng.pick(targets); b.damaged = true; burnt.push(BUILDINGS[b.type]?.name || b.type); }
     if (burnt.length) text += ` Bâtiments incendiés (production −50 % jusqu’à réparation) : ${burnt.join(', ')}.`;
-    if (levelOf(state, 'wall') > 0) text += breached ? ' La muraille a cédé : la cour du donjon n’était plus à l’abri.' : ` La muraille a tenu : la cour du donjon est restée à l’abri${share < 0.3 ? ' et l’entrepôt intra-muros a limité le pillage' : ''}.`;
+    if (levelOf(state, 'wall') > 0) text += breached ? ' La muraille a cédé : la cour du donjon n’était plus à l’abri.' : res.breached.length ? ' Un flanc a cédé, mais la garnison s’est repliée dans le donjon : l’intérieur est resté à l’abri.' : ` La muraille a tenu : la cour du donjon est restée à l’abri${share < 0.3 ? ' et l’entrepôt intra-muros a limité le pillage' : ''}.`;
     else text += ' Sans muraille, rien n’a arrêté les pillards.';
   }
   const nDef = Object.values(def).reduce((a, b) => a + b, 0);

@@ -257,8 +257,6 @@ export function siegeBattle(att, def, ctx = {}) {
   return rng.seeded(((ctx.seed ?? 1) * 2246822519) >>> 0, () => siegeBattleRun(att, def, ctx));
 }
 function siegeBattleRun(att, def, ctx) {
-  const rand = mulberry32(((ctx.seed ?? 1) * 2654435761) >>> 0);
-  const fortune = () => (rand() * 2 - 1) * SIEGE_RULES.variance;
   const one = !!def.prot.oneFlank;
   const flanks = one ? ['front'] : FL;
   const sh = one ? { front: (def.shares.left || 0) + (def.shares.front || 0) + (def.shares.right || 0), yard: def.shares.yard || 0 } : def.shares;
@@ -338,7 +336,7 @@ function siegeBattleRun(att, def, ctx) {
     const dHere = clean(defOn[f]);
     const res = sum(dHere)
       ? simulateBattle(
-        { units, mods: merge(att.mods, attMods, { 'combat.atk': fortune() }), formation: att.formation, supply: att.supply, famine: att.famine, label: att.label },
+        { units, mods: merge(att.mods, attMods), formation: att.formation, supply: att.supply, famine: att.famine, label: att.label },
         { units: dHere, mods: merge(def.mods, last.defMods), fort, formation: def.formation, supply: def.supply, famine: def.famine, label: def.label },
         ctxB)
       : { winner: 'attacker', attRemaining: units, defRemaining: {}, attLosses: {}, defLosses: {}, rounds: [], notes: [] };
@@ -363,7 +361,7 @@ function siegeBattleRun(att, def, ctx) {
     const bonus = SIEGE_RULES.yardBonus[Math.min(3, breached.length)];
     const res = sum(yardDef)
       ? simulateBattle(
-        { units: toYard, mods: merge(att.mods, { 'combat.atk': bonus + fortune() }), formation: att.formation, label: att.label },
+        { units: toYard, mods: merge(att.mods, { 'combat.atk': bonus }), formation: att.formation, label: att.label },
         { units: yardDef, mods: def.mods, fort: 0, formation: def.formation, supply: def.supply, famine: def.famine, label: def.label },
         ctxB)
       : { winner: 'attacker', attRemaining: toYard, defRemaining: {}, attLosses: {}, defLosses: {}, rounds: [], notes: [] };
@@ -711,35 +709,40 @@ export function warCouncil(att, enemies, fort, poi, ctx, plan) {
 export function strategyGrid(state, { n = 20 } = {}) {
   const prot = castleProtections(state);
   const army = { spearman: 1200, swordsman: 400, archer: 600, lightcav: 200 };
-  // Garnison calibrée : l'assaut sans engin contre une défense neutre gagne environ une fois sur deux
-  const g0 = { spearman: 900, swordsman: 200, archer: 500 };
-  const plain = (k, seed) => { const waves = planToWaves({ waves: [{ left: { share: 0, engines: {} }, front: { share: 1, engines: {} }, right: { share: 0, engines: {} } }] }, army); return siegeBattle({ waves, mods: {}, formation: 'assault', label: 'A' }, { units: scale(g0, k), shares: { left: 0.25, front: 0.25, right: 0.25, yard: 0.25 }, engines: {}, prot, mods: {}, formation: 'shieldwall', label: 'D' }, { seed }).winner === 'attacker'; };
-  let lo = 0.05, hi = 8;
-  for (let it = 0; it < 14; it++) { const mid = Math.sqrt(lo * hi); let w = 0; for (let i = 0; i < 12; i++) if (plain(mid, 500 + i)) w++; if (w / 12 > 0.5) lo = mid; else hi = mid; }
-  const garrison = scale(g0, Math.sqrt(lo * hi));
+  // Budgets comparables : 12 engins d'attaque (la tour, plus chère, compte pour plusieurs), 20 engins de défense
   const ATT = {
-    'porte (béliers)': { waves: [{ front: { share: 1, engines: { ram: 10, mantlets: 3 } } }] },
-    'échelles (flanc gauche)': { waves: [{ left: { share: 1, engines: { ladders: 10, mantlets: 3 } } }] },
+    'porte (béliers)': { waves: [{ front: { share: 1, engines: { ram: 9, mantlets: 3 } } }] },
+    'échelles (flanc gauche)': { waves: [{ left: { share: 1, engines: { ladders: 9, mantlets: 3 } } }] },
     'deux flancs': { waves: [{ left: { share: 0.5, engines: { ladders: 6 } }, right: { share: 0.5, engines: { ladders: 6 } } }] },
     'tour de siège': { waves: [{ right: { share: 1, engines: { tower: 2, ladders: 4 } } }] },
-    'trois vagues au front': { waves: [0, 1, 2].map(() => ({ front: { share: 1 / 3, engines: { ram: 4, mantlets: 2 } } })) },
+    'trois vagues au front': { waves: [0, 1, 2].map(() => ({ front: { share: 1 / 3, engines: { ram: 3, mantlets: 1 } } })) },
     'sans engin': { waves: [{ front: { share: 1, engines: {} } }] },
   };
+  // Garnison calibrée : l'assaut au bélier contre une défense neutre gagne environ une fois sur deux (les autres
+  // stratégies et défenses se lisent par rapport à ce point d'équilibre)
+  const g0 = { spearman: 900, swordsman: 200, archer: 500 };
+  const W = (x) => ({ waves: x.waves.map((w) => ({ left: { share: 0, engines: {} }, front: { share: 0, engines: {} }, right: { share: 0, engines: {} }, ...w })) });
+  const plain = (k, seed) => siegeBattle({ waves: planToWaves(W(ATT['porte (béliers)']), army), mods: {}, formation: 'assault', label: 'A' }, { units: scale(g0, k), shares: { left: 0.25, front: 0.25, right: 0.25, yard: 0.25 }, engines: {}, prot, mods: {}, formation: 'shieldwall', label: 'D' }, { seed }).winner === 'attacker';
+  let lo = 0.05, hi = 8;
+  for (let it = 0; it < 14; it++) { const mid = Math.sqrt(lo * hi); let w = 0; for (let i = 0; i < 16; i++) if (plain(mid, 500 + i)) w++; if (w / 16 > 0.5) lo = mid; else hi = mid; }
+  const garrison = scale(g0, Math.sqrt(lo * hi));
   const DEF = {
     neutre: { shares: { left: 0.25, front: 0.25, right: 0.25, yard: 0.25 }, posted: {} },
-    'poix à la porte': { shares: { left: 0.2, front: 0.4, right: 0.2, yard: 0.2 }, posted: { front: { pitch: 10, portcullis: 3 } } },
-    'pierres aux flancs': { shares: { left: 0.3, front: 0.2, right: 0.3, yard: 0.2 }, posted: { left: { stones: 8, archers: 3 }, right: { stones: 8, archers: 3 } } },
+    'poix à la porte': { shares: { left: 0.2, front: 0.4, right: 0.2, yard: 0.2 }, posted: { front: { pitch: 14, portcullis: 3, archers: 3 } } },
+    'pierres aux flancs': { shares: { left: 0.3, front: 0.2, right: 0.3, yard: 0.2 }, posted: { left: { stones: 8, archers: 2 }, right: { stones: 8, archers: 2 } } },
     'crochets et pierres aux flancs': { shares: { left: 0.3, front: 0.2, right: 0.3, yard: 0.2 }, posted: { left: { hooks: 4, stones: 6 }, right: { hooks: 4, stones: 6 } } },
-    'tout contre tout': { shares: { left: 0.25, front: 0.25, right: 0.25, yard: 0.25 }, posted: { left: { stones: 5, archers: 3, hooks: 2 }, front: { pitch: 6, archers: 3 }, right: { stones: 5, archers: 3, hooks: 2 } } },
+    'tout contre tout': { shares: { left: 0.25, front: 0.25, right: 0.25, yard: 0.25 }, posted: { left: { stones: 4, archers: 2, hooks: 1 }, front: { pitch: 4, archers: 2 }, right: { stones: 4, archers: 2, hooks: 1 } } },
   };
   const grid = {};
   for (const [an, ap] of Object.entries(ATT)) {
     grid[an] = {};
     for (const [dn, dp] of Object.entries(DEF)) {
       let w = 0;
+      // Garnison de 70 % à 130 % du point d'équilibre : on mesure ce que vaut la stratégie, pas un seuil
       for (let i = 0; i < n; i++) {
-        const waves = planToWaves({ waves: ap.waves.map((x) => ({ left: { share: 0, engines: {} }, front: { share: 0, engines: {} }, right: { share: 0, engines: {} }, ...x })) }, army);
-        const r = siegeBattle({ waves, mods: {}, formation: 'assault', label: 'A' }, { units: garrison, shares: dp.shares, engines: dp.posted, prot, mods: {}, formation: 'shieldwall', label: 'D' }, { seed: 1 + i });
+        const waves = planToWaves(W(ap), army);
+        const k = 0.7 + 0.6 * ((i % 7) / 6);
+        const r = siegeBattle({ waves, mods: {}, formation: 'assault', label: 'A' }, { units: scale(garrison, k), shares: dp.shares, engines: dp.posted, prot, mods: {}, formation: 'shieldwall', label: 'D' }, { seed: 1 + i });
         if (r.winner === 'attacker') w++;
       }
       grid[an][dn] = Math.round((w / n) * 100);

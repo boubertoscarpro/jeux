@@ -140,7 +140,7 @@ test('Raids : brèche selon muraille et douves ; la cour n’est exposée qu’e
 test('Raids : défaite → flanc percé, bâtiment incendié, dégâts de muraille, réparation', () => {
   rng.setSource(mulberry32(11));
   try {
-    let outsideHits = 0, insideHits = 0;
+    let outsideHits = 0, insideHits = 0, breachedInside = 0;
     for (let i = 0; i < 40; i++) {
       const s = realm('r' + i);
       s.city.fort.wall = 25; s.city.fort.moat = 10; // brèche 15 %
@@ -152,9 +152,12 @@ test('Raids : défaite → flanc percé, bâtiment incendié, dégâts de murail
       if (s.city.buildings.lib.damaged) insideHits++;
       if (s.city.buildings.f1.damaged) outsideHits++;
       assert.ok(s.castle.wallDmg > 0);
-      assert.ok(rep.breached, 'une défaite passe par un flanc percé');
+      assert.ok(rep.siege.breached.length > 0, 'une défaite passe par un flanc percé');
+      if (rep.siege.breached.length < 2) breachedInside += rep.breached ? 1 : 0;
     }
     assert.ok(outsideHits + insideHits > 0);
+    // v19 : un seul flanc percé ne livre l'intérieur qu'avec la chance de brèche (15 % ici), comme en v16
+    assert.ok(breachedInside < 20, `${breachedInside} intérieurs livrés sur 40`);
     // Les maçons réparent 10 % par heure
     const s = realm(); s.city.fort.wall = 5; siegeDamage(s, { win: false, breached: true });
     assert.equal(s.castle.wallDmg, SIEGE.dmgBreach);

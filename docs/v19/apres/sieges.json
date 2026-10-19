@@ -1,0 +1,188 @@
+{
+ "version": "v19",
+ "n": 150,
+ "defense": {
+  "bourg ×0.5": {
+   "idle": {
+    "win": 0,
+    "breach": 100
+   },
+   "prepared": {
+    "win": 0,
+    "breach": 100
+   }
+  },
+  "bourg ×0.8": {
+   "idle": {
+    "win": 94,
+    "breach": 6
+   },
+   "prepared": {
+    "win": 94,
+    "breach": 6
+   }
+  },
+  "bourg ×1.2": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   },
+   "prepared": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "bourg ×1.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   },
+   "prepared": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "fortifie ×0.5": {
+   "idle": {
+    "win": 0,
+    "breach": 50
+   },
+   "prepared": {
+    "win": 0,
+    "breach": 50
+   }
+  },
+  "fortifie ×0.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   },
+   "prepared": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "fortifie ×1.2": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   },
+   "prepared": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "fortifie ×1.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   },
+   "prepared": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "capitale ×0.5": {
+   "idle": {
+    "win": 23,
+    "breach": 11
+   },
+   "prepared": {
+    "win": 41,
+    "breach": 10
+   }
+  },
+  "capitale ×0.8": {
+   "idle": {
+    "win": 57,
+    "breach": 8
+   },
+   "prepared": {
+    "win": 75,
+    "breach": 3
+   }
+  },
+  "capitale ×1.2": {
+   "idle": {
+    "win": 87,
+    "breach": 1
+   },
+   "prepared": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "capitale ×1.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   },
+   "prepared": {
+    "win": 100,
+    "breach": 0
+   }
+  }
+ },
+ "attack": {
+  "prot": {
+   "wall": 1.4000000000000001,
+   "gate": 1.4000000000000001,
+   "moat": 0.3
+  },
+  "army": {
+   "spearman": 1200,
+   "swordsman": 400,
+   "archer": 600,
+   "lightcav": 200
+  },
+  "garrison": {
+   "spearman": 1447,
+   "swordsman": 322,
+   "archer": 804
+  },
+  "grid": {
+   "porte (béliers)": {
+    "neutre": 57,
+    "poix à la porte": 43,
+    "pierres aux flancs": 59,
+    "crochets et pierres aux flancs": 59,
+    "tout contre tout": 49
+   },
+   "échelles (flanc gauche)": {
+    "neutre": 57,
+    "poix à la porte": 59,
+    "pierres aux flancs": 49,
+    "crochets et pierres aux flancs": 51,
+    "tout contre tout": 49
+   },
+   "deux flancs": {
+    "neutre": 44,
+    "poix à la porte": 44,
+    "pierres aux flancs": 41,
+    "crochets et pierres aux flancs": 43,
+    "tout contre tout": 43
+   },
+   "tour de siège": {
+    "neutre": 57,
+    "poix à la porte": 59,
+    "pierres aux flancs": 52,
+    "crochets et pierres aux flancs": 49,
+    "tout contre tout": 49
+   },
+   "trois vagues au front": {
+    "neutre": 59,
+    "poix à la porte": 41,
+    "pierres aux flancs": 59,
+    "crochets et pierres aux flancs": 59,
+    "tout contre tout": 49
+   },
+   "sans engin": {
+    "neutre": 44,
+    "poix à la porte": 36,
+    "pierres aux flancs": 49,
+    "crochets et pierres aux flancs": 49,
+    "tout contre tout": 44
+   }
+  }
+ }
+}

@@ -29,8 +29,8 @@ const base = {
   capitale: load('save-fin'),
 };
 // Garnison exprimée en multiple du plancher de puissance des raids (250 × hôtel de ville) : 0,8 (trop faible),
-// 1,2 (à sa portée), 1,8 (confortable). Infanterie et archers à parts égales de puissance.
-const MULTS = [0.8, 1.2, 1.8];
+// 1,2 (à sa portée), 1,8 (confortable), et 0,5 (marginal : là où la préparation se voit). Infanterie et archers à parts égales de puissance.
+const MULTS = [0.5, 0.8, 1.2, 1.8];
 const { armyPower } = await imp('src/systems/army.js');
 const thOf = (s) => Object.values(s.city.buildings).find((b) => b.type === 'townhall').level;
 function garrison(s, mult) {
@@ -54,8 +54,9 @@ function defend(name, mult, mode) {
   for (let i = 0; i < N; i++) {
     const s = deserialize(json);
     s.army = garrison(s, mult);
-    if (mode === 'prepared' && SG) SG.prepareDefense(s, T);
     const raid = raidOn(s, 1000 + i);
+    // Préparé : le raid est repéré par la tour de garde, le joueur applique la défense conseillée avec son arsenal
+    if (mode === 'prepared' && SG) { s.raids = [raid]; SG.prepareDefense(s, T); s.raids = []; }
     R.resolveRaid(s, raid, T);
     const rep = s.reports[0];
     if (rep.win) win++;
@@ -70,5 +71,5 @@ for (const name of Object.keys(base)) for (const m of MULTS) {
   out.defense[k] = { idle: defend(name, m, 'idle') };
   if (SG) out.defense[k].prepared = defend(name, m, 'prepared');
 }
-if (SG && args.includes('--attack')) out.attack = SG.strategyGrid ? SG.strategyGrid(base.capitale, { n: Math.max(20, Math.round(N / 5)) }) : null;
+if (SG && args.includes('--attack')) out.attack = SG.strategyGrid ? SG.strategyGrid(base.capitale, { n: Math.max(42, Math.round(N / 2)) }) : null;
 console.log(JSON.stringify(out, null, 1));

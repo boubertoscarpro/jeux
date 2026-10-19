@@ -44,7 +44,7 @@ export const ATTACK_ENGINES = {
   },
   tower: {
     name: 'Tour de siège', icon: '🗼', glyph: '▲', workshop: 10, cost: { wood: 400, steel: 40, leather: 30, frames: 6 }, time: 300, flanks: ['left', 'right'],
-    effect: { prot: 'all', cap: 0.25, k: 2, neutralize: ['archers'], ncap: 0.5, atk: 0.03 }, counteredBy: 'hooks',
+    effect: { prot: 'all', cap: 0.18, k: 2, neutralize: ['archers'], ncap: 0.5, atk: 0.02 }, counteredBy: 'hooks',
     desc: 'Ouvre une brèche partielle : réduit toutes les protections du flanc et domine les archères.',
   },
 };
@@ -76,7 +76,7 @@ export const DEFENSE_ENGINES = {
   },
   hooks: {
     name: 'Crochets et filets', icon: '🪝', glyph: '∫', wall: 10, cost: { iron: 40, cloth: 10 }, time: 45,
-    effect: { counter: 'tower', cap: 0.8, k: 2 }, counteredBy: 'mantlets',
+    effect: { counter: 'tower', cap: 0.8, k: 1.2 }, counteredBy: 'mantlets',
     desc: 'Contrent la tour de siège.',
   },
 };
@@ -97,12 +97,11 @@ export const SIEGE_RULES = {
   yardBonus: [0, 0.05, 0.12, 0.2], // attaque des assaillants dans la cour selon le nombre de flancs percés
   recoverWin: 0.4,               // engins d'attaque récupérés après un flanc percé
   defenseUsedHeld: 0.5,          // engins de défense consommés sur un flanc tenu (le reste est récupéré)
-  fatigue: 0.2,                 // chaque vague déjà menée sur un flanc : défenseurs épuisés, +6 % d'attaque pour la suivante
-  variance: 0.08,                // fortune des armes : ±8 % d'attaque, tirée d'une graine (bataille reproductible)
   artillery: { catapult: 0.05, trebuchet: 0.1 }, // engins de défense détruits par pièce d'artillerie
 };
 // Renseignement de la tour de guet (niveau requis)
 export const INTEL = { troops: 3, engines: 4, flank: 5, exact: 8 };
 // Raids : part de la puissance consacrée aux engins (les troupes diminuent d'autant) et vagues selon l'hôtel de ville
-export const RAID_ENGINES = { budget: 0.12, perTh: 1.2, waves: () => 1 } // les raids attaquent en une vague (des vagues successives les affaibliraient);
+// Calibré pour qu'un joueur qui ne s'occupe de rien garde les taux de victoire d'avant (tools/siegeSim.mjs)
+export const RAID_ENGINES = { budget: 0.13, perTh: 1.1, waves: () => 1 }; // une seule vague : des vagues successives les affaibliraient
 export const PLAN_SLOTS = 3;
