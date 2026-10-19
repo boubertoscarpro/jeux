@@ -70,7 +70,7 @@ function stabBlock(s, k, t) {
   const now = Date.now(), v = stabOf(t), lv = stabLevel(v), target = stabilityTarget(s, t, now);
   const f = stabilityFactors(s, t, now);
   const fc = FESTIVAL.cost(t.level || 1);
-  return `<div class="panel-sub stab-block stab-${lv.key}"><h4>Stabilité de la province : ${lv.icon} ${esc(lv.name)} <span class="muted">${Math.round(v)}/100 → cible ${Math.round(target)}</span></h4>
+  return `<div class="panel-sub stab-block stab-${lv.key}"><h4>Stabilité de la province : ${lv.icon} ${esc(lv.name)} <span class="muted">${Math.round(v)}/100 → cible ${Math.round(target)}</span> <button class="mini ghost why-btn" data-action="why" data-what="stab" data-arg="${esc(k)}" aria-label="Pourquoi : d’où vient la stabilité de cette province ?">Pourquoi ?</button></h4>
     <div class="stab-bar"><div style="width:${v}%"></div><span style="left:${target}%" title="Cible"></span></div>
     ${t.revolt ? '<div class="req">🔥 Révolte ouverte : plus aucune production tant que la stabilité n’est pas remontée à 45.</div>' : ''}
     <div class="stab-factors small">${f.map(([l, x]) => `<span class="${x > 0 ? 'ok' : x < 0 ? 'bad' : 'muted'}">${x > 0 ? '+' : ''}${x} ${esc(l)}</span>`).join('')}</div>

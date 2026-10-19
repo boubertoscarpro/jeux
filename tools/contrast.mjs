@@ -89,9 +89,24 @@ function bgOf(rules, sel) {
 }
 const EXEMPT = /::selection|::placeholder|:disabled|\[disabled\]|\.locked|\.off\b|\.sr-only|\.muted-off|\.ghost-text|::-webkit|\.decor\b|scrollbar/;
 // Audit d'une feuille ; fonds par défaut : les fonds sombres de l'interface (le plus défavorable des deux)
+// Cascade : les déclarations d'un même sélecteur (hors @media) sont fusionnées dans l'ordre ; un sélecteur multiple
+// « a, b » est éclaté en « a » et « b »
+export function cascade(rules) {
+  const map = new Map(), out = [];
+  for (const r of rules) {
+    if (r.media) { out.push(r); continue; }
+    for (const part of r.sel.split(',').map((p) => p.trim()).filter(Boolean)) {
+      let m = map.get(part);
+      if (!m) { m = { sel: part, decl: {}, media: null }; map.set(part, m); out.push(m); }
+      Object.assign(m.decl, r.decl);
+    }
+  }
+  return out;
+}
 export function audit(css, { mode = null, defaults = ['--stone-900', '--stone-700'], extraVars = {} } = {}) {
-  const rules = parseRules(css);
-  const vars = { ...variables(rules, mode), ...extraVars };
+  const raw = parseRules(css);
+  const rules = cascade(raw);
+  const vars = { ...variables(raw, mode), ...extraVars };
   const defBgs = defaults.map((n) => parseHex(resolve(vars[n] || n, vars))).filter(Boolean);
   const base = defBgs[0] || { r: 22, g: 19, b: 15, a: 1 };
   const out = [];
@@ -103,7 +118,8 @@ export function audit(css, { mode = null, defaults = ['--stone-900', '--stone-70
     if (/transparent|inherit|currentcolor|initial|unset/i.test(fgv)) continue;
     const fg = parseHex(fgv);
     if (!fg) continue;
-    let bgv = resolve(r.decl['background-color'] || r.decl.background || '', vars);
+    // Fond réel annoncé par la règle (--contrast-bg) : pour les fonds semi-transparents posés sur une surface connue
+    let bgv = resolve(r.decl['--contrast-bg'] || r.decl['background-color'] || r.decl.background || '', vars);
     // Sans fond propre : une autre règle au même sélecteur, sinon la règle de l'ancêtre nommé dans le sélecteur
     if (!colorTokens(bgv).length) bgv = resolve(bgOf(rules, r.sel), vars);
     let bgs = colorTokens(bgv).map((c) => (c.a < 1 ? blend(c, base) : c));

@@ -124,3 +124,62 @@ body { font-variant-numeric: tabular-nums; }
   #hud, #win-root, #modal-root { font-size: calc(15px * var(--text-scale)); }
   .hud-a { min-width: 0; flex: 1 1 0; padding: 0 2px; }
 }
+
+/* ───── Accessibilité : contraste élevé, daltonisme, police, nuit, mode simplifié ───── */
+/* Couleurs de sens (texte) relevées pour WCAG AA sur les fonds sombres */
+:root { --blood: #f07a6c; --bad: #f07a6c; --forest: #86c070; --good: #86c070; --sig-bad: #a5261b; --sig-good: #1f6b3c; --gauge-good: #8fc06a; --gauge-full: #e2b84a; --gauge-bad: #e2574a; }
+html.hc { --ivory: #ffffff; --ivory-dim: #eae2cf; --muted: #eae2cf; --text: #ffffff; --line: #b39566; --line-l: #d6b77d; --gold: #ffd86b; --stone-900: #000000; --stone-850: #070605; --stone-800: #0d0b08; --stone-700: #15120e; --panel: #0d0b08; --panel2: #15120e; --bg: #000; --bg2: #070605; }
+html.hc .hud-panel, html.hc .hud-tl, html.hc .hud-tc .hres-row, html.hc .hud-tr, html.hc .hud-l, html.hc .hud-bc, html.hc .hud-actions, html.hc .feed-line, html.hc .win, html.hc .modal, html.hc .build-panel { background: #000 !important; border-color: #ffd86b !important; }
+html.hc .muted, html.hc .small.muted { color: #eae2cf !important; }
+html.hc :focus-visible { outline: 3px solid #ffffff !important; outline-offset: 2px; box-shadow: 0 0 0 6px #000; }
+html.hc .city-vp .t-crest, html.hc .city-vp .t-sig { border-width: 2px; border-color: #000; }
+html.hc .city-vp .t-name { background: #000; color: #fff; }
+/* Daltonisme : on remplace le vert et le rouge de sens (texte, jauges, signaux, calques) */
+html.cb-deut, html.cb-prot { --good: #56b4e9; --forest: #56b4e9; --bad: #f0a83c; --blood: #f0a83c; --warn: #f0e442; --amber: #f0e442; --gauge-good: #56b4e9; --gauge-full: #f0e442; --gauge-bad: #e69f00; --sig-bad: #b35a00; --sig-good: #0a5a8f; }
+html.cb-trit { --good: #3cc8a4; --forest: #3cc8a4; --bad: #ff8a5c; --blood: #ff8a5c; --warn: #e79acb; --amber: #e79acb; --gauge-good: #009e73; --gauge-full: #cc79a7; --gauge-bad: #d55e00; --sig-bad: #a64000; --sig-good: #00664a; }
+.hres-g i { background: var(--gauge-good) !important; }
+.hres.full .hres-g i { background: var(--gauge-full) !important; }
+.hres.short .hres-g i { background: var(--gauge-bad) !important; }
+.city-vp .t-sig.sig-danger { border-color: var(--sig-bad); }
+.city-vp .t-sig.sig-upgrade { border-color: var(--sig-good); }
+.trend.up, .ok, .good-text { color: var(--good) !important; }
+.trend.down, .bad, .down { color: var(--bad) !important; }
+.spark polyline.up { stroke: var(--good) !important; }
+.spark polyline.down { stroke: var(--bad) !important; }
+/* Police plus lisible (sans empattement, présente sur le système : rien à télécharger) */
+html.font-readable { --title: Verdana, 'DejaVu Sans', Tahoma, 'Segoe UI', sans-serif; --font: Verdana, 'DejaVu Sans', Tahoma, 'Segoe UI', sans-serif; }
+html.font-readable body, html.font-readable button, html.font-readable input, html.font-readable select { font-family: var(--font); letter-spacing: 0.01em; }
+html.font-readable h1, html.font-readable h2, html.font-readable h3 { font-family: var(--font); letter-spacing: 0; text-transform: none; }
+/* Toujours le jour */
+html.no-night .fx-light { display: none !important; }
+/* Mode simplifié : les systèmes avancés pas encore utiles disparaissent (rien n'est perdu) */
+html.simple .hud-cur, html.simple .hud-r .hud-act[data-view="wheel"], html.simple .hud-r .hud-act[data-view="event"], html.simple .bp-tab[data-k="deco"], html.simple .bp-tab[data-k="places"], html.simple .map-filters .chip[data-action="map-filter"], html.simple .places .place.locked, html.simple .adv-only { display: none !important; }
+
+/* ───── Contrastes (WCAG AA, vérifiés par tests/contrast17.test.js) ───── */
+.nav-badge, .sub-badge, .tb-badge { background: #b3261e !important; color: #fff; --contrast-bg: #b3261e; }
+.hb-urgent { background: #b3261e !important; color: #fff; --contrast-bg: #b3261e; }
+html.cb-deut .hb-urgent, html.cb-prot .hb-urgent, html.cb-trit .hb-urgent { background: #8a3b00 !important; }
+.wh-result-tier { background: color-mix(in srgb, var(--tc) 40%, #f3e6c4); color: #111; --contrast-bg: #c9b6d2; }
+.kt-card.sel .kt-pick { background: color-mix(in srgb, var(--kt) 40%, #f3e6c4); color: #111; --contrast-bg: #c3b4b4; }
+.br-tier.on { background: color-mix(in srgb, var(--c) 45%, #f3e6c4); color: #1d1812; --contrast-bg: #d3b0c8; }
+.t-up.ready { color: #10381f; --contrast-bg: #73e09f; }
+.brand-castle { color: #c9a24c; }
+.nav-icon { color: #d29b55; }
+.parchment .ok { color: #245020; --contrast-bg: #e8dbbd; }
+.parchment .gold-text { color: #634510; --contrast-bg: #e8dbbd; }
+.good, .btn.good, .mini.good { background: linear-gradient(180deg, #3f6831, #2c4c22); color: #f1fbe9; }
+.op-t { --contrast-bg: #a8b07c; }
+.op-t.free .op-plus { color: rgba(30, 22, 10, 0.8); --contrast-bg: #a8b07c; }
+.op-t.free:hover .op-plus, .op-t.free:focus-visible .op-plus { --contrast-bg: #a8b07c; }
+.skip-link { position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 14px; border-radius: 10px; background: #000; color: #fff; border: 2px solid #ffd86b; font-weight: 700; }
+.skip-link:focus { top: 12px; }
+.why-btn { padding: 1px 8px; }
+.kt-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.kt-list li { padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+.hres[role="button"] { cursor: help; }
+table.why th { text-align: left; font-weight: 500; padding-right: 14px; }
+/* Cibles tactiles : 44 × 44 px au moins sur téléphone (affichage fixe, fenêtres, dialogues) */
+@media (max-width: 700px), (pointer: coarse) {
+  #hud button, #hud .hres, #win-root button, #modal-root button, #win-root select, #modal-root select, #hud select { min-height: 44px; min-width: 44px; }
+  .city-vp .t-sig { min-width: 26px; height: 26px; }
+}

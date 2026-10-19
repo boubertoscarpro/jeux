@@ -1,3 +1,4 @@
+import { mapPalette, a11yPrefs } from '../../systems/a11y.js';
 import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
 import { borderOf } from '../../systems/hazards.js';
 import { TERRAINS, POI_TYPES, RIVALS, BOSSES } from '../../data/world.js';
@@ -81,7 +82,10 @@ const POI_CAT = (p) => {
   return 'always';
 };
 export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes', npc: '🧑 Personnages' };
-const CAT_COLOR = { gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', npc: '#7fd7e8', always: '#ffffff', other: '#cccccc' };
+// v17 : couleurs de catégories selon le mode de couleurs (daltonisme) ; les icônes et la légende restent
+const CAT_BASE = { gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', npc: '#7fd7e8', always: '#ffffff', other: '#cccccc' };
+let CAT_COLOR = { ...CAT_BASE };
+const setPalette = (state) => { const p = mapPalette(state); const cb = a11yPrefs(state).colorVision !== 'none'; CAT_COLOR = cb ? { ...CAT_BASE, gather: p.good, danger: p.bad, breach: p.foe, npc: p.info, social: p.mine } : { ...CAT_BASE }; return p; };
 const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true }); f.breach ??= true; f.npc ??= true; return f; };
 let rafPending = false;
 const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawMap(app); }); };
@@ -89,6 +93,7 @@ const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnim
 function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span class="ok">Sûr</span>'; }
 
 export function drawMap(app) {
+  const PAL = setPalette(app.state);
   const canvas = document.getElementById('world-canvas');
   if (!canvas) return;
   const perfT0 = performance.now();
@@ -245,7 +250,7 @@ export function drawMap(app) {
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
     if (p.danger > 0 && def.kind !== 'boss' && def.kind !== 'breach' && T > 16) {
       const n = Math.min(5, p.danger), pw = Math.max(3, r * 0.28);
-      ctx.fillStyle = p.danger >= 4 ? '#ff4f4f' : p.danger >= 2 ? '#ffb03a' : '#ffe58a';
+      ctx.fillStyle = p.danger >= 4 ? PAL.bad : p.danger >= 2 ? PAL.warn : '#ffe58a';
       for (let i = 0; i < n; i++) ctx.fillRect(px - (n * pw * 1.3) / 2 + i * pw * 1.3, py + r + 1, pw, pw * 0.8);
     }
     if (p.infested && T > 16) { ctx.font = `${Math.round(r * 0.8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🕷️', px + r * 0.85, py - r * 0.85); }

@@ -77,7 +77,10 @@ function cityCtx(app, mods) {
   const planTo = new Map(), planFrom = new Set();
   if (pv) for (const [id, [px, py]] of Object.entries(pv)) { const b = s.city.buildings[id]; if (b && (b.x !== px || b.y !== py)) { planTo.set(px + ',' + py, b.type); planFrom.add(id); } }
   const signals = quiet ? new Map() : buildingSignals(s, { bubbles: [...bubbles.values()], upgrades: up, burning, flooded, showUpgrades: showUpgrades(s) });
-  return { planTo, planFrom, s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, signals, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  // v17 : une seule case de la carte dans l'ordre de tabulation (la dernière choisie au clavier, sinon l'hôtel de ville)
+  const kf = app.ui.cityKeyFocus || app.ui.citySel || Object.values(s.city.buildings).find((b) => b.type === 'townhall');
+  const rove = kf ? kf.x + ',' + kf.y : '';
+  return { rove, planTo, planFrom, s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, signals, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -173,7 +176,7 @@ function tileHtml(app, x, y, ctx) {
   if (selected) cls.push('sel');
   const fl = app.ui.flashTile;
   if (fl && fl.x === x && fl.y === y && fl.until > Date.now()) cls.push('flash-good');
-  return `<button class="${cls.join(' ')}" data-action="tile" data-x="${x}" data-y="${y}" aria-label="${esc(label)} (${x}, ${y}, ${ZONES[zoneAt(s, x, y)].short})">${inner}${hint}</button>`;
+  return `<button class="${cls.join(' ')}" data-action="tile" data-x="${x}" data-y="${y}" tabindex="${ctx.rove === x + ',' + y ? '0" data-roving="1' : '-1'}" aria-label="${esc(label)} (${x}, ${y}, ${ZONES[zoneAt(s, x, y)].short})">${inner}${hint}</button>`;
 }
 
 // Infobulle de survol : nom, niveau, état, production, amélioration et actions possibles
@@ -530,6 +533,7 @@ const cityView = {
     if (!cam0.init) centerOnTown(app, vp);
     if (cam0.centerOn) { centerOnTown(app, vp, cam0.centerOn); cam0.centerOn = null; }
     if (app.ui.cityFocus) { centerOnTown(app, vp, app.ui.cityFocus); app.ui.cityFocus = null; }
+    vp._center = (x, y) => { centerOnTown(app, vp, { x, y }); app.ui.cityFocus = null; vp._apply?.(); };
     bindPanZoom(vp, { getCam: () => cityCam(app), zMin: CITY_ZMIN, zMax: CITY_ZMAX, onChange: (cam) => onCityCam(vp, cam) });
     bindCityTip(app, vp);
     if (app.ui.focusUpgrade) { document.getElementById('up-block')?.scrollIntoView({ block: 'nearest' }); app.ui.focusUpgrade = false; }

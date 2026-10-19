@@ -75,7 +75,7 @@ function resCell(s, r, mods, net) {
   const toFull = capped && rate > 0 && !full ? (capR - v) / rate : null;
   const tip = `${RESOURCES[r].name} : ${fmt(v)}${capped ? ` / ${fmt(capR)}` : ''}\nProduction nette : ${rate >= 0 ? '+' : ''}${fmt(rate)} / h${toFull ? `\nEntrepôt plein dans ${fmtTime(toFull * 3600000)}` : ''}${full ? '\nEntrepôt plein : la production est perdue' : ''}${short ? (v >= 1 ? `\nVide ${inTime(hoursLeft * 3600000)}` : '\nStock déjà vide') : ''}`;
   const state = full ? `<span class="res-st" aria-label="plein">▲</span>` : short ? `<span class="res-st" aria-label="en déficit">▼</span>` : '';
-  return `<div class="hres ${full ? 'full' : short ? 'short' : ''}" title="${esc(tip)}" tabindex="0" aria-label="${esc(tip.replace(/\n/g, ', '))}">${resIcon(r, 18, RESOURCES[r].icon)}<span class="hres-v">${fmt(v)}</span>${state}${capped ? `<span class="hres-g" aria-hidden="true"><i style="width:${(fill * 100).toFixed(0)}%"></i></span>` : ''}</div>`;
+  return `<div class="hres ${full ? 'full' : short ? 'short' : ''}" title="${esc(tip)}\nCliquez : pourquoi ce chiffre ?" tabindex="0" role="button" data-action="why" data-what="prod" data-arg="${r}" aria-label="${esc(tip.replace(/\n/g, ', '))}. Pourquoi ce chiffre ?">${resIcon(r, 18, RESOURCES[r].icon)}<span class="hres-v">${fmt(v)}</span>${state}${capped ? `<span class="hres-g" aria-hidden="true"><i style="width:${(fill * 100).toFixed(0)}%"></i></span>` : ''}</div>`;
 }
 function topCenter(app) {
   const s = app.state, mods = computeMods(s), net = netRates(s, mods);

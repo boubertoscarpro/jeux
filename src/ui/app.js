@@ -14,6 +14,10 @@ import { tileView } from './views/world.js';
 import outpostView from './views/outpost.js';
 import { queuesHtml, queueActions } from './hud.js';
 import { winSummary } from './winSummary.js';
+import { a11yPrefs, setA11y } from '../systems/a11y.js';
+import { nextBuilding } from '../systems/cityNav.js';
+import { openKingdomText, kingdomTextActions, bindAnnouncer, openWhy } from './a11yUi.js';
+import { A11Y_DEFAULTS, A11Y_SHOWCASE } from '../data/a11y.js';
 import { BUILDINGS } from '../data/buildings.js';
 import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
@@ -125,12 +129,45 @@ export class App {
     document.documentElement.classList.toggle('saver', !!m.saver);
     // v16 : qualité graphique (faible : aucune animation de bâtiment sur la carte du royaume)
     for (const q of ['low', 'medium', 'high']) document.documentElement.classList.toggle('gfx-' + q, (m.gfx || 'medium') === q);
+    // v17 : accessibilité (taille du texte, contraste élevé, daltonisme, police, météo et nuit, noms, mode simplifié)
+    const a = a11yPrefs(this.state), h = document.documentElement;
+    h.style.setProperty('--text-scale', String(a.textScale));
+    h.classList.toggle('hc', a.contrast);
+    for (const c of ['deut', 'prot', 'trit']) h.classList.toggle('cb-' + c, a.colorVision === c);
+    h.classList.toggle('font-readable', a.font === 'readable');
+    h.classList.toggle('no-weather', !a.weather);
+    h.classList.toggle('no-night', !a.night);
+    h.classList.toggle('show-names', a.showNames);
+    h.classList.toggle('simple', a.simple);
+    h.classList.toggle('hide-ups', m.showUpgrades === false);
+  }
+  // v17 : navigation au clavier sur la carte du royaume
+  cityKeyNext(x, y, key) { return nextBuilding(this.state, x, y, key); }
+  focusCityTile(x, y) {
+    const grid = document.querySelector('#view .city-grid');
+    const el = grid?.querySelector(`.tile[data-x="${x}"][data-y="${y}"]`);
+    if (!el) return;
+    for (const o of grid.querySelectorAll('.tile[tabindex="0"]')) o.setAttribute('tabindex', '-1');
+    el.setAttribute('tabindex', '0');
+    this.ui.cityKeyFocus = { x, y };
+    el.focus({ preventScroll: true });
+    // Le bâtiment choisi reste visible, dans la zone que l'affichage fixe ne couvre pas
+    const vp = document.getElementById('city-vp'), r = el.getBoundingClientRect(), v = vp?.getBoundingClientRect();
+    if (vp && v && (r.left < v.left + 260 || r.right > v.right - 90 || r.top < v.top + 110 || r.bottom > v.bottom - 130)) { this.ui.cityFocus = { x, y }; vp._center?.(x, y); }
+  }
+  // Captures et tests : modes d'accessibilité présentés (null : réglages par défaut)
+  get a11yModes() { return Object.keys(A11Y_SHOWCASE); }
+  applyA11yMode(mode) {
+    this.state.meta.a11y = mode ? { ...A11Y_DEFAULTS, ...A11Y_SHOWCASE[mode] } : { ...A11Y_DEFAULTS };
+    this.applyPrefs(); this.mapDirty = true; this.render();
   }
 
   start() {
     // v16 : la carte en plein écran, l'affichage fixe par-dessus, puis la fenêtre du lieu ouvert
     this.root.innerHTML = `
+      <button class="skip-link" data-action="kingdom-text">Le royaume en texte (alternative à la carte) — touche T</button>
       <main id="view" aria-label="Carte"></main>
+      <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
       <div id="hud" class="hud"></div>
       <div id="win-root"></div>`;
     ensureIconDefs(); ensureArtDefs();
@@ -138,6 +175,7 @@ export class App {
     this.bindEvents();
     bus.on('changed', () => { this.dirty = true; });
     bus.on('toast', ({ text, type }) => this.toast(text, type));
+    bindAnnouncer(this, bus); // v17 : raids, crises, chantiers terminés annoncés aux lecteurs d'écran
     bus.on('feat', (f) => this.feat(f));
     this.booting = true;
     const away = Date.now() - (this.state.meta.lastTick || Date.now());
@@ -382,7 +420,7 @@ export class App {
   closeWin(render = true) {
     this.ui.win = null; this.ui.winHistory = [];
     this.mapDirty = true;
-    if (render) this.render();
+    if (render) { this.render(); this.restoreFocus('_winReturn'); }
   }
 
   updateBadges() { /* v16 : badges dans l'affichage fixe */ }
@@ -404,7 +442,7 @@ export class App {
       const same = this.ui.win && SCREEN_PLACE[this.ui.win] === SCREEN_PLACE[viewId];
       if (this.ui.win && !same && this.ui.win !== viewId) this.ui.winHistory.push(this.ui.win);
       if (this.ui.winHistory.length > 8) this.ui.winHistory.shift();
-      if (!this.ui.win) this._focusWin = true;
+      if (!this.ui.win) { this._focusWin = true; const ae = document.activeElement; if (ae && !ae.closest?.('#win-root')) this._winReturn = ae; }
       this.ui.win = viewId;
       const gg = groupOf(viewId); if (gg) this.ui.lastTab[gg.id] = viewId;
     }
@@ -458,6 +496,18 @@ export class App {
     document.addEventListener('input', (ev) => handle(ev, 'data-input'));
     document.addEventListener('keydown', (ev) => {
       const open = document.getElementById('modal-root')?.classList.contains('open');
+      // v17 : le focus reste dans la fenêtre de dialogue ou la fenêtre de lieu ouverte (Tab et Maj+Tab bouclent)
+      if (ev.key === 'Tab') {
+        const box = open ? document.querySelector('#modal-root .modal') : this.ui.win ? document.querySelector('#win-root .win') : null;
+        if (box) {
+          const f = [...box.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])')].filter((e) => e.getClientRects().length);
+          if (f.length) {
+            const i = f.indexOf(document.activeElement);
+            if (!box.contains(document.activeElement) || (ev.shiftKey && i <= 0) || (!ev.shiftKey && i === f.length - 1)) { ev.preventDefault(); (ev.shiftKey ? f[f.length - 1] : f[0]).focus(); }
+          }
+        }
+        return;
+      }
       if (ev.key === 'Escape') {
         if (open) { this.closeModal(); return; }
         if (this.ui.phoneDrawer) { this.ui.phoneDrawer = null; this.renderHud(); return; }
@@ -470,9 +520,21 @@ export class App {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target?.tagName || '') || ev.target?.isContentEditable;
       if (typing || open || ev.altKey || ev.metaKey || (ev.ctrlKey && ev.key.toLowerCase() !== 'k')) return;
       const k = ev.key.toLowerCase();
-      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('goals'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this) };
+      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('goals'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this), t: () => openKingdomText(this) };
       if (ev.ctrlKey && k === 'k') { ev.preventDefault(); openPlaces(this); return; }
       if (map[k]) { ev.preventDefault(); map[k](); }
+    });
+    // v17 : carte du royaume au clavier — un seul arrêt de tabulation, les flèches vont de bâtiment en bâtiment,
+    // Entrée ouvre l'anneau d'actions, Origine revient à l'hôtel de ville
+    document.addEventListener('keydown', (ev) => {
+      const t = ev.target?.closest?.('#view .city-grid .tile');
+      if (!t || this.ui.win || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      let n = null;
+      if (ev.key === 'Home') { const th = Object.values(this.state.city.buildings).find((b) => b.type === 'townhall'); if (th) n = { x: th.x, y: th.y }; }
+      else n = this.cityKeyNext(+t.dataset.x, +t.dataset.y, ev.key);
+      if (!n) return;
+      ev.preventDefault();
+      this.focusCityTile(n.x, n.y);
     });
   }
 
@@ -498,6 +560,10 @@ export class App {
     'drawer-close': (app) => { app.ui.phoneDrawer = null; app.renderHud(); },
     fullscreen: () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.(); } catch { /* refusé par le navigateur */ } },
     'hud-zoom': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-zoom'] || mv?.actions?.zoom)?.(app, el); },
+    'kingdom-text': (app) => openKingdomText(app),
+    why: (app, el) => openWhy(app, el.dataset.what, el.dataset.arg),
+    'kt-see': (app, el) => kingdomTextActions['kt-see'](app, el),
+    a11y: (app, el) => { const k = el.dataset.k, v = el.dataset.v; const val = v === 'true' ? true : v === 'false' ? false : /^[\d.]+$/.test(v) ? +v : v; setA11y(app.state, k, val); app.applyPrefs(); app.mapDirty = true; app.render(); app.save(); },
     'hud-fit': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-fit'] || mv?.actions?.fit)?.(app, el); },
     'hud-center': (app, el) => { const mv = app.views[app.ui.map]; (mv?.actions?.['city-center'] || mv?.actions?.center)?.(app, el); },
     domain: (app, el) => { if (el.value) { app.ui.map = 'outpost'; app.ui.outpost = el.value; } else app.ui.map = 'city'; app.ui.win = null; app.ui.winHistory = []; app.ui.opSel = null; app.ui.opMove = null; app.ui.buildMode = false; app.mapDirty = true; app.render(); },
@@ -516,9 +582,12 @@ export class App {
   modal(html, actions = {}, cls = '') {
     this.modalActions = actions;
     const root = document.getElementById('modal-root');
+    if (!root.classList.contains('open') && document.activeElement && !root.contains(document.activeElement)) this._modalReturn = document.activeElement;
     root.innerHTML = `<div class="modal-backdrop" data-action="close-modal"></div><div class="modal ${cls}" role="dialog"><button class="modal-x" data-action="close-modal" aria-label="Fermer">✕</button>${html}</div>`;
     root.classList.add('open');
     iconize(root);
+    root.querySelector('.modal')?.setAttribute('aria-modal', 'true');
+    if (!root.contains(document.activeElement)) root.querySelector('.modal input, .modal button:not(.modal-x), .modal-x')?.focus({ preventScroll: true });
   }
   // Fenêtre de confirmation (actions destructrices ou irréversibles)
   confirm(html, okLabel, onOk, danger = true) {
@@ -529,9 +598,19 @@ export class App {
 
   closeModal() {
     const root = document.getElementById('modal-root');
+    const was = root.classList.contains('open');
     root.classList.remove('open');
     root.innerHTML = '';
     this.modalActions = null;
+    // v17 : le focus revient à l'élément qui a ouvert le dialogue
+    if (was) this.restoreFocus('_modalReturn');
+  }
+  restoreFocus(slot) {
+    const el = this[slot];
+    this[slot] = null;
+    if (el && el.isConnected && el.getClientRects().length) { el.focus({ preventScroll: true }); return; }
+    const k = this.ui.cityKeyFocus;
+    if (k && this.ui.map === 'city') document.querySelector(`#view .city-grid .tile[data-x="${k.x}"][data-y="${k.y}"]`)?.focus({ preventScroll: true });
   }
 
   // Grandes réussites : bandeau (un à la fois, 3 en attente au plus) ; fin de chantier : la case s'illumine.
@@ -569,7 +648,7 @@ export class App {
     el.textContent = text;
     box.appendChild(el);
     setTimeout(() => el.classList.add('show'), 10);
-    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3800);
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, a11yPrefs(this.state).toastSec * 1000 - 200); // v17 : durée réglable
     while (box.children.length > 3) box.firstChild.remove();
   }
 }

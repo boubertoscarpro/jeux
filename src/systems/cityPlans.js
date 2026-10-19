@@ -116,9 +116,10 @@ export function applyLayout(state, layout, now = Date.now(), label = 'plan') {
 export function undoLayout(state) {
   const u = state.cityPlans?.undo;
   if (!u) return { ok: false, reason: 'Rien à annuler' };
+  // On revient aux places d'avant, même mal placées : seules les collisions (un bâtiment bâti depuis) l'empêchent
   const target = { ...snapshot(state), ...u.layout };
-  const chk = checkLayout(state, target);
-  if (!chk.ok) return { ok: false, reason: `Annulation impossible : ${chk.reason}` };
+  const taken = new Map();
+  for (const [id, [x, y]] of Object.entries(target)) { const k = x + ',' + y; if (taken.has(k)) return { ok: false, reason: `Annulation impossible : la case (${x}, ${y}) est occupée` }; taken.set(k, id); }
   for (const [id, [x, y]] of Object.entries(u.layout)) { const b = state.city.buildings[id]; if (b) { b.x = x; b.y = y; } }
   if (u.gold) state.resources.gold = (state.resources.gold || 0) + u.gold;
   state.cityPlans.undo = null;
