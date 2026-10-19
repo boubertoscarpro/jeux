@@ -75,7 +75,8 @@ export const UNITS = {
   },
   // Siège
   ram: {
-    name: 'Bélier', icon: '🪵', class: 'siege', building: 'workshop', bLevel: 1,
+    // v19 : le bélier est devenu un engin d'arsenal (data/siege.js) ; l'unité ne se forme plus, ses restes sont convertis
+    name: 'Bélier', icon: '🪵', class: 'siege', building: 'workshop', bLevel: 1, engine: 'ram',
     atk: 4, def: 12, hp: 90, speed: 0.5, carry: 0, gather: 0, upkeep: 2,
     cost: { wood: 120, iron: 30, frames: 2 }, time: 80, wallBreak: 0.012,
     desc: 'Réduit le bonus des murailles ennemies (−1,2% par bélier).',

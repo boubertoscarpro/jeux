@@ -1,4 +1,5 @@
 import { raidSchemeHtml } from '../ramparts.js';
+import { siegeReportHtml, siegeReportActions } from '../siegeUi.js';
 import { reportClass } from '../../systems/notices.js';
 import { sealLine } from '../heraldry.js';
 import { ALL_UNITS, TERRAIN_COMBAT, WEATHER } from '../../data/units.js';
@@ -24,7 +25,7 @@ export function reportModal(app, rep) {
   app.modal(`<div class="report-head"><h2>${rep.win ? '🏆' : '💀'} ${esc(rep.title)}</h2>${sealLine(app.state)}</div>
     <div class="muted small">${new Date(rep.t).toLocaleString('fr-FR')}${rep.x !== undefined ? ` · (${rep.x}, ${rep.y})` : ''}${rep.terrain ? ` · ${esc(TERRAIN_COMBAT[rep.terrain]?.name || rep.terrain)}` : ''}${rep.weather ? ` · ${WEATHER[rep.weather]?.icon} ${esc(WEATHER[rep.weather]?.name)}` : ''}</div>
     ${rep.lord ? `<div class="nemesis report-lord">${lordFaceSvg(rep.lord, 56)}<div><b>${esc(rep.lord.name)}</b>${rep.lord.titles?.length ? `, ${esc(rep.lord.titles[rep.lord.titles.length - 1])}` : ''}<div class="small muted">${rep.lord.scars?.length || 0} cicatrice(s) · ${rep.lord.titles?.length || 0} titre(s)</div></div></div>` : ''}
-    ${rep.kind === 'defense' && rep.result ? raidSchemeHtml(rep) : ''}
+    ${rep.kind === 'defense' && rep.result ? raidSchemeHtml(rep) : rep.result?.report?.flanks ? siegeReportHtml(rep) : ''}
     ${rep.text ? `<p class="story">${esc(rep.text)}</p>` : ''}
     ${r ? `<div class="cols-2"><div class="card-sub"><h4>Vos pertes</h4>${unitsLine(myLoss)}</div><div class="card-sub"><h4>Pertes ennemies</h4>${unitsLine(theirLoss)}${r.bossDamage ? `<div>Dégâts au boss : <b>${fmt(r.bossDamage)}</b></div>` : ''}</div></div>
       <h4>Facteurs</h4><ul class="notes small">${r.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
@@ -32,7 +33,7 @@ export function reportModal(app, rep) {
       ${r.rounds.map((rd) => `<tr><td>${rd.phase === 'volley' ? '🏹 Volée' : `⚔️ Mêlée ${rd.n}`}</td><td class="num">${fmt(def ? rd.defDmg : rd.attDmg)}</td><td class="num">${fmt(def ? rd.attDmg : rd.defDmg)}</td><td class="num">${def ? `${Math.max(0, rd.moraleD)} / ${Math.max(0, rd.moraleA)}` : `${Math.max(0, rd.moraleA)} / ${Math.max(0, rd.moraleD)}`}</td></tr>`).join('')}
       </tbody></table></div>` : ''}
     ${rep.enemies && !r ? `<h4>Forces observées</h4>${unitsLine(rep.enemies)}` : ''}
-    ${rep.loot && Object.keys(rep.loot).length ? `<h4>Butin</h4>${resChips(rep.loot)}` : ''}`, {}, 'wide');
+    ${rep.loot && Object.keys(rep.loot).length ? `<h4>Butin</h4>${resChips(rep.loot)}` : ''}`, siegeReportActions, 'wide');
   app.render();
 }
 

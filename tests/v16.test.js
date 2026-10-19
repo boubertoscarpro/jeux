@@ -135,10 +135,12 @@ test('Raids : brèche selon muraille et douves ; la cour n’est exposée qu’e
   assert.equal(pillageShare(s, true), 0.3);
 });
 
-test('Raids : défaite → bâtiment incendié hors les murs (muraille intacte), dégâts de muraille, réparation', () => {
+// v19 : une défaite veut dire qu'un flanc a cédé puis la cour (la brèche n'est plus tirée au hasard) ; les pillards
+// frappent alors hors les murs comme dans la cour, et la muraille est abîmée
+test('Raids : défaite → flanc percé, bâtiment incendié, dégâts de muraille, réparation', () => {
   rng.setSource(mulberry32(11));
   try {
-    let outsideHits = 0, insideHits = 0;
+    let outsideHits = 0, insideHits = 0, breachedInside = 0;
     for (let i = 0; i < 40; i++) {
       const s = realm('r' + i);
       s.city.fort.wall = 25; s.city.fort.moat = 10; // brèche 15 %
@@ -150,9 +152,12 @@ test('Raids : défaite → bâtiment incendié hors les murs (muraille intacte),
       if (s.city.buildings.lib.damaged) insideHits++;
       if (s.city.buildings.f1.damaged) outsideHits++;
       assert.ok(s.castle.wallDmg > 0);
-      if (!rep.breached) assert.ok(!s.city.buildings.lib.damaged, 'la cour est intacte si la muraille tient');
+      assert.ok(rep.siege.breached.length > 0, 'une défaite passe par un flanc percé');
+      if (rep.siege.breached.length < 2) breachedInside += rep.breached ? 1 : 0;
     }
-    assert.ok(outsideHits > insideHits);
+    assert.ok(outsideHits + insideHits > 0);
+    // v19 : un seul flanc percé ne livre l'intérieur qu'avec la chance de brèche (15 % ici), comme en v16
+    assert.ok(breachedInside < 20, `${breachedInside} intérieurs livrés sur 40`);
     // Les maçons réparent 10 % par heure
     const s = realm(); s.city.fort.wall = 5; siegeDamage(s, { win: false, breached: true });
     assert.equal(s.castle.wallDmg, SIEGE.dmgBreach);
@@ -239,7 +244,7 @@ test('Flancs intégrés au raid : un flanc dégarni perd plus souvent qu’un fl
       setFlanks(s, front ? { left: 0, front: 1, right: 0, yard: 0 } : { left: 0.5, front: 0, right: 0.5, yard: 0 });
       resolveRaid(s, { id: 'x', rival: 0, name: 'Pillards', army: { militia: 45, royalArcher: 23, royalKnight: 14 }, flank: 'front' }, T0); // force réglée au seuil (≈ 75 % d'une garnison neutre)
       if (s.reports[0].win) wins++;
-      assert.match(s.reports[0].text, /Assaut sur le front/);
+      assert.match(s.reports[0].text, /front/);
     }
     rng.setSource(null);
     return wins;

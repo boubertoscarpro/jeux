@@ -1,0 +1,14 @@
+Mesures de contraste v19 (WCAG 2.1, AA) — node tools/contrast.mjs css/v19.css puis paires calculées
+
+2 couleurs de texte, 0 sous le seuil
+
+OK  16.34:1 (seuil 4.5:1) — Remparts : texte des flancs (#fff6dc, contour #1d1812) sur pierre #9a958c [texte au contour épais : contraste mesuré contre le contour]
+OK  16.34:1 (seuil 4.5:1) — Remparts : engins sous le mur (#fff6dc, contour #1d1812) sur douves #3f78a6 [texte au contour épais : contraste mesuré contre le contour]
+OK  14.00:1 (seuil 4.5:1) — Badges d’engins du château : #fff6dc sur rgba(24,18,12,0.88) (sur herbe claire #9fbf6a)
+OK  13.16:1 (seuil 4.5:1) — Cartouche des engins sur la carte du monde : #ffffff sur rgba(20,14,8,0.85) (sur neige #e8eef2)
+OK  10.55:1 (seuil 4.5:1) — Phrase clé du rapport : texte clair #f3e6c4 sur rgba(230,207,154,0.08) sur carte #2a2119
+OK  5.01:1 (seuil 3:1) — Flanc percé : bordure #ef6461 (non textuelle, doublée du mot « percé » et du tireté) sur #2a2119
+OK  7.05:1 (seuil 3:1) — Flanc tenu : bordure #6fbf73 (doublée du mot « tenu ») sur #2a2119
+OK  11.09:1 (seuil 3:1) — Glisser-déposer : contour #ffd27a sur #2a2119
+
+Aucune information n’est portée par la couleur seule : états « percé / tenu / calme / prise » écrits en toutes lettres, icônes 💥 🛡️, bordure tiretée pour une brèche ; engins nommés dans les infobulles et les descriptions (SVG <title>/<desc>, aria-label).

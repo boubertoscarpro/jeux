@@ -8,6 +8,7 @@
 import { festiveDress } from '../systems/festive.js';
 import { rectOf, wallStyle, castleStage, flankShare } from '../systems/castle.js';
 import { FAUBOURG_DEPTH, FLANKS } from '../data/castle.js';
+import { DEFENSE_ENGINES, ATTACK_ENGINES } from '../data/siege.js';
 import { heraldryOf, colorOf } from '../systems/heraldry.js';
 import { esc } from './components.js';
 
@@ -142,6 +143,8 @@ export function castleOverSvg(state, { W, H, night = false, raid = null, garriso
     // Torches la nuit (tours et porte)
     if (night) for (const [x, y] of [...pts.slice(0, 4), [g.gateX - gw / 2, g.Y1], [g.gateX + gw / 2, g.Y1]]) parts.push(`<g class="torch"><circle cx="${x}" cy="${y - g.w.th}" r="11" fill="rgba(255,170,60,0.28)"/><circle cx="${x}" cy="${y - g.w.th}" r="3.4" fill="#ffcf6a"/></g>`);
   }
+  // v19 : engins de défense posés, dessinés sur leur flanc (gauche : mur ouest, front : porte, droite : mur est)
+  if (g.style.key !== 'stakes') parts.push(postedEnginesSvg(state, g));
   // Charrettes à la porte : une par convoi actif (au plus 4)
   for (let i = 0; i < Math.min(4, carts); i++) {
     const x = g.gateX - 30 + i * 22, y = g.Y1 + g.mw + 30 + (i % 2) * 6;
@@ -166,6 +169,23 @@ export function castleOverSvg(state, { W, H, night = false, raid = null, garriso
   return `<svg class="castle-over" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${parts.join('')}</svg>`;
 }
 
+// Badges d'engins : icône et nombre, sur fond sombre (lisibles sur la pierre comme sur l'herbe)
+function engineBadges(list, x, y, vertical) {
+  return list.map(([k, n], i) => {
+    const d = DEFENSE_ENGINES[k] || ATTACK_ENGINES[k];
+    const bx = vertical ? x : x + i * 46, by = vertical ? y + i * 24 : y;
+    return `<g class="eng-badge"><title>${esc(`${n} × ${d.name}`)}</title><rect x="${bx - 21}" y="${by - 10}" width="42" height="20" rx="6" fill="rgba(24,18,12,0.88)" stroke="#e6cf9a" stroke-width="1.2"/><text x="${bx - 9}" y="${by + 5}" text-anchor="middle" font-size="12">${d.icon}</text><text x="${bx + 10}" y="${by + 4}" text-anchor="middle" class="eng-n">${n}</text></g>`;
+  }).join('');
+}
+function postedEnginesSvg(state, g) {
+  const P = state.siege?.posted;
+  if (!P) return '';
+  const list = (f) => Object.entries(P[f] || {}).filter(([, n]) => n > 0).slice(0, 4);
+  const midY = (g.Y0 + g.Y1) / 2;
+  const L = list('left'), F = list('front'), R = list('right');
+  return `<g class="castle-engines">${engineBadges(L, g.X0 - g.w.th - 28, midY - (L.length * 24) / 2, true)}${engineBadges(R, g.X1 + g.w.th + 28, midY - (R.length * 24) / 2, true)}${engineBadges(F, g.gateX - ((F.length - 1) * 46) / 2, g.Y1 - g.w.th * 2.4 - 18, false)}</g>`;
+}
+
 // Côté de la carte d'où vient un raid (d'après la position de son repaire sur la carte du monde)
 export function raidSide(state, raid) {
   const c = state.world?.capital;
@@ -187,6 +207,9 @@ function raidColumn(state, raid, g, dim) {
     const y = a.side === 'n' ? a.y - back : a.side === 's' ? a.y + back : a.y + along;
     out.push(`<g class="foe"><circle cx="${x}" cy="${y - 5}" r="3.4" fill="#d9b48f" stroke="${K}" stroke-width="1"/><path d="M${x - 3.5} ${y - 2}h7v8h-7Z" fill="#7d1d16" stroke="${K}" stroke-width="1"/></g>`);
   }
+  // v19 : engins d'attaque de la colonne (s'ils sont connus : tour de garde niv. 4)
+  const eng = Object.entries(raid.engines || {}).filter(([, n]) => n > 0).slice(0, 4);
+  if (eng.length && (state.city?.buildings && Object.values(state.city.buildings).some((b) => b.type === 'watchtower' && b.level >= 4))) out.push(engineBadges(eng, a.side === 'e' ? a.x - 60 : a.x + 60, a.y + 36, a.side === 'w' || a.side === 'e'));
   out.push(`<g class="foe-banner"><path d="M${a.x} ${a.y - 18}v-24" stroke="${K}" stroke-width="2"/><path d="M${a.x} ${a.y - 42}h20l-6 7l6 7h-20Z" fill="#7d1d16" stroke="${K}" stroke-width="1.4"/></g>`);
   // Flèche vers le flanc visé (si la tour de garde l'a repéré)
   if (raid.flankSeen && FLANKS[raid.flank]) {

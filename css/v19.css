@@ -1,0 +1,51 @@
+/* v19 « L'Art du siège » : remparts (engins posés, glisser-déposer), arsenal, plan de siège, rapport flanc par flanc */
+.rp-svg .rp-eng { font: 600 14px var(--font); fill: #fff6dc; paint-order: stroke; stroke: #1d1812; stroke-width: 3.5px; }
+.castle-engines .eng-n { font: 700 12px var(--font); fill: #fff6dc; }
+.sg-intel ul { margin: 4px 0 0; padding-left: 18px; }
+.sg-intel li.muted, .sg-cell .muted { color: var(--muted, #b8a98a); }
+.sg-tools { margin: 6px 0; align-items: center; }
+.sg-plan { display: inline-flex; gap: 2px; align-items: center; }
+.sg-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.sg-chip { cursor: grab; white-space: normal; min-height: 32px; }
+.sg-chip.empty { opacity: 0.75; cursor: default; }
+.sg-drop.drag-over { outline: 3px dashed #ffd27a; outline-offset: 2px; background: rgba(255, 210, 122, 0.08); }
+.sg-eng-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 13px; flex-wrap: wrap; }
+.sg-eng-row .num { min-width: 2ch; text-align: center; }
+.sg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sg-table th, .sg-table td { padding: 6px; border-bottom: 1px solid #4a3a28; text-align: left; vertical-align: top; }
+.sg-table th[scope="row"] { font-weight: 600; min-width: 150px; }
+.sg-table tr.locked { opacity: 0.8; }
+.sg-min { margin-top: 4px; align-items: center; }
+.sg-plan-box { margin-top: 10px; padding: 10px; border: 1px solid #4a3a28; border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
+.sg-wave h5 { margin: 8px 0 4px; font-size: 14px; }
+.sg-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sg-cells.one { grid-template-columns: minmax(0, 1fr); max-width: 360px; }
+.sg-cell { padding: 6px 8px; border: 1px solid #4a3a28; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sg-council { margin: 4px 0; padding-left: 18px; }
+.sg-key { font-weight: 600; border-left: 4px solid #e6cf9a; padding: 4px 8px; background: rgba(230, 207, 154, 0.08); border-radius: 0 6px 6px 0; }
+.sg-report { margin: 8px 0; }
+.sg-report h4 { margin: 0; }
+.sg-rflanks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sg-rflanks.one { grid-template-columns: minmax(0, 1fr); }
+.sg-rf { padding: 6px 8px; border-radius: 8px; border: 2px solid #4a3a28; min-width: 0; }
+.sg-rf.breach { border-color: #ef6461; border-style: dashed; }
+.sg-rf.held { border-color: #6fbf73; }
+.sg-rf.calm { opacity: 0.85; }
+.sg-yard { margin-top: 8px; }
+.sg-state { font-weight: 700; }
+.sg-engines { margin: 8px 0 0; padding-left: 18px; }
+.sg-report.sg-play .sg-step { animation: sg-in 0.55s ease-out both; animation-delay: calc(var(--i, 0) * 0.7s); }
+@keyframes sg-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); box-shadow: 0 0 0 4px rgba(255, 210, 122, 0.6); } to { opacity: 1; transform: none; box-shadow: none; } }
+.reduce-motion .sg-replay-btn { display: none; }
+.reduce-motion .sg-report.sg-play .sg-step { animation: none; }
+@media (max-width: 640px) {
+  .sg-cells, .sg-rflanks { grid-template-columns: minmax(0, 1fr); }
+  .sg-table thead { display: none; }
+  .sg-table tr { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #4a3a28; }
+  .sg-table th, .sg-table td { border: 0; }
+  .sg-table th[scope="row"] { grid-column: 1 / -1; }
+}
+.sg-table th[scope="row"] { text-transform: none; letter-spacing: 0; font-family: inherit; color: inherit; font-size: 13px; }
+/* Garnisons (fiche d'un royaume, rapports) : lisibles partout (≥ 13 px, 14 px au téléphone) */
+.unit-chip { font-size: 13px; }
+@media (max-width: 480px) { .unit-chip { font-size: 14px; } }

@@ -22,6 +22,7 @@ import { calendar, chronicle } from './chronicle.js';
 import { log } from './log.js';
 import { addLootRule, planAutoEquip, applyAutoEquip } from './armory.js';
 import { maintainArmy } from './comfort.js';
+import { keepStock } from './siege.js';
 import { SLOTS } from '../data/items.js';
 import { RARITIES } from '../data/heroes.js';
 
@@ -122,7 +123,7 @@ export function describeOrder(o) {
     pauseChain: () => `pause : ${BUILDINGS[a.building]?.name}`, resumeChain: () => `relancer : ${BUILDINGS[a.building]?.name}`, brew: () => `distiller ${a.count} potions de soin`,
     donate: () => `donner ${fmt(a.count)} ${res(a.res)} à la guilde`, repair: () => 'réparer les bâtiments', recall: () => 'rappeler les troupes', research: () => 'lancer la recherche prioritaire',
     lootSell: () => 'le vendre au Joaillier', lootDismantle: () => 'le démanteler à la forge', lootKeep: () => 'le garder',
-    equipBest: () => 'équiper toute la troupe au mieux', maintain: () => `compléter l’armée (composition ${(+a.preset || 0) + 1})`,
+    equipBest: () => 'équiper toute la troupe au mieux', maintain: () => `compléter l’armée (composition ${(+a.preset || 0) + 1})`, engineStock: () => 'maintenir le stock d’engins',
   }[a.type]?.() || '?';
   return `SI ${cond} → ${act}`;
 }
@@ -172,6 +173,7 @@ function runAction(state, o, now) {
     case 'research': return autoResearch(state, now, true);
     case 'equipBest': { const plan = planAutoEquip(state); if (!plan.changes.length) return { ok: false, reason: 'chacun porte déjà le mieux' }; const r = applyAutoEquip(state, plan, now); return r.ok ? { ok: true, msg: `${r.n} pièce(s) changée(s)` } : r; }
     case 'maintain': return maintainArmy(state, +a.preset || 0, now);
+    case 'engineStock': return keepStock(state, now);
     default: return { ok: false, reason: 'action inconnue' };
   }
 }

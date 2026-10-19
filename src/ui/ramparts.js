@@ -1,77 +1,154 @@
-// v17 — Les remparts vus de face : trois flancs et la cour, la garnison et les outils posés sur chacun. On répartit
-// les troupes (− / +) et on poste les outils flanc par flanc ; le rapport de raid reprend le même schéma.
-// Ne fait que lire l'état ; les règles sont celles de la défense par flancs (systems/castle.js).
-import { rampartView, raidScheme } from '../systems/ramparts.js';
-import { setFlanks, setTool, castleState } from '../systems/castle.js';
-import { FLANKS, DEFENSE_TOOLS, ASSAULT_FLANKS } from '../data/castle.js';
+// v17 — Les remparts vus de face : trois flancs et la cour, la garnison et ce qui est posé sur chacun.
+// v19 « L'Art du siège » : protections par flanc (muraille, porte, douves), engins de défense posés (glisser-déposer
+// depuis l'arsenal, ou − / + au clavier), renseignement de la tour de guet, défense conseillée et 3 plans enregistrés.
+// Ne fait que lire l'état ; les règles sont dans systems/siege.js.
+import { FLANKS, ASSAULT_FLANKS } from '../data/castle.js';
+import { DEFENSE_ENGINES, ATTACK_ENGINES, SIEGE_RULES, INTEL, PLAN_SLOTS } from '../data/siege.js';
+import { castleState, fortLevel } from '../systems/castle.js';
+import { armyTotals } from '../systems/economy.js';
+import { raidScheme } from '../systems/ramparts.js';
+import {
+  siegeState, castleProtections, flankEffects, postEngine, stepShare, defenseLimit, raidIntel, advisedDefense, applyDefense,
+  savePlan, loadDefensePlan, engineUnlocked,
+} from '../systems/siege.js';
+import { a11yPrefs } from '../systems/a11y.js';
 import { fmt } from '../core/util.js';
 import { esc } from './components.js';
+import { siegeReportHtml } from './siegeUi.js';
 
 const SEC = { left: [16, 206], front: [226, 416], right: [436, 626] };
-const pctS = (v) => `${v >= 0 ? '+' : ''}${Math.round(v * 100)} %`;
+const pctP = (v) => `+${Math.round(v * 100)} %`;
+const sumO = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
+const engLine = (e) => Object.entries(e || {}).filter(([, n]) => n > 0).map(([k, n]) => `${(DEFENSE_ENGINES[k] || ATTACK_ENGINES[k]).icon} ${n}`).join(' ');
+const engText = (e) => Object.entries(e || {}).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${(DEFENSE_ENGINES[k] || ATTACK_ENGINES[k]).name.toLowerCase()}`).join(', ');
+
+export function firstRaid(s) { return (s.raids || []).slice().sort((a, b) => a.arrive - b.arrive)[0] || null; }
+
+// Le renseignement de la tour de guet, par étapes : troupes (niv. 3) → engins (niv. 4) → flanc (niv. 5) → exact (niv. 8)
+export function raidIntelHtml(s, raid) {
+  if (!raid) return '';
+  const I = raidIntel(s, raid);
+  const row = (ok, need, label, val) => `<li class="${ok ? '' : 'muted'}"><b>${label}</b> : ${ok ? val : `inconnu (tour de garde niv. ${need})`}</li>`;
+  return `<div class="panel-sub sg-intel"><h4>👁️ Ce que voit la tour de garde (niv. ${I.level})</h4><ul class="small">
+    ${row(I.troops != null, INTEL.troops, 'Troupes', `${I.level >= INTEL.exact ? '' : 'environ '}${fmt(I.troops)} soldats`)}
+    ${row(!!I.engines, INTEL.engines, 'Engins', I.engines ? (engText(I.engines) || 'aucun') : '')}
+    ${row(!!I.flank, INTEL.flank, 'Flanc principal', I.flank ? `<b>${esc(FLANKS[I.flank].name)}</b>` : '')}
+    ${I.adapt ? `<li class="warn-text"><b>Adaptation</b> : ${esc(I.adapt)}</li>` : ''}
+    ${I.level < INTEL.exact ? `<li class="muted">Les chiffres sont arrondis ; une tour de garde niv. ${INTEL.exact} les donne exacts.</li>` : ''}
+  </ul></div>`;
+}
 
 export function rampartsCard(app) {
   const s = app.state;
-  const raid = (s.raids || []).slice().sort((a, b) => a.arrive - b.arrive)[0] || null;
-  const v = rampartView(s, raid);
-  const stone = v.wall >= 5, wood = v.wall > 0 && !stone;
+  const raid = firstRaid(s);
+  const S = siegeState(s);
+  const prot = castleProtections(s);
+  const one = prot.oneFlank;
+  const C = castleState(s);
+  const sh = one ? { left: 0, front: 1, right: 0, yard: 0 } : { left: 0.25, front: 0.25, right: 0.25, yard: 0.25, ...C.flanks };
+  const totSh = sumO(sh) || 1;
+  const soldiers = Object.entries(armyTotals(s)).filter(([u]) => !['scout', 'spy'].includes(u)).reduce((a, [, n]) => a + n, 0);
+  const wl = fortLevel(s, 'wall'), ml = fortLevel(s, 'moat');
+  const I = raid ? raidIntel(s, raid) : null;
+  const target = I?.flank || null;
+  const lim = defenseLimit(s);
+  const stone = wl >= 5, wood = wl > 0 && !stone;
   const wallFill = stone ? '#9a958c' : wood ? '#8a5a33' : 'rgba(230,207,154,0.35)';
+  const flanks = one ? ['front'] : ASSAULT_FLANKS;
+  const fx = Object.fromEntries(flanks.map((f) => [f, flankEffects({}, S.posted[f], prot, f)]));
   const sec = (f) => {
-    const [x0, x1] = SEC[f.key], cx = (x0 + x1) / 2;
-    const heads = Math.min(12, Math.round(f.share * 24));
+    const [x0, x1] = SEC[f], cx = (x0 + x1) / 2;
+    const share = (sh[f] || 0) / totSh;
+    const heads = Math.min(12, Math.round(share * 24));
     let men = '';
     for (let i = 0; i < heads; i++) men += `<circle cx="${(x0 + 14 + i * ((x1 - x0 - 28) / 11)).toFixed(1)}" cy="62" r="5" fill="#f3e6c4" stroke="#1d1812" stroke-width="1.2"/>`;
-    return `<g class="rp-sec ${f.targeted ? 'rp-target' : ''}">
+    const eng = engLine(S.posted[f]);
+    const targeted = target === f || (one && raid);
+    return `<g class="rp-sec ${targeted ? 'rp-target' : ''}">
       <rect x="${x0}" y="70" width="${x1 - x0}" height="70" rx="3" fill="${wallFill}" stroke="#2b2118" stroke-width="2"/>
       ${Array.from({ length: Math.floor((x1 - x0) / 20) }, (_, i) => `<rect x="${x0 + 3 + i * 20}" y="60" width="12" height="12" fill="${wallFill}" stroke="#2b2118" stroke-width="1.5"/>`).join('')}
       ${men}
-      ${f.key === 'front' ? `<path d="M${cx - 26} 140V108q26-26 52 0V140z" fill="#3a2414" stroke="#1d1812" stroke-width="2"/>` : ''}
-      <text x="${cx}" y="94" text-anchor="middle" class="rp-name">${esc(f.name)}</text>
-      <text x="${cx}" y="114" text-anchor="middle" class="rp-val">${Math.round(f.share * 100)} % · ${fmt(f.troops)} soldats</text>
-      <text x="${cx}" y="132" text-anchor="middle" class="rp-val">si attaqué : ${pctS(f.bonus)}${f.tools.length ? ` · ${f.tools.map((t) => t.icon).join(' ')}` : ''}</text>
-      ${f.targeted ? `<rect x="${x0 - 4}" y="50" width="${x1 - x0 + 8}" height="96" rx="6" fill="none" stroke="#ff8a7a" stroke-width="3" stroke-dasharray="8 5"/><text x="${cx}" y="44" text-anchor="middle" class="rp-alert">⚠ flanc visé</text>` : ''}
+      ${f === 'front' ? `<path d="M${cx - 26} 140V108q26-26 52 0V140z" fill="#3a2414" stroke="#1d1812" stroke-width="2"/>${fx.front.herse > 0 ? `<path d="M${cx - 20} 112V140M${cx - 10} 104V140M${cx} 101V140M${cx + 10} 104V140M${cx + 20} 112V140M${cx - 24} 120H${cx + 24}M${cx - 24} 130H${cx + 24}" stroke="#c9c3b6" stroke-width="2"/>` : ''}` : ''}
+      <text x="${cx}" y="88" text-anchor="middle" class="rp-name">${esc(FLANKS[f].name)}</text>
+      <text x="${cx}" y="106" text-anchor="middle" class="rp-val">${Math.round(share * 100)} % · ${fmt(Math.round(soldiers * share))} soldats</text>
+      <text x="${cx}" y="124" text-anchor="middle" class="rp-val">protection ${pctP(fx[f].fort)}</text>
+      ${eng ? `<text x="${cx}" y="160" text-anchor="middle" class="rp-eng">${esc(eng)}</text>` : ''}
+      ${targeted ? `<rect x="${x0 - 4}" y="50" width="${x1 - x0 + 8}" height="96" rx="6" fill="none" stroke="#ff8a7a" stroke-width="3" stroke-dasharray="8 5"/><text x="${cx}" y="44" text-anchor="middle" class="rp-alert">⚠ flanc visé</text>` : ''}
     </g>`;
   };
-  const yard = v.flanks.find((f) => f.key === 'yard');
-  const svg = `<svg class="rp-svg" viewBox="0 0 642 220" role="img" aria-labelledby="rp-t rp-d"><title id="rp-t">Les remparts vus de face</title>
-    <desc id="rp-d">${esc(v.flanks.map((f) => `${f.name} : ${Math.round(f.share * 100)} % de la garnison${ASSAULT_FLANKS.includes(f.key) ? `, ${pctS(f.bonus)} si attaqué` : ''}${f.tools.length ? `, outils : ${f.tools.map((t) => t.name).join(', ')}` : ''}${f.targeted ? ', flanc visé par le raid' : ''}`).join(' ; '))}.</desc>
+  const yardShare = (sh.yard || 0) / totSh;
+  const svg = `<svg class="rp-svg" viewBox="0 0 642 236" role="img" aria-labelledby="rp-t rp-d"><title id="rp-t">Les remparts vus de face</title>
+    <desc id="rp-d">${esc(flanks.map((f) => `${FLANKS[f].name} : ${Math.round(((sh[f] || 0) / totSh) * 100)} % de la garnison, protection ${pctP(fx[f].fort)}${sumO(S.posted[f]) ? `, engins : ${engText(S.posted[f])}` : ', aucun engin'}${target === f ? ', flanc visé par le raid' : ''}`).join(' ; '))}${one ? '' : ` ; cour : ${Math.round(yardShare * 100)} % en réserve`}.</desc>
     <rect x="0" y="0" width="642" height="150" fill="#2c3a48"/>
-    ${v.moat ? `<rect x="0" y="140" width="642" height="${10 + v.moat * 2}" fill="#3f78a6"/>` : ''}
+    ${ml ? `<rect x="0" y="140" width="642" height="${10 + ml * 2}" fill="#3f78a6"/>` : ''}
     ${[0, 210, 430, 620].map((x) => `<rect x="${x}" y="50" width="22" height="96" fill="${wallFill}" stroke="#2b2118" stroke-width="2"/>`).join('')}
-    ${v.flanks.filter((f) => ASSAULT_FLANKS.includes(f.key)).map(sec).join('')}
-    <rect x="0" y="${162 + v.moat * 2}" width="642" height="${58 - v.moat * 2}" fill="#6a5a3e"/>
-    <text x="321" y="${190 + v.moat}" text-anchor="middle" class="rp-name">${esc(yard.name)} : ${Math.round(yard.share * 100)} % · ${fmt(yard.troops)} soldats · renforce à moitié le flanc attaqué</text>
+    ${flanks.map(sec).join('')}
+    <rect x="0" y="${170 + ml * 2}" width="642" height="${66 - ml * 2}" fill="#6a5a3e"/>
+    <text x="321" y="${200 + ml}" text-anchor="middle" class="rp-name">${one ? 'Un seul front : toute la garnison défend la porte' : `${esc(FLANKS.yard.name)} : ${Math.round(yardShare * 100)} % · ${fmt(Math.round(soldiers * yardShare))} soldats · accourt au flanc attaqué`}</text>
   </svg>`;
-  const C = castleState(s);
-  const tools = Object.entries(DEFENSE_TOOLS);
-  const ctrl = (f) => `<div class="rp-ctrl"><b>${f.icon} ${esc(f.name)}</b>
-    <div class="row gap"><button class="mini" data-action="flank-step" data-k="${f.key}" data-d="-0.05" aria-label="Moins de troupes : ${esc(f.name)}">−</button><span class="num">${Math.round(f.share * 100)} %</span><button class="mini" data-action="flank-step" data-k="${f.key}" data-d="0.05" aria-label="Plus de troupes : ${esc(f.name)}">+</button></div>
-    ${ASSAULT_FLANKS.includes(f.key) ? `<label class="small">Outil posté <select data-change="tool-to" data-flank="${f.key}" aria-label="Outil posté sur ${esc(f.name)}"><option value="">— aucun —</option>${tools.map(([k, d]) => `<option value="${k}" ${C.tools[k] === f.key ? 'selected' : ''} ${v.wall < d.needWall ? 'disabled' : ''}>${d.icon} ${esc(d.name)}${v.wall < d.needWall ? ` (muraille ${d.needWall})` : ''}</option>`).join('')}</select></label>` : '<span class="small muted">Réserve</span>'}
-  </div>`;
+  // Arsenal de défense : jetons à glisser sur un flanc (le clavier passe par les − / + de chaque flanc)
+  const free = (k) => (S.arsenal.defense[k] || 0) - ASSAULT_FLANKS.reduce((a, f) => a + (S.posted[f][k] || 0), 0);
+  const unlocked = Object.keys(DEFENSE_ENGINES).filter((k) => engineUnlocked(s, k));
+  const chips = unlocked.map((k) => { const d = DEFENSE_ENGINES[k], n = free(k); return `<span class="chip sg-chip ${n > 0 ? '' : 'empty'}" ${n > 0 ? `draggable="true" data-drag="${k}"` : ''} title="${esc(d.desc)} Glissez sur un flanc, ou utilisez les boutons + du flanc.">${d.icon} ${esc(d.name)} <b>${n}</b> libre${n > 1 ? 's' : ''}</span>`; }).join('');
+  const ctrl = (f) => {
+    const posted = S.posted[f] || {};
+    const rows = unlocked.filter((k) => (!DEFENSE_ENGINES[k].flanks || DEFENSE_ENGINES[k].flanks.includes(f)) && ((posted[k] || 0) > 0 || free(k) > 0)).map((k) => {
+      const d = DEFENSE_ENGINES[k], n = posted[k] || 0;
+      return `<div class="sg-eng-row"><span title="${esc(d.desc)}">${d.icon} ${esc(d.name)}</span><span class="row gap"><button class="mini" data-action="sg-post" data-f="${f}" data-k="${k}" data-d="-1" ${n > 0 ? '' : 'disabled'} aria-label="Retirer : ${esc(d.name)}, ${esc(FLANKS[f].name)}">−</button><span class="num" aria-live="polite">${n}</span><button class="mini" data-action="sg-post" data-f="${f}" data-k="${k}" data-d="1" ${free(k) > 0 && sumO(posted) < lim ? '' : 'disabled'} aria-label="Poser : ${esc(d.name)}, ${esc(FLANKS[f].name)}">+</button></span></div>`;
+    }).join('');
+    const share = Math.round(((sh[f] || 0) / totSh) * 100);
+    return `<div class="rp-ctrl sg-drop" data-drop="sg-drop" data-f="${f}" aria-label="${esc(FLANKS[f].name)}"><b>${FLANKS[f].icon} ${esc(FLANKS[f].name)}</b>
+      <div class="small">${f === 'front' ? `Porte ${pctP(prot.gate + fx.front.herse)}` : `Muraille ${pctP(prot.wall)}`}${prot.moat ? ` · douves ${pctP(prot.moat)}` : ''}</div>
+      ${one ? '' : `<div class="row gap"><button class="mini" data-action="flank-step" data-k="${f}" data-d="-0.05" aria-label="Moins de troupes : ${esc(FLANKS[f].name)}">−</button><span class="num">${share} %</span><button class="mini" data-action="flank-step" data-k="${f}" data-d="0.05" aria-label="Plus de troupes : ${esc(FLANKS[f].name)}">+</button></div>`}
+      <div class="small muted">Engins : ${sumO(posted)} / ${lim}</div>
+      ${rows || '<div class="small muted">Aucun engin disponible.</div>'}
+    </div>`;
+  };
+  const yardCtrl = one ? '' : `<div class="rp-ctrl"><b>${FLANKS.yard.icon} ${esc(FLANKS.yard.name)}</b>
+    <div class="row gap"><button class="mini" data-action="flank-step" data-k="yard" data-d="-0.05" aria-label="Moins de troupes : ${esc(FLANKS.yard.name)}">−</button><span class="num">${Math.round(yardShare * 100)} %</span><button class="mini" data-action="flank-step" data-k="yard" data-d="0.05" aria-label="Plus de troupes : ${esc(FLANKS.yard.name)}">+</button></div>
+    <span class="small muted">Réserve : accourt aux flancs attaqués, puis tient la cour si un flanc cède.</span></div>`;
+  const P = S.plans.defense;
+  const plans = Array.from({ length: PLAN_SLOTS }, (_, i) => `<span class="sg-plan">${P[i] ? `<button class="mini" data-action="sg-dplan-load" data-i="${i}">${i + 1}. ${esc(P[i].name)}</button>` : `<span class="small muted">${i + 1}. vide</span>`}<button class="mini ghost" data-action="sg-dplan-save" data-i="${i}" aria-label="Enregistrer la défense actuelle dans le plan ${i + 1}">💾</button></span>`).join('');
+  const simple = a11yPrefs(s).simple;
   return `<div class="card rp-card"><h2>🏰 Les remparts</h2>
-    <p class="small">Muraille ${v.wall} · douves ${v.moat}${v.damage ? ` · muraille abîmée à ${Math.round(v.damage * 100)} %` : ''} · ${fmt(v.soldiers)} soldats à répartir. ${v.revealed ? 'Votre tour de garde révèle le flanc visé.' : 'Une tour de garde niv. 5 révélerait le flanc visé.'}</p>
+    <p class="small">Muraille ${wl} · douves ${ml}${C.wallDmg ? ` · muraille abîmée à ${Math.round(C.wallDmg * 100)} %` : ''} · ${fmt(soldiers)} soldats. Protections : muraille ${pctP(prot.wall)} (flancs), porte ${pctP(prot.gate)} (front), douves ${pctP(prot.moat)} (partout).
+      ${one ? `<br><b>Un seul front</b> tant que la muraille est sous le niveau ${SIEGE_RULES.flanksAtWall} : les assaillants frappent la porte, toute la garnison la défend.` : ''}</p>
+    ${raidIntelHtml(s, raid)}
     ${svg}
-    <div class="rp-ctrls">${v.flanks.map(ctrl).join('')}</div>
-    <p class="small muted">Bornes : ±15 % par flanc, outils +12 % au plus ; les outils ne sont payés que s’ils servent.</p>
+    <div class="row gap wrap sg-tools"><button class="btn primary" data-action="sg-advise-def" title="Répartit la garnison et pose les engins de l’arsenal face à ce que la tour de garde annonce">🧭 Défense conseillée</button>${plans}</div>
+    ${simple ? '<p class="small ok">Mode simplifié : la défense conseillée est appliquée d’elle-même dès qu’un raid est repéré.</p>' : ''}
+    ${unlocked.length ? `<div class="sg-chips" aria-label="Engins de défense libres à l’arsenal">${chips}</div>` : `<p class="small muted">Les engins de défense se fabriquent à l’arsenal dès la muraille niv. 1.</p>`}
+    <div class="rp-ctrls">${flanks.map(ctrl).join('')}${yardCtrl}</div>
+    <p class="small muted">Chaque engin a un contre et un effet dégressif (le 10e apporte moins que le 2e) ; au plus ${lim} engins par flanc. Après un raid, les engins qui ont servi sont consommés (la moitié sur un flanc qui tient).</p>
   </div>`;
 }
 
+const post = (app, f, k, d) => {
+  const S = siegeState(app.state);
+  app.act(() => postEngine(app.state, f, k, (S.posted[f][k] || 0) + d), null);
+};
 export const rampartActions = {
-  'flank-step': (app, el) => {
-    const f = { ...castleState(app.state).flanks };
-    f[el.dataset.k] = Math.max(0, Math.min(1, (f[el.dataset.k] || 0) + +el.dataset.d));
-    app.act(() => setFlanks(app.state, f), null);
+  'flank-step': (app, el) => app.act(() => stepShare(app.state, el.dataset.k, +el.dataset.d), null),
+  'sg-post': (app, el) => post(app, el.dataset.f, el.dataset.k, +el.dataset.d),
+  // Glisser-déposer : un jeton d'engin lâché sur un flanc y pose jusqu'à 5 engins de ce type
+  'sg-drop': (app, el) => { const k = el.dataset.payload; if (DEFENSE_ENGINES[k]) post(app, el.dataset.f, k, 5); },
+  'sg-advise-def': (app) => {
+    const d = advisedDefense(app.state, firstRaid(app.state));
+    app.act(() => applyDefense(app.state, d), `Défense conseillée appliquée${d.why.length ? ' : ' + d.why.join(' ; ') : ''}`);
   },
-  'tool-to': (app, el) => {
-    const C = castleState(app.state), flank = el.dataset.flank;
-    // L'outil choisi va sur ce flanc ; l'ancien outil du flanc retourne en réserve
-    for (const [t, fl] of Object.entries(C.tools)) if (fl === flank && t !== el.value) setTool(app.state, t, null);
-    app.act(() => (el.value ? setTool(app.state, el.value, flank) : { ok: true }), el.value ? 'Outil posté' : 'Flanc sans outil');
+  'sg-dplan-load': (app, el) => app.act(() => loadDefensePlan(app.state, +el.dataset.i), (r) => `Plan « ${r.name} » chargé`),
+  'sg-dplan-save': (app, el) => {
+    const i = +el.dataset.i;
+    const old = siegeState(app.state).plans.defense[i];
+    const name = prompt('Nom du plan de défense', old?.name || ['Porte', 'Flancs', 'Équilibré'][i]);
+    if (name === null) return;
+    app.act(() => savePlan(app.state, 'defense', i, name), `Plan de défense « ${name} » enregistré`);
   },
 };
 
-// Schéma du rapport de raid : flanc attaqué, brèche, pertes en têtes de soldats
+// Schéma du rapport de raid : v19, flanc par flanc puis la cour ; les anciens rapports gardent le schéma v17
 export function raidSchemeHtml(rep) {
+  if (rep.result?.report?.flanks) return siegeReportHtml(rep);
   const r = raidScheme(rep);
   const cell = (k) => `<div class="rs-sec ${r.flank === k ? 'hit' : ''}"><b>${FLANKS[k].icon} ${esc(FLANKS[k].name)}</b>${r.flank === k ? `<span>${r.breached ? '💥 brèche' : r.win ? '🛡️ tenu' : '🔥 enfoncé'}</span>` : '<span class="muted">calme</span>'}</div>`;
   return `<div class="raid-scheme" role="img" aria-label="${esc(`Flanc attaqué : ${r.flank ? FLANKS[r.flank].name : 'inconnu'}${r.breached ? ', brèche' : ''}. Vos pertes : ${r.mine}. Pertes ennemies : ${r.theirs}.`)}">

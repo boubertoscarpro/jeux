@@ -16,6 +16,7 @@ import { rng } from '../core/rng.js';
 import { gain, addResource, storageCap } from './economy.js';
 import { isCapped } from '../data/resources.js';
 import { simulateBattle } from './combat.js';
+import { OUTPOST_FORT } from '../data/siege.js';
 import { thLevel } from './city.js';
 import { recordLoss } from './losses.js';
 import { shardState } from './shards.js';
@@ -275,12 +276,15 @@ export function territoryTick(state, dtSec, now) {
   }
 }
 
+export const outpostFort = (t) => OUTPOST_FORT.wall * (t.town?.fort?.wall || 0) + OUTPOST_FORT.moat * (t.town?.fort?.moat || 0);
 export function outpostThreat(state, k, t, now = Date.now()) {
   const th = OUTPOST_THREATS[t.terrain] || OUTPOST_THREATS.plain;
   const sc = (0.6 + 0.35 * (t.level || 1)) * (0.6 + thLevel(state) * 0.12);
   const enemies = Object.fromEntries(Object.entries(th.units).map(([u, n]) => [u, Math.max(1, Math.round(n * sc))]));
   const sp = specOf(t);
   const def = { units: t.garrison && unitSum(t.garrison) ? t.garrison : { militia: 2 }, mods: { 'combat.def': (sp?.garrisonBonus || 0) + 0.1 + (computeMods(state, now)['garrison.def'] || 0) + townFx(t).def }, formation: 'shieldwall', label: 'Garnison' };
+  // v19 : la muraille et les douves de la ville d'avant-poste protègent aussi au combat (un seul front, petite place)
+  def.fort = outpostFort(t);
   const res = simulateBattle({ units: enemies, mods: {}, label: th.name }, def, { terrain: t.terrain === 'ash' ? 'ruins' : t.terrain, weather: state.weather?.type || 'clear' });
   if (t.garrison) t.garrison = Object.fromEntries(Object.entries(res.defRemaining).filter(([u, n]) => n > 0 && t.garrison[u]));
   const lostUnits = Object.values(res.defLosses).reduce((a, b) => a + b, 0);

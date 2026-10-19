@@ -1,3 +1,4 @@
+import { ensureSiege } from '../systems/siege.js';
 import { ensureArmory } from '../systems/armory.js';
 import { initLegacyCampaign } from '../systems/campaign.js';
 import { ensurePlaces } from '../systems/places.js';
@@ -184,6 +185,8 @@ export function migrate(data) {
   for (const t of Object.values(data.territories || {})) ensureTown(t);
   // v18 « L'Armurerie » : châsses selon la rareté, réglages prudents (équipement auto du butin désactivé, aucune règle)
   ensureArmory(data, data.meta.lastTick || Date.now());
+  // v19 « L'Art du siège » : béliers → engins, outils posés → engins posés, répartitions conservées
+  ensureSiege(data);
   data.version = SAVE_VERSION;
   // Une partie chargée ou importée doit d'abord prouver qu'elle tourne (≈1 s) avant de pouvoir remplacer la copie
   // de secours : l'indicateur « démarrage réussi » et la date de copie d'une autre partie ne sont pas repris

@@ -45,6 +45,8 @@ export const ORDER_ACTIONS = {
   lootKeep:      { label: 'le garder', params: [], min: 0, loot: true },
   equipBest:     { label: 'équiper toute la troupe au mieux', params: [], min: 4 },
   maintain:      { label: 'compléter l’armée jusqu’à la composition', params: ['preset'], min: 5 },
+  // v19 « L'Art du siège »
+  engineStock:   { label: 'maintenir le stock d’engins (minimums de l’arsenal)', params: [], min: 4 },
 };
 
 // Modèles prêts à l'emploi
@@ -59,4 +61,6 @@ export const ORDER_TEMPLATES = [
   { name: 'Réparations', cond: { type: 'damaged' }, action: { type: 'repair' } },
   { name: 'Équiper la troupe chaque heure', cond: { type: 'every', minutes: 60 }, action: { type: 'equipBest' } },
   { name: 'Maintenir la garnison', cond: { type: 'every', minutes: 30 }, action: { type: 'maintain', preset: 0 } },
+  { name: 'Maintenir l’arsenal', cond: { type: 'every', minutes: 30 }, action: { type: 'engineStock' } },
+  { name: 'Arsenal prêt avant un raid', cond: { type: 'raid' }, action: { type: 'engineStock' } },
 ];

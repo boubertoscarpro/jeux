@@ -1,0 +1,78 @@
+{
+ "version": "avant v19",
+ "n": 150,
+ "defense": {
+  "bourg ×0.5": {
+   "idle": {
+    "win": 0,
+    "breach": 100
+   }
+  },
+  "bourg ×0.8": {
+   "idle": {
+    "win": 95,
+    "breach": 5
+   }
+  },
+  "bourg ×1.2": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "bourg ×1.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "fortifie ×0.5": {
+   "idle": {
+    "win": 0,
+    "breach": 49
+   }
+  },
+  "fortifie ×0.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "fortifie ×1.2": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "fortifie ×1.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   }
+  },
+  "capitale ×0.5": {
+   "idle": {
+    "win": 25,
+    "breach": 17
+   }
+  },
+  "capitale ×0.8": {
+   "idle": {
+    "win": 57,
+    "breach": 9
+   }
+  },
+  "capitale ×1.2": {
+   "idle": {
+    "win": 87,
+    "breach": 2
+   }
+  },
+  "capitale ×1.8": {
+   "idle": {
+    "win": 100,
+    "breach": 0
+   }
+  }
+ }
+}

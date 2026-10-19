@@ -16,6 +16,9 @@ let source = Math.random;
 export const rng = {
   random: () => source(),
   setSource(fn) { source = fn || Math.random; },
+  getSource() { return source; },
+  // Exécute f avec une source tirée d'une graine, puis rétablit la source d'avant (combats reproductibles, v19)
+  seeded(seed, f) { const prev = source; source = mulberry32(seed >>> 0); try { return f(); } finally { source = prev; } },
   int(min, max) { return Math.floor(source() * (max - min + 1)) + min; },
   float(min, max) { return source() * (max - min) + min; },
   chance(p) { return source() < p; },

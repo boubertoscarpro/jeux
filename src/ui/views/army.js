@@ -33,7 +33,7 @@ export default {
     const mods = computeMods(s);
     const tot = armyTotals(s);
     const byBuilding = {};
-    for (const type of Object.keys(UNITS)) (byBuilding[UNITS[type].building] ||= []).push(type);
+    for (const type of Object.keys(UNITS)) if (!UNITS[type].engine) (byBuilding[UNITS[type].building] ||= []).push(type);
     return `<div class="card"><h2>⚔️ Armée</h2>
       <div class="stats-strip"><div><span class="muted">Puissance</span><b>${fmt(armyPower(tot))}</b></div><div><span class="muted">Unités</span><b>${fmt(Object.values(tot).reduce((a, b) => a + b, 0))}</b></div>
       <div><span class="muted">Entretien</span><b>${fmt(upkeepPerHour(s, mods))} 🍖/h</b></div><div><span class="muted">Vitesse de formation</span><b>${pctTxt(mods['train.speed'] || 0)}</b></div>
