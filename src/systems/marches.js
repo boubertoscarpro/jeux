@@ -1,3 +1,4 @@
+import { attackFortress, hashSeed, siegeState, planEngines, validatePlan } from './siege.js';
 import { payBounty, npcMeet } from './npcs.js';
 import { scar } from './worldmarks.js';
 import { remember } from './rivalry.js';
@@ -101,6 +102,12 @@ export function planMarch(state, opts, now = Date.now()) {
     if (!gatherRate(units, mods, def.res)) return fail('Ces unités ne peuvent pas récolter');
   } else if (type === 'attack') {
     if (!poi || !['danger', 'kingdom', 'breach'].includes(def.kind)) return fail('Rien à attaquer ici');
+    // v19 : plan de siège (engins de l'arsenal) contre une place fortifiée seulement
+    if (opts.siegePlan && Object.keys(planEngines(opts.siegePlan)).length) {
+      if (def.kind === 'danger') return fail('Les engins ne servent à rien contre un camp sans enceinte');
+      const v = validatePlan(state, opts.siegePlan, { oneFlank: false });
+      if (!v.ok) return fail(v.reason);
+    }
     if (def.kind === 'breach' && poi.clearedUntil > now) return fail('Forteresse en ruine : sa garnison se reforme (voir la fiche)');
     if (def.dungeon) return fail('Un donjon se parcourt salle par salle : lancez une « Expédition de donjon »');
     if (poi.clearedUntil > now) return fail('Site déjà nettoyé (réapparition plus tard)');
@@ -128,6 +135,16 @@ export function sendMarch(state, opts, now = Date.now()) {
     phase: 'out', start: now, arrive: now + travel, travel, loot: {}, items: [], log: [], retreat: opts.retreat ?? 0.5,
   };
   if (m.heroId) state.heroes.find((h) => h.id === m.heroId).marchId = m.id;
+  // v19 : les engins du plan de siège quittent l'arsenal avec l'armée
+  if (opts.type === 'attack' && opts.siegePlan) {
+    const need = planEngines(opts.siegePlan);
+    if (Object.keys(need).length) {
+      const S = siegeState(state);
+      for (const [k, n] of Object.entries(need)) S.arsenal.attack[k] = Math.max(0, (S.arsenal.attack[k] || 0) - n);
+      m.engines = need;
+      m.siegePlan = JSON.parse(JSON.stringify(opts.siegePlan));
+    } else if (opts.siegePlan.waves?.length) m.siegePlan = JSON.parse(JSON.stringify(opts.siegePlan));
+  }
   state.marches.push(m);
   return { ok: true, march: m };
 }
@@ -181,6 +198,25 @@ function marchBattle(state, m, enemies, t, opts = {}) {
   const mods = marchMods(state, m.heroId, m.potion, t);
   const terrain = opts.terrain || wTerrain(state.world, m.x, m.y);
   const danger = opts.danger ?? 1;
+  // v19 : une place fortifiée s'assiège par flancs, vagues et cour (plan de la marche ou assaut frontal sans engin)
+  if ((opts.fort || 0) > 0 && !opts.bossHp) {
+    const poi = poiAt(state.world, m.x, m.y) || {};
+    const res = attackFortress(
+      { units: m.units, mods, formation: m.formation, supply: m.supply, famine: state.famine, label: 'Vous' },
+      enemies, opts.fort, poi,
+      { terrain: terrain === 'ash' ? 'ruins' : terrain, weather: state.weather.type, enemyMods: { 'combat.atk': 0.05 * danger, 'combat.def': 0.05 * danger, ...(opts.enemyMods || {}) }, enemyFormation: opts.enemyFormation, enemyLabel: opts.enemyLabel || 'Ennemi', seed: hashSeed(m.id + ':' + t) },
+      m.siegePlan || null,
+    );
+    // Engins : une part revient après un flanc percé ; le reste est perdu
+    if (m.engines) { m.enginesBack = Object.fromEntries(Object.entries(res.engines.attack.recovered).map(([k, n]) => [k, Math.floor(n)]).filter(([, n]) => n > 0)); m.engines = null; }
+    m.potion = null;
+    m.units = Object.fromEntries(Object.entries(res.attRemaining).filter(([, n]) => n > 0));
+    const hero = heroOf(state, m);
+    const killed = Object.entries(res.defLosses).reduce((s, [, n]) => s + n * 10, 0);
+    if (hero) giveXp(state, hero, 20 + killed, mods);
+    if (res.winner === 'attacker') { state.stats.battlesWon++; state.season.points += SEASON.points.battle; } else state.stats.battlesLost++;
+    return res;
+  }
   const res = simulateBattle(
     { units: m.units, mods, formation: m.formation, supply: m.supply, famine: state.famine, label: 'Vous' },
     { units: enemies, mods: { 'combat.atk': 0.05 * danger, 'combat.def': 0.05 * danger, ...(opts.enemyMods || {}) }, fort: opts.fort || 0, formation: opts.enemyFormation, label: opts.enemyLabel || 'Ennemi' },
@@ -605,6 +641,8 @@ function homecoming(state, m, t, wiped = false) {
   // Une armée anéantie ne rapporte rien : personne pour porter le butin
   if (wiped) { if (Object.keys(m.loot).length || m.items.length) log(state, 'bad', '💀 Vos troupes ont péri : le butin est perdu.', t); m.loot = {}; m.items = []; }
   for (const [u, n] of Object.entries(m.units)) state.army[u] = (state.army[u] || 0) + n;
+  // v19 : engins récupérés rendus à l'arsenal (même si l'armée a péri, ce qui n'a pas été engagé revient avec les servants)
+  if (m.enginesBack || m.engines) { const S = siegeState(state); for (const [k, n] of Object.entries({ ...(m.engines || {}), ...(m.enginesBack || {}) })) S.arsenal.attack[k] = (S.arsenal.attack[k] || 0) + n; m.engines = null; m.enginesBack = null; }
   const mods = computeMods(state, t);
   const got = gain(state, m.loot, mods);
   for (const it of m.items) state.inventory.items.push(it);
