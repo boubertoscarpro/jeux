@@ -71,6 +71,31 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
         for (const s of [...top, ...bot, '.hud-l', '.hud-r']) { const b = q(s); if (b && (b.left < -1 || b.right > vw + 1 || b.top < -1 || b.bottom > vh + 1)) out.push(`affichage fixe : « ${name[s]} » sort de l’écran`); }
         const small = [...document.querySelectorAll('.hud-a, .hud-globe, .hud-btn, .hud-act, .hud-fab')].filter((b) => { const x = rect(b); return x && (x.width < 32 || x.height < 32); });
         if (small.length) out.push(`${small.length} bouton(s) de l’affichage fixe trop petits`);
+        // v17 : texte de 13 px au moins sur ordinateur, 14 px sur téléphone (affichage fixe, fenêtres, dialogues)
+        const minFs = phone ? 14 : 13;
+        const tiny = new Set();
+        for (const root of document.querySelectorAll('#hud, #win-root.open, #modal-root.open')) {
+          const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+            if (!n.nodeValue.trim() || /^[\p{Emoji}\s•·×+−-]+$/u.test(n.nodeValue.trim())) continue;
+            const el = n.parentElement;
+            if (!el || el.closest('.sr-only, svg, .hb, canvas, [aria-hidden="true"]') || !rect(el)) continue;
+            const fs = parseFloat(getComputedStyle(el).fontSize);
+            if (fs < minFs - 0.2) tiny.add(`${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]} ${fs}px`);
+          }
+        }
+        if (tiny.size) out.push(`texte sous ${minFs} px : ${[...tiny].slice(0, 4).join(', ')}${tiny.size > 4 ? ` (+${tiny.size - 4})` : ''}`);
+        // v17 : cibles tactiles de 44 × 44 px sur téléphone (boutons de l'affichage fixe et des fenêtres)
+        if (phone) {
+          const t = [...document.querySelectorAll('#hud button, #win-root.open button, #modal-root.open button')].filter((b) => { const x = rect(b); return x && !b.closest('.sr-only') && (x.width < 43.5 || x.height < 43.5); });
+          if (t.length) out.push(`${t.length} cible(s) tactile(s) sous 44 px : ${t.slice(0, 3).map((b) => b.className.split(' ')[0] || b.dataset.action).join(', ')}`);
+          // La carte utile occupe au moins 70 % de la hauteur (hors fenêtre)
+          if (!document.querySelector('#win-root.open')) {
+            const tb = q('.hud-top'), bt = q('.hud-bottom');
+            const used = (tb ? Math.max(0, tb.bottom) : 0) + (bt ? Math.max(0, vh - bt.top) : 0);
+            if ((vh - used) / vh < 0.7) out.push(`carte utile ${Math.round(((vh - used) / vh) * 100)} % de la hauteur (< 70 %)`);
+          }
+        }
         const win = q('#win-root.open .win');
         if (win) {
           if (win.left < -1 || win.right > vw + 1 || win.top < -1 || win.bottom > vh + 1) out.push('la fenêtre sort de l’écran');

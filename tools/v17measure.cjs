@@ -5,12 +5,16 @@
 //  - hidden : marques de la carte recouvertes par un bloc de l'affichage fixe ;
 //  - useful : part de l'écran que l'affichage fixe ne couvre pas (échantillonnage tous les 8 px).
 // Scènes : début (nouvelle partie), milieu et fin (sauvegardes), vue normale (cadrage par défaut), 3 tailles.
-// Usage : node tools/v17measure.cjs <sauvegarde-milieu.json> <sauvegarde-fin.json> [--strict]
+// Usage : node tools/v17measure.cjs [sauvegarde-milieu] [sauvegarde-fin] [--strict]   (npm run overlaps : --strict)
 //   DIST=… pour une autre version compilée. --strict : code de sortie 1 s'il reste un chevauchement (test).
 let chromium;
 try { ({ chromium } = require('playwright')); } catch { ({ chromium } = require('/opt/node-tools/node_modules/playwright')); }
 const fs = require('fs'), path = require('path');
-const [MIDF, LATEF] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+// Par défaut : les sauvegardes du dépôt (milieu : partie « Actif » de 3 jours ; fin : « Très optimisé », 7 jours)
+const MIDF = args[0] || path.resolve(__dirname, '../tests/fixtures/save-milieu.json.gz');
+const LATEF = args[1] || path.resolve(__dirname, '../tests/fixtures/save-fin.json.gz');
+const read = (f) => (f.endsWith('.gz') ? require('zlib').gunzipSync(fs.readFileSync(f)).toString() : fs.readFileSync(f, 'utf8'));
 const STRICT = process.argv.includes('--strict');
 const URL = 'file://' + path.resolve(process.env.DIST || path.resolve(__dirname, '../dist/cendrelande.html'));
 const SIZES = [[1400, 900, 'large'], [1024, 640, 'moyen'], [390, 844, 'mobile']];
@@ -55,7 +59,7 @@ async function measure(page) {
 (async () => {
   const browser = await chromium.launch();
   const out = {};
-  const saves = { milieu: MIDF && fs.readFileSync(MIDF, 'utf8'), fin: LATEF && fs.readFileSync(LATEF, 'utf8') };
+  const saves = { milieu: read(MIDF), fin: read(LATEF) };
   for (const [W, H, tag] of SIZES) {
     for (const scene of ['debut', 'milieu', 'fin']) {
       const ctx = await browser.newContext({ viewport: { width: W, height: H } });

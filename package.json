@@ -10,7 +10,8 @@
     "build": "node tools/build.mjs",
     "smoke": "node tools/smoke.cjs",
     "simulate": "node tools/profileSim.js 7 2 && node tools/economySim.js 90 40",
-    "layout": "node tools/layout.cjs"
+    "layout": "node tools/layout.cjs",
+    "overlaps": "node tools/v17measure.cjs --strict"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"

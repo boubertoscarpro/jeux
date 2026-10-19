@@ -183,3 +183,11 @@ table.why th { text-align: left; font-weight: 500; padding-right: 14px; }
   #hud button, #hud .hres, #win-root button, #modal-root button, #win-root select, #modal-root select, #hud select { min-height: 44px; min-width: 44px; }
   .city-vp .t-sig { min-width: 26px; height: 26px; }
 }
+/* Plancher typographique : les petites étiquettes héritées (v10–v16) passent à 13 px (14 px sur téléphone) */
+:is(#hud, #win-root, #modal-root) :is(.res-st, .lvl, h4, .countdown, .req, .tab, .tier, .tag-ex, .emo, .vs, .tag-rot, .rarity, .ok, .muted, .grow, .season-fore, .cal-cd, .kingdom-badge, .wh-rw, .log-line, .bad, .warn-text, .chip, .q-top, .note, .hint, .chapter-pill) { font-size: max(calc(var(--fs-1) * var(--text-scale)), 1em) !important; }
+:is(#hud, #win-root, #modal-root) :is(span, b, i, em, strong, a):not([class]) { font-size: max(calc(var(--fs-1) * var(--text-scale)), 1em); }
+:is(#hud, #win-root, #modal-root) .res-st { font-size: calc(var(--fs-1) * var(--text-scale)) !important; }
+@media (max-width: 700px) {
+  :is(#hud, #win-root, #modal-root) :is(.res-st, .lvl, h4, .countdown, .req, .tab, .tier, .tag-ex, .emo, .vs, .tag-rot, .rarity, .ok, .muted, .grow, .season-fore, .cal-cd, .kingdom-badge, .wh-rw, .log-line, .bad, .warn-text, .chip, .q-top, .note, .hint, p, li, div) { font-size: max(calc(var(--fs-2) * var(--text-scale)), 1em) !important; }
+  :is(#hud, #win-root, #modal-root) :is(span, b, i, em, strong, a):not([class]) { font-size: max(calc(var(--fs-2) * var(--text-scale)), 1em); }
+}

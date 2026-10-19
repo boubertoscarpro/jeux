@@ -554,7 +554,7 @@ export class App {
     queues: (app) => app.modal(`<h2>⏳ Files du royaume</h2>${queuesHtml(app)}`, {}, 'wide'),
     'res-more': (app) => { app.ui.resMore = !app.ui.resMore; app.renderHud(); },
     'act-more': (app) => { app.ui.actMore = !app.ui.actMore; app.renderHud(); },
-    'left-fold': (app) => { app.ui.leftCollapsed = !app.ui.leftCollapsed; app.renderHud(); },
+    'left-fold': (app) => { app.ui.leftCollapsed = !(app.ui.leftCollapsed ?? innerWidth <= 1200); app.renderHud(); },
     'drawer-q': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'q' ? null : 'q'; app.renderHud(); },
     'drawer-a': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'a' ? null : 'a'; app.renderHud(); },
     'drawer-close': (app) => { app.ui.phoneDrawer = null; app.renderHud(); },
