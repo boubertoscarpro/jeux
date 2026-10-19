@@ -1,3 +1,4 @@
+import { inTime } from '../../systems/wording.js';
 import { reserveCard } from '../repercussions.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import { economicReport } from '../../systems/report.js';
@@ -15,7 +16,7 @@ export default {
     const r = economicReport(s);
     const alerts = [];
     if (r.famine) alerts.push('<div class="req">⚠️ <b>Famine</b> : l’entretien n’est plus payé. Moral −30 et formation d’unités impossible. Produisez de la nourriture ou réduisez l’armée.</div>');
-    for (const x of r.shortages) alerts.push(`<div class="req">${x.icon} <b>${esc(x.name)}</b> : stock épuisé dans ${fmtTime(x.hoursLeft * 3600000)} (${rate(x.net)}). Gros consommateurs : ${top(x.users) || '—'}.</div>`);
+    for (const x of r.shortages) alerts.push(`<div class="req">${x.icon} <b>${esc(x.name)}</b> : ${x.hoursLeft > 0 ? `stock vide ${inTime(x.hoursLeft * 3600000)}` : 'stock déjà vide'} (${rate(x.net)}). Gros consommateurs : ${top(x.users) || '—'}.</div>`);
     const hasMarket = Object.values(s.city.buildings).some((b) => b.type === 'market' && b.level > 0);
     for (const x of r.list.filter((l) => l.full && l.prod > 0)) alerts.push(`<div class="small warn-text">📦 ${x.icon} ${esc(x.name)} : entrepôt plein. ${hasMarket ? 'Le surplus est écoulé par le marché à 15 % de son prix seulement (plafonné selon le niveau du marché) : vendez-le vous-même (bien plus rentable), transformez-le ou investissez-le (chantiers, grand projet).' : 'La production est perdue : vendez, consommez ou agrandissez l’entrepôt (un marché écoulerait au moins une partie du surplus, à bas prix).'}</div>`);
     if (s.stats.overflowGold > 0) alerts.push(`<div class="small muted">💰 Surplus écoulés automatiquement depuis le début : ${fmt(s.stats.overflowGold)} or.</div>`);

@@ -1,3 +1,4 @@
+import { inTime } from '../systems/wording.js';
 import { RESOURCES } from '../data/resources.js';
 import { resIcon } from './icons.js';
 import { fmt, fmtTime } from '../core/util.js';
@@ -18,7 +19,7 @@ export function openAdvisor(app, qa = null) {
       <div><h4>Votre économie</h4><table class="adv-eco"><tbody>${keyRes.map((r) => {
         const v = a.net[r] || 0;
         const f = a.forecasts.find((x) => x.res === r);
-        return `<tr><td>${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)}</td><td class="num ${v < 0 ? 'bad' : 'ok'}">${v >= 0 ? '+' : ''}${fmt(v)}/h</td><td class="small muted">${f ? `épuisé dans ${fmtTime(f.hours * 3600000)}` : ''}</td></tr>`;
+        return `<tr><td>${resIcon(r, 16, RESOURCES[r]?.icon)} ${esc(RESOURCES[r].name)}</td><td class="num ${v < 0 ? 'bad' : 'ok'}">${v >= 0 ? '+' : ''}${fmt(v)}/h</td><td class="small muted">${f ? (f.hours > 0 ? `vide ${inTime(f.hours * 3600000)}` : 'déjà vide') : ''}</td></tr>`;
       }).join('')}</tbody></table>
       <div class="small">Équilibre alimentaire : <b class="${a.foodRatio >= 1 ? 'ok' : 'bad'}">${Math.round(Math.min(9, a.foodRatio) * 100)}%</b> des besoins</div></div>
       <div><h4>Recommandations</h4><div class="adv-recs">${a.recs.slice(0, 9).map((r) => `<div class="adv-rec">${SEV[r.sev]} ${esc(r.text)}${r.goto ? ` <button class="mini ghost" data-action="adv-goto" data-v="${GOTO[r.goto] || r.goto}">→</button>` : ''}</div>`).join('') || '<div class="small ok">Rien à signaler, Sire. Tout va pour le mieux.</div>'}</div></div>

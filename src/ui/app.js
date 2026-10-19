@@ -13,6 +13,7 @@ import { bldgView } from './views/city.js';
 import { tileView } from './views/world.js';
 import outpostView from './views/outpost.js';
 import { queuesHtml, queueActions } from './hud.js';
+import { winSummary } from './winSummary.js';
 import { BUILDINGS } from '../data/buildings.js';
 import codexView from './views/codex.js';
 import { bus } from '../core/bus.js';
@@ -68,6 +69,7 @@ import shardsView from './views/shards.js';
 import adminView from './views/admin.js';
 import { reportHtml } from './views/calendar.js';
 import { notifications } from '../systems/liveEvents.js';
+import { groupNotices, seenOnScreen } from '../systems/notices.js';
 import { openAdvisor } from './advisor.js';
 import { openUpgradeList } from './upgrades.js';
 import { helpFor, openHelp } from './help.js';
@@ -213,7 +215,11 @@ export class App {
 
   openNotifications() {
     const list = notifications(this.state);
-    this.modal(`<h2>🔔 Notifications</h2><div class="log">${list.map((n) => `<div class="log-line small ${n.read ? 'muted' : ''}">${n.icon} ${esc(n.text)} <span class="muted">· ${new Date(n.t).toLocaleString('fr-FR')}</span></div>`).join('') || '<p class="muted">Rien pour l’instant.</p>'}</div>
+    // v17 : regroupées (« ×12 »), l'urgent d'abord, puis ce qui demande une action, puis l'informatif
+    const groups = groupNotices(list);
+    const sect = (cls, title) => { const g = groups.filter((x) => x.cls === cls); return g.length ? `<h3 class="notif-h ${cls}">${title}</h3><ul class="notif-list">${g.map((x) => `<li class="${x.unread ? 'unread' : 'muted'}"><span aria-hidden="true">${x.icon}</span> ${esc(x.text)}${x.count > 1 ? ` <b class="notif-n" aria-label="${x.count} fois">×${x.count}</b>` : ''} <span class="muted small">· ${new Date(x.last).toLocaleString('fr-FR')}</span>${x.unread ? ' <span class="sr-only">(non lu)</span>' : ''}</li>`).join('')}</ul>` : ''; };
+    this.modal(`<h2>🔔 Notifications</h2><p class="small muted">${groups.filter((g) => g.unread && g.cls !== 'info').length ? 'À voir en premier : l’urgent, puis ce qui demande une action.' : 'Rien d’urgent : seulement des informations.'}</p>
+      ${sect('urgent', '⚠️ Urgent')}${sect('action', '👉 À faire')}${sect('info', 'ℹ️ Pour information')}${list.length ? '' : '<p class="muted">Rien pour l’instant.</p>'}
       <div class="row gap"><button class="btn" data-action="goto" data-view="event">🎪 Événement</button><button class="btn" data-action="goto" data-view="calendar">📅 Calendrier</button><button class="btn ghost" data-action="close-modal">Fermer</button></div>`, {}, 'wide');
     for (const n of list) n.read = true;
   }
@@ -356,12 +362,18 @@ export class App {
           ${help}<button class="win-ic win-x" data-action="win-close" title="Fermer (Échap)" aria-label="Fermer">✕</button>
         </header>
         ${tabs.length > 1 ? `<nav class="win-tabs" role="tablist">${tabs.map((v) => { const t = this.views[v]; const n = t.badge?.(this) || 0; return `<button class="win-tab ${v === id ? 'active' : ''}" role="tab" aria-selected="${v === id}" data-action="nav" data-view="${v}">${t.icon} ${esc(t.title)}${n ? ` <span class="hb hb-num">${n}</span>` : ''}</button>`; }).join('')}</nav>` : ''}
+        ${!locked && winSummary(this, id) ? `<p class="win-sum" role="note">${esc(winSummary(this, id))}</p>` : ''}
         <div class="win-body view view-${id}" id="win-body">${body}</div>
       </section>`;
     const prev = root.querySelector('#win-body');
     const keepScroll = prev && root.querySelector('.win')?.dataset.screen === id ? prev.scrollTop : 0;
     this.preserveInputs(root, () => { root.innerHTML = html; });
     const nb = root.querySelector('#win-body'); if (nb) nb.scrollTop = keepScroll;
+    // v17 : un seul titre — le premier titre du contenu, s'il répète celui de la fenêtre, n'est plus lu que par les
+    // lecteurs d'écran
+    const h = nb?.querySelector('.card > h2:first-child');
+    const norm = (t) => (t || '').replace(/niv\.?\s*\d+/gi, '').replace(/[^\p{L}\s']/gu, '').trim().toLowerCase();
+    if (h && norm(h.textContent) && norm(h.textContent) === norm(title)) h.classList.add('sr-only');
     if (!locked) view.after?.(this);
     iconize(root);
     if (this._focusWin) { this._focusWin = false; root.querySelector('.win-x')?.focus(); }
@@ -550,6 +562,8 @@ export class App {
     if (!box) return;
     // Pas de doublon visible : un message identique déjà affiché n'est pas répété
     if ([...box.children].some((c) => c.textContent === text)) return;
+    // v17 : un message informatif affiché pendant que le joueur regarde compte comme lu (l'urgent reste signalé)
+    if (this.state && !document.hidden) seenOnScreen(this.state, text);
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
     el.textContent = text;

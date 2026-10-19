@@ -82,3 +82,45 @@ html.no-weather .wx-slot, html.no-weather .scene-fx .fx-wx, html.no-weather .sce
 .trend.up { color: #8fe0a4; }
 .trend.down { color: #ffab9f; }
 .plan-slots { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
+/* ───── Affichage fixe plus léger ───── */
+.hud-l { width: 214px; background: rgba(22, 18, 14, 0.72); border-color: rgba(90, 70, 48, 0.7); padding: 6px; gap: 5px; }
+.hud-l .hud-q { background: transparent; border-color: rgba(74, 58, 40, 0.8); padding: 4px 6px; }
+.hud-l .hud-q.lead { background: rgba(255, 255, 255, 0.05); border-color: #8a6a3e; }
+.hud-more-q > summary { cursor: pointer; color: var(--ivory-dim); padding: 2px 4px; list-style-position: inside; }
+.hud-more-q[open] { display: flex; flex-direction: column; gap: 5px; }
+.hud-adv { padding: 4px 6px; }
+.hud-adv .adv-pt { width: 32px; height: 32px; font-size: 17px; }
+.hud-adv .adv-tx small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hud-bl { flex-basis: 300px; }
+.feed-line { animation-duration: 9s; background: rgba(22, 18, 14, 0.8); }
+@keyframes v16-feed { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+@media (max-width: 1200px) { .hud-l { width: 196px; } }
+.win-sum { flex-shrink: 0; margin: 0; padding: 7px 14px; font-size: 14px; color: #f3e6c4; background: rgba(201, 165, 74, 0.1); border-bottom: 1px solid #4a3a28; }
+/* Tendances : flèche, mot (lecteur d'écran) et motif, jamais la couleur seule */
+.trend.flat { color: var(--ivory-dim); }
+.spark polyline.down { stroke-dasharray: 3 2; }
+.spark .spark-dir { font: 700 8px var(--font); fill: var(--ivory-dim); }
+
+/* ───── Échelle typographique (v17) : 5 tailles, chiffres alignés, 13 px au moins (14 px sur téléphone) ───── */
+:root { --fs-1: 13px; --fs-2: 14px; --fs-3: 16px; --fs-4: 19px; --fs-5: 23px; --text-scale: 1; }
+html { font-size: calc(14px * var(--text-scale)); }
+body { font-variant-numeric: tabular-nums; }
+#hud, #win-root, #modal-root, #toasts { font-size: calc(var(--fs-2) * var(--text-scale)); }
+#hud .small, #win-root .small, #modal-root .small, #hud small, #win-root small, #modal-root small,
+#win-root .muted.small, #win-root .chip, #win-root td, #win-root th, #modal-root td, #modal-root th, #win-root .mini, #modal-root .mini, #hud .mini,
+#win-root .tag, #win-root .badge, #win-root label, #hud .hud-th, #hud .hud-power, #hud .hud-time, .hq, .feed-line, .hud-q summary, .hud-alert, .hud-adv .adv-tx, .hud-adv .adv-tx small,
+.bp-n, .bp-c, .bp-tab, .win-tab, .sl, .toast, #win-root .res-chip, #win-root .cost, #win-root .num, .hres, .hud-cur { font-size: calc(var(--fs-1) * var(--text-scale)) !important; }
+#hud .hb, #win-root .hb { font-size: calc(12px * var(--text-scale)) !important; min-width: 19px; height: 19px; line-height: 19px; }
+.hud-a small, .hud-globe small, .hud-act .act-t { font-size: calc(var(--fs-1) * var(--text-scale)) !important; }
+.hud-a { width: auto; min-width: 62px; padding: 0 6px; border-radius: 30px; }
+#win-root h2, #modal-root h2 { font-size: calc(var(--fs-4) * var(--text-scale)); }
+#win-root h3, #modal-root h3 { font-size: calc(var(--fs-3) * var(--text-scale)); }
+@media (max-width: 700px) {
+  #hud .small, #win-root .small, #modal-root .small, #hud small, #win-root small, #modal-root small,
+  #win-root .muted.small, #win-root .chip, #win-root td, #win-root th, #modal-root td, #modal-root th, #win-root .mini, #modal-root .mini, #hud .mini,
+  #win-root .tag, #win-root .badge, #win-root label, .hq, .feed-line, .hud-q summary, .hud-alert, .bp-n, .bp-c, .bp-tab, .win-tab, .sl, .toast, #win-root .res-chip, #win-root .cost, #win-root .num, .hres, .hud-cur,
+  .hud-a small, .hud-globe small, .hud-act .act-t { font-size: calc(var(--fs-2) * var(--text-scale)) !important; }
+  #hud, #win-root, #modal-root { font-size: calc(15px * var(--text-scale)); }
+  .hud-a { min-width: 0; flex: 1 1 0; padding: 0 2px; }
+}

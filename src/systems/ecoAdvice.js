@@ -99,7 +99,7 @@ export function economyAdvice(state, report, now = Date.now()) {
   for (const x of report.list) {
     if (x.res === 'food' || !(x.hoursLeft < 12) || x.net >= 0) continue;
     const users = Object.entries(x.users).sort((a, b) => b[1] - a[1])[0];
-    out.push({ sev: 'warn', icon: x.icon, text: `${x.name} : réserves vides dans ${Math.max(1, Math.round(x.hoursLeft))} h`, why: users ? `Principal usage : ${users[0]} (${fmt(users[1])}/h). Augmentez la production ou réduisez cet usage.` : 'Augmentez la production.', view: 'ecoReport' });
+    out.push({ sev: 'warn', icon: x.icon, text: x.hoursLeft > 0.05 ? `${x.name} : réserves vides dans ${Math.max(1, Math.round(x.hoursLeft))} h` : `${x.name} : réserves déjà vides`, why: users ? `Principal usage : ${users[0]} (${fmt(users[1])}/h). Augmentez la production ou réduisez cet usage.` : 'Augmentez la production.', view: 'ecoReport' });
   }
   // 3) Chaînes bloquées
   for (const c of report.blocked.filter((c) => c.status !== 'paused').slice(0, 3)) out.push({ sev: 'info', icon: c.icon, text: `${c.name} : ${c.status === 'capped' ? 'arrêtée' : 'ralentie'}`, why: c.reason, view: 'chains' });
@@ -117,7 +117,7 @@ export function economyAdvice(state, report, now = Date.now()) {
 // Risque de pénurie à court terme : quantitatif si fiable, sinon qualitatif
 export function shortageRisk(state, x) {
   const obs = observed(state, x.res);
-  if (x.hoursLeft < 6) return { level: 'high', text: `vide dans ${Math.max(1, Math.round(x.hoursLeft))} h` };
+  if (x.hoursLeft < 6) return { level: 'high', text: x.hoursLeft > 0.05 ? `vide dans ${Math.max(1, Math.round(x.hoursLeft))} h` : 'déjà vide' };
   if (x.hoursLeft < 24) return { level: 'mid', text: `vide dans ${Math.round(x.hoursLeft)} h` };
   if (obs.reliable && obs.perH < -1 && x.stock / -obs.perH < 24) return { level: 'mid', text: 'en baisse selon les relevés' };
   if (x.net < 0) return { level: 'low', text: 'en légère baisse' };

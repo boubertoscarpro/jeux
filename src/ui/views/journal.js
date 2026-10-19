@@ -1,3 +1,4 @@
+import { reportClass } from '../../systems/notices.js';
 import { sealLine } from '../heraldry.js';
 import { ALL_UNITS, TERRAIN_COMBAT, WEATHER } from '../../data/units.js';
 import { fmt } from '../../core/util.js';
@@ -35,7 +36,7 @@ export function reportModal(app, rep) {
 
 export default {
   id: 'journal', title: 'Journal', icon: '📖',
-  badge: (app) => app.state.reports.filter((r) => !r.read).length,
+  badge: (app) => app.state.reports.filter((r) => !r.read && reportClass(r) === 'urgent').length, // v17 : seulement les défaites
   render(app) {
     const s = app.state;
     const filter = app.ui.logFilter || '';
