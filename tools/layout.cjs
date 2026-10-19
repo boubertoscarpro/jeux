@@ -68,6 +68,8 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
         for (const row of [top, bot]) for (let i = 0; i < row.length; i++) for (let j = i + 1; j < row.length; j++) if (hit(q(row[i]), q(row[j]))) out.push(`affichage fixe : « ${name[row[i]]} » recouvre « ${name[row[j]]} »`);
         for (const col of ['.hud-l', '.hud-r']) for (const s of [...top, ...bot]) if (hit(q(col), q(s))) out.push(`affichage fixe : « ${name[col]} » recouvre « ${name[s]} »`);
         if (hit(q('.hud-l'), q('.hud-r'))) out.push('affichage fixe : les deux colonnes se recouvrent');
+        // v17 : la frise du temps et la barre des calques ne recouvrent aucun autre bloc
+        for (const [sel, nm] of [['.hud-timeline', 'frise du temps'], ['.layer-bar', 'calques']]) for (const o of [...top, ...bot.filter((x) => !(sel === '.layer-bar' && x === '.hud-br')), '.hud-l', '.hud-r']) if (hit(q(sel), q(o))) out.push(`affichage fixe : « ${nm} » recouvre « ${name[o]} »`);
         for (const s of [...top, ...bot, '.hud-l', '.hud-r']) { const b = q(s); if (b && (b.left < -1 || b.right > vw + 1 || b.top < -1 || b.bottom > vh + 1)) out.push(`affichage fixe : « ${name[s]} » sort de l’écran`); }
         const small = [...document.querySelectorAll('.hud-a, .hud-globe, .hud-btn, .hud-act, .hud-fab')].filter((b) => { const x = rect(b); return x && (x.width < 32 || x.height < 32); });
         if (small.length) out.push(`${small.length} bouton(s) de l’affichage fixe trop petits`);

@@ -257,3 +257,5 @@ html.reduce-motion .tile.guide::after, html.reduce-motion .hud .tut-hl::after, h
 .rs-dots { letter-spacing: 2px; }
 .rs-dots.mine { color: #ff9a8f; }
 .rs-dots.theirs { color: #f3e6c4; }
+#app.win-open .layer-bar, #app.win-open .hud-timeline { display: none; }
+@media (max-width: 700px) { .hud-br .layer-bar { position: absolute; right: 8px; bottom: 236px; } .hud-br .layer-bar .layer-legend { max-width: calc(100vw - 24px); } }

@@ -573,7 +573,7 @@ export class App {
     'kingdom-text': (app) => openKingdomText(app),
     'layer-bar': (app) => { app.ui.layerBar = !app.ui.layerBar; app.renderHud(); },
     layer: (app, el) => { const k = el.dataset.k || null; app.ui.layer = k && app.ui.layer !== k ? k : null; if (!k) app.ui.layerBar = false; app.mapDirty = true; if (app.ui.map !== 'city') app.go('city'); else app.render(); },
-    timeline: (app) => { app.ui.timelineOpen = !(app.ui.timelineOpen ?? innerWidth > 700); app.renderHud(); },
+    timeline: (app) => { app.ui.timelineOpen = !document.querySelector('.hud-timeline:not(.closed)') ? true : false; app.renderHud(); },
     why: (app, el) => openWhy(app, el.dataset.what, el.dataset.arg),
     'kt-see': (app, el) => kingdomTextActions['kt-see'](app, el),
     a11y: (app, el) => { const k = el.dataset.k, v = el.dataset.v; const val = v === 'true' ? true : v === 'false' ? false : /^[\d.]+$/.test(v) ? +v : v; setA11y(app.state, k, val); app.applyPrefs(); app.mapDirty = true; app.render(); app.save(); },

@@ -196,7 +196,8 @@ function timelineBar(app) {
   const s = app.state, now = Date.now();
   if (app.ui.map === 'outpost') return '';
   let items = []; try { items = timeline(s, now); } catch { items = []; }
-  const open = app.ui.timelineOpen ?? (typeof innerWidth === 'number' && innerWidth > 700);
+  // Ouverte par défaut sur ordinateur quand quelque chose arrive ; sinon un simple bouton (le joueur choisit ensuite)
+  const open = app.ui.timelineOpen ?? (typeof innerWidth === 'number' && innerWidth > 700 && items.length > 0);
   if (!open) return `<div class="hud-timeline closed">${btn('timeline', '⏱️', `Frise du temps : ${items.length} à venir dans les ${TIMELINE_HOURS} h`, items.length ? badge(items.length, 'à venir') : '', 'aria-expanded="false"')}</div>`;
   const span = TIMELINE_HOURS * 3600e3;
   let last = -100;
