@@ -691,8 +691,16 @@ export function attackFortress(att, enemies, fort, poi, ctx, plan = null) {
   return siegeBattle(
     { waves, mods: att.mods, formation: att.formation, supply: att.supply, famine: att.famine, label: att.label },
     { units: enemies, shares: D.shares, engines: D.engines, prot: D.prot, mods: ctx.enemyMods, formation: ctx.enemyFormation, label: ctx.enemyLabel },
-    { terrain: ctx.terrain, weather: ctx.weather, seed: ctx.seed },
+    { terrain: ctx.terrain, weather: ctx.weather, seed: ctx.seed, deterministic: ctx.deterministic },
   );
+}
+
+// Aperçu déterministe d'un siège (remplissage auto, aperçus) : même forme que previewBattle
+export function previewSiege(att, enemies, fort, poi, ctx, plan = null) {
+  const res = attackFortress(att, enemies, fort, poi, { ...ctx, seed: 1, deterministic: true }, plan);
+  const lost = sum(res.attLosses), total = sum(att.units) || 1;
+  const verdict = res.winner === 'attacker' ? (lost / total < 0.25 ? 'Victoire probable' : 'Victoire coûteuse') : lost / total > 0.8 ? 'Défaite probable' : 'Issue incertaine';
+  return { ...res, verdict, lossRatio: lost / total };
 }
 
 // ───────── Conseil de guerre : aperçu avec fourchette ─────────

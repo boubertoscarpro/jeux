@@ -13,6 +13,7 @@ import { POI_TYPES, BOSSES } from '../data/world.js';
 import { UNITS } from '../data/units.js';
 import { fmt } from '../core/util.js';
 import { previewBattle } from './combat.js';
+import { previewSiege } from './siege.js';
 import { planMarch, carryCapacity } from './marches.js';
 import { poiAt, wTerrain } from './world.js';
 import { rivalGarrison } from './rivals.js';
@@ -110,7 +111,10 @@ export function autoFillAttack(state, md, now = Date.now(), opts = {}) {
   }
   const D = targetDefense(state, poi, now);
   if (!D || !D.enemies) return { ok: false, reason: 'Le remplissage auto ne sert qu’à attaquer un lieu tenu par des ennemis' };
-  const battle = (units) => previewBattle(me(units), { units: D.enemies, mods: D.enemyMods, fort: D.fort, formation: D.formation }, ctx);
+  // v19 : une place fortifiée s'assiège (flancs, engins de défense, cour) : l'aperçu suit le plan de siège de la marche
+  const battle = (units) => (D.fort > 0
+    ? previewSiege(me(units), D.enemies, D.fort, poi || {}, { ...ctx, enemyMods: D.enemyMods, enemyFormation: D.formation }, md.siegePlan || null)
+    : previewBattle(me(units), { units: D.enemies, mods: D.enemyMods, fort: D.fort, formation: D.formation }, ctx));
   // opts.carry : capacité de transport minimale (raids en série : de quoi rapporter le butin), plafonnée à toute l'armée
   const carry = Math.min(opts.carry || 0, carryCapacity(avail, mods));
   const test = carry ? (units) => ({ ...battle(units), cap: carryCapacity(units, mods) }) : battle;

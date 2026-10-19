@@ -391,3 +391,16 @@ test('Places ennemies : elles retiennent votre dernier assaut et renforcent les 
   // Une place sans muraille n'a rien à adapter
   assert.equal(SG.targetDefense(0, { sgMem: { ram: 8 } }).adapt, null);
 });
+
+test('Remplissage auto contre une place fortifiée : l’armée proposée gagne le siège', async () => {
+  const { autoFillAttack } = await import('../src/systems/autofill.js');
+  const s = load('save-fin');
+  const p = kingdom(s);
+  p.scouted = true;
+  p.garrison ||= { militia: 600, guard: 200, royalArcher: 250 };
+  const r = autoFillAttack(s, { type: 'attack', x: p.x, y: p.y, units: {}, formation: 'balanced' }, T);
+  assert.ok(r.ok, r.reason);
+  const mods = planMarch(s, { type: 'attack', x: p.x, y: p.y, units: r.units }, T).mods;
+  const pv = SG.previewSiege({ units: r.units, mods, formation: 'balanced', label: 'Vous' }, p.garrison, p.wall, p, { terrain: 'city', weather: s.weather?.type, enemyMods: { 'combat.atk': 0.05 * (p.danger || 0), 'combat.def': 0.05 * (p.danger || 0) } });
+  assert.equal(pv.winner, 'attacker');
+});
