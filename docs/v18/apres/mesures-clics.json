@@ -1,0 +1,14 @@
+{
+ "mode": "v18 (après)",
+ "save": "save-armurerie.json.gz",
+ "equipTeam": {
+  "clicks": 3,
+  "ms": 1035,
+  "gain": 2384.7625
+ },
+ "emptyInventory": {
+  "clicks": 4,
+  "ms": 855,
+  "left": 25
+ }
+}

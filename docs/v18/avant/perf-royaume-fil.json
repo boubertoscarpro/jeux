@@ -1,0 +1,30 @@
+{
+ "large": {
+  "tiles": 960,
+  "renderMs": 93.1,
+  "mainZoom": 8,
+  "mainZoomP95": 17.9,
+  "mainPan": 6.2,
+  "mainPanP95": 9.2,
+  "frameSaver": 40.7
+ },
+ "moyen": {
+  "tiles": 960,
+  "renderMs": 55.6,
+  "mainZoom": 9,
+  "mainZoomP95": 19.9,
+  "mainPan": 6.5,
+  "mainPanP95": 10.2,
+  "frameSaver": 23.8
+ },
+ "mobile": {
+  "tiles": 960,
+  "renderMs": 47.6,
+  "mainZoom": 6.3,
+  "mainZoomP95": 17.1,
+  "mainPan": 5.3,
+  "mainPanP95": 8.2,
+  "frameSaver": 16.6
+ },
+ "note": "Médianes de 5 passages, tools/v16perf.cjs, sauvegarde de fin"
+}
