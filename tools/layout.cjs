@@ -34,6 +34,8 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
       Object.values(s.city.buildings).find((b) => b.type === 'townhall').level = 12;
       s.army = { spearman: 300, archer: 200, knight: 60, scout: 6 };
       s.meta.tipsOff = true; s.world.revealed.fill(1);
+      // v19 : un arsenal garni (plan de siège complet dans la fenêtre d'attaque)
+      if (s.siege) { Object.assign(s.siege.arsenal.attack, { ladders: 10, ram: 6, mantlets: 4, fascines: 4, fireArrows: 2, tower: 1 }); Object.assign(s.siege.arsenal.defense, { stones: 10, pitch: 8, archers: 4 }); }
       s.raids = [{ id: 'lr', rival: 0, name: 'Clan des Crocs-Gris', from: { x: 0, y: 0 }, army: { militia: 30 }, start: Date.now(), arrive: Date.now() + 9e5, seen: true }];
       a.closeModal(); a.render();
     });
@@ -42,7 +44,7 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
       if (!Object.keys(s.territories).length) s.territories[`${c.x + 3},${c.y}`] = { id: 'opL', name: 'Fort-Témoin', x: c.x + 3, y: c.y, terrain: 'plain', since: Date.now(), spec: null, level: 2, garrison: {} };
     });
     // v18 : onglets et dialogues de l'armurerie (écran:onglet, écran!bouton à cliquer)
-    const views = [...await page.evaluate(() => Object.keys(window.cendrelande.views)), 'craft:forge', 'craft:gems', 'craft:rules', 'craft:lab', 'heroes:advice', 'craft!bulk-open', 'heroes!ae-team', 'heroes!ae-prio'];
+    const views = [...await page.evaluate(() => Object.keys(window.cendrelande.views)), 'craft:forge', 'craft:gems', 'craft:rules', 'craft:lab', 'heroes:advice', 'craft!bulk-open', 'heroes!ae-team', 'heroes!ae-prio', 'defense:arsenal', 'siege!march'];
     for (const v of views) {
       ctx = v;
       const ok = await page.evaluate((v) => {
@@ -51,7 +53,10 @@ const SIZES = [[360, 740, 'téléphone'], [768, 1024, 'tablette'], [1024, 640, '
         if (v === 'outpost') { const k = Object.keys(a.state.territories)[0]; if (!k) return false; a.ui.outpost = k; }
         if (v === 'bldg') a.ui.citySel = (() => { const b = Object.values(a.state.city.buildings).find((x) => x.type === 'townhall'); return { x: b.x, y: b.y }; })();
         if (v === 'tile') a.ui.worldSel = { ...a.state.world.capital };
-        const [view, tab] = v.split(/[:!]/);
+        let [view, tab] = v.split(/[:!]/);
+        // v19 : fenêtre d'attaque d'une place fortifiée (plan de siège, conseil de guerre)
+        if (view === 'siege') { const p = Object.values(a.state.world.pois).find((x) => x.type === 'kingdom'); if (!p) return false; p.scouted = true; p.garrison ||= { militia: 200, guard: 60 }; a.ui.worldSel = { x: p.x, y: p.y }; view = 'tile'; }
+        a.ui.defTab = view === 'defense' && tab ? tab : 'remparts';
         if (v.includes(':')) { a.ui.craftTab = view === 'craft' ? tab : 'inv'; a.ui.heroTab = view === 'heroes' ? tab : 'heroes'; }
         else { a.ui.craftTab = 'inv'; a.ui.heroTab = 'heroes'; }
         a.go(view);

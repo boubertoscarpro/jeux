@@ -17,7 +17,7 @@
 .sg-table tr.locked { opacity: 0.8; }
 .sg-min { margin-top: 4px; align-items: center; }
 .sg-plan-box { margin-top: 10px; padding: 10px; border: 1px solid #4a3a28; border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
-.sg-wave h5 { margin: 8px 0 4px; font-size: 13px; }
+.sg-wave h5 { margin: 8px 0 4px; font-size: 14px; }
 .sg-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .sg-cells.one { grid-template-columns: minmax(0, 1fr); max-width: 360px; }
 .sg-cell { padding: 6px 8px; border: 1px solid #4a3a28; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -46,3 +46,6 @@
   .sg-table th[scope="row"] { grid-column: 1 / -1; }
 }
 .sg-table th[scope="row"] { text-transform: none; letter-spacing: 0; font-family: inherit; color: inherit; font-size: 13px; }
+/* Garnisons (fiche d'un royaume, rapports) : lisibles partout (≥ 13 px, 14 px au téléphone) */
+.unit-chip { font-size: 13px; }
+@media (max-width: 480px) { .unit-chip { font-size: 14px; } }

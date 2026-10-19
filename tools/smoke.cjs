@@ -254,6 +254,34 @@ const path = require('path');
     click('[data-action="bulk-open"]'); await wait(60);
     if (!document.querySelector('.bulk-sum')) out.push('v18 : vente en masse absente');
     a.closeModal();
+    // v19 « L'Art du siège » : défense conseillée, engin posé au clavier, arsenal (fabrication), plan de siège et conseil de guerre
+    if (s.siege) {
+      s.siege.arsenal.defense.stones = (s.siege.arsenal.defense.stones || 0) + 6;
+      s.siege.arsenal.attack.ram = (s.siege.arsenal.attack.ram || 0) + 4;
+      a.ui.defTab = 'remparts'; a.go('defense'); await wait(60);
+      if (!document.querySelector('.rp-card .rp-svg')) out.push('v19 : remparts absents');
+      click('[data-action="sg-advise-def"]'); await wait(60);
+      const post0 = Object.values(s.siege.posted).reduce((x, f) => x + Object.values(f).reduce((y, z) => y + z, 0), 0);
+      const plus = document.querySelector('[data-action="sg-post"][data-d="1"]:not([disabled])');
+      if (plus) { plus.click(); await wait(60); if (Object.values(s.siege.posted).reduce((x, f) => x + Object.values(f).reduce((y, z) => y + z, 0), 0) !== post0 + 1) out.push('v19 : engin non posé'); }
+      click('[data-action="def-tab"][data-tab="arsenal"]'); await wait(60);
+      const q0 = s.siege.queue.defense.length;
+      click('[data-action="sg-make"][data-k="stones"][data-n="1"]'); await wait(60);
+      if (s.siege.queue.defense.length !== q0 + 1) out.push('v19 : fabrication d’engin sans effet');
+      click('[data-action="sg-min"][data-k="stones"][data-d="1"]'); await wait(40);
+      if (!(s.siege.minStock.stones > 0)) out.push('v19 : stock minimal non enregistré');
+      a.ui.defTab = 'remparts';
+      const kp = Object.values(s.world.pois).find((x) => x.type === 'kingdom');
+      if (kp) {
+        kp.scouted = true; kp.garrison ||= { militia: 200, guard: 60 }; s.world.revealed[kp.y * s.world.size + kp.x] = 1;
+        a.ui.worldSel = { x: kp.x, y: kp.y }; a.go('tile'); await wait(60);
+        click('[data-action="march"][data-type="attack"]'); await wait(80);
+        if (!document.querySelector('#siege-plan .sg-plan-box')) out.push('v19 : plan de siège absent');
+        click('[data-action="sp-advise"]'); await wait(80);
+        if (!document.querySelector('#siege-plan .verdict, #siege-plan .muted')) out.push('v19 : conseil de guerre absent');
+        a.closeModal();
+      }
+    }
     a.go('goals'); await wait(60);
     if (document.querySelector('[data-action="claim-all"]')) { click('[data-action="claim-all"]'); await wait(60); }
     a.go('codex'); await wait(60);
