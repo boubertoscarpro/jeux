@@ -3,49 +3,71 @@
 // Les chiffres de défense de base restent ceux de la muraille (`wall`) et des douves (`moat`) dans buildings.js.
 
 export const ZONES = {
-  keep: { name: 'Cour du donjon', short: 'intra-muros', icon: '🏰' },
-  faubourg: { name: 'Faubourgs', short: 'faubourgs', icon: '🏘️' },
+  keep: { name: 'Ville fortifiée', short: 'intra-muros', icon: '🏰' },
+  moat: { name: 'Douves et glacis', short: 'douves', icon: '🌊' },
+  faubourg: { name: 'Abords', short: 'abords', icon: '🏘️' },
   country: { name: 'Campagne', short: 'campagne', icon: '🌾' },
 };
-// Profondeur des faubourgs : cases au-delà de l'enceinte (2 : laisse la rive de la rivière à la campagne)
-export const FAUBOURG_DEPTH = 2;
+// v20 « Ma forteresse » : un anneau d'une case autour de la muraille (douves et glacis, rien n'y est bâti), puis les
+// abords (2 cases) et la campagne. Les faubourgs de la v16 deviennent les abords : seule la campagne productive y reste.
+export const MOAT_RING = 1;
+export const FAUBOURG_DEPTH = 3;
 
-// Où l'on peut bâtir
-export const KEEP_ONLY = ['castle', 'library', 'laboratory', 'forge', 'armory', 'quartermaster'];
-export const COUNTRY_ONLY = ['farm', 'pasture', 'orchard', 'sawmill', 'quarry', 'mine', 'charcoal', 'hunter'];
-export const OUTSIDE_ONLY = ['tannery', 'fishery', 'port', 'herbalist'];
+// Où l'on peut bâtir (v20) : toute la ville dans les murs ; la campagne productive dehors ; quelques bâtiments partout
+export const KEEP_ONLY = ['townhall', 'castle', 'warehouse', 'house', 'market', 'tavern', 'library', 'guildhall', 'laboratory', 'bakery', 'foundry',
+  'weaver', 'carpentry', 'armory', 'quartermaster', 'forge', 'barracks', 'stable', 'workshop', 'embassy', 'cartographer', 'herald', 'lists',
+  'scriptorium', 'sanctuary', 'observatory', 'monument'];
+export const COUNTRY_ONLY = ['farm', 'pasture', 'orchard', 'sawmill', 'quarry', 'mine', 'charcoal', 'hunter', 'herbalist', 'fishery', 'port'];
+export const OUTSIDE_ONLY = [];
 export const ZONE_RULE_TEXT = {
-  keep: 'Intra-muros seulement',
-  country: 'Campagne seulement',
-  outside: 'Hors les murs (faubourgs ou campagne)',
-  any: 'Partout',
+  keep: 'Dans les murs (ville fortifiée)',
+  country: 'Hors les murs (campagne)',
+  outside: 'Hors les murs',
+  any: 'Partout (sauf sur les douves)',
+};
+// Familles de la ville : quartier préféré dans la cour et couleur des toits (repérage, jamais la couleur seule)
+export const FAMILIES = {
+  core: { name: 'Cœur du château', roof: '#2f9c94', dir: [0, 0] },
+  military: { name: 'Militaire', roof: '#a8432f', dir: [0, 1] },
+  economy: { name: 'Économie', roof: '#b0662e', dir: [1, 0] },
+  knowledge: { name: 'Savoir', roof: '#3f6fa3', dir: [0, -1] },
+  places: { name: 'Lieux et vitrine', roof: '#47b3a8', dir: [-1, 0] },
+};
+export const FAMILY_OF = {
+  townhall: 'core', castle: 'core', warehouse: 'core',
+  barracks: 'military', stable: 'military', workshop: 'military', watchtower: 'military', armory: 'military', quartermaster: 'military', lists: 'military',
+  house: 'economy', market: 'economy', bakery: 'economy', foundry: 'economy', weaver: 'economy', carpentry: 'economy', forge: 'economy', mill: 'economy', tannery: 'economy',
+  library: 'knowledge', laboratory: 'knowledge', observatory: 'knowledge', scriptorium: 'knowledge', cartographer: 'knowledge',
+  tavern: 'places', guildhall: 'places', embassy: 'places', herald: 'places', sanctuary: 'places', monument: 'places', deco: 'places', trophy: 'places',
 };
 
-// Effets selon la zone (bonus de production ajouté comme l'adjacence ; ou modificateurs bornés)
+// Effets selon la zone (bonus de production ajouté comme l'adjacence ; ou modificateurs bornés). v20 : la ville étant
+// dans les murs, les malus de la cour (maisons, marché, taverne, guilde) et le bonus de la cour d'armes disparaissent.
 export const ZONE_FX = {
-  house: { keep: { prod: -0.1, text: 'ruelles étroites : −10 %' }, faubourg: { prod: 0.05, text: 'faubourg animé : +5 %' } },
-  market: { keep: { prod: -0.1, text: 'loin des passants : −10 %' }, faubourg: { prod: 0.1, text: 'sur le passage : +10 %' } },
-  tavern: { keep: { prod: -0.1, text: 'loin des passants : −10 %' }, faubourg: { prod: 0.1, text: 'sur le passage : +10 %' } },
-  guildhall: { keep: { prod: -0.1, text: 'loin des passants : −10 %' }, faubourg: { prod: 0.1, text: 'sur le passage : +10 %' } },
   warehouse: { keep: { mods: { protect: 0.05 }, text: 'à l’abri des murs : +5 points de protection', cap: { protect: 0.1 } } },
-  barracks: { keep: { mods: { 'train.speed': 0.05 }, text: 'cour d’armes : formation +5 %' } },
-  stable: { keep: { mods: { 'train.speed': 0.05 }, text: 'cour d’armes : formation +5 %' } },
   watchtower: { faubourg: { mods: { 'raid.warning': 0.1 }, text: 'voit plus loin : préavis des raids +10 %' }, country: { mods: { 'raid.warning': 0.1 }, text: 'voit plus loin : préavis des raids +10 %' } },
 };
 export const ZONE_FX_CAP = { protect: 0.1, 'train.speed': 0.1, 'raid.warning': 0.2 };
 
-// Enceinte : rectangle de cases (cour), muraille sur le bord ; taille de départ et maximum selon le domaine
+// v20 : agrandissements successifs de l'enceinte, un par palier de l'hôtel de ville. Chaque palier contient au moins le
+// nombre maximal de bâtiments de ville permis à l'hôtel de ville où il s'ouvre (vérifié par les tests).
+export const ENC_STAGES = [
+  { size: 6, th: 1, cost: {} },
+  { size: 7, th: 4, cost: { stone: 1200, wood: 800, gold: 400 } },
+  { size: 8, th: 8, cost: { stone: 5000, wood: 3000, gold: 2000 } },
+  { size: 9, th: 12, cost: { stone: 15000, wood: 9000, gold: 6000, frames: 150 } },
+  { size: 10, th: 18, cost: { stone: 40000, wood: 25000, gold: 15000, frames: 400 } },
+  { size: 11, th: 24, cost: { stone: 90000, wood: 60000, gold: 40000, frames: 900 } },
+];
+// Enceinte : rectangle de cases (cour), muraille sur le bord
 export const ENCEINTE = {
-  start: 5,                                   // 5 × 5 cases, centrées sur l'hôtel de ville
-  maxW: (domain) => 7 + 2 * domain,           // domaine 0 : 7 × 7 ; domaine 4 : 15 × 11
-  maxH: (domain) => 7 + domain,
-  refPerimeter: 20,                           // périmètre neutre : l'enceinte de départ (5 × 5)
-  perPerimeter: 0.0125,                       // facteur de muraille par segment d'écart
-  factorMin: 0.8, factorMax: 1.1,
-  segmentCost: { stone: 150, wood: 60, gold: 20 }, // par nouveau segment de muraille, × (1 + 0,15 × niveau)
-  levelCost: 0.15,
-  freeMoveDays: 7,                            // déménagement gratuit après la migration d'une ancienne partie
-  migrateRadius: 3,                           // migration : l'enceinte n'englobe que les bâtiments à 3 cases au plus
+  start: ENC_STAGES[0].size,
+  maxW: () => ENC_STAGES[ENC_STAGES.length - 1].size,
+  maxH: () => ENC_STAGES[ENC_STAGES.length - 1].size,
+  // v20 : la taille de l'enceinte n'est plus un choix (elle suit la ville) : plus de pénalité de périmètre
+  refPerimeter: 20, perPerimeter: 0, factorMin: 1, factorMax: 1,
+  freeMoveDays: 7,                            // déménagement gratuit après la réorganisation d'une ancienne partie
+  migrateMargin: 0.1,                         // migration : 10 % de place en plus que les bâtiments de ville existants
 };
 
 // Raids par zone et dégâts de la muraille
@@ -83,9 +105,11 @@ export const DEFENSE_TOOLS = {
 };
 
 // Décorations utiles (bornées)
+// v20 : la ville est dans les murs ; une décoration y porte les deux effets (bornés) et l'ordre public (systems/order.js)
 export const DECO_FX = {
-  faubourg: { mod: 'worker.morale', per: 2, max: 4, near: ['house', 'market', 'tavern'], text: 'moral des ouvriers +2 (à côté de maisons, d’un marché ou d’une taverne)' },
+  faubourg: null,
   keep: { mod: 'combat.morale', per: 1, max: 3, text: 'moral de la garnison +1' },
+  keepNear: { mod: 'worker.morale', per: 2, max: 4, near: ['house', 'market', 'tavern'], text: 'moral des ouvriers +2 (à côté de maisons, d’un marché ou d’une taverne)' },
   country: null,
 };
 

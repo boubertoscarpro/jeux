@@ -3,7 +3,7 @@ import { ensureArmory } from '../systems/armory.js';
 import { initLegacyCampaign } from '../systems/campaign.js';
 import { ensurePlaces } from '../systems/places.js';
 import { ensureTown } from '../systems/outposts.js';
-import { migrateCastle, castleState } from '../systems/castle.js';
+import { migrateCastle, castleState, ensureFortress } from '../systems/castle.js';
 import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
 import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './state.js';
 import { extendWorld } from '../systems/worldgen.js';
@@ -179,8 +179,12 @@ export function migrate(data) {
   ensureIdentity(data); // noms invalides (modifiés à la main) → noms par défaut
   if (needCastle) { const mc = migrateCastle(data, data.meta.lastTick || Date.now()); data.meta.castleMigrated = mc; }
   else castleState(data);
+
   // v16 « Le Château » : les nouveaux lieux sont posés sur des cases libres (rien n'est déplacé ni supprimé)
   ensurePlaces(data);
+  // v20 « Ma forteresse » : la ville entre dans les murs (une seule fois ; aperçu et annulation pendant 7 jours)
+  const rf = ensureFortress(data, data.meta.lastTick || Date.now());
+  if (rf?.moved) data.meta.fortressMigrated = { moved: rf.moved, left: rf.left, stage: rf.stage };
   // v16 : chaque avant-poste reçoit sa petite ville (vide, hôtel de ville secondaire au centre) ; rien n'est retiré
   for (const t of Object.values(data.territories || {})) ensureTown(t);
   // v18 « L'Armurerie » : châsses selon la rareté, réglages prudents (équipement auto du butin désactivé, aucune règle)

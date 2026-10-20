@@ -51,6 +51,7 @@ import { challengesTick } from '../systems/challenges.js';
 import { legendTick } from '../systems/legendary.js';
 import { inventoryCapTick } from '../systems/crafting.js';
 import { siegeTick } from '../systems/siege.js';
+import { harvestTick } from '../systems/harvest.js';
 import { bus } from './bus.js';
 
 export const MAX_OFFLINE_MS = 12 * 3600 * 1000;
@@ -131,6 +132,7 @@ export function processDue(state, t) {
     scenarioTick(state, t);
     inventoryCapTick(state, t);
     siegeTick(state, t);
+    harvestTick(state, t, mods);
     ecoSampleTick(state, t);
     npcTick(state, t);
     surveyTick(state, t);

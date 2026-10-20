@@ -4,8 +4,8 @@
 // Les chiffres de défense de base restent ceux de la muraille (`wall`) et des douves (`moat`) : ce module ne fait que
 // les moduler (périmètre, dégâts) par le modificateur existant `wall.pct`.
 import {
-  ZONES, FAUBOURG_DEPTH, KEEP_ONLY, COUNTRY_ONLY, OUTSIDE_ONLY, ZONE_RULE_TEXT, ZONE_FX, ZONE_FX_CAP, ENCEINTE, SIEGE,
-  MOAT_FLOOD, FLANKS, ASSAULT_FLANKS, FLANK_RULES, DEFENSE_TOOLS, DECO_FX, CASTLE_STAGES, WALL_STYLES, BUILDING_SCREENS, LOT_TYPES,
+  ZONES, FAUBOURG_DEPTH, MOAT_RING, KEEP_ONLY, COUNTRY_ONLY, OUTSIDE_ONLY, ZONE_RULE_TEXT, ZONE_FX, ZONE_FX_CAP, ENCEINTE, ENC_STAGES, SIEGE,
+  MOAT_FLOOD, FLANKS, ASSAULT_FLANKS, FLANK_RULES, DEFENSE_TOOLS, DECO_FX, CASTLE_STAGES, WALL_STYLES, BUILDING_SCREENS, LOT_TYPES, FAMILIES, FAMILY_OF,
 } from '../data/castle.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { PLACES, SCREEN_PLACE } from '../data/places.js';
@@ -25,7 +25,16 @@ export function castleState(state) {
   C.stage = Number.isFinite(C.stage) ? C.stage : stageIndex(thOf(state));
   C.freeMoveUntil = Number(C.freeMoveUntil) || 0;
   C.stats ||= { enlarged: 0, breaches: 0, held: 0, repaired: 0 };
+  if (!Number.isFinite(C.enc)) C.enc = encFromRect(C.rect);
+  if (!Array.isArray(C.history)) C.history = [];
   return C;
+}
+// Palier d'enceinte correspondant à un rectangle (le plus grand palier qu'il contient)
+function encFromRect(r) {
+  const side = Math.min(rectW(r), rectH(r));
+  let k = 0;
+  ENC_STAGES.forEach((st, i) => { if (side >= st.size) k = i; });
+  return k;
 }
 const validRect = (r) => r && [r.x0, r.y0, r.x1, r.y1].every(Number.isFinite) && r.x1 >= r.x0 && r.y1 >= r.y0;
 const townhall = (state) => blds(state).find((b) => b.type === 'townhall') || { x: Math.floor((state.city?.w || 24) / 2), y: Math.floor((state.city?.h || 16) / 2) };
@@ -35,21 +44,46 @@ function clampRect(state, r) {
   let x0 = Math.max(0, Math.min(W - 1 - w, r.x0)), y0 = Math.max(0, Math.min(Hh - 1 - h, r.y0));
   return { x0, y0, x1: x0 + w, y1: y0 + h };
 }
-export function defaultRect(state) {
-  const t = townhall(state), half = Math.floor(ENCEINTE.start / 2);
-  return clampRect(state, { x0: t.x - half, y0: t.y - half, x1: t.x + half, y1: t.y + half });
+export function defaultRect(state) { return squareRect(state, ENCEINTE.start); }
+// Carré de côté n centré sur l'hôtel de ville, gardé dans le domaine (avec la place des douves si possible)
+export function squareRect(state, n) {
+  const t = townhall(state), lo = Math.floor((n - 1) / 2);
+  const W = state.city?.w || 24, Hh = state.city?.h || 16, m = MOAT_RING;
+  const fit = (c, size, max) => Math.max(Math.min(m, max - size), Math.min(c, max - size - Math.min(m, max - size)));
+  const x0 = fit(t.x - lo, n, W), y0 = fit(t.y - lo, n, Hh);
+  return clampRect(state, { x0, y0, x1: x0 + n - 1, y1: y0 + n - 1 });
 }
 export const rectOf = (state) => (validRect(state.castle?.rect) ? state.castle.rect : defaultRect(state));
 export const rectW = (r) => r.x1 - r.x0 + 1;
 export const rectH = (r) => r.y1 - r.y0 + 1;
 export const perimeter = (r) => 2 * (rectW(r) + rectH(r));
-export const maxDims = (state) => ({ w: Math.min(state.city.w, ENCEINTE.maxW(state.domain || 0)), h: Math.min(state.city.h, ENCEINTE.maxH(state.domain || 0)) });
+export const maxDims = (state) => { const n = ENC_STAGES[maxEncStage(state)].size; return { w: Math.min(state.city.w, n), h: Math.min(state.city.h, n) }; };
+// ───────── Paliers d'agrandissement (v20) ─────────
+export const encStage = (state) => (Number.isFinite(state.castle?.enc) ? state.castle.enc : encFromRect(rectOf(state)));
+export function maxEncStage(state) { const th = thOf(state); let k = 0; ENC_STAGES.forEach((st, i) => { if (th >= st.th) k = i; }); return k; }
+export const nextEncStage = (state) => (encStage(state) + 1 < ENC_STAGES.length ? { index: encStage(state) + 1, ...ENC_STAGES[encStage(state) + 1] } : null);
+// Porte (milieu du bord sud, dans l'axe de l'hôtel de ville) et allée pavée de la porte à l'hôtel de ville (laissée libre)
+export function gateOf(state, r = rectOf(state)) {
+  const t = townhall(state);
+  return { x: Math.max(r.x0, Math.min(r.x1, t.x)), y: r.y1 };
+}
+export function alleeTiles(state, r = rectOf(state)) {
+  const t = townhall(state), g = gateOf(state, r), out = [];
+  if (t.x !== g.x) return out;
+  for (let y = t.y + 1; y <= r.y1; y++) out.push({ x: g.x, y });
+  return out;
+}
+export const isAllee = (state, x, y, r = rectOf(state)) => alleeTiles(state, r).some((a) => a.x === x && a.y === y);
+// Capacité de la cour : cases du carré, moins l'hôtel de ville et l'allée
+export const keepCapacity = (n) => n * n - 1 - Math.ceil(n / 2);
+export const isCityType = (type) => KEEP_ONLY.includes(type);
+export const familyOf = (type) => FAMILY_OF[type] || (COUNTRY_ONLY.includes(type) ? 'economy' : 'places');
 
 // ───────── Zones ─────────
 export function zoneAt(state, x, y, r = rectOf(state)) {
   if (x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) return 'keep';
   const d = Math.max(r.x0 - x, 0, x - r.x1, r.y0 - y, 0, y - r.y1);
-  return d <= FAUBOURG_DEPTH ? 'faubourg' : 'country';
+  return d <= MOAT_RING ? 'moat' : d <= FAUBOURG_DEPTH ? 'faubourg' : 'country';
 }
 export const inKeep = (state, x, y, r) => zoneAt(state, x, y, r) === 'keep';
 export function ruleOf(type) {
@@ -59,6 +93,7 @@ export function ruleOf(type) {
   return 'any';
 }
 export function zoneAllows(type, zone) {
+  if (zone === 'moat') return false;
   const r = ruleOf(type);
   if (r === 'keep') return zone === 'keep';
   if (r === 'country') return zone === 'country';
@@ -70,12 +105,21 @@ export const ruleText = (type) => ZONE_RULE_TEXT[ruleOf(type)];
 export function zoneCheck(state, type, x, y) {
   if (!BUILDINGS[type] || BUILDINGS[type].grid === false || type === 'road' || type === 'townhall') return { ok: true };
   const z = zoneAt(state, x, y);
+  if (z === 'keep' && isAllee(state, x, y)) return { ok: false, reason: 'L’allée de la porte reste libre.', zone: z };
   if (zoneAllows(type, z)) return { ok: true, zone: z };
   const r = ruleOf(type);
-  const reason = r === 'keep' ? 'Ce bâtiment se construit dans la cour du donjon (intra-muros).'
-    : r === 'country' ? 'Ce bâtiment se construit dans la campagne, au-delà des faubourgs.'
-      : 'Ce bâtiment se construit hors les murs (faubourgs ou campagne).';
+  const reason = z === 'moat' ? 'On ne bâtit pas sur les douves ni sur le glacis, au pied de la muraille.'
+    : r === 'keep' ? (keepFree(state) ? 'Ce bâtiment se construit dans les murs, dans la ville fortifiée.' : `La ville fortifiée est pleine : agrandissez l’enceinte${nextEncStage(state) ? ` (hôtel de ville ${nextEncStage(state).th})` : ''}.`)
+      : r === 'country' ? 'Ce bâtiment de campagne se construit hors les murs.'
+        : 'Ce bâtiment se construit hors les murs.';
   return { ok: false, reason, zone: z };
+}
+// Cases libres et constructibles de la cour (hors allée)
+export function keepFree(state, r = rectOf(state)) {
+  const taken = new Set(blds(state).map((b) => b.x + ',' + b.y));
+  let n = 0;
+  for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (!taken.has(x + ',' + y) && state.city.terrain[y * state.city.w + x] === 'plain' && !isAllee(state, x, y, r)) n++;
+  return n;
 }
 // Bâtiments mal placés au regard des règles (anciennes parties) : ils restent actifs
 export const misplaced = (state) => blds(state).filter((b) => b.level >= 0 && BUILDINGS[b.type] && !zoneAllows(b.type, zoneAt(state, b.x, b.y)) && b.type !== 'townhall');
@@ -111,47 +155,196 @@ export function castleMods(state) {
   return m;
 }
 
-// Agrandir l'enceinte d'une rangée ou d'une colonne (côté n, s, e, o)
-const SIDES = { n: ['y0', -1], s: ['y1', 1], w: ['x0', -1], e: ['x1', 1] };
-export function enlargePreview(state, side) {
-  const r = rectOf(state), [k, d] = SIDES[side] || [];
-  if (!k) return { ok: false, reason: 'Côté inconnu' };
-  const n = { ...r, [k]: r[k] + d };
-  if (n.x0 < 0 || n.y0 < 0 || n.x1 >= state.city.w || n.y1 >= state.city.h) return { ok: false, reason: 'Bord du domaine atteint' };
-  const mx = maxDims(state);
-  if (rectW(n) > mx.w || rectH(n) > mx.h) return { ok: false, reason: `Enceinte maximale pour ce domaine (${mx.w} × ${mx.h}) : agrandissez le domaine` };
-  const seg = perimeter(n) - perimeter(r);
-  const k2 = 1 + ENCEINTE.levelCost * fortLevel(state, 'wall');
-  const cost = Object.fromEntries(Object.entries(ENCEINTE.segmentCost).map(([res, v]) => [res, Math.ceil(v * seg * k2)]));
-  const trapped = blds(state).filter((b) => b.level >= 0 && zoneAt(state, b.x, b.y, n) === 'keep' && zoneAt(state, b.x, b.y, r) !== 'keep' && (ruleOf(b.type) === 'country' || ruleOf(b.type) === 'outside'));
-  return { ok: true, rect: n, cost, segments: seg, perimeter: perimeter(n), factor: Math.max(ENCEINTE.factorMin, Math.min(ENCEINTE.factorMax, 1 + ENCEINTE.perPerimeter * (ENCEINTE.refPerimeter - perimeter(n)))), trapped };
+// ───────── Agrandissements (v20) ─────────
+// Le carré grandit d'une rangée et d'une colonne par palier, du côté qui a le plus de place (il contient toujours
+// l'ancienne enceinte : rien de ce qui était dans les murs n'en sort)
+function growRect(state, r, n) {
+  const W = state.city.w, Hh = state.city.h, m = MOAT_RING;
+  const out = { ...r };
+  const axis = (lo, hi, max) => {
+    while (out[hi] - out[lo] + 1 < n) {
+      const roomLo = out[lo] - m, roomHi = max - 1 - m - out[hi];
+      if (roomHi >= roomLo && out[hi] < max - 1) out[hi]++;
+      else if (out[lo] > 0) out[lo]--;
+      else if (out[hi] < max - 1) out[hi]++;
+      else break;
+    }
+  };
+  axis('x0', 'x1', W); axis('y0', 'y1', Hh);
+  return out;
 }
-export function enlargeEnceinte(state, side, pay, now = Date.now()) {
+// Cases de l'anneau des douves autour d'un rectangle
+const inRing = (r, x, y) => { const d = Math.max(r.x0 - x, 0, x - r.x1, r.y0 - y, 0, y - r.y1); return d >= 1 && d <= MOAT_RING; };
+const inRect = (r, x, y) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+// Le chantier aplanit la cour et le glacis : forêt, montagne et bras de rivière deviennent des cases libres (les décombres
+// restent : on les déblaie, c'est le premier geste d'une partie)
+function flatten(state, r) {
+  const W = state.city.w, T = state.city.terrain, changed = [];
+  for (let y = Math.max(0, r.y0 - MOAT_RING); y <= Math.min(state.city.h - 1, r.y1 + MOAT_RING); y++) {
+    for (let x = Math.max(0, r.x0 - MOAT_RING); x <= Math.min(W - 1, r.x1 + MOAT_RING); x++) {
+      const i = y * W + x;
+      if (T[i] !== 'plain' && T[i] !== 'rubble') { changed.push([i, T[i]]); T[i] = 'plain'; }
+    }
+  }
+  return changed;
+}
+// Case libre la plus proche pour un bâtiment, dans la zone voulue (keep : dans les murs ; out : dehors)
+function nearestFree(state, type, from, where, r, taken) {
+  const W = state.city.w, Hh = state.city.h, def = BUILDINGS[type] || {};
+  const allee = new Set(alleeTiles(state, r).map((a) => a.x + ',' + a.y));
+  let best = null, bd = Infinity;
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    const k = x + ',' + y;
+    if (taken.has(k) || state.city.terrain[y * W + x] !== 'plain' || allee.has(k)) continue;
+    const z = zoneAt(state, x, y, r);
+    if (where === 'keep' ? z !== 'keep' : (z === 'keep' || z === 'moat' || !zoneAllows(type, z))) continue;
+    if (def.place === 'river') {
+      let ok = false;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < W && ny < Hh && state.city.terrain[ny * W + nx] === 'river') ok = true; }
+      if (!ok) continue;
+    }
+    const d = Math.hypot(x - from[0], y - from[1]) + x * 1e-4 + y * 1e-6;
+    if (d < bd) { bd = d; best = [x, y]; }
+  }
+  return best;
+}
+// Fait sortir des murs, des douves et de l'allée ce qui n'y a pas sa place (bâtiments de campagne, chantiers exceptés)
+function relocateOut(state, r, moves) {
+  const taken = new Set(blds(state).map((b) => b.x + ',' + b.y));
+  const allee = new Set(alleeTiles(state, r).map((a) => a.x + ',' + a.y));
+  const busy = new Set((state.queues?.build || []).map((q) => q.bid));
+  for (const b of blds(state)) {
+    if (b.type === 'townhall' || busy.has(b.id)) continue;
+    const z = zoneAt(state, b.x, b.y, r);
+    const onAllee = allee.has(b.x + ',' + b.y);
+    if (!onAllee && (z === 'keep' ? zoneAllows(b.type, 'keep') || ruleOf(b.type) === 'any' : z !== 'moat')) continue;
+    const where = isCityType(b.type) || (onAllee && ruleOf(b.type) !== 'country') ? 'keep' : 'out';
+    const to = nearestFree(state, b.type, [b.x, b.y], where, r, taken) || (where === 'keep' ? nearestFree(state, b.type, [b.x, b.y], 'out', r, taken) : null);
+    if (!to) continue;
+    taken.delete(b.x + ',' + b.y); taken.add(to.join(','));
+    moves.push({ id: b.id, from: [b.x, b.y], to });
+    b.x = to[0]; b.y = to[1];
+  }
+}
+export function enlargePreview(state) {
+  const nx = nextEncStage(state);
+  if (!nx) return { ok: false, reason: 'Enceinte à sa taille maximale' };
+  if (thOf(state) < nx.th) return { ok: false, reason: `Hôtel de ville niv. ${nx.th} requis`, next: nx };
+  const r = rectOf(state), n = growRect(state, r, nx.size);
+  if (rectW(n) < nx.size || rectH(n) < nx.size) return { ok: false, reason: 'Bord du domaine atteint : agrandissez le domaine' };
+  const leaving = blds(state).filter((b) => b.type !== 'townhall' && !inRect(r, b.x, b.y) && (inRect(n, b.x, b.y) || inRing(n, b.x, b.y)) && !(isCityType(b.type) && inRect(n, b.x, b.y)));
+  const entering = blds(state).filter((b) => isCityType(b.type) && !inRect(r, b.x, b.y) && inRect(n, b.x, b.y));
+  return { ok: true, rect: n, cost: { ...nx.cost }, size: nx.size, stage: nx.index, th: nx.th, moving: leaving.length, entering: entering.length, perimeter: perimeter(n), factor: 1, trapped: [] };
+}
+// Agrandir l'enceinte d'un palier. pay(cost) → bool ; free : offert (agrandissement du domaine)
+export function enlargeEnceinte(state, _side, pay, now = Date.now()) {
+  if (typeof _side === 'function') { now = pay ?? now; pay = _side; }
   const C = castleState(state);
-  const p = enlargePreview(state, side);
+  const p = enlargePreview(state);
   if (!p.ok) return p;
   if (!pay(p.cost)) return { ok: false, reason: 'Ressources insuffisantes' };
-  C.rect = p.rect;
-  C.stats.enlarged++;
-  return { ok: true, rect: p.rect, trapped: p.trapped.length, at: now };
+  const before = { ...C.rect };
+  C.rect = p.rect; C.enc = p.stage; C.stats.enlarged++;
+  flatten(state, p.rect);
+  const moves = [];
+  relocateOut(state, p.rect, moves);
+  C.history.push({ t: now, rect: { ...p.rect }, enc: p.stage });
+  C.lastGrow = { t: now, from: before, to: { ...p.rect } };
+  return { ok: true, rect: p.rect, stage: p.stage, size: p.size, moved: moves.length, trapped: 0, at: now };
 }
-export function shrinkPreview(state, side) {
-  const r = rectOf(state), [k, d] = SIDES[side] || [];
-  if (!k) return { ok: false, reason: 'Côté inconnu' };
-  const n = { ...r, [k]: r[k] - d };
-  if (rectW(n) < 3 || rectH(n) < 3) return { ok: false, reason: 'Enceinte minimale (3 × 3)' };
-  const t = townhall(state);
-  if (zoneAt(state, t.x, t.y, n) !== 'keep') return { ok: false, reason: 'L’hôtel de ville doit rester intra-muros' };
-  const out = blds(state).filter((b) => zoneAt(state, b.x, b.y, r) === 'keep' && zoneAt(state, b.x, b.y, n) !== 'keep' && ruleOf(b.type) === 'keep');
-  if (out.length) return { ok: false, reason: `${BUILDINGS[out[0].type].name} se retrouverait hors les murs` };
-  return { ok: true, rect: n, perimeter: perimeter(n) };
+export const enlargeCastle = (state, pay, now) => enlargeEnceinte(state, null, pay, now);
+export function shrinkPreview() { return { ok: false, reason: 'L’enceinte ne se réduit plus : elle suit la ville' }; }
+export function shrinkEnceinte() { return shrinkPreview(); }
+
+// ───────── Réorganisation d'une ancienne partie (v20) ─────────
+// L'enceinte prend le plus petit palier qui contient la ville (+10 %), dans la limite permise par l'hôtel de ville ;
+// la ville entre dans les murs par quartiers (militaire vers la porte, économie à l'est, savoir au nord, lieux à
+// l'ouest) ; la campagne sort des murs et des douves. Rien n'est détruit ; tout s'annule pendant le déménagement gratuit.
+export function cityCount(state) { return blds(state).filter((b) => isCityType(b.type)).length; }
+export function stageFor(state, count = cityCount(state)) {
+  const max = maxEncStage(state);
+  for (let k = 0; k <= max; k++) if (keepCapacity(ENC_STAGES[k].size) + 1 >= Math.ceil(count * (1 + ENCEINTE.migrateMargin))) return k;
+  return max;
 }
-export function shrinkEnceinte(state, side) {
+export function reorganize(state, now = Date.now(), { stage = null } = {}) {
   const C = castleState(state);
-  const p = shrinkPreview(state, side);
-  if (!p.ok) return p;
-  C.rect = p.rect;
-  return { ok: true, rect: p.rect };
+  const undo = { at: now, rect: { ...C.rect }, enc: C.enc, positions: Object.fromEntries(blds(state).map((b) => [b.id, [b.x, b.y]])), terrain: null };
+  const k = stage ?? stageFor(state);
+  const r = squareRect(state, ENC_STAGES[k].size);
+  C.rect = r; C.enc = k;
+  const changed = flatten(state, r);
+  undo.terrain = changed;
+  const moves = [];
+  // 1) La campagne quitte les murs et les douves ; ce qui bloque l'allée s'écarte
+  relocateOut(state, r, moves);
+  // 2) La ville entre dans les murs, par quartiers (les bâtiments déjà dans les murs restent où ils sont)
+  const t = townhall(state), n = ENC_STAGES[k].size;
+  const taken = new Set(blds(state).map((b) => b.x + ',' + b.y));
+  const allee = new Set(alleeTiles(state, r).map((a) => a.x + ',' + a.y));
+  const busy = new Set((state.queues?.build || []).map((q) => q.bid));
+  const famOrder = ['core', 'military', 'economy', 'knowledge', 'places'];
+  const todo = blds(state).filter((b) => isCityType(b.type) && b.type !== 'townhall' && !inRect(r, b.x, b.y) && !busy.has(b.id))
+    .sort((a, b) => famOrder.indexOf(familyOf(a.type)) - famOrder.indexOf(familyOf(b.type)) || b.level - a.level || (a.id < b.id ? -1 : 1));
+  let left = 0;
+  for (const b of todo) {
+    const dir = FAMILIES[familyOf(b.type)]?.dir || [0, 0];
+    const anchor = [t.x + dir[0] * n / 3, t.y + dir[1] * n / 3];
+    let best = null, bd = Infinity;
+    for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
+      const kk = x + ',' + y;
+      if (taken.has(kk) || allee.has(kk) || state.city.terrain[y * state.city.w + x] !== 'plain') continue;
+      const d = Math.hypot(x - anchor[0], y - anchor[1]) + x * 1e-4 + y * 1e-6;
+      if (d < bd) { bd = d; best = [x, y]; }
+    }
+    if (!best) { left++; continue; }
+    taken.delete(b.x + ',' + b.y); taken.add(best.join(','));
+    moves.push({ id: b.id, from: [b.x, b.y], to: best });
+    b.x = best[0]; b.y = best[1];
+  }
+  // 3) Plans de ville enregistrés (v17) : les positions devenues invalides prennent la nouvelle place du bâtiment
+  for (const p of state.cityPlans?.saved || []) {
+    const lay = p?.layout || p?.plan;
+    if (!lay || typeof lay !== 'object') continue;
+    for (const [id, pos] of Object.entries(lay)) {
+      const b = state.city.buildings[id];
+      if (!b || !Array.isArray(pos)) continue;
+      const z = zoneAt(state, pos[0], pos[1], r);
+      if (!zoneAllows(b.type, z) || allee.has(pos.join(','))) lay[id] = [b.x, b.y];
+    }
+  }
+  if (state.cityPlans) state.cityPlans.undo = null;
+  // Rien n'a bougé (partie récente) : rien à annuler ni à annoncer
+  const changedRect = undo.rect.x0 !== r.x0 || undo.rect.y0 !== r.y0 || undo.rect.x1 !== r.x1 || undo.rect.y1 !== r.y1;
+  if (moves.length || changedRect || changed.length) {
+    C.reorg = { ...undo, moved: moves.length, left, until: now + ENCEINTE.freeMoveDays * 24 * H };
+    C.freeMoveUntil = Math.max(C.freeMoveUntil || 0, now + ENCEINTE.freeMoveDays * 24 * H);
+  }
+  C.history.push({ t: now, rect: { ...r }, enc: k });
+  return { ok: true, rect: r, stage: k, moved: moves.length, left, moves };
+}
+// Annuler la réorganisation : les bâtiments reprennent leur ancienne place (si elle est encore libre), l'enceinte et le
+// terrain d'avant reviennent (sauf sous un bâtiment construit depuis)
+export function undoReorganize(state) {
+  const C = castleState(state), u = C.reorg;
+  if (!u) return { ok: false, reason: 'Rien à annuler' };
+  const target = new Map();
+  for (const b of blds(state)) target.set(b.id, u.positions[b.id] || [b.x, b.y]);
+  const at = new Map();
+  for (const [id, [x, y]] of target) { const k = x + ',' + y; if (at.has(k)) { const b = state.city.buildings[id]; target.set(id, [b.x, b.y]); } else at.set(k, id); }
+  let back = 0;
+  for (const [id, [x, y]] of target) { const b = state.city.buildings[id]; if (b.x !== x || b.y !== y) { b.x = x; b.y = y; back++; } }
+  const occupied = new Set(blds(state).map((b) => b.y * state.city.w + b.x));
+  for (const [i, ter] of u.terrain || []) if (!occupied.has(i)) state.city.terrain[i] = ter;
+  C.rect = u.rect; C.enc = u.enc; C.reorg = null; C.reorgUndone = Date.now();
+  return { ok: true, back };
+}
+// Ancienne partie : réorganisée une seule fois (v20)
+export function ensureFortress(state, now = Date.now()) {
+  const C = castleState(state);
+  if (C.v20 || C.reorgUndone) return null;
+  C.v20 = now;
+  const res = reorganize(state, now);
+  return res;
 }
 
 // ───────── Raids par zone ─────────
@@ -259,21 +452,23 @@ export function useTools(state, flank, pay) {
 // ───────── Décorations utiles ─────────
 export function decoEffects(state) {
   const near = (d, types) => blds(state).some((o) => o !== d && o.level > 0 && types.includes(o.type) && Math.max(Math.abs(o.x - d.x), Math.abs(o.y - d.y)) <= 1);
-  const count = { faubourg: 0, keep: 0 };
+  const count = { faubourg: 0, keep: 0, keepNear: 0 };
   const list = [];
   for (const d of blds(state)) {
     if (d.type !== 'deco') continue;
     const z = zoneAt(state, d.x, d.y);
-    const fx = DECO_FX[z];
-    let active = !!fx && (!fx.near || near(d, fx.near));
-    if (active && count[z] >= fx.max) active = false;
-    if (active) count[z]++;
-    list.push({ id: d.id, zone: z, active, text: fx ? fx.text : 'en campagne, personne ne la voit : aucun effet' });
+    // v20 : dans les murs, une décoration porte le moral de la garnison et, à côté des maisons, celui des ouvriers
+    const fx = z === 'keep' ? DECO_FX.keep : null;
+    const active = !!fx && count.keep < fx.max;
+    if (active) count.keep++;
+    const nearOk = z === 'keep' && near(d, DECO_FX.keepNear.near) && count.keepNear < DECO_FX.keepNear.max;
+    if (nearOk) count.keepNear++;
+    list.push({ id: d.id, zone: z, active: active || nearOk, text: z === 'keep' ? `${fx.text}${nearOk ? ` ; ${DECO_FX.keepNear.text}` : ''} ; ordre public` : 'hors les murs : aucun effet (placez-la dans la ville)' });
   }
   const mods = {};
-  if (count.faubourg) mods[DECO_FX.faubourg.mod] = count.faubourg * DECO_FX.faubourg.per;
+  if (count.keepNear) mods[DECO_FX.keepNear.mod] = count.keepNear * DECO_FX.keepNear.per;
   if (count.keep) mods[DECO_FX.keep.mod] = count.keep * DECO_FX.keep.per;
-  return { mods, list, count };
+  return { mods, list, count: { faubourg: count.keepNear, keep: count.keep } };
 }
 
 // ───────── Silhouette et apparence ─────────
@@ -288,7 +483,7 @@ export function vacantLots(state) {
   const r = rectOf(state), W = state.city.w, Hh = state.city.h;
   const taken = new Set(blds(state).map((b) => b.x + ',' + b.y));
   for (const q of state.queues?.build || []) if (q.kind === 'clear') taken.add(q.x + ',' + q.y);
-  const gate = { x: Math.floor((r.x0 + r.x1) / 2), y: r.y1 + 1 };
+  const gate = { x: gateOf(state, r).x, y: r.y1 + 1 };
   const center = { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 };
   const out = [];
   for (const type of LOT_TYPES) {
@@ -296,14 +491,14 @@ export function vacantLots(state) {
     // Seulement ce qui est à portée (débloqué, ou au prochain niveau de l'hôtel de ville) : sinon la cour d'une
     // nouvelle partie se couvre de panneaux. Les autres lieux restent dans la liste Lieux, « à bâtir ».
     if ((BUILDINGS[type].req?.townhall || 1) > thOf(state) + 1) continue;
-    const prefKeep = ruleOf(type) === 'keep' || ['barracks', 'warehouse'].includes(type);
+    const prefKeep = ruleOf(type) === 'keep';
     const anchor = prefKeep ? center : gate;
+    const allee = new Set(alleeTiles(state, r).map((a) => a.x + ',' + a.y));
     let best = null, bd = Infinity;
     for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
-      if (taken.has(x + ',' + y) || state.city.terrain[y * W + x] !== 'plain') continue;
+      if (taken.has(x + ',' + y) || allee.has(x + ',' + y) || state.city.terrain[y * W + x] !== 'plain') continue;
       const z = zoneAt(state, x, y, r);
       if (!zoneAllows(type, z)) continue;
-      if (prefKeep && ruleOf(type) !== 'keep' && z !== 'keep') continue;
       if (!prefKeep && z !== 'faubourg') continue;
       const d = Math.hypot(x - anchor.x, y - anchor.y) + (x + y * 0.01) * 1e-4;
       if (d < bd) { bd = d; best = { x, y }; }
@@ -319,30 +514,18 @@ export function vacantLots(state) {
 // bâtiments mal placés restent actifs et le déménagement est gratuit pendant 7 jours.
 export function newCastle(state) {
   state.castle = null;
-  return castleState(state);
+  const C = castleState(state);
+  C.rect = squareRect(state, ENC_STAGES[0].size); C.enc = 0;
+  flatten(state, C.rect);
+  return C;
 }
+// Partie d'avant la v16 (sans enceinte) : on trace l'enceinte, puis on réorganise comme une partie v19
 export function migrateCastle(state, now = Date.now()) {
   state.castle = null;
   const C = castleState(state);
-  let r = defaultRect(state);
-  const mx = maxDims(state);
-  const t = townhall(state);
-  const cand = blds(state).filter((b) => b.type !== 'townhall' && ['keep', 'any'].includes(ruleOf(b.type)) && !['road', 'deco'].includes(b.type))
-    .sort((a, b) => (ruleOf(b.type) === 'keep') - (ruleOf(a.type) === 'keep') || Math.max(Math.abs(a.x - t.x), Math.abs(a.y - t.y)) - Math.max(Math.abs(b.x - t.x), Math.abs(b.y - t.y)));
-  for (const b of cand) {
-    // Seulement les bâtiments proches (3 cases au plus de l'hôtel de ville) : une enceinte trop longue affaiblirait la
-    // muraille d'une partie existante ; les autres restent actifs et se déménagent gratuitement
-    if (Math.max(Math.abs(b.x - t.x), Math.abs(b.y - t.y)) > ENCEINTE.migrateRadius) continue;
-    const n = { x0: Math.min(r.x0, b.x), y0: Math.min(r.y0, b.y), x1: Math.max(r.x1, b.x), y1: Math.max(r.y1, b.y) };
-    if (rectW(n) > mx.w || rectH(n) > mx.h) continue;
-    // On n'enferme pas un champ, une carrière ou une tannerie dans la cour
-    if (blds(state).some((o) => zoneAt(state, o.x, o.y, n) === 'keep' && zoneAt(state, o.x, o.y, r) !== 'keep' && ['country', 'outside'].includes(ruleOf(o.type)))) continue;
-    r = n;
-  }
-  C.rect = clampRect(state, r);
   C.migrated = now;
-  C.freeMoveUntil = now + ENCEINTE.freeMoveDays * 24 * H;
   C.stage = stageIndex(thOf(state));
+  C.freeMoveUntil = now + ENCEINTE.freeMoveDays * 24 * H;
   return { rect: C.rect, misplaced: misplaced(state).length };
 }
 
@@ -356,4 +539,4 @@ export function castleTick(state, now, dtH) {
   return null;
 }
 
-export { ZONES, FLANKS, ASSAULT_FLANKS, DEFENSE_TOOLS, CASTLE_STAGES, BUILDING_SCREENS };
+export { ZONES, FLANKS, ASSAULT_FLANKS, DEFENSE_TOOLS, CASTLE_STAGES, BUILDING_SCREENS, ENC_STAGES, FAMILIES };

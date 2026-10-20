@@ -241,7 +241,57 @@ export function paintCityGround(state, scene, key, quality) {
   cityGround = { key, canvas: cv, ms: Math.round(performance.now() - t0) };
   return cv;
 }
-export const cityGroundStats = () => ({ ms: cityGround.ms, key: cityGround.key });
+export const cityGroundStats = () => ({ ms: cityGround.ms, key: cityGround.key, isoMs: isoGround.ms });
+
+// v20 « Ma forteresse » : sol du royaume pour la vue isométrique. Le canvas reste orthogonal (une case = res px) ;
+// une matrice CSS le projette sur le losange. Pas de décor vu du dessus (arbres, rochers et montagnes sont dessinés
+// debout) ; la cour est pavée, l'allée de la porte dallée, l'anneau des douves en eau (fossé sec sans douves).
+let isoGround = { key: '', canvas: null, ms: 0 };
+export function paintIsoGround(state, scene, key, quality, fort) {
+  if (isoGround.key === key && isoGround.canvas) return isoGround.canvas;
+  const t0 = performance.now();
+  const q = GFX[quality] || GFX.medium;
+  const w = state.city.w, h = state.city.h, res = q.city;
+  const cv = isoGround.canvas || document.createElement('canvas');
+  cv.width = w * res; cv.height = h * res;
+  const c = cv.getContext('2d');
+  const img = c.createImageData(cv.width, cv.height);
+  // Les montagnes et forêts gardent leur sol (roc, sous-bois) ; les arbres et les sommets sont des dessins debout
+  const get = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? null : state.city.terrain[y * w + x]);
+  const dry = scene.drought ? 2 : scene.signs.some((x) => x.key === 'drought') ? 1 : 0;
+  paintTerrain(img, 0, 0, w, h, res, get, palette(scene.season, dry), { seed: 3, jitter: 0.3, dryPatch: dry === 1 ? 0.32 : 0 });
+  c.putImageData(img, 0, 0);
+  softenEdges(c, cv);
+  if (fort) {
+    const r = fort.rect, R = res;
+    // Douves (ou fossé) : l'anneau d'une case autour de la cour
+    c.fillStyle = fort.moat > 0 ? (scene.season === 'winter' ? '#9cc3dc' : '#3f78a6') : '#8a7a5a';
+    c.fillRect((r.x0 - 1) * R, (r.y0 - 1) * R, (r.x1 - r.x0 + 3) * R, (r.y1 - r.y0 + 3) * R);
+    c.fillStyle = 'rgba(255,255,255,.12)';
+    for (let i = 0; i < (r.x1 - r.x0 + 3) * 2; i++) c.fillRect((r.x0 - 1) * R + i * R * 0.5 + R * 0.1, (r.y0 - 1) * R + R * 0.3, R * 0.25, 2);
+    // Glacis : bord de terre entre l'eau et le pied du mur
+    c.fillStyle = '#7d6b4a';
+    c.fillRect((r.x0 - 0.18) * R, (r.y0 - 0.18) * R, (r.x1 - r.x0 + 1.36) * R, (r.y1 - r.y0 + 1.36) * R);
+    // Cour pavée : dalles irrégulières
+    c.fillStyle = '#b9b2a4';
+    c.fillRect(r.x0 * R, r.y0 * R, (r.x1 - r.x0 + 1) * R, (r.y1 - r.y0 + 1) * R);
+    const step = Math.max(4, R / 4);
+    for (let y = r.y0 * R; y < (r.y1 + 1) * R; y += step) for (let x = r.x0 * R; x < (r.x1 + 1) * R; x += step) {
+      const k = tileRand(Math.floor(x / step), Math.floor(y / step), 5);
+      c.fillStyle = k < 0.33 ? '#aea798' : k < 0.66 ? '#c3bcae' : '#b5ae9f';
+      c.fillRect(x + 0.5, y + 0.5, step - 1, step - 1);
+    }
+    // Allée de la porte (dalles claires) et pont devant la porte
+    c.fillStyle = '#d8cfba';
+    for (const a of fort.allee) c.fillRect(a.x * R + R * 0.22, a.y * R, R * 0.56, R);
+    c.fillStyle = '#8a5a33';
+    c.fillRect(fort.gate.x * R + R * 0.2, (r.y1 + 1) * R, R * 0.6, R);
+    c.fillStyle = 'rgba(40,25,10,.35)';
+    for (let i = 1; i < 4; i++) c.fillRect(fort.gate.x * R + R * 0.2, (r.y1 + 1) * R + (i * R) / 4, R * 0.6, 1.5);
+  }
+  isoGround = { key, canvas: cv, ms: Math.round(performance.now() - t0) };
+  return cv;
+}
 
 // ───────── Monde : niveau global + blocs ─────────
 export const CHUNK = 8;
