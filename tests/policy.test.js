@@ -19,6 +19,7 @@ test('Priorité royale : réservée à l’hôtel de ville 3, transition sans ef
   assert.equal(setPolicy(s, 'prosperity', T0).ok, false, 'hôtel de ville 1 : pas encore');
   th(s).level = 3;
   const base = computeMods(s, T0)['prod.all'] || 0;
+  const baseTrain = computeMods(s, T0)['train.speed'] || 0; // v20 : l'ordre public accélère un peu la formation
   assert.ok(setPolicy(s, 'prosperity', T0).ok);
   assert.equal(activePolicy(s, T0 + 1000), null, 'réorganisation : aucune priorité');
   assert.equal(computeMods(s, T0 + 1000)['prod.all'] || 0, base);
@@ -26,7 +27,7 @@ test('Priorité royale : réservée à l’hôtel de ville 3, transition sans ef
   assert.equal(activePolicy(s, t1), 'prosperity');
   const m = computeMods(s, t1);
   assert.ok(Math.abs((m['prod.all'] || 0) - base - 0.08) < 1e-9, 'bonus appliqué');
-  assert.ok((m['train.speed'] || 0) <= -0.12 + 1e-9 + 0, 'malus appliqué');
+  assert.ok((m['train.speed'] || 0) - baseTrain <= -0.12 + 1e-9, 'malus appliqué');
 });
 
 test('Priorité royale : délai entre deux changements, retour immédiat à l’équilibre, persistance', () => {

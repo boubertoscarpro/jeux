@@ -9,6 +9,9 @@ import { placeBuilding } from '../systems/places.js';
 import { startUpgrade, upgradeCheck } from '../systems/construction.js';
 import defenseView from './views/defense.js';
 import omensView from './views/omens.js';
+import orderView from './views/order.js';
+import farlandsView from './views/farlands.js';
+import choresView from './views/chores.js';
 import { profileView, settingsView } from './views/kingdom.js';
 import { bldgView } from './views/city.js';
 import { tileView } from './views/world.js';
@@ -17,6 +20,7 @@ import { queuesHtml, queueActions } from './hud.js';
 import { winSummary } from './winSummary.js';
 import { a11yPrefs, setA11y } from '../systems/a11y.js';
 import { nextBuilding } from '../systems/cityNav.js';
+import { ISO_DIRS, isoStep } from '../systems/iso.js';
 import { snapshotCity, homecoming } from '../systems/homecoming.js';
 import { openKingdomText, kingdomTextActions, bindAnnouncer, openWhy } from './a11yUi.js';
 import { A11Y_DEFAULTS, A11Y_SHOWCASE } from '../data/a11y.js';
@@ -87,9 +91,9 @@ import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView, omensView] },
-  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView, archaeoView, legendView] },
-  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView, defenseView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView, omensView, orderView] },
+  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, farlandsView, factionsView, archaeoView, legendView] },
+  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView, defenseView, choresView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
@@ -147,9 +151,12 @@ export class App {
   cityKeyNext(x, y, key) { return nextBuilding(this.state, x, y, key); }
   focusCityTile(x, y) {
     const grid = document.querySelector('#view .city-grid');
-    const el = grid?.querySelector(`.tile[data-x="${x}"][data-y="${y}"]`);
+    let el = grid?.querySelector(`.tile[data-x="${x}"][data-y="${y}"]`);
+    // v20 : case vide — le curseur clavier (losange) s'y pose
+    if (!el && grid) { this.ui.cityKeyFocus = { x, y }; this.render(); el = document.querySelector(`#view .city-grid .tile[data-x="${x}"][data-y="${y}"]`); }
     if (!el) return;
-    for (const o of grid.querySelectorAll('.tile[tabindex="0"]')) o.setAttribute('tabindex', '-1');
+    const grid2 = document.querySelector('#view .city-grid');
+    for (const o of grid2.querySelectorAll('.tile[tabindex="0"]')) o.setAttribute('tabindex', '-1');
     el.setAttribute('tabindex', '0');
     this.ui.cityKeyFocus = { x, y };
     el.focus({ preventScroll: true });
@@ -550,6 +557,8 @@ export class App {
       if (!t || this.ui.win || ev.altKey || ev.ctrlKey || ev.metaKey) return;
       let n = null;
       if (ev.key === 'Home') { const th = Object.values(this.state.city.buildings).find((b) => b.type === 'townhall'); if (th) n = { x: th.x, y: th.y }; }
+      // v20 : Maj + flèche avance case par case (cases vides comprises), dans la direction de l'écran
+      else if (ev.shiftKey && ISO_DIRS[ev.key]) { this._isoAlt = (this._isoAlt || 0) + 1; n = isoStep(+t.dataset.x, +t.dataset.y, ev.key, this.state.city.w, this.state.city.h, this._isoAlt); }
       else n = this.cityKeyNext(+t.dataset.x, +t.dataset.y, ev.key);
       if (!n) return;
       ev.preventDefault();
@@ -573,6 +582,7 @@ export class App {
     queues: (app) => app.modal(`<h2>⏳ Files du royaume</h2>${queuesHtml(app)}`, {}, 'wide'),
     'res-more': (app) => { app.ui.resMore = !app.ui.resMore; app.renderHud(); },
     'act-more': (app) => { app.ui.actMore = !app.ui.actMore; app.renderHud(); },
+    'right-fold': (app) => { app.ui.rightFolded = !app.ui.rightFolded; app.renderHud(); },
     'left-fold': (app) => { app.ui.leftCollapsed = !(app.ui.leftCollapsed ?? innerWidth <= 1200); app.renderHud(); },
     'drawer-q': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'q' ? null : 'q'; app.renderHud(); },
     'drawer-a': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'a' ? null : 'a'; app.renderHud(); },

@@ -8,6 +8,7 @@ import { createNewState } from '../src/core/state.js';
 import { serialize, deserialize } from '../src/core/save.js';
 import { advance } from '../src/core/engine.js';
 import { computeMods } from '../src/systems/modifiers.js';
+import { orderMods } from '../src/systems/order.js';
 import { storageCap } from '../src/systems/economy.js';
 import { CROWN_PROJECTS, crownSlots } from '../src/data/crown.js';
 import { RESOURCES } from '../src/data/resources.js';
@@ -165,10 +166,12 @@ test('Projets 14 : un bonus temporaire expire ; un bonus permanent de projet uni
   assert.ok(startCrown(s, 'royalMobilization', T0).ok);
   const t1 = T0 + 4 * H;
   const base = computeMods(s, t1)['train.speed'] || 0;
+  // v20 : l'ordre public agit aussi sur la formation et peut changer pendant 9 h (lieux posés) : on en tient compte
+  const ob0 = orderMods(s)['train.speed'] || 0;
   assert.ok(claimCrown(s, 'royalMobilization', t1).ok);
   assert.ok(Math.abs((computeMods(s, t1 + 1000)['train.speed'] || 0) - base - 0.2) < 1e-9);
   advance(s, t1 + 9 * H);
-  assert.ok(Math.abs((computeMods(s, t1 + 9 * H)['train.speed'] || 0) - base) < 1e-9, 'bonus expiré');
+  assert.ok(Math.abs((computeMods(s, t1 + 9 * H)['train.speed'] || 0) - base - ((orderMods(s)['train.speed'] || 0) - ob0)) < 1e-9, 'bonus expiré');
   assert.ok(!s.buffs.some((b) => b.name === 'Mobilisation royale' && b.until > t1 + 9 * H));
   } finally { rng.setSource(null); }
 });

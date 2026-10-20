@@ -28,6 +28,9 @@ import { buildSlots } from '../systems/construction.js';
 import { maxMarches } from '../systems/marches.js';
 import { adviceList } from '../systems/guide.js';
 import { castleName } from '../systems/identity.js';
+import { titleOf } from '../systems/nobility.js';
+import { publicOrder, orderLevel } from '../systems/order.js';
+import { advisorSvg } from './isoArt.js';
 import { fmt, fmtTime } from '../core/util.js';
 import { esc, countdown, progress } from './components.js';
 
@@ -51,18 +54,25 @@ function topLeft(app) {
   const cur = CASTLE_STAGES[i], next = CASTLE_STAGES[i + 1];
   const pct = next ? Math.round(((th - cur.th) / (next.th - cur.th)) * 100) : 100;
   const power = armyPower(armyTotals(s));
-  const doms = Object.entries(s.territories || {});
-  const cur0 = app.ui.map === 'outpost' && app.ui.outpost ? app.ui.outpost : '';
+  // v20 : titre de noblesse et sa barre, ordre public (le choix du domaine passe à côté du globe)
+  const t = titleOf(s), o = publicOrder(s), ol = orderLevel(o.value);
   return `<div class="hud-tl">
     <button class="hud-coat" data-action="nav" data-view="profile" title="Profil du seigneur : dynastie, titres, statistiques" aria-label="Profil du seigneur">${coatSvg(s, 40)}</button>
     <div class="hud-lord">
       <div class="hud-kname">${esc(s.meta.kingdomName)}</div>
       <div class="hud-th" title="${next ? `Prochain palier : ${esc(next.name)} (hôtel de ville ${next.th})` : 'Dernier palier atteint'}"><span>🏛️ HdV ${th} · ${esc(cur.name)}</span><span class="hud-thbar" role="progressbar" aria-label="Progression vers ${esc(next?.name || 'le dernier palier')}" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></span></div>
-      <div class="hud-power" title="Puissance militaire totale">⚔️ ${fmt(power)}</div>
+      <div class="hud-power"><span title="Puissance militaire totale">⚔️ ${fmt(power)}</span><button class="hud-order o-${ol.key}" data-action="nav" data-view="order" title="${esc(`Ordre public ${o.value} (${ol.name}) : ${o.bonus >= 0 ? '+' : ''}${Math.round(o.bonus * 1000) / 10} % de production. Cliquez : pourquoi ?`)}" aria-label="${esc(`Ordre public ${o.value}, ${ol.name}`)}">${ol.icon} ${fmt(o.value)}</button><button class="hud-title" data-action="nav" data-view="order" title="${esc(`Titre : ${t.name} · ${t.honorNow} points d’honneur${t.next ? ` · ${t.next.name} à ${t.next.honor}` : ''}. Cliquez : pourquoi ?`)}" aria-label="${esc(`Titre ${t.name}, ${Math.round(t.progress * 100)} % vers ${t.next?.name || 'le dernier titre'}`)}"><span>👑 ${esc(t.name)}</span><span class="hud-thbar gold" aria-hidden="true"><i style="width:${Math.round(t.progress * 100)}%"></i></span></button></div>
     </div>
-    <label class="hud-domain"><span class="sr-only">Domaine affiché</span><select data-change="domain" aria-label="Choisir le domaine : château ou avant-poste">
-      <option value="">🏰 ${esc(castleName(s))}</option>${doms.map(([k, t]) => `<option value="${k}" ${cur0 === k ? 'selected' : ''}>🚩 ${esc(t.name || k)} · niv. ${t.level || 1}</option>`).join('')}</select></label>
   </div>`;
+}
+// v20 : choix du domaine (château ou avant-poste), à côté du globe
+function domainSelect(app) {
+  const s = app.state;
+  const doms = Object.entries(s.territories || {});
+  if (!doms.length) return '';
+  const cur0 = app.ui.map === 'outpost' && app.ui.outpost ? app.ui.outpost : '';
+  return `<label class="hud-domain"><span class="sr-only">Domaine affiché</span><select data-change="domain" aria-label="Choisir le domaine : château ou avant-poste">
+      <option value="">🏰 ${esc(castleName(s))}</option>${doms.map(([k, t]) => `<option value="${k}" ${cur0 === k ? 'selected' : ''}>🚩 ${esc(t.name || k)} · niv. ${t.level || 1}</option>`).join('')}</select></label>`;
 }
 
 // ───────── Haut centre : ressources ─────────
@@ -125,7 +135,11 @@ export function activities(app) {
 function rightCol(app) {
   const list = activities(app);
   const shown = app.ui.actMore ? list : list.slice(0, 6);
-  return `<div class="hud-r" role="region" aria-label="Activités en cours">${shown.map((a) => `<button class="hud-act" data-action="nav" data-view="${a.view}" title="${esc(a.label)}" aria-label="${esc(a.label)}"><span class="act-ic">${a.icon}</span>${a.end ? `<span class="act-t" data-end="${a.end}">${fmtTime(a.end - Date.now())}</span>` : ''}${badge(a.badge, a.label)}</button>`).join('')}
+  // v20 : panneau vertical repliable (flèches)
+  const folded = !!app.ui.rightFolded;
+  const fold = list.length ? `<button class="hud-fold r" data-action="right-fold" aria-expanded="${!folded}" title="${folded ? 'Déplier' : 'Replier'} les activités" aria-label="${folded ? 'Déplier' : 'Replier'} les activités">${folded ? '▼' : '▲'}</button>` : '';
+  if (folded) return `<div class="hud-r folded" role="region" aria-label="Activités en cours">${fold}${list.some((a) => a.badge === '!') ? badge('!', 'activité urgente') : badge(list.length, 'activités')}</div>`;
+  return `<div class="hud-r" role="region" aria-label="Activités en cours">${fold}${shown.map((a) => `<button class="hud-act" data-action="nav" data-view="${a.view}" title="${esc(a.label)}" aria-label="${esc(a.label)}"><span class="act-ic">${a.icon}</span>${a.end ? `<span class="act-t" data-end="${a.end}">${fmtTime(a.end - Date.now())}</span>` : ''}${badge(a.badge, a.label)}</button>`).join('')}
     ${list.length > 6 ? `<button class="hud-act more" data-action="act-more" title="${app.ui.actMore ? 'Réduire' : `${list.length - 6} autres activités`}" aria-label="Autres activités">${app.ui.actMore ? '−' : `+${list.length - 6}`}</button>` : ''}</div>`;
 }
 
@@ -149,7 +163,7 @@ function leftCol(app) {
       <div class="row gap">${m.done ? `<button class="mini primary" data-action="claim-quest" data-id="${esc(String(m.id))}">Réclamer</button>` : m.action ? `<button class="mini" data-action="${m.action}">Lancer</button>` : `<button class="mini" data-action="go-place" data-view="${esc(m.view || 'goals')}">Y aller</button>`}</div></details>${i === tracked.length - 1 && i >= 1 ? '</details>' : ''}`).join('')}
     ${!collapsed && o?.chapter?.complete && !o.chapter.rewardClaimed ? `<button class="hud-alert good" data-action="claim-chapter" data-n="${o.chapter.n}"><b>🏆 Chapitre terminé</b><span>Réclamer la récompense</span></button>` : ''}
     ${!collapsed && qb >= 2 ? `<button class="hud-alert good" data-action="claim-all"><b>🎁 Tout réclamer</b><span>${qb} récompenses prêtes</span></button>` : ''}
-    ${collapsed ? btn('advisor', '🧙', 'Conseiller du royaume', badge(adv ? '!' : 0, 'conseils importants')) : `<button class="hud-adv" data-action="advisor" title="Conseiller du royaume : tous les conseils" aria-label="Conseiller du royaume${adv ? ` : ${adv} conseils importants` : ''}"><span class="adv-pt" aria-hidden="true">🧙</span><span class="adv-tx"><b>Conseiller</b><small>${esc(top ? (top.text.length > 70 ? top.text.slice(0, 68) + '…' : top.text) : 'Le royaume se porte bien.')}</small></span>${badge(adv ? '!' : 0, 'conseils importants')}</button>`}
+    ${collapsed ? btn('advisor', `<span class="adv-pt ${adv ? 'wave' : ''}" aria-hidden="true">${advisorSvg(30)}</span>`, 'Conseiller du royaume', badge(adv ? '!' : 0, 'conseils importants')) : `<button class="hud-adv" data-action="advisor" title="Conseiller du royaume : tous les conseils" aria-label="Conseiller du royaume${adv ? ` : ${adv} conseils importants` : ''}"><span class="adv-pt ${adv ? 'wave' : ''}" aria-hidden="true">${advisorSvg(40)}</span><span class="adv-tx"><b>Conseiller</b><small>${esc(top ? (top.text.length > 70 ? top.text.slice(0, 68) + '…' : top.text) : 'Le royaume se porte bien.')}</small></span>${badge(adv ? '!' : 0, 'conseils importants')}</button>`}
     ${collapsed ? (alerts.length ? `<span class="hb hb-urgent" aria-label="${alerts.length} alertes">!</span>` : '') : alerts.join('')}
   </div>`;
 }
@@ -219,14 +233,14 @@ function bottomRight(app) {
   const building = app.ui.buildMode;
   return `<div class="hud-br">
     ${app.ui.map === 'city' ? layerBar(app) : ''}
-    <div class="hud-zoom">${app.ui.map === 'outpost' ? '' : `${btn('hud-fit', '⤢', 'Vue d’ensemble')}${btn('hud-center', '⌖', 'Recentrer sur le château')}${btn('hud-zoom', '＋', 'Zoomer', '', 'data-z="1.25"')}${btn('hud-zoom', '－', 'Dézoomer', '', 'data-z="0.8"')}`}</div>
+    <div class="hud-zoom">${app.ui.map === 'outpost' ? '' : `${btn('hud-fit', '⤢', 'Vue d’ensemble')}${btn('hud-center', '⌖', 'Recentrer sur le château')}${btn('hud-zoom', '＋', 'Zoomer', '', 'data-z="1.25"')}${btn('hud-zoom', '－', 'Dézoomer', '', 'data-z="0.8"')}`}${app.ui.map === 'city' ? `${btn('architect', '📐', 'Mode architecte : planifier les bâtiments à venir et voir les agrandissements', '', `aria-pressed="${!!app.ui.architect}"`)}${btn('film-start', '🎞️', 'Le film du château : rejouer sa croissance')}${btn('photo-mode', '📷', 'Mode photo : cacher l’affichage, choisir l’heure et la saison, enregistrer une image')}` : ''}</div>
     <div class="hud-actions" role="toolbar" aria-label="Actions">
       <button class="hud-a ${building ? 'on' : ''}" data-action="build-mode" aria-pressed="${!!building}" title="Construire (touche B)" aria-label="Construire"><span>🔨</span><small>Construire</small></button>
       <button class="hud-a" data-action="nav" data-view="army" title="Armée (touche A)" aria-label="Armée"><span>⚔️</span><small>Armée</small></button>
       <button class="hud-a ph-hide" data-action="nav" data-view="guild" title="Guilde" aria-label="Guilde"><span>🛡️</span><small>Guilde</small>${badge(guildB, 'guilde')}</button>
       <button class="hud-a" data-action="nav" data-view="defense" title="Rapports et défense (touche R)" aria-label="Rapports"><span>✉️</span><small>Rapports</small>${B.reports ? badge(B.reports, 'défaites non lues') : B.reportsDot ? badge('•', 'rapports non lus') : ''}</button>
       <button class="hud-a" data-action="places" title="Tous les lieux (touche L)" aria-label="Lieux"><span>▦</span><small>Lieux</small></button>
-      <button class="hud-globe" data-action="toggle-map" title="${onWorld ? 'Retour au château (touche M)' : 'Carte du monde (touche M)'}" aria-label="${onWorld ? 'Retour au château' : 'Monde'}"><span>${onWorld ? '🏰' : '🌍'}</span><small>${onWorld ? 'Château' : 'Monde'}</small></button>
+      ${domainSelect(app)}<button class="hud-globe" data-action="toggle-map" title="${onWorld ? 'Retour au château (touche M)' : 'Carte du monde (touche M)'}" aria-label="${onWorld ? 'Retour au château' : 'Monde'}"><span>${onWorld ? '🏰' : '🌍'}</span><small>${onWorld ? 'Château' : 'Monde'}</small></button>
     </div>
   </div>`;
 }

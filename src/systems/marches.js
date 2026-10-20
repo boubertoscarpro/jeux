@@ -216,7 +216,7 @@ function marchBattle(state, m, enemies, t, opts = {}) {
     const hero = heroOf(state, m);
     const killed = Object.entries(res.defLosses).reduce((s, [, n]) => s + n * 10, 0);
     if (hero) giveXp(state, hero, 20 + killed, mods);
-    if (res.winner === 'attacker') { state.stats.battlesWon++; state.season.points += SEASON.points.battle; } else state.stats.battlesLost++;
+    if (res.winner === 'attacker') { state.stats.battlesWon++; state.stats.siegesWon = (state.stats.siegesWon || 0) + 1; state.season.points += SEASON.points.battle; } else state.stats.battlesLost++;
     return res;
   }
   const res = simulateBattle(

@@ -1,0 +1,172 @@
+/* v20 « Ma forteresse » — Vue isométrique du royaume, signaux « Zzz », bulles de récolte, vitrine, HUD. */
+
+/* ───────── Scène isométrique ───────── */
+.city-vp.iso { background: radial-gradient(ellipse at 50% 45%, #44602d 0%, #2f4723 60%, #22331a 100%); }
+.iso-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.iso-ground { position: absolute; inset: 0; pointer-events: none; }
+.iso-ground canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; image-rendering: auto; }
+.iso-overlay { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 1; overflow: visible; }
+.iso-hl { fill: rgba(255, 240, 200, 0.18); stroke: #ffe9a8; stroke-width: 2.5; }
+.iso-hl.no { fill: rgba(200, 60, 40, 0.18); stroke: #ff9a86; }
+.iso-selpath { fill: rgba(255, 216, 107, 0.22); stroke: var(--gold, #e2b84a); stroke-width: 4; }
+.iso-scenery, .iso-walls { position: absolute; left: 0; top: 0; pointer-events: none; }
+.iso-s, .iso-w, .iso-ghost { position: absolute; width: 128px; height: 200px; pointer-events: none; }
+.iso-art { position: absolute; left: 0; top: 0; width: 128px; height: 200px; overflow: visible; pointer-events: none; }
+.iso-ghost { opacity: 0.45; filter: saturate(0.4) brightness(1.25); }
+.iso-ghost.arch { opacity: 0.55; filter: sepia(0.5) hue-rotate(160deg) saturate(1.4) brightness(1.2); }
+.iso-raid .iso-art { filter: drop-shadow(0 0 6px rgba(200, 40, 30, 0.8)); }
+
+/* Le calque des objets remplace la grille orthogonale : plus de fond, plus de grille, pas de contexte d'empilement */
+.city-vp .city-grid.iso-objs { display: block; position: absolute; left: 0; top: 0; width: 0; height: 0; padding: 0; margin: 0; gap: 0; background: none; border: 0; box-shadow: none; z-index: auto; }
+.city-vp .tile.iso-b, .city-vp .tile.iso-cursor {
+  position: absolute; width: 128px; height: 200px; aspect-ratio: auto; padding: 0; margin: 0; border: 0; border-radius: 0;
+  background: none; box-shadow: none; overflow: visible; transform: none; pointer-events: none; outline: none;
+}
+.city-vp .tile.iso-b:hover, .city-vp .tile.iso-b.sel, .city-vp .tile.iso-cursor:hover { transform: none; box-shadow: none; }
+.city-vp .tile.iso-b .t-hit, .city-vp .tile.iso-cursor .t-hit { position: absolute; inset: 0; pointer-events: auto; cursor: pointer; }
+.city-vp .tile.iso-b::after, .city-vp .tile.iso-b::before { display: none; }
+.city-vp .tile.iso-b:hover .iso-art:not(.iso-over) { filter: brightness(1.1) drop-shadow(0 0 2px #fff6dc); }
+.city-vp .tile.iso-b.sel .iso-art:not(.iso-over) { filter: drop-shadow(0 0 3px #ffe9a8) drop-shadow(0 0 7px rgba(226, 184, 74, 0.8)); }
+.city-vp .tile.iso-b:focus-visible .iso-art:not(.iso-over), .city-vp .tile.iso-cursor:focus-visible .iso-art { filter: drop-shadow(0 0 0 #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 3px #000) drop-shadow(0 0 6px #ffd86b); }
+.city-vp .tile.iso-cursor { display: block; }
+.city-vp .tile.iso-cursor:not(:focus-visible):not(.kb) .iso-art { opacity: 0.0; }
+.city-vp .tile.iso-b.st-alert .iso-art:not(.iso-over) { filter: drop-shadow(0 0 3px rgba(240, 150, 40, 0.95)); }
+.city-vp .tile.iso-b.st-build .iso-art:not(.iso-over) { opacity: 0.9; }
+.city-vp .tile.iso-b.plan-from .iso-art { opacity: 0.38; }
+.city-vp .tile.iso-b.charred .iso-art { filter: grayscale(0.6) brightness(0.7); }
+.city-vp .tile.iso-b.glow-new .iso-art { filter: drop-shadow(0 0 8px #ffe9a0) drop-shadow(0 0 3px #fff6dc); }
+.city-vp .tile.iso-b.flash-good .iso-art { filter: drop-shadow(0 0 6px #9be37b); }
+.city-vp .tile.iso-b.risk-high .iso-art { filter: drop-shadow(0 0 4px var(--bad, #d9604f)) drop-shadow(0 0 2px var(--bad, #d9604f)); }
+.city-vp .tile.iso-b.risk-mid .iso-art { filter: drop-shadow(0 0 3px var(--warn, #e0a33a)); }
+.city-vp .tile.iso-b.risk-low .iso-art { filter: drop-shadow(0 0 1px var(--warn, #e0a33a)); }
+.city-vp .tile.iso-b.risk-flood { background: none; }
+.city-vp .tile.iso-b.risk-flood::before { content: '🌊'; display: block; position: absolute; left: 50%; top: calc(var(--top, 100px) - 6px); transform: translateX(-50%); font-size: 16px; }
+.city-vp .tile.iso-b.lay .t-lay { position: absolute; left: 34px; right: 34px; top: 178px; height: 8px; border-radius: 4px; border: 1px solid #1d1812; }
+.city-vp .tile.iso-b.guide::after { display: block; top: calc(var(--top, 100px) - 46px); }
+
+/* Nom (au survol, à la sélection, au zoom proche) : sous la base du bâtiment */
+.city-vp .tile.iso-b .t-name { top: 182px; bottom: auto; left: 50%; max-width: 180px; transform: translateX(-50%) scale(var(--bz, 1)); transform-origin: top center; font-size: 11px; padding: 1px 6px; }
+/* Un seul signal par bâtiment, juste au-dessus du toit */
+.city-vp .tile.iso-b .t-sig { left: 50%; right: auto; top: calc(var(--top, 100px) - 26px); transform: translateX(-50%) scale(var(--bz, 1)); transform-origin: bottom center; min-width: 26px; height: 24px; pointer-events: auto; }
+.city-vp .tile.iso-b .t-sig.sig-dot { min-width: 12px; width: 12px; height: 12px; padding: 0; top: calc(var(--top, 100px) - 12px); }
+.city-vp .t-sig.sig-stopped { background: #e7e3f4; border-color: #4a3f7a; color: #261d4f; font-style: italic; }
+.city-vp .t-sig.sig-stopped i { font: italic 800 11px/1 var(--font); letter-spacing: -0.5px; }
+.city-vp .tile.iso-b .t-build { left: 50%; right: auto; top: calc(var(--top, 100px) - 24px); transform: translateX(-50%) scale(var(--bz, 1)); transform-origin: bottom center; }
+.city-vp .tile.iso-b .progress { left: 34px; right: 34px; top: 176px; bottom: auto; height: 6px; }
+.city-vp .tile.iso-b .fx-crowd { left: 26px; right: 26px; top: 160px; bottom: auto; }
+.city-vp .tile.iso-b .fx-fire { left: 50%; bottom: auto; top: calc(var(--top, 100px) + 8px); }
+.city-vp .tile.iso-b .fx-water { position: absolute; left: 10px; right: 10px; top: 150px; height: 40px; border-radius: 50%; }
+.city-vp[data-zl="far"] .tile.iso-b .t-sig.sig-stopped { display: none !important; }
+
+/* Indications du mode Construire */
+.iso-hint { position: absolute; transform: translate(-50%, -50%) scale(var(--bz, 1)); pointer-events: none; font: 700 11px/1 var(--font); padding: 3px 6px; border-radius: 10px; }
+.iso-hint.ok { background: rgba(30, 60, 24, 0.72); color: #dff5c9; border: 1px solid #7fbf63; }
+.iso-hint.ok.pos { background: rgba(28, 80, 30, 0.92); color: #fff; border-color: #b7f29b; }
+.iso-hint.no { background: rgba(70, 20, 14, 0.6); color: #ffd2c8; border: 1px solid #c4523e; }
+
+/* Bulle de récolte (au-dessus du château) */
+.harvest-bubble { position: absolute; left: 50%; top: 112px; transform: translateX(-50%); z-index: 30; min-height: 44px; min-width: 44px; padding: 6px 14px; border-radius: 22px; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: linear-gradient(#fff6dc, #f0d79a); color: #3a2812; border: 2px solid #8a6418; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45); cursor: pointer; font: 600 12px var(--font); animation: v20-bob 2.4s ease-in-out infinite; }
+.harvest-bubble b { font-size: 13px; }
+.harvest-bubble:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+@keyframes v20-bob { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-4px); } }
+
+/* Vie : moulins, roue à aubes, fumée, torches, bannières au vent */
+.iso-sails.spin, .iso-wheel.spin { animation: v20-spin 6s linear infinite; transform-box: view-box; }
+.iso-wheel.spin { animation-duration: 4s; }
+@keyframes v20-spin { to { transform: rotate(360deg); } }
+.iso-torch { animation: v20-torch 1.4s ease-in-out infinite alternate; }
+@keyframes v20-torch { from { opacity: 0.55; } to { opacity: 1; } }
+.iso-flag { animation: v20-flag var(--wind-t, 2.6s) ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 0 50%; }
+@keyframes v20-flag { from { transform: skewY(-4deg) scaleX(0.94); } to { transform: skewY(4deg) scaleX(1.02); } }
+.wind-0 .iso-flag { animation: none; }
+.wind-2 { --wind-t: 1.2s; }
+.wind-3 { --wind-t: 0.7s; }
+.iso-stage.moving .iso-sails, .iso-stage.moving .iso-wheel, .iso-stage.moving .iso-flag, .iso-stage.moving .anim-smoke { animation-play-state: paused; }
+.iso-walls.grow .iso-w { animation: v20-rise 1.2s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes v20-rise { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+html.reduce-motion .iso-world *, html.saver .iso-world *, html.gfx-low .iso-world *, html.reduce-motion .harvest-bubble, html.saver .harvest-bubble { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .iso-world *, .harvest-bubble { animation: none !important; } }
+
+/* Mode photo : le HUD disparaît, seule reste la barre de la photo */
+body.photo-mode .hud, body.photo-mode .bottom-bar, body.photo-mode .city-side, body.photo-mode .harvest-bubble, body.photo-mode .plan-bar:not(.photo-bar), body.photo-mode #toasts, body.photo-mode .advisor { display: none !important; }
+.iso-stage.photo .t-sig, .iso-stage.photo .t-name, .iso-stage.photo .iso-hint, .iso-stage.photo .iso-cursor, .iso-stage.photo .iso-overlay { display: none !important; }
+.photo-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 40; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; max-width: calc(100% - 32px); }
+.photo-bar select, .photo-bar button { min-height: 44px; }
+
+/* Bandeaux (réorganisation, film) */
+.plan-bar.reorg-bar { border-color: var(--gold, #e2b84a); }
+.film-bar .film-progress { display: inline-block; width: 120px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.15); vertical-align: middle; overflow: hidden; }
+.film-bar .film-progress i { display: block; height: 100%; background: var(--gold, #e2b84a); }
+
+/* Vitrine des trophées (onglet du mode Construire) */
+.bp-item.trophy-item .bp-ic svg { width: 34px; height: 34px; }
+.trophy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.trophy-card { border: 1px solid var(--line, #5a4630); border-radius: 10px; padding: 8px; background: rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; gap: 4px; }
+.trophy-card.locked { opacity: 0.75; }
+.trophy-card .tc-art { width: 64px; height: 100px; align-self: center; }
+/* Récolte bonus : petite pièce discrète (la bulle du haut récolte tout d'un clic) ; cachée en vue lointaine */
+.city-vp .tile.iso-b .t-sig.sig-harvest { min-width: 18px; width: 18px; height: 18px; padding: 0; border-width: 1px; top: calc(var(--top, 100px) - 16px); background: #ffe7a0; }
+.city-vp .tile.iso-b .t-sig.sig-harvest i { font-size: 11px; }
+.city-vp[data-zl="far"] .tile.iso-b .t-sig.sig-harvest, .city-vp[data-zl="mid"] .tile.iso-b:not(:hover):not(.sel) .t-sig.sig-harvest { opacity: 0.55; }
+.city-vp[data-zl="far"] .tile.iso-b .t-sig.sig-harvest { display: none !important; }
+
+/* Mode architecte : pointillés des agrandissements à venir */
+.iso-future { fill: none; stroke: #9fd3ff; stroke-width: 3; stroke-dasharray: 10 8; opacity: 0.85; }
+.iso-future-t { fill: #e8f4ff; font: 700 14px var(--font); paint-order: stroke; stroke: #10243a; stroke-width: 4px; }
+.iso-stage.architect .iso-ghost.arch { opacity: 0.7; }
+.iso-ghost.arch:not(.on) { opacity: 0.35; }
+
+/* ───────── Affichage fixe v20 ───────── */
+/* Haut gauche : titre de noblesse avec sa barre, ordre public */
+.hud-power { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; }
+.hud-title { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0; color: var(--ivory, #eee5d0); font: 600 12px var(--font); cursor: pointer; min-height: 24px; }
+.hud-thbar.gold i { background: linear-gradient(90deg, #b8862e, #ffd86b); }
+.hud-order { background: rgba(0, 0, 0, 0.3); border: 1px solid #6a5434; border-radius: 10px; color: var(--ivory, #eee5d0); font: 600 12px var(--font); padding: 1px 7px; cursor: pointer; min-height: 24px; }
+.hud-order.o-unrest { border-color: #c4523e; color: #ffd2c8; }
+.hud-order.o-fervent { border-color: #ffd86b; }
+.hud-title:focus-visible, .hud-order:focus-visible { outline: 3px solid #fff3c4; outline-offset: 1px; }
+/* Bas droite : boutons ronds plus grands, illustrés, avec leur nom ; choix du domaine à côté du globe */
+.hud-a { min-width: 66px; height: 60px; }
+.hud-a > span:not(.hb) { font-size: 24px; filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.6)); }
+.hud-globe { width: 76px; height: 76px; }
+.hud-globe > span { font-size: 30px; }
+.hud-actions .hud-domain { align-self: center; }
+.hud-actions .hud-domain select { max-width: 150px; min-height: 44px; font-size: 12px; border-radius: 10px; }
+@media (max-width: 700px) { .hud-a { min-width: 0; height: 54px; } .hud-globe { width: 62px; height: 62px; } .hud-actions .hud-domain { display: none; } }
+/* Bord droit repliable */
+.hud-fold.r { align-self: center; min-width: 44px; min-height: 28px; }
+.hud-r.folded { flex-direction: column; align-items: center; }
+/* Conseiller illustré : il ne fait signe que s'il a quelque chose d'important à dire */
+.adv-pt { display: inline-flex; width: 40px; height: 40px; }
+.hud-btn .adv-pt { width: 30px; height: 30px; }
+.adv-pt .adv-arm { transform-origin: 36px 38px; transform: rotate(40deg); transition: transform 0.2s; }
+.adv-pt.wave .adv-arm { transform: none; animation: v20-wave 1.1s ease-in-out infinite alternate; }
+@keyframes v20-wave { from { transform: rotate(-8deg); } to { transform: rotate(14deg); } }
+html.reduce-motion .adv-pt .adv-arm, html.saver .adv-pt .adv-arm { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .adv-pt .adv-arm { animation: none !important; } }
+
+/* ───────── Écrans v20 ───────── */
+.why-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+.why-table td { padding: 3px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.why-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.why-table td.ok { color: #9be37b; }
+.why-table td.bad { color: #ff9a86; }
+.why-table tr.total td { font-weight: 700; border-top: 1px solid rgba(255, 255, 255, 0.25); }
+.title-bar { height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.1); overflow: hidden; margin: 6px 0; }
+.title-bar i { display: block; height: 100%; background: linear-gradient(90deg, #b8862e, #ffd86b); }
+.title-ladder { columns: 2; font-size: 13px; padding-left: 20px; }
+.title-ladder li.done b { color: var(--gold, #e2b84a); }
+.far-grid, .chore-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
+.far-card.locked { opacity: 0.8; }
+.chore-card.on { border-color: var(--gold, #e2b84a); }
+.chore-card h3 { margin: 0; flex: 1 1 auto; }
+.chore-log { padding-left: 18px; margin: 0; }
+.chore-card button, .far-card button { min-height: 36px; }
+/* Signal masqué parce qu'il chevauchait un signal plus important (dégroupage après chaque rendu et mouvement) */
+.city-vp .tile.iso-b .t-sig.clash { visibility: hidden; }
+/* Bandeaux du royaume empilés (plan, architecte, photo, réorganisation, film) : jamais l'un sur l'autre */
+.plan-bars { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 26; display: flex; flex-direction: column-reverse; gap: 6px; align-items: center; width: max-content; max-width: min(720px, calc(100% - 24px)); pointer-events: none; }
+.plan-bars > .plan-bar { position: static; transform: none; max-width: 100%; pointer-events: auto; }
+.plan-bars > .plan-bar.photo-bar { bottom: auto; left: auto; }
+@media (max-width: 700px) { .plan-bars { bottom: 236px; } }

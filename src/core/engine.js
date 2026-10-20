@@ -51,6 +51,9 @@ import { challengesTick } from '../systems/challenges.js';
 import { legendTick } from '../systems/legendary.js';
 import { inventoryCapTick } from '../systems/crafting.js';
 import { siegeTick } from '../systems/siege.js';
+import { harvestTick } from '../systems/harvest.js';
+import { farlandTick } from '../systems/farlands.js';
+import { choresTick } from '../systems/chores.js';
 import { bus } from './bus.js';
 
 export const MAX_OFFLINE_MS = 12 * 3600 * 1000;
@@ -131,10 +134,13 @@ export function processDue(state, t) {
     scenarioTick(state, t);
     inventoryCapTick(state, t);
     siegeTick(state, t);
+    harvestTick(state, t, mods);
     ecoSampleTick(state, t);
     npcTick(state, t);
     surveyTick(state, t);
     raidTick(state, t);
+    farlandTick(state, t, mods);
+    choresTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);
     state.meta.nextWorldTick = t + WORLD_STEP;
     changed = true;

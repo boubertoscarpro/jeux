@@ -20,7 +20,7 @@ import {
   breachChance, raidTargets, pillageShare, siegeDamage, moatBetween, moatOverflowChance, moatBank, setFlanks, flankBonus,
   pickRaidFlank, useTools, setTool, decoEffects, castleTick, vacantLots, migrateCastle, misplaced, freeMoveActive, castleMods, repairWall,
 } from '../src/systems/castle.js';
-import { ENCEINTE, FLANK_RULES, SIEGE, DECO_FX, KEEP_ONLY, COUNTRY_ONLY, BUILDING_SCREENS, LOT_TYPES } from '../src/data/castle.js';
+import { ENC_STAGES, ENCEINTE, FLANK_RULES, SIEGE, DECO_FX, KEEP_ONLY, COUNTRY_ONLY, BUILDING_SCREENS, LOT_TYPES } from '../src/data/castle.js';
 import { BUILDINGS } from '../src/data/buildings.js';
 
 const T0 = Date.UTC(2026, 6, 1, 8);
@@ -37,85 +37,82 @@ function realm(seed = 'c1', lvl = 8) {
 const put = (s, id, type, x, y, level = 1) => (s.city.buildings[id] = { id, type, x, y, level });
 
 // ───────── Zones ─────────
-const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('p_'))); // lieux v16 : ajoutés, jamais retirés
+const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k, v]) => !k.startsWith('p_') && !(v.type === 'deco' && String(v.deco).startsWith('tr_')))); // lieux v16 et trophées v20 : ajoutés, jamais retirés
 
-test('Zones : cour 5 × 5 autour de l’hôtel de ville, faubourgs sur 2 cases, campagne au-delà', () => {
+// v20 « Ma forteresse » : ces règles remplacent celles de la v16 (cour 5 × 5, faubourgs, facteur de périmètre,
+// agrandissement côté par côté). L'intention est gardée : des zones lisibles, des règles de placement, une enceinte
+// qui grandit à un coût connu.
+test('Zones (v20) : ville fortifiée 6 × 6 autour de l’hôtel de ville, douves sur 1 case, abords sur 2, campagne au-delà', () => {
   const s = realm();
   const r = rectOf(s);
-  assert.deepEqual(r, { x0: 9, y0: 5, x1: 13, y1: 9 });
+  assert.deepEqual(r, { x0: 9, y0: 5, x1: 14, y1: 10 });
   assert.equal(zoneAt(s, 11, 7), 'keep');
-  assert.equal(zoneAt(s, 9, 9), 'keep');
-  assert.equal(zoneAt(s, 8, 7), 'faubourg');
-  assert.equal(zoneAt(s, 15, 11), 'faubourg');
-  assert.equal(zoneAt(s, 16, 7), 'country');
-  assert.equal(zoneAt(s, 6, 7), 'country');
+  assert.equal(zoneAt(s, 14, 10), 'keep');
+  assert.equal(zoneAt(s, 8, 7), 'moat');
+  assert.equal(zoneAt(s, 7, 7), 'faubourg');
+  assert.equal(zoneAt(s, 6, 7), 'faubourg');
+  assert.equal(zoneAt(s, 5, 7), 'country');
+  assert.equal(zoneAt(s, 16, 7), 'faubourg');
 });
 
-test('Placement : intra-muros, campagne, hors les murs, partout', () => {
+test('Placement (v20) : la ville dans les murs, les champs dehors, quelques métiers partout, rien sur les douves', () => {
   const s = realm();
   assert.equal(ruleOf('library'), 'keep');
+  assert.equal(ruleOf('market'), 'keep');
   assert.equal(ruleOf('farm'), 'country');
-  assert.equal(ruleOf('tannery'), 'outside');
-  assert.equal(ruleOf('market'), 'any');
+  assert.equal(ruleOf('tannery'), 'any');
   assert.equal(placementCheck(s, 'library', 10, 6).ok, true);
-  assert.match(placementCheck(s, 'library', 16, 7).reason, /cour du donjon/);
+  assert.match(placementCheck(s, 'library', 18, 7).reason, /dans les murs/);
   assert.equal(placementCheck(s, 'farm', 18, 7).ok, true);
-  assert.match(placementCheck(s, 'farm', 15, 7).reason, /campagne/);
-  assert.match(placementCheck(s, 'tannery', 10, 6).reason, /hors les murs/);
-  assert.equal(placementCheck(s, 'tannery', 15, 7).ok, true);
-  for (const z of [[10, 6], [15, 7], [20, 7]]) assert.equal(placementCheck(s, 'market', ...z).ok, true);
-  // Les règles couvrent des bâtiments qui existent tous
+  assert.match(placementCheck(s, 'farm', 10, 6).reason, /hors les murs/);
+  assert.equal(placementCheck(s, 'tannery', 10, 6).ok, true);
+  assert.equal(placementCheck(s, 'tannery', 18, 7).ok, true);
+  assert.equal(placementCheck(s, 'tannery', 8, 7).ok, false, 'douves : inconstructibles');
+  assert.equal(placementCheck(s, 'library', 11, 9).ok, false, 'allée de la porte réservée');
   for (const t of [...KEEP_ONLY, ...COUNTRY_ONLY]) assert.ok(BUILDINGS[t], t);
-  // La construction suit la même règle
   assert.equal(startBuild(s, 'library', 18, 7, T0).ok, false);
 });
 
-test('Effets de zone : maisons et marché selon leur zone, bornés', () => {
+test('Effets de zone (v20) : plus de malus pour les maisons ou le marché dans les murs ; entrepôts protégés, bornés', () => {
   const s = realm();
-  put(s, 'm1', 'market', 15, 7);
+  put(s, 'm2', 'market', 10, 6);
   const m = computeMods(s, T0);
-  const out = buildingRates(s, s.city.buildings.m1, m);
-  put(s, 'm2', 'market', 10, 6); delete s.city.buildings.m1;
-  const inn = buildingRates(s, s.city.buildings.m2, m);
   const r = (o) => Object.values(o.out).reduce((a, b) => a + b, 0);
-  assert.ok(r(out) > r(inn), 'le marché des faubourgs rapporte plus');
-  // Entrepôts intra-muros : protection bornée à +10 points
-  for (let i = 0; i < 5; i++) put(s, 'w' + i, 'warehouse', 10 + (i % 3), 6 + Math.floor(i / 3));
+  assert.ok(r(buildingRates(s, s.city.buildings.m2, m)) > 0, 'le marché de la ville produit');
+  for (let i = 0; i < 5; i++) put(s, 'w' + i, 'warehouse', 12 + (i % 3), 5 + Math.floor(i / 3));
   assert.ok((castleMods(s).protect || 0) <= 0.1 + 1e-9);
 });
 
-// ───────── Périmètre ─────────
-test('Périmètre : la départ est neutre, compacte = mieux défendue, étendue = exposée (bornes 0,8–1,1)', () => {
+test('Enceinte (v20) : la taille ne pénalise plus la muraille (facteur 1)', () => {
   const s = realm();
   s.city.fort.wall = 10;
-  assert.equal(perimeter(rectOf(s)), 20);
+  assert.equal(perimeter(rectOf(s)), 24);
   assert.equal(wallFactor(s), 1);
   assert.equal(castleMods(s)['wall.pct'] || 0, 0);
-  castleState(s).rect = { x0: 10, y0: 6, x1: 12, y1: 8 };
-  assert.ok(wallFactor(s) > 1 && wallFactor(s) <= ENCEINTE.factorMax);
-  castleState(s).rect = { x0: 2, y0: 2, x1: 20, y1: 13 };
-  assert.equal(wallFactor(s), ENCEINTE.factorMin);
-  assert.ok(castleMods(s)['wall.pct'] < 0);
 });
 
-test('Agrandir : coût selon les segments et le niveau de muraille, maximum selon le domaine, réduction gratuite', () => {
-  const s = realm();
-  const p0 = enlargePreview(s, 'e');
-  assert.equal(p0.segments, 2);
-  assert.equal(p0.cost.stone, Math.ceil(150 * 2));
-  s.city.fort.wall = 10;
-  assert.equal(enlargePreview(s, 'e').cost.stone, Math.ceil(150 * 2 * 2.5));
-  const g0 = s.resources.stone;
-  assert.equal(enlargeEnceinte(s, 'e', (c) => pay(s, c), T0).ok, true);
-  assert.equal(g0 - s.resources.stone, 750);
-  enlargeEnceinte(s, 'w', (c) => pay(s, c), T0);
-  assert.equal(enlargePreview(s, 'e').ok, false, 'domaine 0 : 7 × 7 au plus');
-  s.domain = 2;
-  assert.equal(enlargePreview(s, 'e').ok, true);
-  // Réduire : gratuit, mais jamais en laissant la bibliothèque dehors
-  put(s, 'lib', 'library', rectOf(s).x1, 7);
+test('Agrandir (v20) : par paliers liés à l’hôtel de ville, coût connu, terrain aplani, rien n’est détruit, plus de réduction', () => {
+  const s = realm('c1', 3);
+  assert.equal(enlargePreview(s).ok, false, 'hôtel de ville 4 requis pour 7 × 7');
+  th(s).level = 8;
+  const p = enlargePreview(s);
+  assert.equal(p.ok, true);
+  assert.equal(p.size, 7);
+  const n0 = Object.keys(s.city.buildings).length;
+  const st0 = s.resources.stone;
+  assert.equal(enlargeEnceinte(s, null, (c) => pay(s, c), T0).ok, true);
+  assert.equal(st0 - s.resources.stone, p.cost.stone);
+  assert.equal(Object.keys(s.city.buildings).length, n0);
+  const r = rectOf(s);
+  assert.equal(r.x1 - r.x0 + 1, 7);
   assert.equal(shrinkPreview(s, 'e').ok, false);
-  assert.equal(shrinkPreview(s, 'w').ok, true);
+  // Un agrandissement du domaine offre le palier suivant
+  castleState(s).freeGrow = 1;
+  th(s).level = 12;
+  assert.equal(enlargePreview(s).free, true);
+  const g0 = s.resources.gold;
+  assert.equal(enlargeEnceinte(s, null, (c) => pay(s, c), T0).ok, true);
+  assert.equal(s.resources.gold, g0);
 });
 
 // ───────── Raids par zone ─────────
@@ -174,7 +171,7 @@ test('Feu : il ne traverse pas les douves, mais traverse une enceinte sans douve
   rng.setSource(mulberry32(3));
   try {
     const s = realm();
-    put(s, 'a', 'house', 13, 7); put(s, 'b', 'house', 14, 7); // de part et d'autre de la muraille est
+    put(s, 'a', 'house', 14, 7); put(s, 'b', 'house', 15, 7); // de part et d'autre de la muraille est (v20 : 6 × 6)
     s.city.buildings.a.damaged = true;
     assert.equal(moatBetween(s, s.city.buildings.a, s.city.buildings.b), false);
     s.city.fort.moat = 1;
@@ -254,19 +251,18 @@ test('Flancs intégrés au raid : un flanc dégarni perd plus souvent qu’un fl
 });
 
 // ───────── Décorations ─────────
-test('Décorations utiles : faubourgs près des maisons, cour, campagne sans effet ; bornées', () => {
+test('Décorations utiles (v20) : dans les murs (garnison, et ouvriers près des maisons), dehors sans effet ; bornées', () => {
   const s = realm();
-  put(s, 'h', 'house', 15, 7);
-  s.city.buildings.d1 = { id: 'd1', type: 'deco', deco: 'x', level: 1, x: 15, y: 8 };
+  s.city.buildings.d1 = { id: 'd1', type: 'deco', deco: 'x', level: 1, x: 13, y: 7 }; // à côté de la maison (12, 8)
   s.city.buildings.d2 = { id: 'd2', type: 'deco', deco: 'y', level: 1, x: 20, y: 8 };
-  s.city.buildings.d3 = { id: 'd3', type: 'deco', deco: 'z', level: 1, x: 10, y: 6 };
+  s.city.buildings.d3 = { id: 'd3', type: 'deco', deco: 'z', level: 1, x: 10, y: 5 };
   let e = decoEffects(s);
-  assert.equal(e.mods['worker.morale'], DECO_FX.faubourg.per);
-  assert.equal(e.mods['combat.morale'], DECO_FX.keep.per);
+  assert.equal(e.mods['worker.morale'], DECO_FX.keepNear.per);
+  assert.equal(e.mods['combat.morale'], 2 * DECO_FX.keep.per);
   assert.equal(e.list.find((x) => x.id === 'd2').active, false);
-  for (let i = 0; i < 8; i++) s.city.buildings['k' + i] = { id: 'k' + i, type: 'deco', deco: 'k' + i, level: 1, x: 14 + (i % 3), y: 6 + Math.floor(i / 3) * 2 };
+  for (let i = 0; i < 12; i++) s.city.buildings['k' + i] = { id: 'k' + i, type: 'deco', deco: 'k' + i, level: 1, x: 9 + (i % 6), y: 9 + Math.floor(i / 6) };
   e = decoEffects(s);
-  assert.ok(e.mods['worker.morale'] <= DECO_FX.faubourg.per * DECO_FX.faubourg.max);
+  assert.ok((e.mods['worker.morale'] || 0) <= DECO_FX.keepNear.per * DECO_FX.keepNear.max);
   assert.ok(e.mods['combat.morale'] <= DECO_FX.keep.per * DECO_FX.keep.max);
 });
 
@@ -305,12 +301,14 @@ test('Migration : une vraie sauvegarde v15 reçoit une enceinte, rien n’est d�
   const s = deserialize(raw);
   assert.equal(Object.keys(noPlaces(s.city.buildings)).length, Object.keys(old.city.buildings).length, 'aucun bâtiment supprimé');
   assert.ok(['p_scriptorium', 'p_herald', 'p_embassy'].every((k) => s.city.buildings[k]), 'les nouveaux lieux sont posés sur des cases libres');
-  for (const [id, b] of Object.entries(old.city.buildings)) { assert.equal(s.city.buildings[id].x, b.x); assert.equal(s.city.buildings[id].level, b.level); }
+  // v20 : la ville peut être réorganisée dans les murs ; les anciennes places sont gardées pour l'annulation
+  const was = s.castle.reorg?.positions || {};
+  for (const [id, b] of Object.entries(old.city.buildings)) { assert.equal(was[id] ? was[id][0] : s.city.buildings[id].x, b.x); assert.equal(s.city.buildings[id].level, b.level); }
   assert.deepEqual(s.army, old.army);
   const r = rectOf(s);
   const t = th(s);
   assert.equal(zoneAt(s, t.x, t.y), 'keep', 'l’hôtel de ville est dans la cour');
-  assert.ok(r.x1 - r.x0 + 1 <= ENCEINTE.maxW(s.domain || 0) && r.y1 - r.y0 + 1 <= ENCEINTE.maxH(s.domain || 0));
+  assert.ok(r.x1 - r.x0 + 1 <= ENC_STAGES[ENC_STAGES.length - 1].size && r.y1 - r.y0 + 1 <= ENC_STAGES[ENC_STAGES.length - 1].size);
   assert.ok(freeMoveActive(s, s.meta.lastTick + 6 * 24 * H));
   assert.ok(!freeMoveActive(s, s.meta.lastTick + 8 * 24 * H));
   assert.ok(Number.isFinite(s.meta.castleMigrated.misplaced));

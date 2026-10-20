@@ -1,5 +1,7 @@
 import { BUILDINGS } from '../data/buildings.js';
 import { castleMods } from './castle.js';
+import { orderMods } from './order.js';
+import { nobilityMods } from './nobility.js';
 import { TECHS } from '../data/techs.js';
 import { WORLD_EVENTS } from '../data/events.js';
 import { WEATHER } from '../data/units.js';
@@ -54,6 +56,9 @@ export function computeMods(state, now = Date.now()) {
   merge(m, monumentMods(state));
   // v16 : château (périmètre et dégâts de la muraille, effets de zone, décorations utiles)
   merge(m, castleMods(state));
+  // v20 : ordre public du château (rendement décroissant) et titre de noblesse (avantages bornés)
+  merge(m, orderMods(state));
+  merge(m, nobilityMods(state));
   // Bâtiments
   for (const b of allBuildings(state)) {
     if (b.level <= 0) continue;

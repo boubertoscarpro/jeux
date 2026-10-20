@@ -50,7 +50,7 @@ test('Lieux : une nouvelle partie pose le scriptorium, la place du héraut et l�
     const b = Object.values(s.city.buildings).find((x) => x.type === t);
     assert.ok(b, t);
     assert.equal(b.level, 1);
-    assert.equal(zoneAt(s, b.x, b.y), 'faubourg', `${t} dans les faubourgs`);
+    assert.equal(zoneAt(s, b.x, b.y), 'keep', `${t} dans la ville fortifiée (v20)`);
     assert.equal(s.city.terrain[b.y * s.city.w + b.x], 'plain', `${t} sur une case libre`);
   }
   const pos = new Set(Object.values(s.city.buildings).map((b) => b.x + ',' + b.y));

@@ -24,6 +24,8 @@ export function expandDomain(state, now = Date.now()) {
   if (!pay(state, step.cost)) return { ok: false, reason: 'Ressources insuffisantes', missing: missing(state, step.cost) };
   extendCity(state, state.city.w + DOMAIN_GROW.w, state.city.h + DOMAIN_GROW.h, () => rng.random(), 0.04);
   state.domain = (state.domain || 0) + 1;
+  // v20 : chaque agrandissement du domaine offre le prochain agrandissement de la ville fortifiée
+  if (state.castle) state.castle.freeGrow = (state.castle.freeGrow || 0) + 1;
   chronicle(state, `Le domaine s’agrandit : ${step.name}.`, now);
-  return { ok: true };
+  return { ok: true, freeGrow: true };
 }
