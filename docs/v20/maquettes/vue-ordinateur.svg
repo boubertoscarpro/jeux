@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" font-family="sans-serif" font-size="14">
+  <title>Maquette v20 — vue du château et mise en page (ordinateur, 1400 × 900)</title>
+  <rect width="1400" height="900" fill="#7aa24a"/>
+  <!-- Campagne : champs en bandes, forêt, rochers -->
+  <g opacity=".9"><path d="M120 640l150-75 60 30-150 75z" fill="#e2c15a"/><path d="M160 690l150-75 60 30-150 75z" fill="#d9b44a"/><path d="M1080 600l150 75-60 30-150-75z" fill="#e2c15a"/>
+  <circle cx="1230" cy="300" r="22" fill="#3d6b2c"/><circle cx="1262" cy="320" r="18" fill="#3d6b2c"/><circle cx="160" cy="300" r="22" fill="#3d6b2c"/><ellipse cx="1190" cy="760" rx="60" ry="22" fill="#4f8fc0"/></g>
+  <!-- Douves (losange) -->
+  <path d="M700 150L1150 375L700 600L250 375Z" fill="none" stroke="#3f78a6" stroke-width="26" stroke-linejoin="round"/>
+  <!-- Cour pavée -->
+  <path d="M700 180L1095 375L700 570L305 375Z" fill="#b9b2a4"/>
+  <!-- Muraille à créneaux -->
+  <path d="M305 375L700 180L1095 375" fill="none" stroke="#7a7268" stroke-width="18"/>
+  <path d="M305 375L700 570L1095 375" fill="none" stroke="#8d877d" stroke-width="22" stroke-dasharray="10 6"/>
+  <g fill="#3a3a44"><rect x="290" y="330" width="30" height="60"/><rect x="685" y="135" width="30" height="60"/><rect x="1080" y="330" width="30" height="60"/><rect x="685" y="525" width="30" height="60"/><rect x="490" y="235" width="24" height="50"/><rect x="890" y="235" width="24" height="50"/><rect x="490" y="430" width="24" height="50"/><rect x="890" y="430" width="24" height="50"/></g>
+  <rect x="470" y="480" width="44" height="40" fill="#5e3a1f"/><text x="492" y="540" text-anchor="middle" fill="#fff" font-size="12">porte</text>
+  <!-- Quartiers : donjon (turquoise), militaire (rouge), économie (brun), savoir (bleu), lieux (turquoise clair) -->
+  <path d="M640 260l60-30 60 30v40l-60 30-60-30z" fill="#2f9c94"/><text x="700" y="285" text-anchor="middle" fill="#fff">donjon</text>
+  <g fill="#a8432f"><rect x="480" y="360" width="40" height="30"/><rect x="530" y="385" width="40" height="30"/><rect x="560" y="440" width="40" height="30"/></g><text x="530" y="355" fill="#222">militaire</text>
+  <g fill="#b0662e"><rect x="800" y="360" width="40" height="30"/><rect x="850" y="385" width="40" height="30"/><rect x="780" y="420" width="40" height="30"/></g><text x="820" y="355" fill="#222">économie</text>
+  <g fill="#3f6fa3"><rect x="600" y="320" width="34" height="26"/><rect x="760" y="300" width="34" height="26"/></g><text x="600" y="315" fill="#222">savoir</text>
+  <g fill="#47b3a8"><rect x="660" y="470" width="30" height="24"/><rect x="710" y="490" width="30" height="24"/></g><text x="640" y="465" fill="#222">vitrine / lieux</text>
+  <!-- Signaux -->
+  <text x="840" y="350" font-size="18" font-weight="bold" fill="#fff" stroke="#000" stroke-width=".6">Zzz</text>
+  <circle cx="545" cy="372" r="11" fill="#d62828"/><text x="545" y="378" text-anchor="middle" fill="#fff" font-weight="bold">!</text>
+  <g><rect x="610" y="120" width="180" height="44" rx="10" fill="#fff8e1" stroke="#7a5a2a"/><text x="700" y="140" text-anchor="middle" font-weight="bold">Ressources bonus</text><text x="700" y="157" text-anchor="middle" font-size="12">Prêt à être collecté</text></g>
+  <!-- Haut gauche : armoiries, HdV, puissance, titre de noblesse + barre -->
+  <g><rect x="12" y="12" width="300" height="96" rx="10" fill="#2a2119"/><circle cx="52" cy="58" r="30" fill="#c9a36a"/><text x="96" y="38" fill="#f3e6c4" font-weight="bold">Cendrelande</text><text x="96" y="58" fill="#f3e6c4">🏛️ HdV 15 · ⚔ 594k</text><text x="96" y="80" fill="#ffd27a" font-weight="bold">Baron</text><rect x="150" y="70" width="140" height="10" rx="5" fill="#4a3a28"/><rect x="150" y="70" width="90" height="10" rx="5" fill="#e2b84a"/><text x="96" y="100" fill="#f3e6c4" font-size="11">honneur 1 260 / 2 000 → Vicomte</text></g>
+  <!-- Haut centre : ressources avec jauge -->
+  <g><rect x="380" y="12" width="640" height="44" rx="10" fill="#2a2119"/>
+  <g fill="#f3e6c4"><text x="400" y="34">🪵 102k</text><text x="510" y="34">🪨 103k</text><text x="620" y="34">⛏ 74k</text><text x="730" y="34">🍖 11M</text><text x="840" y="34">🪙 1,2M</text></g>
+  <g><rect x="400" y="42" width="90" height="6" fill="#4a3a28"/><rect x="400" y="42" width="88" height="6" fill="#ef6461"/><text x="494" y="49" font-size="10" fill="#ffb4a8">plein</text><rect x="510" y="42" width="90" height="6" fill="#4a3a28"/><rect x="510" y="42" width="50" height="6" fill="#6fbf73"/><rect x="620" y="42" width="90" height="6" fill="#4a3a28"/><rect x="620" y="42" width="30" height="6" fill="#6fbf73"/><rect x="730" y="42" width="90" height="6" fill="#4a3a28"/><rect x="730" y="42" width="70" height="6" fill="#f2a541"/><text x="824" y="49" font-size="10" fill="#ffd6a0">▼ déficit</text></g></g>
+  <!-- Haut droite : petites icônes -->
+  <g fill="#2a2119"><rect x="1240" y="12" width="40" height="40" rx="8"/><rect x="1290" y="12" width="40" height="40" rx="8"/><rect x="1340" y="12" width="40" height="40" rx="8"/></g>
+  <!-- Droite : panneau vertical repliable avec flèches -->
+  <g><rect x="1300" y="120" width="88" height="420" rx="10" fill="#2a2119"/><text x="1344" y="142" text-anchor="middle" fill="#f3e6c4">▲</text>
+  <g fill="#4a3a28"><rect x="1310" y="152" width="68" height="68" rx="8"/><rect x="1310" y="228" width="68" height="68" rx="8"/><rect x="1310" y="304" width="68" height="68" rx="8"/><rect x="1310" y="380" width="68" height="68" rx="8"/></g>
+  <text x="1344" y="530" text-anchor="middle" fill="#f3e6c4">▼</text><text x="1290" y="580" fill="#222" font-size="12">activités / aperçus</text></g>
+  <!-- Bas : gros boutons ronds illustrés, étiquettes, badges -->
+  <g><rect x="300" y="800" width="760" height="92" rx="14" fill="#2a2119"/>
+  <g fill="#6b4f2c" stroke="#e2b84a" stroke-width="2"><circle cx="360" cy="836" r="30"/><circle cx="450" cy="836" r="30"/><circle cx="540" cy="836" r="30"/><circle cx="630" cy="836" r="30"/><circle cx="720" cy="836" r="30"/><circle cx="810" cy="836" r="30"/><circle cx="900" cy="836" r="30"/><circle cx="990" cy="836" r="30"/></g>
+  <g fill="#f3e6c4" font-size="12" text-anchor="middle"><text x="360" y="884">Construire</text><text x="450" y="884">Armée</text><text x="540" y="884">Défense</text><text x="630" y="884">Quêtes</text><text x="720" y="884">Corvées</text><text x="810" y="884">Guilde</text><text x="900" y="884">Rapports</text><text x="990" y="884">Lieux</text></g>
+  <circle cx="470" cy="812" r="10" fill="#d62828"/><text x="470" y="816" text-anchor="middle" fill="#fff" font-size="11">3</text></g>
+  <!-- Bas droite : sélecteur de domaine + globe ; conseiller illustré -->
+  <g><rect x="1120" y="820" width="180" height="40" rx="8" fill="#2a2119"/><text x="1210" y="845" text-anchor="middle" fill="#f3e6c4">🏰 Château ▾</text><circle cx="1345" cy="840" r="42" fill="#2f6aa3" stroke="#e2b84a" stroke-width="3"/><text x="1345" y="845" text-anchor="middle" fill="#fff">Monde</text></g>
+  <g><circle cx="1240" cy="740" r="34" fill="#c9a36a"/><text x="1240" y="746" text-anchor="middle">🧙</text><circle cx="1266" cy="712" r="11" fill="#d62828"/><text x="1266" y="716" text-anchor="middle" fill="#fff" font-size="11">!</text></g>
+</svg>

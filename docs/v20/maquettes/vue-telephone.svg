@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844" font-family="sans-serif" font-size="13">
+  <title>Maquette v20 — téléphone (390 × 844)</title>
+  <rect width="390" height="844" fill="#7aa24a"/>
+  <rect x="8" y="8" width="374" height="58" rx="10" fill="#2a2119"/><circle cx="36" cy="37" r="20" fill="#c9a36a"/><text x="64" y="30" fill="#f3e6c4" font-weight="bold">Baron · HdV 15</text><rect x="64" y="40" width="120" height="8" rx="4" fill="#4a3a28"/><rect x="64" y="40" width="70" height="8" rx="4" fill="#e2b84a"/>
+  <text x="200" y="30" fill="#f3e6c4">🪵102k 🪨103k 🍖11M</text><rect x="200" y="38" width="50" height="5" fill="#ef6461"/><rect x="260" y="38" width="50" height="5" fill="#6fbf73"/><rect x="320" y="38" width="50" height="5" fill="#f2a541"/>
+  <path d="M195 170L370 290L195 410L20 290Z" fill="#b9b2a4" stroke="#3f78a6" stroke-width="12"/>
+  <path d="M20 290L195 170L370 290" fill="none" stroke="#7a7268" stroke-width="10"/>
+  <path d="M150 250l45-22 45 22v30l-45 22-45-22z" fill="#2f9c94"/>
+  <rect x="120" y="440" width="150" height="32" rx="16" fill="#fff8e1" stroke="#7a5a2a"/><text x="195" y="461" text-anchor="middle">Bonus à récolter (7)</text>
+  <text x="195" y="520" text-anchor="middle" fill="#222">Bâtiment choisi : zoom automatique</text>
+  <text x="195" y="540" text-anchor="middle" fill="#222">« Lieux » : liste alternative au clavier</text>
+  <rect x="8" y="740" width="374" height="96" rx="14" fill="#2a2119"/>
+  <g fill="#6b4f2c" stroke="#e2b84a" stroke-width="2"><circle cx="48" cy="780" r="26"/><circle cx="118" cy="780" r="26"/><circle cx="188" cy="780" r="26"/><circle cx="258" cy="780" r="26"/></g>
+  <g fill="#f3e6c4" font-size="11" text-anchor="middle"><text x="48" y="824">Construire</text><text x="118" y="824">Armée</text><text x="188" y="824">Défense</text><text x="258" y="824">Plus</text></g>
+  <circle cx="338" cy="780" r="34" fill="#2f6aa3" stroke="#e2b84a" stroke-width="3"/><text x="338" y="785" text-anchor="middle" fill="#fff">Monde</text>
+</svg>
