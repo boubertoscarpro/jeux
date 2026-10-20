@@ -1,5 +1,6 @@
 // v17 — Navigation au clavier sur la carte du royaume (module pur) : depuis une case, le bâtiment le plus proche dans
 // la direction demandée (flèches). On privilégie l'axe de la flèche : coût = distance sur l'axe + 2 × écart latéral.
+// v20 : la carte est isométrique ; les directions sont celles de l'écran (horizontale = x − y, verticale = x + y).
 const DIRS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
 export const navTargets = (state) => Object.values(state.city?.buildings || {}).filter((b) => b.type !== 'road');
 export function nextBuilding(state, x, y, key, targets = navTargets(state)) {
@@ -7,7 +8,7 @@ export function nextBuilding(state, x, y, key, targets = navTargets(state)) {
   if (!d) return null;
   let best = null, bc = Infinity;
   for (const b of targets) {
-    const dx = b.x - x, dy = b.y - y;
+    const dx = (b.x - b.y) - (x - y), dy = (b.x + b.y) - (x + y);
     const along = dx * d[0] + dy * d[1];
     if (along <= 0) continue;
     const side = Math.abs(dx * d[1]) + Math.abs(dy * d[0]);

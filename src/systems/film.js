@@ -6,7 +6,7 @@ import { ENC_STAGES } from '../data/castle.js';
 
 const T_MIN = Date.UTC(2015, 0, 1), T_MAX = Date.UTC(2100, 0, 1);
 export function buildTime(id) {
-  const m = /^b_([0-9a-z]{8})/.exec(String(id || ''));
+  const m = /^b_([0-9a-z]{8})[0-9a-z]*$/.exec(String(id || '')); // b_townhall_11_7 (bâtiments d'origine) : date inconnue
   if (!m) return 0;
   const t = parseInt(m[1], 36);
   return t > T_MIN && t < T_MAX ? t : 0;

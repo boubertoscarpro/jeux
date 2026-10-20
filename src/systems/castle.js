@@ -96,7 +96,7 @@ export function zoneAllows(type, zone) {
   if (zone === 'moat') return false;
   const r = ruleOf(type);
   if (r === 'keep') return zone === 'keep';
-  if (r === 'country') return zone === 'country';
+  if (r === 'country') return zone === 'country' || zone === 'faubourg'; // v20 : les champs commencent au bord du glacis
   if (r === 'outside') return zone !== 'keep';
   return true;
 }

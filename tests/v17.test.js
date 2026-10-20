@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ZONES } from '../src/data/castle.js';
+import { zoneAt } from '../src/systems/castle.js';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createNewState } from '../src/core/state.js';
@@ -93,6 +94,9 @@ test('Notifications : sur la vraie sauvegarde de fin v16, 24 + 60 non lus devien
 
 test('Plans de ville : réorganisation sans perte, aperçu, application, annulation remboursée', () => {
   const s = v15();
+  // v20 : la migration a déjà rangé la ville dans les murs ; on sort une maison pour que le plan ait à faire
+  { const h = Object.values(s.city.buildings).find((b) => b.type === 'house'); const taken = new Set(Object.values(s.city.buildings).map((b) => b.x + ',' + b.y));
+    for (let y = 0; y < s.city.h && h; y++) for (let x = 0; x < s.city.w; x++) if (zoneAt(s, x, y) === 'country' && !taken.has(x + ',' + y) && s.city.terrain[y * s.city.w + x] === 'plain') { h.x = x; h.y = y; y = s.city.h; break; } }
   const before = Object.keys(s.city.buildings).sort();
   const lay = reorgPlan(s);
   assert.ok(checkLayout(s, lay).ok);

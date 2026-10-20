@@ -6,7 +6,7 @@
 // rembourse ce qui a été payé.
 import { BUILDINGS } from '../data/buildings.js';
 import { ZONE_FX } from '../data/castle.js';
-import { zoneAt, zoneAllows, rectOf, freeMoveActive } from './castle.js';
+import { zoneAt, zoneAllows, rectOf, freeMoveActive, alleeTiles } from './castle.js';
 import { placementCheck, adjacencyBonus } from './city.js';
 import { fireRisk } from './hazards.js';
 import { moveCost } from './construction.js';
@@ -77,6 +77,7 @@ export function reorgPlan(state) {
   const layout = snapshot(state);
   const taken = new Set(Object.values(layout).map(([x, y]) => x + ',' + y));
   const r = rectOf(state);
+  for (const a of alleeTiles(state, r)) taken.add(a.x + ',' + a.y); // v20 : l'allée de la porte reste libre
   const tiles = [];
   for (let y = 0; y < state.city.h; y++) for (let x = 0; x < state.city.w; x++) if (state.city.terrain[y * state.city.w + x] === 'plain') tiles.push([x, y]);
   const free = (type, want, near) => {
