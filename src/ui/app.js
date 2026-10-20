@@ -359,6 +359,9 @@ export class App {
   renderHud() {
     const hud = this.$('#hud');
     if (!hud) return;
+    // Un menu déroulant de l'affichage fixe en cours d'utilisation (choix du domaine) : on ne le remplace pas sous la
+    // souris, sinon la liste ouverte se refermerait au rafraîchissement de chaque seconde
+    if (document.activeElement?.tagName === 'SELECT' && hud.contains(document.activeElement)) return;
     this.preserveInputs(hud, () => { hud.innerHTML = renderHud(this); });
     hud.dataset.map = this.ui.map;
     if (this.ui.hudHl) hud.querySelector(this.ui.hudHl === 'profile' ? '.hud-coat' : this.ui.hudHl === 'settings' ? '[data-view="settings"]' : `[data-action="${this.ui.hudHl}"]`)?.classList.add('tut-hl');

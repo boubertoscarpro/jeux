@@ -170,3 +170,11 @@ html.reduce-motion .adv-pt .adv-arm, html.saver .adv-pt .adv-arm { animation: no
 .plan-bars > .plan-bar { position: static; transform: none; max-width: 100%; pointer-events: auto; }
 .plan-bars > .plan-bar.photo-bar { bottom: auto; left: auto; }
 @media (max-width: 700px) { .plan-bars { bottom: 236px; } }
+/* Haut gauche : la ligne puissance · ordre · titre tient dans son cadre (barre plus courte, cadre à sa largeur) */
+.hud-tl { flex: 0 1 auto; max-width: 380px; }
+.hud-power { gap: 5px; min-width: 0; }
+.hud-title .hud-thbar { width: 44px; flex: 0 0 44px; }
+.hud-title > span:first-child { overflow: hidden; text-overflow: ellipsis; }
+/* Le choix du domaine du haut ne sert qu'au téléphone (en bas sur les autres écrans) */
+.hud-tl > .hud-domain.ph-only { display: none; }
+@media (max-width: 700px) { .hud-tl > .hud-domain.ph-only { display: block; } }
