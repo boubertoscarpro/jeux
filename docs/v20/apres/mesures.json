@@ -1,44 +1,44 @@
 {
  "large": {
   "fortressShare": 30,
-  "fpsIdle": 11,
-  "fpsPan": 8,
-  "renderMs": 218.7,
+  "fpsIdle": 16,
+  "fpsPan": 13,
+  "renderMs": 57.5,
   "delays": {
-   "choisirBatiment": 583,
-   "fermerAnneau": 1366,
-   "ouvrirConstruire": 288,
-   "fermerConstruire": 346,
-   "ouvrirArmee": 350,
-   "retourRoyaume": 1095
+   "choisirBatiment": 224,
+   "fermerAnneau": 167,
+   "ouvrirConstruire": 254,
+   "fermerConstruire": 163,
+   "ouvrirArmee": 99,
+   "retourRoyaume": 250
   }
  },
  "moyen": {
   "fortressShare": 20.2,
-  "fpsIdle": 21,
-  "fpsPan": 21,
-  "renderMs": 55.1,
+  "fpsIdle": 29,
+  "fpsPan": 25,
+  "renderMs": 52.1,
   "delays": {
-   "choisirBatiment": 141,
-   "fermerAnneau": 175,
-   "ouvrirConstruire": 249,
-   "fermerConstruire": 143,
-   "ouvrirArmee": 173,
-   "retourRoyaume": 128
+   "choisirBatiment": 174,
+   "fermerAnneau": 112,
+   "ouvrirConstruire": 174,
+   "fermerConstruire": 204,
+   "ouvrirArmee": 111,
+   "retourRoyaume": 211
   }
  },
  "mobile": {
   "fortressShare": 20.9,
-  "fpsIdle": 45,
-  "fpsPan": 38,
-  "renderMs": 54.1,
+  "fpsIdle": 47,
+  "fpsPan": 45,
+  "renderMs": 56.4,
   "delays": {
-   "choisirBatiment": 144,
-   "fermerAnneau": 177,
-   "ouvrirConstruire": 148,
-   "fermerConstruire": 209,
-   "ouvrirArmee": 88,
-   "retourRoyaume": 207
+   "choisirBatiment": 97,
+   "fermerAnneau": 86,
+   "ouvrirConstruire": 109,
+   "fermerConstruire": 96,
+   "ouvrirArmee": 87,
+   "retourRoyaume": 103
   }
  }
 }
