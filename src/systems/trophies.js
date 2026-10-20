@@ -59,7 +59,7 @@ export function autoPlaceTrophies(state, max = Infinity) {
   for (const key of trophiesToPlace(state)) {
     if (out.length >= max || !free.length) break;
     const [x, y] = free.shift();
-    const id = uid('t');
+    const id = uid('b');
     state.city.buildings[id] = { id, type: 'deco', deco: key, level: 1, x, y };
     out.push({ key, x, y });
   }

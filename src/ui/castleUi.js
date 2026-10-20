@@ -102,12 +102,12 @@ export function castleCard(app) {
   const st = castleStage(s), wl = s.city.fort.wall || 0, ml = s.city.fort.moat || 0;
   const nextSt = CASTLE_STAGES.find((x) => x.th > thLevel(s));
   const mx = maxDims(s);
-  const sides = ['n', 's', 'w', 'e'].map((k) => {
-    const p = enlargePreview(s, k), sh = shrinkPreview(s, k);
-    return `<div class="enc-side"><b>${SIDE_NAME[k]}</b>
-      ${p.ok ? `<button class="mini" data-action="enc-grow" data-side="${k}" title="Périmètre ${p.perimeter} → facteur de muraille ×${p.factor.toFixed(2)}${p.trapped.length ? ` — ${p.trapped.length} bâtiment(s) se retrouveraient dans la cour alors qu’ils n’y ont pas leur place` : ''}">＋ ${costList(p.cost, s)}</button>` : `<span class="small muted">${esc(p.reason)}</span>`}
-      ${sh.ok ? `<button class="mini ghost" data-action="enc-shrink" data-side="${k}" title="Réduire (gratuit)">－</button>` : ''}</div>`;
-  }).join('');
+  // v20 : l'enceinte grandit par paliers (hôtel de ville), carrée autour de l'hôtel de ville ; la muraille et les douves
+  // sont redessinées, le terrain de la nouvelle cour est aplani, la campagne recule au-delà des douves.
+  const p = enlargePreview(s);
+  const grow = p.ok
+    ? `<div class="b-opt-foot">${costList(p.cost, s)} <button class="mini primary" data-action="enlarge" title="Passer à ${p.size} × ${p.size} cases">🏰 Agrandir à ${p.size} × ${p.size}</button></div><div class="small muted">${p.entering ? `${p.entering} bâtiment(s) de la ville entreront dans les murs. ` : ''}${p.moving ? `${p.moving} bâtiment(s) des champs reculeront au-delà des douves (rien n’est détruit).` : ''}</div>`
+    : `<div class="small muted">${esc(p.reason)}</div>`;
   const raid = (s.raids || [])[0];
   const prot = castleProtections(s);
   const bad = misplaced(s);
@@ -115,9 +115,9 @@ export function castleCard(app) {
   return `<div class="card castle-card"><h3>🏰 ${esc(castleName(s))} <span class="muted small">${esc(st.name)}${nextSt ? ` · prochain palier : ${esc(nextSt.name)} (HdV ${nextSt.th})` : ''}</span></h3>
     <div class="castle-cols">
       <div><h4>Enceinte</h4>
-        <div class="small">${rectW(r)} × ${rectH(r)} cases · périmètre <b>${perimeter(r)}</b> segments · facteur de muraille <b>×${wallFactor(s).toFixed(2)}</b> <button class="mini ghost why-btn" data-action="why" data-what="def" aria-label="Pourquoi : d’où vient la défense de la ville ?">Pourquoi ?</button> <span class="muted">(maximum ${mx.w} × ${mx.h} pour ce domaine)</span></div>
-        <div class="small muted">Compacte = mieux défendue ; étendue = plus de place dans la cour, mais une muraille plus longue à tenir. Agrandir coûte selon les segments ajoutés et le niveau de la muraille.</div>
-        <div class="enc-sides">${sides}</div>
+        <div class="small">${rectW(r)} × ${rectH(r)} cases · périmètre <b>${perimeter(r)}</b> segments <button class="mini ghost why-btn" data-action="why" data-what="def" aria-label="Pourquoi : d’où vient la défense de la ville ?">Pourquoi ?</button> <span class="muted">(maximum ${mx.w} × ${mx.h} pour ce domaine)</span></div>
+        <div class="small muted">La ville fortifiée grandit avec l’hôtel de ville : chaque palier ajoute une rangée de cases tout autour.</div>
+        ${grow}
         <div class="small">Muraille : <b>${wl ? `${esc(wallStyle(wl).name)} niv. ${wl}` : 'aucune (enceinte projetée)'}</b>${ml ? ` · douves niv. ${ml}` : ''} · chance de brèche si un raid l’emporte : <b>${Math.round(breachChance(s) * 100)} %</b></div>
         ${C.wallDmg > 0 ? `<div class="panel-sub damaged small">🧱 Muraille abîmée à ${Math.round(C.wallDmg * 100)} % (bonus de muraille ${pctS(-0.25 * C.wallDmg)}) · les maçons réparent 10 % par heure. ${costList(repairCost(s), s)} <button class="mini primary" data-action="wall-repair">Réparer tout de suite</button></div>` : ''}
       </div>
@@ -134,8 +134,7 @@ export function castleCard(app) {
 }
 
 export const castleActions = {
-  'enc-grow': (app, el) => app.act(() => enlargeEnceinte(app.state, el.dataset.side, (c) => pay(app.state, c)), (r) => `L’enceinte s’agrandit vers le ${SIDE_NAME[el.dataset.side]}${r.trapped ? ` (${r.trapped} bâtiment(s) mal placé(s) dans la cour)` : ''}`),
-  'enc-shrink': (app, el) => app.act(() => shrinkEnceinte(app.state, el.dataset.side), 'Enceinte resserrée'),
+  'enc-grow': (app) => app.act(() => enlargeEnceinte(app.state, null, (c) => pay(app.state, c)), (r) => `La ville fortifiée s’agrandit à ${r.size} × ${r.size} cases`),
   'wall-repair': (app) => app.act(() => repairWall(app.state, (c) => pay(app.state, c)), 'Muraille réparée'),
   // Voir sur la carte : zoom automatique sur le bâtiment (utile sur téléphone), anneau ouvert
   'goto-tile': (app, el) => { app.closeModal(); app.ui.citySel = { x: +el.dataset.x, y: +el.dataset.y }; app.ui.ringOpen = true; app.ui.cityFocus = { x: +el.dataset.x, y: +el.dataset.y }; app.go('city'); },

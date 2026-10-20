@@ -23,7 +23,7 @@ import { ERAS, eraOf, TH_MILESTONES, thRequirements } from '../../data/eras.js';
 import { ensureArtDefs, buildingSvg, buildingIcon, terrainSvg, plainVariant, roadSvg, upIcon } from '../art.js';
 import { openUpgradeList, openRenameCastle } from '../upgrades.js';
 import { frameOf, placeStyle, hitClip, artHeight, sceneryLayer, wallLayer, raidColumnHtml, keepBox, diamondPath } from '../isoView.js';
-import { buildingIsoSvg, isoUse, roadIso, decoIso, trophyIso, lotIso, scaffoldIso } from '../isoArt.js';
+import { buildingIsoSvg, isoUse, roadIso, decoIso, trophyIso, lotIso, scaffoldIso, isoInline } from '../isoArt.js';
 import { tileCenter, depth, LAYER, tileAt as isoTileAt, toScreen } from '../../systems/iso.js';
 import { FAMILY_OF, COUNTRY_ONLY } from '../../data/castle.js';
 import { decoDef, placeTrophy, trophiesToPlace, nextTrophies } from '../../systems/trophies.js';
@@ -45,6 +45,19 @@ import { ruleText } from '../../systems/castle.js';
 import { vacantLots, zoneAt, castleStage, wallStyle, freeMoveActive as freeMove } from '../../systems/castle.js';
 import { FLANKS, ZONES } from '../../data/castle.js';
 import { armyTotals, pay } from '../../systems/economy.js';
+import { ghosts, ghostAt, addGhost, removeGhost, clearGhosts, pruneGhosts, futureStages, ARCH } from '../../systems/architect.js';
+import { filmPlan } from '../../systems/film.js';
+import { savePhoto, PHOTO_HOURS, PHOTO_SEASONS } from '../photo.js';
+import { autoPlaceTrophies } from '../../systems/trophies.js';
+
+// v20 : scène affichée (heure et saison du mode photo si elles sont choisies)
+function cityScene(app) {
+  const ph = app.ui.photo;
+  const sc = sceneState(app.state, Date.now(), ph?.hour ?? localHour());
+  if (!ph?.season) return sc;
+  return { ...sc, season: ph.season, winter: ph.season === 'winter', autumn: ph.season === 'autumn' };
+}
+const WIND = { clear: 1, rain: 2, fog: 0, storm: 3, snow: 1, heat: 0 };
 
 // File pleine : le chantier est planifié et démarrera seul (ressources payées au démarrage)
 const orPlan = (s, r, item) => (r.ok === false && /File de construction pleine/.test(r.reason || '') ? planConstruction(s, item) : r);
@@ -75,7 +88,7 @@ function cityCtx(app, mods) {
   const risk = app.ui.cityRisk ? new Map(Object.values(s.city.buildings).map((b) => [b.id, riskBand(fireRisk(s, b))])) : null;
   const flood = app.ui.cityRisk ? new Set(floodZone(s).map((b) => b.id)) : null;
   // v15 : ce que la carte doit montrer (feu, crue, sécheresse, saison, signes), d'après l'état réel
-  const scene = sceneState(s, Date.now(), localHour());
+  const scene = cityScene(app);
   const burning = new Set(scene.burning), flooded = new Set(scene.floodIds), charred = new Set(scene.damaged);
   // v16 : terrains vagues (bâtiments « menu » à bâtir), forge au travail, foule du marché selon les caravanes
   const lots = new Map(vacantLots(s).map((l) => [l.x + ',' + l.y, l]));
@@ -152,7 +165,7 @@ function objHtml(app, b, ctx) {
       label += ` — ${SIGNAL_NAME[sg.kind]} : ${sg.text}`;
       const act = sg.action === 'tile-up' ? `data-action="tile-up" data-x="${x}" data-y="${y}"` : sg.action === 'harvest' ? `data-action="harvest" data-id="${b.id}"` : sg.view ? `data-action="nav" data-view="${sg.view}"` : '';
       inner += sg.compact ? `<span class="t-sig sig-${sg.kind} sig-dot" title="${esc(`${sg.text} (comme ${sg.group - 1} autres)`)}" aria-hidden="true"></span>`
-        : `<span class="t-sig sig-${sg.kind}" ${act} title="${esc(sg.text)}" aria-hidden="true"><i>${sg.icon}</i>${sg.mark && sg.mark !== '•' && sg.mark !== '!' ? `<b>${esc(sg.mark)}</b>` : ''}</span>`;
+        : `<span class="t-sig sig-${sg.kind}${sg.action === 'harvest' ? ' sig-harvest' : ''}" ${act} title="${esc(sg.text)}" aria-hidden="true"><i>${sg.icon}</i>${sg.mark && sg.mark !== '•' && sg.mark !== '!' ? `<b>${esc(sg.mark)}</b>` : ''}</span>`;
       cls.push('has-sig');
     }
     if (ctx.planned.has(b.id)) label += ' — amélioration planifiée';
@@ -181,13 +194,13 @@ function objHtml(app, b, ctx) {
   if (fl && fl.x === x && fl.y === y && fl.until > Date.now()) cls.push('flash-good');
   const gd = app.ui.guide;
   if (gd && gd.x === x && gd.y === y && gd.until > Date.now()) { cls.push('guide'); label += ' — c’est ici'; }
-  return `<button class="${cls.join(' ')}" data-action="tile" data-x="${x}" data-y="${y}" style="${placeStyle(f, x, y, b.type === 'road' ? LAYER.ground + 1 : LAYER.building)};${hitClip(hgt)}" tabindex="${ctx.rove === x + ',' + y ? '0" data-roving="1' : '-1'}" aria-label="${esc(label)} (${x}, ${y}, ${ZONES[zoneAt(s, x, y)].short})">${inner}</button>`;
+  return `<button class="${cls.join(' ')}" data-action="tile" data-x="${x}" data-y="${y}" style="${placeStyle(f, x, y, b.type === 'road' ? LAYER.ground + 1 : LAYER.building)};--top:${Math.max(0, 168 - hgt)}px" tabindex="${ctx.rove === x + ',' + y ? '0" data-roving="1' : '-1'}" aria-label="${esc(label)} (${x}, ${y}, ${ZONES[zoneAt(s, x, y)].short})"><span class="t-hit" style="${hitClip(hgt)}"></span>${inner}</button>`;
 }
 // Terrain vague (bâtiment « menu » à bâtir) : panneau dans la cour
 function lotHtml(app, lot, ctx) {
   const d = BUILDINGS[lot.type];
   const sel = ctx.sel && ctx.sel.x === lot.x && ctx.sel.y === lot.y;
-  return `<button class="tile iso-b lot ${sel ? 'sel' : ''}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};${hitClip(60)}" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}">${isoUse(`lot-${lot.type}`, () => lotIso(d.icon))}<span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
+  return `<button class="tile iso-b lot ${sel ? 'sel' : ''}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};--top:108px" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}"><span class="t-hit" style="${hitClip(60)}"></span>${isoUse(`lot-${lot.type}`, () => lotIso(d.icon))}<span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
 }
 // Mode Construire : cases où le bâtiment choisi peut aller (bonus de placement), cases interdites marquées d'une croix
 function placeHints(app, ctx) {
@@ -207,6 +220,11 @@ function placeHints(app, ctx) {
 // Aperçu d'un plan (ou du mode architecte) : silhouettes fantômes aux places prévues
 function ghostsHtml(app, ctx) {
   const out = [];
+  // v20 : silhouettes du mode architecte (bâtiments à venir), visibles en permanence, plus nettes en mode architecte
+  for (const g of ghosts(ctx.s)) {
+    if (ctx.at.has(g.x + ',' + g.y)) continue;
+    out.push(`<div class="iso-ghost arch ${app.ui.architect ? 'on' : ''}" style="${placeStyle(ctx.f, g.x, g.y, LAYER.building)}" aria-hidden="true">${isoUse(`b-${g.type}-0-0-0`, () => buildingIsoSvg(g.type, 0, 0, { active: false }))}</div>`);
+  }
   for (const [k, type] of ctx.planTo) {
     const [x, y] = k.split(',').map(Number);
     out.push(`<div class="iso-ghost" style="${placeStyle(ctx.f, x, y, LAYER.building)}" aria-hidden="true">${isoUse(`b-${type}-1-0-0`, () => buildingIsoSvg(type, 1, 0, { active: false }))}</div>`);
@@ -245,7 +263,7 @@ function tipHtml(app, x, y) {
 // Curseur clavier sur une case vide (les flèches avec Maj avancent case par case)
 function cursorHtml(s, f, kf, roving) {
   const t = terrainAt(s, kf.x, kf.y);
-  return `<button class="tile iso-cursor" data-action="tile" data-x="${kf.x}" data-y="${kf.y}" style="${placeStyle(f, kf.x, kf.y, LAYER.fx)};${hitClip(8)}" tabindex="${roving ? 0 : -1}" ${roving ? 'data-roving="1"' : ''} aria-label="${esc(`${TERRAIN_NAME[t]} (${kf.x}, ${kf.y}, ${ZONES[zoneAt(s, kf.x, kf.y)].short})`)}"><svg class="iso-art" viewBox="0 0 128 200" width="128" height="200" aria-hidden="true"><path d="M64 136L128 168L64 200L0 168Z" fill="rgba(255,240,200,.25)" stroke="#ffe9a8" stroke-width="3"/></svg></button>`;
+  return `<button class="tile iso-cursor" data-action="tile" data-x="${kf.x}" data-y="${kf.y}" style="${placeStyle(f, kf.x, kf.y, LAYER.fx)};--top:160px" tabindex="${roving ? 0 : -1}" ${roving ? 'data-roving="1"' : ''} aria-label="${esc(`${TERRAIN_NAME[t]} (${kf.x}, ${kf.y}, ${ZONES[zoneAt(s, kf.x, kf.y)].short})`)}"><span class="t-hit" style="${hitClip(8)}"></span><svg class="iso-art" viewBox="0 0 128 200" width="128" height="200" aria-hidden="true"><path d="M64 136L128 168L64 200L0 168Z" fill="rgba(255,240,200,.25)" stroke="#ffe9a8" stroke-width="3"/></svg></button>`;
 }
 const bannerColor = (s) => { const h = heraldryOf(s); return colorOf(s, h.t1); };
 // Bulle de récolte au-dessus du château (« Prêt à être collecté ») : un clic récolte tout
@@ -528,7 +546,7 @@ function bindCityTip(app, vp) {
 function attachGround(app) {
   const slot = document.querySelector('#city-vp .ground-slot');
   if (!slot) return;
-  const s = app.state, scene = sceneState(s, Date.now(), localHour()), q = gfxOf(s);
+  const s = app.state, scene = cityScene(app), q = gfxOf(s);
   const film = app.ui.film;
   const r = film ? film.rect : rectOf(s);
   const fort = { rect: r, moat: fortLvl(s, 'moat'), allee: film ? [] : alleeTiles(s, r), gate: gateOf(s, r) };
@@ -578,11 +596,18 @@ const BUILD_TABS = {
   civ: { name: 'Civil', icon: '🏛️', cats: ['core', 'civic'] },
   deco: { name: 'Décorations', icon: '🗿', cats: [] },
   places: { name: 'Lieux', icon: '▦', cats: ['place', 'unique'] },
+  trophy: { name: 'Vitrine', icon: '🏆', cats: [] },
 };
 function buildPanel(app, mods, ups) {
   const s = app.state, tab = app.ui.buildTab || 'prod';
   let items = '';
-  if (tab === 'deco') {
+  if (tab === 'trophy') {
+    // v20 : vitrine — les trophées gagnés s'exposent dans la ville fortifiée (statues, bannières, obélisques…)
+    const wait = trophiesToPlace(s);
+    items = wait.map((k) => { const t = TROPHIES[k]; return `<button class="bp-item trophy-item ${app.ui.placeTrophy === k ? 'active' : ''}" data-action="trophy-mode" data-key="${k}" title="${esc(`${t.name} — ${t.what}`)}"><span class="bp-ic">${isoInline(trophyIso(t.shape, t.color))}</span><span class="bp-n">${esc(t.name)}</span></button>`; }).join('')
+      + (wait.length > 1 ? `<button class="bp-item" data-action="trophy-auto" title="Placer tous les trophées autour de la place de l’hôtel de ville"><span class="bp-ic">✨</span><span class="bp-n">Tout exposer</span></button>` : '')
+      || `<span class="muted small">Aucun trophée à exposer. ${esc(nextTrophies(s).filter((n) => n.next).slice(0, 2).map((n) => `${n.name} : ${n.count}/${n.next}`).join(' · '))}</span>`;
+  } else if (tab === 'deco') {
     const owned = Object.keys(s.meta.owned || {}).filter((k) => COSMETICS[k]?.type === 'deco' && !allBuildings(s).some((b) => b.deco === k));
     items = owned.map((k) => `<button class="bp-item ${app.ui.placeDeco === k ? 'active' : ''}" data-action="deco-mode" data-key="${k}" title="Placer : ${esc(COSMETICS[k].name)} (faubourgs : moral des ouvriers ; cour : moral de la garnison)"><span class="bp-ic">${COSMETICS[k].icon}</span><span class="bp-n">${esc(COSMETICS[k].name)}</span></button>`).join('') || '<span class="muted small">Aucune décoration à placer. Elles se gagnent (jalons, saison, événements).</span>';
   } else {
@@ -597,7 +622,7 @@ function buildPanel(app, mods, ups) {
   const mode = app.ui.moveId ? `Déplacer : cliquez une case libre${freeMove(s) ? ' (gratuit)' : ''}.` : app.ui.placeType ? `Placer ${esc(BUILDINGS[app.ui.placeType].name)} : cliquez une case. Les % sont le bonus de placement ; ✕ = zone interdite (${esc(ruleText(app.ui.placeType))}).` : app.ui.placeDeco ? 'Placer la décoration : cliquez une case libre.' : 'Choisissez un bâtiment. La grille et les zones sont affichées.';
   return `<div class="build-panel" role="region" aria-label="Construire">
     <div class="bp-head"><nav class="bp-tabs" role="tablist">${Object.entries(BUILD_TABS).map(([k, t]) => `<button class="bp-tab ${tab === k ? 'active' : ''}" role="tab" aria-selected="${tab === k}" data-action="build-tab" data-k="${k}">${t.icon} ${t.name}</button>`).join('')}</nav>
-      <div class="bp-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : incendie et zone inondable">🔥 Risques</button><button class="mini" data-action="up-list" title="Améliorations possibles">⬆ ${ups.count}</button><button class="mini" data-action="plans" title="Réorganiser la ville, plans enregistrés (aperçu et annulation)">📐 Plans</button><button class="mini" data-action="up-toggle" aria-pressed="${showUpgrades(s)}" title="${showUpgrades(s) ? 'Masquer' : 'Afficher'} les icônes d’amélioration sur la carte">${showUpgrades(s) ? '👁' : '🚫'} ⬆</button>${nextDomainStep(s) ? '<button class="mini" data-action="expand" title="Agrandir le domaine (voir la fiche de l’hôtel de ville)">🗺️ Domaine</button>' : ''}<button class="mini ghost" data-action="build-mode" title="Fermer (Échap)">✕</button></div></div>
+      <div class="bp-tools"><button class="mini ${app.ui.cityRisk ? 'primary' : ''}" data-action="city-risk" aria-pressed="${!!app.ui.cityRisk}" title="Aperçu des risques : incendie et zone inondable">🔥 Risques</button><button class="mini" data-action="up-list" title="Améliorations possibles">⬆ ${ups.count}</button><button class="mini" data-action="plans" title="Réorganiser la ville, plans enregistrés (aperçu et annulation)">📐 Plans</button><button class="mini" data-action="up-toggle" aria-pressed="${showUpgrades(s)}" title="${showUpgrades(s) ? 'Masquer' : 'Afficher'} les icônes d’amélioration sur la carte">${showUpgrades(s) ? '👁' : '🚫'} ⬆</button>${enlargePreview(s).ok ? `<button class="mini primary" data-action="enlarge" title="Agrandir la ville fortifiée${enlargePreview(s).free ? ' (offert par l’agrandissement du domaine)' : ''}">🏰 Enceinte${enlargePreview(s).free ? ' 🎁' : ''}</button>` : ''}${nextDomainStep(s) ? '<button class="mini" data-action="expand" title="Agrandir le domaine (voir la fiche de l’hôtel de ville)">🗺️ Domaine</button>' : ''}<button class="mini ghost" data-action="build-mode" title="Fermer (Échap)">✕</button></div></div>
     <div class="small bp-hint" role="status">${mode}</div>
     <div class="bp-items">${items}</div>
   </div>`;
@@ -605,7 +630,7 @@ function buildPanel(app, mods, ups) {
 
 const cityView = {
   id: 'city', title: 'Royaume', icon: '🏰',
-  tick(app) { const st = document.querySelector('.city-stage'); if (st) { updateSceneFx(st, sceneState(app.state, Date.now(), localHour()), 'city'); attachGround(app); } },
+  tick(app) { const st = document.querySelector('.city-stage'); if (st) { updateSceneFx(st, cityScene(app), 'city'); attachGround(app); } },
   after(app) {
     const vp = document.getElementById('city-vp');
     if (!vp) return;
@@ -646,15 +671,19 @@ const cityView = {
     const rank = titleOf(s).rank;
     const walls = film ? wallLayer({ ...s, castle: { ...s.castle, rect: film.rect } }, f, { night }) : wallLayer(s, f, { night, raid, titleRank: rank });
     const selPath = sel ? `<path class="iso-selpath" d="${diamondPath(f, sel.x, sel.y)}"/>` : '';
+    const rectPath = (r) => { const a = toScreen(f, r.x0, r.y0), b = toScreen(f, r.x1 + 1, r.y0), c = toScreen(f, r.x1 + 1, r.y1 + 1), d = toScreen(f, r.x0, r.y1 + 1); return `M${a.sx} ${a.sy}L${b.sx} ${b.sy}L${c.sx} ${c.sy}L${d.sx} ${d.sy}Z`; };
+    const future = app.ui.architect ? futureStages(s).map((st) => `<path class="iso-future" d="${rectPath(st.rect)}"/><text class="iso-future-t" x="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sx)}" y="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sy)}">${st.size}×${st.size} · HdV ${st.th}</text>`).join('') : '';
+    const growing = app.ui.wallGrow && Date.now() - app.ui.wallGrow < 2500;
+    const ph = app.ui.photo;
     return `<div class="city-layout">
-      <div class="stage city-stage iso-stage ${app.ui.layer ? 'layer-on' : ''} ${building ? 'building' : ''} ${app.ui.photo ? 'photo' : ''} ${sceneClasses(ctx.scene)}" style="--banner:${bannerColor(s)}">
+      <div class="stage city-stage iso-stage ${app.ui.layer ? 'layer-on' : ''} ${building ? 'building' : ''} ${app.ui.photo ? 'photo' : ''} ${app.ui.architect ? 'architect' : ''} wind-${WIND[s.weather?.type] ?? 1} ${sceneClasses(ctx.scene)}" style="--banner:${bannerColor(s)}">
         ${sceneLayersHtml(ctx.scene, 'city')}
         <div class="mapvp city-vp iso" id="city-vp" data-zl="${cityZoomLevel(cam.z)}">
           <div class="mapvp-inner iso-world" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px;transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})">
             <div class="ground-slot iso-ground"></div>
-            <svg class="iso-overlay" width="${Math.round(f.width)}" height="${Math.round(f.height)}" aria-hidden="true">${selPath}<path id="iso-hl" class="iso-hl" d=""/></svg>
+            <svg class="iso-overlay" width="${Math.round(f.width)}" height="${Math.round(f.height)}" aria-hidden="true">${future}${selPath}<path id="iso-hl" class="iso-hl" d=""/></svg>
             <div class="iso-scenery">${sceneryLayer(s, f, ctx.scene.season)}</div>
-            <div class="iso-walls">${walls}${raid && !film ? raidColumnHtml(s, f, raid) : ''}</div>
+            <div class="iso-walls ${growing ? 'grow' : ''}">${walls}${raid && !film ? raidColumnHtml(s, f, raid) : ''}</div>
             <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}${ghostsHtml(app, ctx)}</div>
             <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div>
           </div>
@@ -664,6 +693,8 @@ const cityView = {
         </div>
         ${building ? buildPanel(app, mods, ups) : ''}
         ${app.ui.planPreview ? `<div class="plan-bar" role="status">📐 Aperçu du plan : les silhouettes pâles montrent les nouvelles places. <button class="mini primary" data-action="plans">Appliquer ou modifier</button> <button class="mini ghost" data-action="plan-close">Fermer l’aperçu</button></div>` : ''}
+        ${app.ui.architect && !ph ? `<div class="plan-bar arch-bar" role="status">📐 Mode architecte : choisissez un bâtiment dans « Construire », puis cliquez une case pour poser sa silhouette (rien n’est payé). Cliquez une silhouette pour la retirer. Les pointillés montrent les agrandissements à venir. <span class="small">${ghosts(s).length}/${ARCH.max}</span> <button class="mini" data-action="build-mode">🔨 Choisir</button> ${ghosts(s).length ? '<button class="mini ghost" data-action="arch-clear">Tout effacer</button>' : ''} <button class="mini primary" data-action="architect">Terminer</button></div>` : ''}
+        ${ph ? `<div class="plan-bar photo-bar" role="toolbar" aria-label="Mode photo">📷 <label>Heure <select data-change="photo-set" data-k="hour">${Object.entries(PHOTO_HOURS).map(([h, n]) => `<option value="${h}" ${+ph.hour === +h ? 'selected' : ''}>${n}</option>`).join('')}</select></label> <label>Saison <select data-change="photo-set" data-k="season">${Object.entries(PHOTO_SEASONS).map(([k, n]) => `<option value="${k}" ${ph.season === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label> <button class="btn primary" data-action="photo-shot">Enregistrer l’image</button> <button class="btn ghost" data-action="photo-exit">Quitter</button></div>` : ''}
         ${reorgBar(app)}${film ? `<div class="plan-bar film-bar" role="status">🎞️ Le film du château : ${esc(film.label)} <button class="mini ghost" data-action="film-stop">Arrêter</button></div>` : ''}
       </div>
     </div>`;
@@ -683,10 +714,33 @@ const cityView = {
     enlarge: (app) => {
       const p = enlargePreview(app.state);
       if (!p.ok) return app.toast(p.reason, 'bad');
-      if (!app.confirmSpend(p.cost, 'l’agrandissement de l’enceinte')) return;
+      if (!p.free && !app.confirmSpend(p.cost, 'l’agrandissement de l’enceinte')) return;
       const r = app.act(() => enlargeCastle(app.state, (c) => pay(app.state, c)), (x) => `🏰 L’enceinte s’agrandit : ${x.size} × ${x.size}${x.moved ? ` (${x.moved} bâtiment${x.moved > 1 ? 's' : ''} de campagne déplacé${x.moved > 1 ? 's' : ''} hors des murs)` : ''}`);
       if (r?.ok) { app.ui.wallGrow = Date.now(); const vp = document.getElementById('city-vp'); if (vp) { centerOnTown(app, vp); vp._apply?.(); } }
     },
+    architect: (app) => { app.ui.architect = !app.ui.architect; app.ui.photo = null; if (!app.ui.architect) { app.ui.placeType = null; } app.render(); },
+    'arch-clear': (app) => { if (confirm('Effacer toutes les silhouettes planifiées ?')) app.act(() => clearGhosts(app.state), 'Plan de l’architecte effacé'); },
+    'film-start': (app) => {
+      const frames = filmPlan(app.state, 40);
+      if (frames.length < 2) return app.toast('Le château est trop jeune pour un film : revenez quand il aura grandi.', 'info');
+      if (app._filmTimer) clearInterval(app._filmTimer);
+      let i = 0;
+      const show = () => { const fr = frames[i]; app.ui.film = { ids: fr.ids, rect: fr.rect, label: `${new Date(fr.t).toLocaleDateString('fr-FR')} · ${fr.n} bâtiment${fr.n > 1 ? 's' : ''}` }; app.render(); };
+      app.ui.ringOpen = false; app.ui.citySel = null;
+      show();
+      const reduce = document.documentElement.classList.contains('reduce-motion');
+      app._filmTimer = setInterval(() => { i++; if (i >= frames.length) { clearInterval(app._filmTimer); app._filmTimer = null; setTimeout(() => { if (!app._filmTimer) { app.ui.film = null; app.render(); } }, 1800); return; } show(); }, reduce ? 900 : 380);
+    },
+    'photo-mode': (app) => { app.ui.photo = { hour: [8, 13, 19, 23].reduce((a, h) => (Math.abs(h - localHour()) < Math.abs(a - localHour()) ? h : a), 13), season: cityScene({ state: app.state, ui: {} }).season }; app.ui.architect = false; app.ui.ringOpen = false; app.ui.citySel = null; app.ui.buildMode = false; document.body.classList.add('photo-mode'); app.render(); },
+    'photo-set': (app, el) => { const ph = app.ui.photo; if (!ph) return; ph[el.dataset.k] = el.dataset.k === 'hour' ? +el.value : el.value; app.mapDirty = true; app.render(); },
+    'photo-exit': (app) => { app.ui.photo = null; document.body.classList.remove('photo-mode'); app.mapDirty = true; app.render(); },
+    'photo-shot': (app) => {
+      const world = document.querySelector('#city-vp .iso-world');
+      if (!world) return;
+      const t0 = performance.now();
+      savePhoto(world, cityScene(app).light, castleName(app.state)).then((r) => app.toast(`📷 Image enregistrée (${Math.round(r.size / 1024)} Ko, ${Math.round(performance.now() - t0)} ms)`, 'good')).catch((e) => app.toast('Image impossible : ' + e.message, 'bad'));
+    },
+    'trophy-auto': (app) => app.act(() => { const n = autoPlaceTrophies(app.state).length; return n ? { ok: true, n } : { ok: false, reason: 'Aucune place libre dans la ville fortifiée (agrandissez-la) ou aucun trophée à exposer' }; }, (r) => `🏆 ${r.n} trophée${r.n > 1 ? 's' : ''} exposé${r.n > 1 ? 's' : ''} dans la cour`),
     'trophy-mode': (app, el) => { app.ui.placeTrophy = el.dataset.key; app.ui.placeType = null; app.ui.placeDeco = null; app.ui.moveId = null; app.render(); },
     'monument-orient': (app, el) => { if (confirm('Cette orientation est définitive. Confirmer ?')) app.act(() => setOrientation(app.state, el.dataset.k), (r) => `🗿 Monument consacré : ${r.name}`); },
     'tile-up': (app, el) => { app.ui.citySel = { x: +el.dataset.x, y: +el.dataset.y }; app.ui.placeType = null; app.ui.moveId = null; app.ui.focusUpgrade = true; app.ui.ringOpen = false; app.go('bldg'); },
@@ -704,6 +758,18 @@ const cityView = {
         const r = app.act(() => moveBuilding(s, id, x, y), 'Bâtiment déplacé');
         if (r?.ok) { app.ui.moveId = null; app.ui.citySel = { x, y }; app.render(); }
         void b;
+        return;
+      }
+      // v20 : mode architecte (silhouettes gratuites) ; hors de ce mode, un clic sur une silhouette la fait bâtir
+      if (app.ui.architect) {
+        if (ghostAt(s, x, y)) { app.act(() => removeGhost(s, x, y), 'Silhouette retirée'); return; }
+        if (app.ui.placeType) { app.act(() => addGhost(s, app.ui.placeType, x, y), 'Silhouette posée'); return; }
+      }
+      if (!app.ui.placeType && !app.ui.moveId && !buildingAt(s, x, y) && ghostAt(s, x, y)) {
+        const g = ghostAt(s, x, y);
+        if (!app.confirmSpend(getUpgradeInfo(s, g.type, 1).cost, 'cette construction prévue')) return;
+        const r = app.act(() => orPlan(s, startBuild(s, g.type, x, y), { kind: 'build', type: g.type, x, y }), planMsg(`${BUILDINGS[g.type].name} : construction lancée (plan de l’architecte)`));
+        if (r?.ok !== false) { pruneGhosts(s); app.render(); }
         return;
       }
       if (app.ui.placeType) {
@@ -757,7 +823,7 @@ const cityView = {
     repair: (app, el) => app.act(() => repairBuilding(app.state, el.dataset.id), 'Bâtiment réparé'),
     'repair-all': (app) => { app.mapDirty = true; app.act(() => { const n = repairAll(app.state); return n ? { ok: true, n } : { ok: false, reason: 'Ressources insuffisantes pour réparer' }; }, (r) => `${r.n} bâtiment${r.n > 1 ? 's' : ''} réparé${r.n > 1 ? 's' : ''}`); },
     recipe: (app, el) => { app.state.city.buildings[el.dataset.id].recipe = +el.value; app.render(); app.save(); },
-    expand: (app) => app.act(() => expandDomain(app.state), 'Le domaine s’agrandit !'),
+    expand: (app) => app.act(() => expandDomain(app.state), 'Le domaine s’agrandit ! Le prochain agrandissement de la ville fortifiée est offert.'),
     'city-zoom': (app, el) => { const vp = document.getElementById('city-vp'); if (!vp) return; zoomAt(cityCam(app), +el.dataset.z, vp.clientWidth / 2, vp.clientHeight / 2, CITY_ZMIN, CITY_ZMAX); vp._apply(); },
     'city-fit': (app) => { const vp = document.getElementById('city-vp'); if (!vp) return; const c = vp.querySelector('.mapvp-inner'); const cam = cityCam(app); cam.z = Math.max(CITY_ZMIN, Math.min(CITY_SCALE, fitZoom(vp.clientWidth, vp.clientHeight, c.offsetWidth, c.offsetHeight))); vp._apply(); },
     'city-center': (app) => { const vp = document.getElementById('city-vp'); if (!vp) return; centerOnTown(app, vp); vp._apply(); },

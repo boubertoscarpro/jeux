@@ -95,7 +95,7 @@ function crenels(u0, v0, u1, v1, h, wall = C.stone) {
 // Drapeau (couleur de la bannière : variable CSS --banner, sinon or)
 export function flag(u, v, z, h = 26, col = 'var(--banner, #e2b84a)') {
   const [x, y] = P(u, v, z);
-  return `<path d="M${f1(x)} ${f1(y)}V${f1(y - h)}" stroke="${C.ink}" stroke-width="1.6"/><path class="anim-flag" d="M${f1(x)} ${f1(y - h)}h15l-4 5 4 5h-15Z" fill="${col}" stroke="${C.ink}" stroke-width=".9"/>`;
+  return `<path d="M${f1(x)} ${f1(y)}V${f1(y - h)}" stroke="${C.ink}" stroke-width="1.6"/><path class="anim-flag iso-flag" d="M${f1(x)} ${f1(y - h)}h15l-4 5 4 5h-15Z" fill="${col}" stroke="${C.ink}" stroke-width=".9"/>`;
 }
 let quiet = false; // bâtiment à l'arrêt : ni fumée ni ailes qui tournent
 const smoke = (u, v, z, c = '#d6d1c7') => { if (quiet) return ''; const [x, y] = P(u, v, z); return `<g class="iso-smoke"><circle class="anim-smoke" cx="${f1(x)}" cy="${f1(y - 4)}" r="4" fill="${c}" opacity=".6"/><circle class="anim-smoke d2" cx="${f1(x + 3)}" cy="${f1(y - 10)}" r="5" fill="${c}" opacity=".45"/></g>`; };
@@ -298,3 +298,16 @@ export function isoUse(key, make, cls = 'iso-art', w = SPRITE.w, h = SPRITE.h) {
 }
 // Dessin autonome (sans <use>), pour le mode photo ou un usage hors page
 export const isoInline = (inner, w = SPRITE.w, h = SPRITE.h) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${inner}</svg>`;
+
+// v20 : portrait illustré du conseiller (vieux mage au chapeau pointu, bras levé quand il a quelque chose à dire)
+export const advisorSvg = (size = 40) => `<svg viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true" class="adv-svg">
+  <circle cx="24" cy="24" r="23" fill="#2c3a55" stroke="#c9a36a" stroke-width="2"/>
+  <path d="M10 46c1-10 6-15 14-15s13 5 14 15Z" fill="#4b5fa0" stroke="#1d1812" stroke-width="1.2"/>
+  <path d="M19 31l5 12 5-12" fill="#e9e2cf" stroke="#1d1812" stroke-width="1"/>
+  <circle cx="24" cy="24" r="7.5" fill="#f1cfa6" stroke="#1d1812" stroke-width="1.2"/>
+  <path d="M17 26c2 7 5 10 7 11 2-1 5-4 7-11-3 2-11 2-14 0Z" fill="#eeeae0" stroke="#1d1812" stroke-width="1"/>
+  <circle cx="21.5" cy="23" r="1.1" fill="#1d1812"/><circle cx="26.5" cy="23" r="1.1" fill="#1d1812"/>
+  <path d="M13 19c4-2 18-2 22 0l-2 2H15Z" fill="#3b4f8f" stroke="#1d1812" stroke-width="1.2"/>
+  <path d="M16 19L24 3l9 16Z" fill="#4b5fa0" stroke="#1d1812" stroke-width="1.2"/><circle cx="25" cy="11" r="1.4" fill="#ffd86b"/>
+  <g class="adv-arm"><path d="M36 38c3-4 4-9 3-14" stroke="#4b5fa0" stroke-width="4.5" stroke-linecap="round" fill="none"/><circle cx="39" cy="23" r="2.6" fill="#f1cfa6" stroke="#1d1812" stroke-width="1"/></g>
+</svg>`;

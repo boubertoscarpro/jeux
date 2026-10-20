@@ -2,6 +2,7 @@
 // réglages d'accessibilité, « Pourquoi ? », textes justes, migration d'une vraie sauvegarde v16.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { ZONES } from '../src/data/castle.js';
 import { readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
 import { createNewState } from '../src/core/state.js';
@@ -38,7 +39,7 @@ test('Carte : un seul signal par bâtiment, choisi par priorité ; flèches seul
   assert.ok([...sig.values()].filter((x) => x.kind === 'upgrade').length <= UPGRADE_MAX);
   // Amélioration non payable : aucune flèche
   const none = buildingSignals(s, { upgrades: new Map([[d.id, { status: 'lack' }]]) });
-  assert.ok(!none.has(d.id));
+  assert.ok(none.get(d.id)?.kind !== 'upgrade'); // v20 : il peut rester un autre signal (à l'arrêt, récolte)
   // Masquées par le joueur : aucune flèche
   assert.ok(![...buildingSignals(s, { upgrades: ups, showUpgrades: false }).values()].some((x) => x.kind === 'upgrade'));
   assert.ok(SIGNAL_RANK.danger > SIGNAL_RANK.reward && SIGNAL_RANK.reward > SIGNAL_RANK.problem && SIGNAL_RANK.problem > SIGNAL_RANK.upgrade);
@@ -138,7 +139,7 @@ test('Lecteur d’écran : la carte a une alternative textuelle complète (zones
   const out = cityOutline(s);
   const n = out.reduce((a, g) => a + g.items.length, 0);
   assert.equal(n, Object.values(s.city.buildings).filter((b) => b.type !== 'road').length, 'chaque bâtiment est listé');
-  assert.ok(out.every((g) => ['Cour du donjon', 'Faubourgs', 'Campagne'].includes(g.name)));
+  assert.ok(out.every((g) => Object.values(ZONES).some((z) => z.name === g.name))); // v20 : ville fortifiée, douves, abords, campagne
   const lib = out.flatMap((g) => g.items).find((i) => i.type === 'market');
   if (lib) assert.ok(lib.screens.includes('market'), 'les écrans du lieu sont proposés');
   assert.match(citySummary(s), /Hôtel de ville niveau \d+, \d+ bâtiments/);
@@ -183,8 +184,11 @@ test('Migration : une vraie sauvegarde v16 se charge, joue 2 h, garde tout, reç
   const raw = gunzipSync(readFileSync(new URL('./fixtures/save-v16.json.gz', import.meta.url))).toString();
   const old = JSON.parse(raw);
   const s = deserialize(raw);
-  assert.deepEqual(Object.keys(s.city.buildings).sort(), Object.keys(old.city.buildings).sort());
-  for (const [id, b] of Object.entries(old.city.buildings)) { assert.equal(s.city.buildings[id].x, b.x); assert.equal(s.city.buildings[id].level, b.level); }
+  // v20 : la migration ajoute les trophées exposés et peut réorganiser la ville (anciennes places gardées pour l'annulation)
+  const noTrophy = (o) => Object.keys(o).filter((k) => !(o[k].type === 'deco' && String(o[k].deco).startsWith('tr_'))).sort();
+  assert.deepEqual(noTrophy(s.city.buildings), Object.keys(old.city.buildings).sort());
+  const was = s.castle.reorg?.positions || {};
+  for (const [id, b] of Object.entries(old.city.buildings)) { assert.equal(was[id] ? was[id][0] : s.city.buildings[id].x, b.x); assert.equal(s.city.buildings[id].level, b.level); }
   assert.deepEqual(s.army, old.army);
   for (const [k, t] of Object.entries(old.territories)) assert.deepEqual(s.territories[k].town, t.town);
   assert.deepEqual(a11yPrefs(s), A11Y_DEFAULTS);
@@ -281,5 +285,5 @@ test('Carte : un même problème sur beaucoup de bâtiments — icône sur les 4
   assert.ok(dmg.filter(([, x]) => x.compact).every(([id, x]) => s.city.buildings[id].level <= minFull && x.group === dmg.length));
   // Trois bâtiments seulement : tous gardent leur icône
   for (const b of bs.slice(3)) b.damaged = false;
-  assert.ok([...buildingSignals(s, { showUpgrades: false }).values()].every((x) => !x.compact));
+  assert.ok([...buildingSignals(s, { showUpgrades: false }).values()].filter((x) => x.icon === '🛠️').every((x) => !x.compact));
 });

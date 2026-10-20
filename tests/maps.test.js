@@ -53,13 +53,14 @@ test('Royaume : 24×16 dès le départ, plus de cases constructibles, même nomb
 test('Royaume : construire, sélectionner et déplacer partout, y compris aux bords de la grande carte', () => {
   const s = createNewState({ seed: 'build', now: T0 });
   for (const r of Object.keys(s.resources)) s.resources[r] = 5000;
-  const far = free(s, 'house', (x, y) => x >= 18 && y >= 10);
+  // v20 : les maisons vont dans les murs ; un bâtiment des champs se pose aux bords de la carte
+  const far = free(s, 'farm', (x, y) => x >= 18 && y >= 10);
   assert.ok(far, 'case libre à l’est/sud');
-  assert.ok(startBuild(s, 'house', far.x, far.y, T0).ok);
+  assert.ok(startBuild(s, 'farm', far.x, far.y, T0).ok);
   advance(s, T0 + H);
   const b = buildingAt(s, far.x, far.y);
   assert.ok(b && b.level === 1);
-  const dest = free(s, 'house', (x, y) => x <= 8 && y <= 3);
+  const dest = free(s, 'farm', (x, y) => x <= 8 && y <= 3);
   assert.ok(moveBuilding(s, b.id, dest.x, dest.y).ok);
   assert.equal(buildingAt(s, dest.x, dest.y)?.id, b.id);
   assert.equal(placementCheck(s, 'house', s.city.w, 0).ok, false, 'hors carte refusé');
@@ -171,7 +172,9 @@ test('Migration v7 → v8 : ville et monde agrandis sans rien déplacer ni perdr
   const st = deserialize(JSON.stringify(old));
   // Ville : 24+4 × 16+2 (un agrandissement déjà acheté), ancienne zone intacte, bâtiments aux mêmes coordonnées
   assert.equal(st.city.w, 28); assert.equal(st.city.h, 18);
-  for (let y = 0; y < old.city.h; y++) for (let x = 0; x < old.city.w; x++) assert.equal(st.city.terrain[y * 28 + x], old.city.terrain[y * old.city.w + x], `${x},${y}`);
+  // v20 : la ville fortifiée et ses douves sont aplanies (forêt, montagne, rivière) ; tout le reste est intact
+  const rr = st.castle.rect;
+  for (let y = 0; y < old.city.h; y++) for (let x = 0; x < old.city.w; x++) if (!(x >= rr.x0 - 1 && x <= rr.x1 + 1 && y >= rr.y0 - 1 && y <= rr.y1 + 1)) assert.equal(st.city.terrain[y * 28 + x], old.city.terrain[y * old.city.w + x], `${x},${y}`);
   assert.deepEqual(noPlaces(st.city.buildings), old.city.buildings);
   assert.deepEqual(st.city.fort, old.city.fort);
   const newRubble = st.city.terrain.filter((t, i) => t === 'rubble' && ((i % 28) >= old.city.w || Math.floor(i / 28) >= old.city.h)).length;

@@ -234,7 +234,8 @@ export function enlargePreview(state) {
   if (rectW(n) < nx.size || rectH(n) < nx.size) return { ok: false, reason: 'Bord du domaine atteint : agrandissez le domaine' };
   const leaving = blds(state).filter((b) => b.type !== 'townhall' && !inRect(r, b.x, b.y) && (inRect(n, b.x, b.y) || inRing(n, b.x, b.y)) && !(isCityType(b.type) && inRect(n, b.x, b.y)));
   const entering = blds(state).filter((b) => isCityType(b.type) && !inRect(r, b.x, b.y) && inRect(n, b.x, b.y));
-  return { ok: true, rect: n, cost: { ...nx.cost }, size: nx.size, stage: nx.index, th: nx.th, moving: leaving.length, entering: entering.length, perimeter: perimeter(n), factor: 1, trapped: [] };
+  const free = (state.castle?.freeGrow || 0) > 0;
+  return { ok: true, rect: n, cost: free ? {} : { ...nx.cost }, free, size: nx.size, stage: nx.index, th: nx.th, moving: leaving.length, entering: entering.length, perimeter: perimeter(n), factor: 1, trapped: [] };
 }
 // Agrandir l'enceinte d'un palier. pay(cost) → bool ; free : offert (agrandissement du domaine)
 export function enlargeEnceinte(state, _side, pay, now = Date.now()) {
@@ -242,7 +243,8 @@ export function enlargeEnceinte(state, _side, pay, now = Date.now()) {
   const C = castleState(state);
   const p = enlargePreview(state);
   if (!p.ok) return p;
-  if (!pay(p.cost)) return { ok: false, reason: 'Ressources insuffisantes' };
+  if (p.free) C.freeGrow--;
+  else if (!pay(p.cost)) return { ok: false, reason: 'Ressources insuffisantes' };
   const before = { ...C.rect };
   C.rect = p.rect; C.enc = p.stage; C.stats.enlarged++;
   flatten(state, p.rect);

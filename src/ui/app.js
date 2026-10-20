@@ -9,6 +9,9 @@ import { placeBuilding } from '../systems/places.js';
 import { startUpgrade, upgradeCheck } from '../systems/construction.js';
 import defenseView from './views/defense.js';
 import omensView from './views/omens.js';
+import orderView from './views/order.js';
+import farlandsView from './views/farlands.js';
+import choresView from './views/chores.js';
 import { profileView, settingsView } from './views/kingdom.js';
 import { bldgView } from './views/city.js';
 import { tileView } from './views/world.js';
@@ -87,9 +90,9 @@ import { missionsTick } from '../systems/missions.js';
 
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
-  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView, omensView] },
-  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, factionsView, archaeoView, legendView] },
-  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView, defenseView] },
+  { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView, omensView, orderView] },
+  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, farlandsView, factionsView, archaeoView, legendView] },
+  { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView, defenseView, choresView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
@@ -573,6 +576,7 @@ export class App {
     queues: (app) => app.modal(`<h2>⏳ Files du royaume</h2>${queuesHtml(app)}`, {}, 'wide'),
     'res-more': (app) => { app.ui.resMore = !app.ui.resMore; app.renderHud(); },
     'act-more': (app) => { app.ui.actMore = !app.ui.actMore; app.renderHud(); },
+    'right-fold': (app) => { app.ui.rightFolded = !app.ui.rightFolded; app.renderHud(); },
     'left-fold': (app) => { app.ui.leftCollapsed = !(app.ui.leftCollapsed ?? innerWidth <= 1200); app.renderHud(); },
     'drawer-q': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'q' ? null : 'q'; app.renderHud(); },
     'drawer-a': (app) => { app.ui.phoneDrawer = app.ui.phoneDrawer === 'a' ? null : 'a'; app.renderHud(); },

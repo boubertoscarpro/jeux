@@ -31,7 +31,7 @@ function realm(seed, lvl = 8) {
 const omen = (o) => ({ kind: 'catastrophe', key: 'drought', q: 0.6, signs: [], quiet: 0, ...o });
 
 // ───────── Scène ─────────
-const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('p_'))); // lieux v16 : ajoutés, jamais retirés
+const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k, v]) => !k.startsWith('p_') && !(v.type === 'deco' && String(v.deco).startsWith('tr_')))); // lieux v16 et trophées v20 : ajoutés, jamais retirés
 
 test('Scène : lumière selon l’heure, bornée et lisible', () => {
   assert.equal(dayLight(12).phase, 'day');

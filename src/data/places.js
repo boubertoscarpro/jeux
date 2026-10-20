@@ -4,7 +4,7 @@
 // Les lieux « nouveaux » (isPlace: true dans buildings.js) sont de simples points d'accès : aucune production, aucun
 // effet, posés gratuitement quand leur fonction s'ouvre (systems/places.js).
 export const PLACES = {
-  townhall: { kind: 'building', type: 'townhall', screens: ['goals', 'policy', 'council', 'projects'] },
+  townhall: { kind: 'building', type: 'townhall', screens: ['goals', 'policy', 'council', 'projects', 'order', 'chores'] },
   castle: { kind: 'building', type: 'castle', screens: ['treasury', 'talents', 'legacy'] },
   barracks: { kind: 'building', type: 'barracks', screens: ['army'] },
   stable: { kind: 'building', type: 'stable', screens: ['army'] },
@@ -26,7 +26,7 @@ export const PLACES = {
   herald: { kind: 'building', type: 'herald', screens: ['event', 'eventShop', 'kingdom'] },
   lists: { kind: 'building', type: 'lists', screens: ['challenges'] },
   scriptorium: { kind: 'building', type: 'scriptorium', screens: ['journal', 'accomplish', 'history', 'stats'] },
-  world: { kind: 'map', name: 'Carte du monde', icon: '🌍', screens: ['world', 'territories'] },
+  world: { kind: 'map', name: 'Carte du monde', icon: '🌍', screens: ['world', 'territories', 'farlands'] },
   profile: { kind: 'hud', name: 'Profil du seigneur', icon: '🛡️', screens: ['profile'] },
   settings: { kind: 'hud', name: 'Réglages', icon: '⚙️', screens: ['settings', 'admin'] },
 };

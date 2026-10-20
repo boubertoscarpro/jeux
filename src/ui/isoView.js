@@ -18,9 +18,11 @@ export function placeStyle(f, x, y, layer = LAYER.building, dz = 0) {
 }
 // Silhouette cliquable (clip-path) : losange de la case + volume du bâtiment jusqu'à sa hauteur (px au-dessus du sol)
 export function hitClip(height) {
-  const top = Math.max(0, SPRITE.h - 32 - height);
+  // Hexagone d'un volume isométrique : base en losange, flancs verticaux, sommet en losange (plus de rectangle qui
+  // déborderait sur les voisins de derrière)
+  const side = Math.max(0, SPRITE.h - 32 - Math.max(8, height - 24)), top = Math.max(0, SPRITE.h - 64 - Math.max(8, height - 24));
   const pc = (y) => f1((y / SPRITE.h) * 100) + '%';
-  return `clip-path:polygon(50% 100%, 0% ${pc(SPRITE.h - 32)}, 4% ${pc(top)}, 96% ${pc(top)}, 100% ${pc(SPRITE.h - 32)})`;
+  return `clip-path:polygon(50% 100%, 0% ${pc(SPRITE.h - 32)}, 0% ${pc(side)}, 50% ${pc(top)}, 100% ${pc(side)}, 100% ${pc(SPRITE.h - 32)})`;
 }
 // Hauteur approximative d'un dessin (pour la silhouette cliquable)
 const TALL = { townhall: 150, castle: 120, watchtower: 120, observatory: 100, library: 100, mill: 110, scriptorium: 90, guildhall: 90, embassy: 80, monument: 100 };
