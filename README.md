@@ -21,6 +21,17 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v20 — Ma forteresse** : le royaume devient une forteresse vivante, vue en isométrique, dans ses murs et ses douves, avec les champs autour.
+> - **Vue isométrique** : losange 2:1, profondeur exacte, clic, survol et clavier par projection inverse ; le sol est mis en cache, seul ce qui bouge est redessiné. Bâtiments plus grands, toits colorés par famille, muraille crénelée avec tours, porte et pont-levis, bannières à vos armes, engins de la v19 sur leur flanc, fissures et réparations visibles.
+> - **La ville dans les murs** : tout ce qui est urbain se bâtit dans la ville fortifiée (6 × 6 à 11 × 11 cases selon l'hôtel de ville), la campagne productive dehors. Chaque agrandissement redessine murs et douves, mis en scène ; un agrandissement du domaine offre le palier suivant.
+> - **Signaux** : « Zzz » pour un bâtiment à l'arrêt (pause, matière manquante, entrepôt plein) avec sa cause au survol, « ! » pour ce qui demande d'agir ; plus de pastilles permanentes.
+> - **Vitrine** : les faits d'armes deviennent des trophées (statues, bannières, obélisques) exposés dans la cour. Rien ne s'achète.
+> - **Inspiré du genre** : ordre public à rendement décroissant (« Pourquoi ? »), 8 titres de noblesse, 3 terres lointaines bâties sur les avant-postes, fin de la corvée (raids relancés, ravitaillement, défense sur alerte, ménage des rapports), récoltes bonus qui n'expirent jamais.
+> - **Au-delà** : mode architecte (silhouettes planifiées, agrandissements à venir), film du château (sa croissance rejouée), mode photo (image PNG composée dans le navigateur), transparence étendue.
+> - **Anciennes parties** : la ville entre dans les murs une seule fois, sans rien détruire ; aperçu de l'ancienne disposition et annulation pendant 7 jours.
+>
+> Aucune nouvelle monnaie, aucune ressource produite en masse, aucun avantage payant. Voir [`docs/AUDIT_V20.md`](docs/AUDIT_V20.md) et [`docs/V20.md`](docs/V20.md).
+
 > **v19 — L'Art du siège** : l'attaque et la défense des places fortes deviennent profondes, lisibles et tactiques.
 > - **Protections** : chaque place fortifiée a une muraille (flancs), une porte (front) et des douves (partout). Cela vaut pour le château, les royaumes et leurs factions, les forteresses de la Brèche, les places des campagnes et les avant-postes. Les camps n'ont pas d'enceinte, et l'interface le dit.
 > - **Engins** : 6 d'attaque (échelles, bélier, mantelets, fascines, flèches incendiaires, tour de siège) et 6 de défense (pierres, poix, archères, pieux, herse, crochets). Chacun a un contre clair et un effet dégressif et plafonné. Ils se fabriquent à l'arsenal (file, capacité, stock minimal entretenu par l'intendant), et une limite s'applique par flanc et par vague.

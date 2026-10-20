@@ -119,16 +119,17 @@ body.photo-mode .hud, body.photo-mode .bottom-bar, body.photo-mode .city-side, b
 
 /* ───────── Affichage fixe v20 ───────── */
 /* Haut gauche : titre de noblesse avec sa barre, ordre public */
-.hud-title { display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: var(--ivory, #eee5d0); font: 600 12px var(--font); cursor: pointer; min-height: 24px; }
+.hud-power { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap; }
+.hud-title { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0; color: var(--ivory, #eee5d0); font: 600 12px var(--font); cursor: pointer; min-height: 24px; }
 .hud-thbar.gold i { background: linear-gradient(90deg, #b8862e, #ffd86b); }
-.hud-order { margin-left: 6px; background: rgba(0, 0, 0, 0.3); border: 1px solid #6a5434; border-radius: 10px; color: var(--ivory, #eee5d0); font: 600 12px var(--font); padding: 1px 7px; cursor: pointer; min-height: 24px; }
+.hud-order { background: rgba(0, 0, 0, 0.3); border: 1px solid #6a5434; border-radius: 10px; color: var(--ivory, #eee5d0); font: 600 12px var(--font); padding: 1px 7px; cursor: pointer; min-height: 24px; }
 .hud-order.o-unrest { border-color: #c4523e; color: #ffd2c8; }
 .hud-order.o-fervent { border-color: #ffd86b; }
 .hud-title:focus-visible, .hud-order:focus-visible { outline: 3px solid #fff3c4; outline-offset: 1px; }
 /* Bas droite : boutons ronds plus grands, illustrés, avec leur nom ; choix du domaine à côté du globe */
-.hud-a { min-width: 66px; height: 66px; }
+.hud-a { min-width: 66px; height: 60px; }
 .hud-a > span:not(.hb) { font-size: 24px; filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.6)); }
-.hud-globe { width: 84px; height: 84px; }
+.hud-globe { width: 76px; height: 76px; }
 .hud-globe > span { font-size: 30px; }
 .hud-actions .hud-domain { align-self: center; }
 .hud-actions .hud-domain select { max-width: 150px; min-height: 44px; font-size: 12px; border-radius: 10px; }
@@ -162,3 +163,9 @@ html.reduce-motion .adv-pt .adv-arm, html.saver .adv-pt .adv-arm { animation: no
 .chore-card h3 { margin: 0; flex: 1 1 auto; }
 .chore-log { padding-left: 18px; margin: 0; }
 .chore-card button, .far-card button { min-height: 36px; }
+/* Signal masqué parce qu'il chevauchait un signal plus important (dégroupage après chaque rendu et mouvement) */
+.city-vp .tile.iso-b .t-sig.clash { visibility: hidden; }
+/* Bandeaux du royaume empilés (plan, architecte, photo, réorganisation, film) : jamais l'un sur l'autre */
+.plan-bars { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 26; display: flex; flex-direction: column-reverse; gap: 6px; align-items: center; width: max-content; max-width: min(720px, calc(100% - 24px)); pointer-events: none; }
+.plan-bars > .plan-bar { position: static; transform: none; max-width: 100%; pointer-events: auto; }
+.plan-bars > .plan-bar.photo-bar { bottom: auto; left: auto; }

@@ -453,9 +453,42 @@ function onCityCam(vp, cam) {
   const zl = cityZoomLevel(cam.z);
   if (vp.dataset.zl !== zl) vp.dataset.zl = zl;
   if (!vp.classList.contains('moving')) vp.classList.add('moving');
-  clearTimeout(vp._mv); vp._mv = setTimeout(() => vp.classList.remove('moving'), 280);
+  clearTimeout(vp._mv); vp._mv = setTimeout(() => { vp.classList.remove('moving'); declutter(vp); }, 280);
   vp.querySelector('#city-tip')?.classList.remove('on');
   placeRing(vp, cam);
+}
+// v20 : couches lourdes et rarement changées (décor de la campagne, muraille) : leurs nœuds sont gardés d'un rendu à
+// l'autre tant que leur contenu ne change pas (le rendu ne pose qu'une place vide, remplie ou rattachée après)
+const reused = new Map();
+function reuse(cls, html) {
+  const k = cls.split(' ')[0];
+  const c = reused.get(k);
+  if (!c || c.html !== html || c.cls !== cls) reused.set(k, { html, cls, node: null });
+  return `<div class="${cls}" data-reuse="${k}"></div>`;
+}
+function attachReused(root) {
+  for (const ph of root.querySelectorAll('[data-reuse]')) {
+    const c = reused.get(ph.dataset.reuse);
+    if (!c) continue;
+    if (c.node && c.node !== ph) { ph.replaceWith(c.node); continue; }
+    ph.innerHTML = c.html;
+    c.node = ph;
+  }
+}
+// v20 : en isométrique, le signal d'un bâtiment haut peut monter sur celui du voisin de derrière. Après chaque rendu et
+// chaque mouvement de caméra, on garde le plus important (puis le plus en avant) et on masque l'autre (jamais deux
+// signaux l'un sur l'autre ; le masqué reste dans la fiche, l'infobulle et la liste textuelle).
+const SIG_ORDER = { danger: 4, reward: 3, problem: 2, stopped: 1.5, upgrade: 1, idle: 0 };
+export function declutter(vp) {
+  const sigs = [...vp.querySelectorAll('.tile.iso-b .t-sig')];
+  for (const e of sigs) e.classList.remove('clash');
+  const items = sigs.map((e) => ({ e, r: e.getBoundingClientRect(), k: SIG_ORDER[(/sig-(\w+)/.exec(e.className) || [])[1]] ?? 0, z: +e.parentElement.style.zIndex || 0 }))
+    .filter((i) => i.r.width > 0).sort((a, b) => b.k - a.k || b.z - a.z);
+  const kept = [];
+  for (const i of items) {
+    if (kept.some((o) => i.r.left < o.right + 1 && i.r.right > o.left - 1 && i.r.top < o.bottom + 1 && i.r.bottom > o.top - 1)) i.e.classList.add('clash');
+    else kept.push(i.r);
+  }
 }
 // L'anneau d'un bâtiment est posé hors de la carte transformée (taille constante), recentré à chaque mouvement
 function placeRing(vp, cam) {
@@ -634,6 +667,7 @@ const cityView = {
   after(app) {
     const vp = document.getElementById('city-vp');
     if (!vp) return;
+    attachReused(vp);
     fitStage();
     vp._frame = frameOf(app.state);
     attachGround(app);
@@ -644,6 +678,7 @@ const cityView = {
     vp._center = (x, y) => { centerOnTown(app, vp, { x, y }); app.ui.cityFocus = null; vp._apply?.(); };
     bindPanZoom(vp, { getCam: () => cityCam(app), zMin: CITY_ZMIN, zMax: CITY_ZMAX, onChange: (cam) => onCityCam(vp, cam) });
     bindCityTip(app, vp);
+    declutter(vp);
     if (app.ui.focusUpgrade) { document.getElementById('up-block')?.scrollIntoView({ block: 'nearest' }); app.ui.focusUpgrade = false; }
     if (!app._cityResize) { app._cityResize = true; window.addEventListener('resize', () => { fitStage(); document.getElementById('city-vp')?._apply?.(); }); }
   },
@@ -682,8 +717,8 @@ const cityView = {
           <div class="mapvp-inner iso-world" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px;transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})">
             <div class="ground-slot iso-ground"></div>
             <svg class="iso-overlay" width="${Math.round(f.width)}" height="${Math.round(f.height)}" aria-hidden="true">${future}${selPath}<path id="iso-hl" class="iso-hl" d=""/></svg>
-            <div class="iso-scenery">${sceneryLayer(s, f, ctx.scene.season)}</div>
-            <div class="iso-walls ${growing ? 'grow' : ''}">${walls}${raid && !film ? raidColumnHtml(s, f, raid) : ''}</div>
+            ${reuse('iso-scenery', sceneryLayer(s, f, ctx.scene.season))}
+            ${reuse(`iso-walls ${growing ? 'grow' : ''}`, walls + (raid && !film ? raidColumnHtml(s, f, raid) : ''))}
             <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}${ghostsHtml(app, ctx)}</div>
             <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div>
           </div>
@@ -692,10 +727,12 @@ const cityView = {
           ${harvestBubble(app)}
         </div>
         ${building ? buildPanel(app, mods, ups) : ''}
+        <div class="plan-bars">
         ${app.ui.planPreview ? `<div class="plan-bar" role="status">📐 Aperçu du plan : les silhouettes pâles montrent les nouvelles places. <button class="mini primary" data-action="plans">Appliquer ou modifier</button> <button class="mini ghost" data-action="plan-close">Fermer l’aperçu</button></div>` : ''}
         ${app.ui.architect && !ph ? `<div class="plan-bar arch-bar" role="status">📐 Mode architecte : choisissez un bâtiment dans « Construire », puis cliquez une case pour poser sa silhouette (rien n’est payé). Cliquez une silhouette pour la retirer. Les pointillés montrent les agrandissements à venir. <span class="small">${ghosts(s).length}/${ARCH.max}</span> <button class="mini" data-action="build-mode">🔨 Choisir</button> ${ghosts(s).length ? '<button class="mini ghost" data-action="arch-clear">Tout effacer</button>' : ''} <button class="mini primary" data-action="architect">Terminer</button></div>` : ''}
         ${ph ? `<div class="plan-bar photo-bar" role="toolbar" aria-label="Mode photo">📷 <label>Heure <select data-change="photo-set" data-k="hour">${Object.entries(PHOTO_HOURS).map(([h, n]) => `<option value="${h}" ${+ph.hour === +h ? 'selected' : ''}>${n}</option>`).join('')}</select></label> <label>Saison <select data-change="photo-set" data-k="season">${Object.entries(PHOTO_SEASONS).map(([k, n]) => `<option value="${k}" ${ph.season === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label> <button class="btn primary" data-action="photo-shot">Enregistrer l’image</button> <button class="btn ghost" data-action="photo-exit">Quitter</button></div>` : ''}
         ${reorgBar(app)}${film ? `<div class="plan-bar film-bar" role="status">🎞️ Le film du château : ${esc(film.label)} <button class="mini ghost" data-action="film-stop">Arrêter</button></div>` : ''}
+        </div>
       </div>
     </div>`;
   },

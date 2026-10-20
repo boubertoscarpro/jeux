@@ -81,7 +81,17 @@ const path = require('path');
   await page.mouse.wheel(0, 400);
   const tileEl = await page.$('.tile[data-x="12"][data-y="7"]');
   const tb = await tileEl.boundingBox();
-  await page.mouse.click(tb.x + tb.width / 2, tb.y + tb.height / 2);
+  // v20 : vue isométrique — un bâtiment de devant peut cacher une partie de celui-ci : on vise un point réellement visible
+  const pt = await tileEl.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    for (let fy = 0.84; fy > 0.2; fy -= 0.04) for (const fx of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+      const x = r.left + r.width * fx, y = r.top + r.height * fy;
+      if (document.elementFromPoint(x, y)?.closest('.tile') === el) return { x, y };
+    }
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  });
+  void tb;
+  await page.mouse.click(pt.x, pt.y);
   const cs = await page.evaluate(() => window.cendrelande.ui.citySel);
   if (!cs || cs.x !== 12 || cs.y !== 7) errors.push('ville : sélection décalée après zoom ' + JSON.stringify(cs));
   await page.evaluate(() => { const a = window.cendrelande; a.ui.citySel = null; a.state.world.revealed.fill(1); a.go('world'); });

@@ -16,7 +16,7 @@ export function orderCard(s) {
     <details class="why" open><summary>Pourquoi ce chiffre ?</summary>
       <table class="why-table"><caption class="sr-only">Facteurs de l’ordre public</caption><tbody>${o.parts.map(([n, v]) => `<tr><td>${esc(n)}</td><td class="num ${v < 0 ? 'bad' : 'ok'}">${v >= 0 ? '+' : '−'}${fmt(Math.abs(v))}</td></tr>`).join('')}
         <tr class="total"><td>Total</td><td class="num">${fmt(o.value)}</td></tr></tbody></table>
-      <p class="small">Rendement décroissant : chaque point compte un peu moins que le précédent (bonus = ${ORDER.capUp * 100} % × (1 − e<sup>−ordre/${ORDER.kUp}</sup>)). Une décoration de plus dans la cour rapporterait encore <b>${pct(nextGain)}</b>.</p>
+      <p class="small">Rendement décroissant : chaque point compte un peu moins que le précédent (bonus = ${ORDER.capUp * 100} % × (1 − exp(−ordre / ${ORDER.kUp}))). Une décoration de plus dans la cour rapporterait encore <b>${pct(nextGain)}</b>.</p>
       <p class="small muted">Ce qui le fait monter : décorations et trophées <b>dans la ville fortifiée</b>, lieux (sanctuaire, ambassade…), monument, muraille, niveau de l’hôtel de ville. Ce qui le fait baisser : les maisons (foule, ruelles), qui rapportent par ailleurs de l’or et des ouvriers.</p>
     </details></div>`;
 }
