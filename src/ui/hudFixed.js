@@ -63,15 +63,16 @@ function topLeft(app) {
       <div class="hud-th" title="${next ? `Prochain palier : ${esc(next.name)} (hôtel de ville ${next.th})` : 'Dernier palier atteint'}"><span>🏛️ HdV ${th} · ${esc(cur.name)}</span><span class="hud-thbar" role="progressbar" aria-label="Progression vers ${esc(next?.name || 'le dernier palier')}" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></span></div>
       <div class="hud-power"><span title="Puissance militaire totale">⚔️ ${fmt(power)}</span><button class="hud-order o-${ol.key}" data-action="nav" data-view="order" title="${esc(`Ordre public ${o.value} (${ol.name}) : ${o.bonus >= 0 ? '+' : ''}${Math.round(o.bonus * 1000) / 10} % de production. Cliquez : pourquoi ?`)}" aria-label="${esc(`Ordre public ${o.value}, ${ol.name}`)}">${ol.icon} ${fmt(o.value)}</button><button class="hud-title" data-action="nav" data-view="order" title="${esc(`Titre : ${t.name} · ${t.honorNow} points d’honneur${t.next ? ` · ${t.next.name} à ${t.next.honor}` : ''}. Cliquez : pourquoi ?`)}" aria-label="${esc(`Titre ${t.name}, ${Math.round(t.progress * 100)} % vers ${t.next?.name || 'le dernier titre'}`)}"><span>👑 ${esc(t.name)}</span><span class="hud-thbar gold" aria-hidden="true"><i style="width:${Math.round(t.progress * 100)}%"></i></span></button></div>
     </div>
+    ${domainSelect(app, 'top')}
   </div>`;
 }
 // v20 : choix du domaine (château ou avant-poste), à côté du globe
-function domainSelect(app) {
+function domainSelect(app, where = 'bottom') {
   const s = app.state;
   const doms = Object.entries(s.territories || {});
   if (!doms.length) return '';
   const cur0 = app.ui.map === 'outpost' && app.ui.outpost ? app.ui.outpost : '';
-  return `<label class="hud-domain"><span class="sr-only">Domaine affiché</span><select data-change="domain" aria-label="Choisir le domaine : château ou avant-poste">
+  return `<label class="hud-domain ${where === 'top' ? 'ph-only' : 'ph-hide'}"><span class="sr-only">Domaine affiché</span><select id="hud-domain-${where}" data-change="domain" aria-label="Choisir le domaine : château ou avant-poste">
       <option value="">🏰 ${esc(castleName(s))}</option>${doms.map(([k, t]) => `<option value="${k}" ${cur0 === k ? 'selected' : ''}>🚩 ${esc(t.name || k)} · niv. ${t.level || 1}</option>`).join('')}</select></label>`;
 }
 
@@ -240,7 +241,7 @@ function bottomRight(app) {
       <button class="hud-a ph-hide" data-action="nav" data-view="guild" title="Guilde" aria-label="Guilde"><span>🛡️</span><small>Guilde</small>${badge(guildB, 'guilde')}</button>
       <button class="hud-a" data-action="nav" data-view="defense" title="Rapports et défense (touche R)" aria-label="Rapports"><span>✉️</span><small>Rapports</small>${B.reports ? badge(B.reports, 'défaites non lues') : B.reportsDot ? badge('•', 'rapports non lus') : ''}</button>
       <button class="hud-a" data-action="places" title="Tous les lieux (touche L)" aria-label="Lieux"><span>▦</span><small>Lieux</small></button>
-      ${domainSelect(app)}<button class="hud-globe" data-action="toggle-map" title="${onWorld ? 'Retour au château (touche M)' : 'Carte du monde (touche M)'}" aria-label="${onWorld ? 'Retour au château' : 'Monde'}"><span>${onWorld ? '🏰' : '🌍'}</span><small>${onWorld ? 'Château' : 'Monde'}</small></button>
+      ${domainSelect(app, 'bottom')}<button class="hud-globe" data-action="toggle-map" title="${onWorld ? 'Retour au château (touche M)' : 'Carte du monde (touche M)'}" aria-label="${onWorld ? 'Retour au château' : 'Monde'}"><span>${onWorld ? '🏰' : '🌍'}</span><small>${onWorld ? 'Château' : 'Monde'}</small></button>
     </div>
   </div>`;
 }
