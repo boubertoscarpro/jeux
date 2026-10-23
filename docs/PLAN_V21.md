@@ -1,6 +1,46 @@
 # Plan v21 — « Couleurs du Royaume »
 
-Statut : **proposition, en attente de validation**. Rien n'est implémenté.
+Statut : **plan révisé après vos précisions** (le graphisme d'abord, la performance n'est plus bloquante). La planche de style est faite et attend votre avis (§ 0). Rien n'est encore appliqué au jeu.
+
+## 0. Révision : technique de rendu et planche de style
+
+**Priorités révisées**
+- Le graphisme passe avant les mécaniques.
+- Mesures avant/après pour information.
+- Garde-fous :
+  - environ 30 images par seconde sur un portable courant avec carte graphique ;
+  - un réglage « Qualité graphique » dont le mode haut devient le défaut, et un mode bas pour les petites machines et le téléphone.
+
+**Technique proposée : peinture procédurale cuite, puis scène en canvas**
+1. Chaque bâtiment est **peint en Canvas 2D** à double résolution par des primitives isométriques (`src/ui/paint/paint.js`) :
+   - matières : pierre de taille aux blocs irréguliers, enduit, colombages, planches, tuiles en écailles, ardoises, chaume en brins ;
+   - lumière chaude venue du haut à gauche, occlusion au pied des murs, ombres portées floutées ;
+   - tours rondes à assises, toits coniques, bannières, personnages.
+2. Il est ensuite **« cuit »** (`src/ui/paint/bake.js`) en une image unique : lumière d'ambiance (chaude en haut à gauche, froide en bas à droite), saturation relevée, contour de silhouette brun régulier. C'est ce qui donne l'aspect « illustration lisible ».
+3. La **carte** devient un canvas qui pose ces images dans l'ordre de profondeur. Par-dessus, une couche de boutons HTML invisibles garde le clavier, le focus, le lecteur d'écran et les tests (on garde la projection inverse de la v20).
+4. La **vie** (gardes, paysans, charrettes, fumée, eau, drapeaux) va sur un canvas animé à part, qui ne redessine pas les bâtiments.
+
+| | Avantages | Inconvénients |
+|---|---|---|
+| Canvas 2D cuit (proposé) | Rendu « peint » riche (dégradés, flous, textures). Aucune dépendance, tout reste hors ligne. Coût par image faible : on pose des images déjà cuites. Fonctionne partout, téléphone compris. | Temps de cuisson au chargement (à mesurer, mis en cache par bâtiment, palier et variante). Mémoire en images. Une réécriture de la vue isométrique. |
+| SVG actuel enrichi | Peu de changements. | Plafond de qualité atteint : pas de flou ni de texture bon marché, des milliers de nœuds, lent sans carte graphique. |
+| WebGL ou bibliothèque embarquée (par exemple Pixi) | Effets en temps réel (lumière, eau). | Grosse dépendance à embarquer. Accessibilité à reconstruire de toute façon. Le gain visuel tient surtout au dessin, que le canvas cuit donne déjà. |
+
+**Planche de style** : `tools/artsheet21.html`, captures dans `docs/v21/planche/`.
+- Hôtel de ville en 3 paliers : maison commune, donjon, citadelle.
+- Ferme, caserne, muraille crénelée gardée avec sa tour et ses douves.
+- Une scène à l'échelle du jeu.
+- Une fenêtre d'interface (bois, ruban, parchemin, onglets en cuir, gros boutons ronds) et une barre de ressources sur une planche, avec des icônes riches.
+
+**Après votre validation**, l'ordre de livraison devient :
+1. le style appliqué à tous les bâtiments, leurs paliers et la muraille ;
+2. la scène canvas avec sa couche de boutons accessible ;
+3. la vie animée ;
+4. les retours gratifiants ;
+5. l'interface bois et parchemin ;
+6. la carte du monde ;
+7. puis les mécaniques B1 à B6 (§ 3, lot 7), ensuite C et la validation.
+
 
 But : donner au premier coup d'œil la sensation d'un château de jeu de stratégie chaleureux, coloré et vivant, avec une interface généreuse, et ajouter des mécaniques emblématiques du genre. Chacune est branchée sur un système de Cendrelande et a sa subtilité propre. On ne copie ni noms, ni visuels, ni textes.
 
