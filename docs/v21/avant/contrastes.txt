@@ -1,0 +1,5 @@
+normal 295 sous AA: 0 min 4.61
+hc 295 sous AA: 0 min 4.61
+cb-deut 295 sous AA: 0 min 4.61
+cb-prot 295 sous AA: 0 min 4.61
+cb-trit 295 sous AA: 0 min 4.61
