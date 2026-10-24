@@ -34,6 +34,7 @@ import { undoReorganize, enlargeCastle, enlargePreview, nextEncStage } from '../
 import { TROPHIES } from '../../data/trophies.js';
 import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx } from '../paint/cityPaint.js';
 import { mountLife, lifeRedraw } from '../paint/life.js';
+import { flyGains } from '../juice.js';
 import { lifeDensity } from '../../systems/life.js';
 import { groundMatrix } from '../../systems/iso.js';
 import { gateOf, alleeTiles, rectOf, fortLevel as fortLvl } from '../../systems/castle.js';
@@ -716,8 +717,8 @@ const cityView = {
     </div>`;
   },
   actions: {
-    harvest: (app, el) => { app.act(() => collectHarvest(app.state, el.dataset.id, computeMods(app.state)), (r) => `🪙 Bonus récolté : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); },
-    'harvest-all': (app) => { app.act(() => collectHarvest(app.state, null, computeMods(app.state)), (r) => `🪙 Ressources bonus récoltées : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); },
+    harvest: (app, el) => { const at = el.getBoundingClientRect(); const r = app.act(() => collectHarvest(app.state, el.dataset.id, computeMods(app.state)), (r) => `🪙 Bonus récolté : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); if (r?.got) flyGains({ x: at.left + at.width / 2, y: at.top }, r.got); },
+    'harvest-all': (app, el) => { const at = el.getBoundingClientRect(); const r = app.act(() => collectHarvest(app.state, null, computeMods(app.state)), (r) => `🪙 Ressources bonus récoltées : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); if (r?.got) flyGains({ x: at.left + at.width / 2, y: at.top }, r.got); },
     'reorg-preview': (app) => {
       const R = app.state.castle?.reorg;
       if (app.ui.planPreview || !R) { app.ui.planPreview = null; app.render(); return; }

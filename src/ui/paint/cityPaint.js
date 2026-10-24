@@ -135,3 +135,10 @@ export function lifeData(app, ctx, film, density) {
   }
   return { f: ctx.f, walk, allee: allee.length > 1 ? allee : [], perim, wallH: (WALLP[style]?.h || 30) + 2, water, fx: keep.fx, density };
 }
+
+// Dessin cuit déjà posé sur une case (rebond de fin de chantier)
+export function spriteAt(app, x, y) {
+  const p = app._paint;
+  const it = p?.items.find((i) => i.x === x && i.y === y && i.k?.startsWith('b'));
+  return it ? { sprite: it.sp(p.R), R: p.R } : null;
+}

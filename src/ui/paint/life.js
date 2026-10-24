@@ -57,7 +57,7 @@ function cartSprite(dir) {
 }
 
 // ───────── État de la couche ─────────
-const L = { cv: null, vp: null, app: null, data: null, ents: [], raf: 0, last: 0, t0: 0, still: false, frames: 0, fpsT: 0, fps: 0 };
+const L = { cv: null, vp: null, app: null, data: null, ents: [], bursts: [], raf: 0, last: 0, t0: 0, still: false, frames: 0, fpsT: 0, fps: 0 };
 export const lifeStats = () => ({ entities: L.ents.length, fps: L.fps, still: L.still });
 
 // data : { f, R, walk: [[x,y]], allee: [[x,y]], perim: [[x,y]…] (rempart avant), wallH, water: [[x,y]], fx: [{x,y,n}],
@@ -77,6 +77,13 @@ export function mountLife(vp, app, data) {
   if (L.still) { cancelAnimationFrame(L.raf); L.raf = 0; draw(1.7); }
   else if (!L.raf) { L.t0 = performance.now(); L.raf = requestAnimationFrame(loop); }
 }
+// Fin de chantier (juice) : poussière au sol, rebond du bâtiment, étincelles d'or qui montent. sprite : dessin cuit
+// du bâtiment ({ art, ax, ay }) et sa résolution R, pour le rebond ; rien en mouvement réduit.
+export function lifeBurst(x, y, sprite = null, R = 1) {
+  if (L.still || !L.cv?.isConnected) return;
+  L.bursts.push({ x, y, t0: performance.now() / 1000, sprite, R });
+  if (L.bursts.length > 6) L.bursts.shift();
+}
 export function lifeRedraw() { if (L.cv?.isConnected) { resize(); draw(L.still ? 1.7 : (performance.now() - L.t0) / 1000); } }
 function resize() {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -91,7 +98,7 @@ function loop(now) {
   const dt = Math.min(0.1, (now - (L.last || now)) / 1000);
   L.last = now;
   step(dt);
-  draw((now - L.t0) / 1000);
+  draw(Math.max(0, now - L.t0) / 1000);
   L.frames++;
   if (now - L.fpsT > 1000) { L.fps = Math.round((L.frames * 1000) / (now - L.fpsT)); L.frames = 0; L.fpsT = now; }
 }
@@ -206,11 +213,32 @@ function paintLife(g, t, [vx0, vy0, vx1, vy1]) {
     const e = d.fx[i];
     if (!vis(e.x, e.y)) continue;
     for (let j = 0; j < 4; j++) {
-      const a = ((t * 0.22 + j / 4 + i * 0.37) % 1);
+      const a = (((t * 0.22 + j / 4 + i * 0.37) % 1) + 1) % 1;
       const x = e.x + a * 12 + Math.sin(t + i + j) * 2, y = e.y - a * 38, rr = 3 + a * 9;
       const gr = g.createRadialGradient(x, y, 0, x, y, rr);
       gr.addColorStop(0, `rgba(240,236,228,${(0.6 * (1 - a)).toFixed(3)})`); gr.addColorStop(1, 'rgba(240,236,228,0)');
       g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+    }
+  }
+  // fins de chantier : rebond, poussière, étincelles
+  const now = performance.now() / 1000;
+  L.bursts = L.bursts.filter((b) => now - b.t0 < 1.6);
+  for (const b of L.bursts) {
+    const k = now - b.t0, q = toScreen(f, b.x + 0.5, b.y + 0.5), base = toScreen(f, b.x, b.y);
+    if (b.sprite?.art && k < 0.6) {
+      const sq = Math.sin((k / 0.6) * Math.PI) * Math.exp(-k * 3);
+      g.save(); g.translate(base.sx, base.sy + 32); g.scale(1 - sq * 0.05, 1 + sq * 0.12); g.translate(-base.sx, -(base.sy + 32));
+      g.drawImage(b.sprite.art, base.sx - b.sprite.ax / b.R, base.sy - b.sprite.ay / b.R, b.sprite.art.width / b.R, b.sprite.art.height / b.R); g.restore();
+    }
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2, d = 20 + k * 46, al = Math.max(0, 0.55 - k * 0.5);
+      const x = q.sx + Math.cos(a) * d, y = q.sy + Math.sin(a) * d * 0.5, rr = 6 + k * 10;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, `rgba(214,190,150,${al.toFixed(3)})`); gr.addColorStop(1, 'rgba(214,190,150,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+    }
+    for (let i = 0; i < 14; i++) {
+      const sx = q.sx + Math.sin(i * 2.4) * (18 + i * 2), sy = q.sy - 20 - k * (60 + (i % 5) * 18), al = Math.max(0, 1 - k / 1.4);
+      g.fillStyle = `rgba(255,${200 + (i % 3) * 20},90,${al.toFixed(3)})`; g.beginPath(); g.moveTo(sx, sy - 4); g.lineTo(sx + 1.5, sy); g.lineTo(sx, sy + 4); g.lineTo(sx - 1.5, sy); g.closePath(); g.fill();
     }
   }
   // oiseaux (au-dessus de tout)

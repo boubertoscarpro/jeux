@@ -1,3 +1,5 @@
+import { lifeBurst } from './paint/life.js';
+import { spriteAt } from './paint/cityPaint.js';
 import { claimAll } from '../systems/comfort.js';
 import { repActions } from './repercussions.js';
 import { stageActions } from './stage.js';
@@ -654,7 +656,7 @@ export class App {
   // Rien pendant le rattrapage hors-ligne (le rapport d'absence le résume déjà).
   feat(f) {
     if (this.booting || typeof document === 'undefined') return;
-    if (f.at) { this.ui.flashTile = { x: f.at.x, y: f.at.y, until: Date.now() + 1500 }; this.dirty = true; }
+    if (f.at) { this.ui.flashTile = { x: f.at.x, y: f.at.y, until: Date.now() + 1500 }; this.dirty = true; if (this.ui.map === 'city') { const sp = spriteAt(this, f.at.x, f.at.y); setTimeout(() => lifeBurst(f.at.x, f.at.y, sp?.sprite, sp?.R), 60); } }
     if (!f.title) return;
     (this.featQueue ||= []).push(f);
     if (this.featQueue.length > 3) this.featQueue.splice(0, this.featQueue.length - 3);
