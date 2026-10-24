@@ -1,7 +1,7 @@
 <!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Galerie v21</title>
 <style>body{margin:0;background:#6fae3c;font:12px Georgia,serif;color:#fff}.row{display:flex;flex-wrap:wrap;gap:4px;padding:4px}.c{text-align:center;background:rgba(0,0,0,.12);border-radius:8px}.c b{display:block;padding:2px;text-shadow:0 1px 0 #000}</style></head><body><div id="root" class="row"></div>
 <script type="module">
-import { pen, groundTile } from '../src/ui/paint/paint.js';
+import { pen, groundTile, drawFx } from '../src/ui/paint/paint.js';
 import { bake } from '../src/ui/paint/bake.js';
 import { PAINT, scenery, road, lot, scaffold, deco, trophy, wallPiece, wallTower, gatehouse } from '../src/ui/paint/art.js';
 const S = 1;
@@ -18,7 +18,7 @@ function cell(label, draw, ground = 'grass') {
   groundTile(pen(g, ox, oy, S, label), 0, 0, ground);
   const fx = [];
   const art = bake(w, h, (bg) => { const p = pen(bg, ox, oy, S, label); p.noGround = true; p.sg = g; p.fx = fx; draw(p); }, { s: S });
-  g.drawImage(art, 0, 0); for (const f of fx) f(g);
+  g.drawImage(art, 0, 0); drawFx(g, fx);
 }
 for (const t of types) for (const ti of tiers) cell(`${t} ${ti}`, (p) => PAINT[t](p, ti, ti, { active: true, season: 'summer', level: ti * 5 + 1, river: false }));
 cell('moulin à eau', (p) => PAINT.mill(p, 3, 0, { river: true, active: true }));

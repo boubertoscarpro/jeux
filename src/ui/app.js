@@ -134,7 +134,7 @@ export class App {
     // v15 : mode économie d'énergie (aucune animation continue, carte redessinée seulement si elle change)
     document.documentElement.classList.toggle('saver', !!m.saver);
     // v16 : qualité graphique (faible : aucune animation de bâtiment sur la carte du royaume)
-    for (const q of ['low', 'medium', 'high']) document.documentElement.classList.toggle('gfx-' + q, (m.gfx || 'medium') === q);
+    for (const q of ['low', 'medium', 'high']) document.documentElement.classList.toggle('gfx-' + q, (m.gfx || 'high') === q);
     // v17 : accessibilité (taille du texte, contraste élevé, daltonisme, police, météo et nuit, noms, mode simplifié)
     const a = a11yPrefs(this.state), h = document.documentElement;
     h.style.setProperty('--text-scale', String(a.textScale));

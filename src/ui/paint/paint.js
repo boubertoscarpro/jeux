@@ -426,7 +426,7 @@ export function figure(p, x, y, { tunic = '#b43c2c', skin = '#f1c79a', hat = nul
 // Fumée de cheminée (quelques volutes douces)
 export function smoke(p, x, y, n = 4) {
   // Hors cuisson (pas de contour) : la fumée est différée sur le calque des effets quand il existe (p.fx)
-  if (p.fx) { const s0 = p.s; p.fx.push((g) => smoke({ g, s: s0 }, x, y, n)); return; }
+  if (p.fx) { p.fx.push({ x, y, n, s: p.s }); return; }
   const g = p.g, s = p.s;
   for (let i = 0; i < n; i++) {
     const rr = (4 + i * 2.6) * s;
@@ -435,3 +435,6 @@ export function smoke(p, x, y, n = 4) {
     g.fillStyle = gr; g.beginPath(); g.arc(x + i * 4 * s, y - i * 9 * s, rr, 0, 7); g.fill();
   }
 }
+
+// Dessin statique des émetteurs de fumée enregistrés pendant une cuisson (planches, photo, mode économie)
+export function drawFx(g, list, dx = 0, dy = 0) { for (const e of list) smoke({ g, s: e.s }, e.x + dx, e.y + dy, e.n); }

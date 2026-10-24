@@ -86,7 +86,7 @@
   </div>
 </div>
 <script type="module">
-import { pen } from '../src/ui/paint/paint.js';
+import { pen, drawFx } from '../src/ui/paint/paint.js';
 import { bake } from '../src/ui/paint/bake.js';
 import { townhall, farm, barracks, wallSection } from '../src/ui/paint/buildings.js';
 import { groundTile } from '../src/ui/paint/paint.js';
@@ -101,7 +101,7 @@ function card(parent, label, w, h, ox, oy, draw, scale = S) {
   const fx = [];
   const art = bake(w, h, (bg) => { const bp = pen(bg, ox, oy, scale, label); bp.noGround = true; bp.sg = g; bp.fx = fx; draw(bp); }, { s: scale });
   g.drawImage(art, 0, 0);
-  for (const f of fx) f(g);
+  drawFx(g, fx);
 }
 const r1 = document.getElementById('row1'), r2 = document.getElementById('row2');
 card(r1, 'Hôtel de ville · palier 1 (maison commune)', 300, 470, 150, 320, (p) => townhall(p, 1));
@@ -130,10 +130,10 @@ card(r2, 'Muraille, tour et douves', 760, 420, 330, 150, (p) => wallSection(p, 3
   items.sort((a, b) => a[0] + a[1] - (b[0] + b[1]) || a[0] - b[0]);
   for (const [u, v, d] of items) {
     const [x, y] = P(u, v);
-    const art = bake(260, 330, (bg) => { const bp = pen(bg, 130, 230, sc, u * 3 + v); bp.noGround = true; bp.sg = g; bp.sgOff = [x - 130, y - 230]; bp.fx = []; d(bp); fx.push(...bp.fx.map((f) => [f, x - 130, y - 230])); }, { s: sc });
+    const art = bake(260, 330, (bg) => { const bp = pen(bg, 130, 230, sc, u * 3 + v); bp.noGround = true; bp.sg = g; bp.sgOff = [x - 130, y - 230]; bp.fx = []; d(bp); fx.push(...bp.fx.map((e) => [e, x - 130, y - 230])); }, { s: sc });
     g.drawImage(art, x - 130, y - 230);
   }
-  for (const [f, dx, dy] of fx) { g.save(); g.translate(dx, dy); f(g); g.restore(); }
+  for (const [e, dx, dy] of fx) drawFx(g, [e], dx, dy);
 }
 // miniature dans la fenêtre
 { const g = document.getElementById('mini').getContext('2d'); g.save(); g.scale(0.5, 0.5); townhall(pen(g, 200, 320, 2, 'mini'), 3); g.restore(); }

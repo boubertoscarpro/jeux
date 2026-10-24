@@ -1,0 +1,24 @@
+/* v21 « Couleurs du Royaume » — Scène peinte (canvas) sous des zones cliquables invisibles, interface bois et parchemin. */
+
+/* ───────── Scène peinte ───────── */
+.city-vp.iso { background: radial-gradient(ellipse at 50% 45%, #6f9a3e 0%, #4f7a2c 55%, #355a20 100%); }
+.paint-slot { position: absolute; left: 0; top: 0; pointer-events: none; }
+.paint-slot.pg { z-index: 0; }
+.paint-slot.ps { z-index: 2; }
+.paint-slot canvas { position: absolute; left: 0; top: 0; image-rendering: auto; }
+.paint-slot.ps.grow canvas { animation: v21-rise 1.1s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes v21-rise { from { opacity: 0.4; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* Les boutons gardent la place, le nom, les signaux ; leur volume (t-hit) s'éclaire au survol, à la sélection, au focus */
+.city-vp .tile.iso-b .t-hit { transition: background 0.15s; }
+.city-vp .tile.iso-b:hover .t-hit { background: radial-gradient(ellipse at 50% 70%, rgba(255, 246, 220, 0.26), rgba(255, 246, 220, 0.06) 70%); }
+.city-vp .tile.iso-b.sel .t-hit { background: radial-gradient(ellipse at 50% 70%, rgba(255, 216, 107, 0.34), rgba(255, 216, 107, 0.1) 72%); }
+.city-vp .tile.iso-b:focus-visible { outline: none; }
+.city-vp .tile.iso-b:focus-visible .t-hit, .city-vp .tile.iso-cursor:focus-visible .t-hit { background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.42) 0 4px, rgba(255, 216, 107, 0.36) 4px 8px); }
+.city-vp .tile.iso-b.glow-new .t-hit { background: radial-gradient(ellipse at 50% 70%, rgba(255, 233, 160, 0.5), transparent 75%); }
+.city-vp .tile.iso-b.flash-good .t-hit { background: radial-gradient(ellipse at 50% 70%, rgba(155, 227, 123, 0.45), transparent 75%); }
+.city-vp .tile.iso-b.st-alert .t-hit { background: radial-gradient(ellipse at 50% 85%, rgba(240, 150, 40, 0.32), transparent 70%); }
+.city-vp .tile.iso-b.risk-high .t-hit { background: radial-gradient(ellipse at 50% 80%, rgba(217, 96, 79, 0.42), transparent 75%); }
+.city-vp .tile.iso-b.risk-mid .t-hit { background: radial-gradient(ellipse at 50% 80%, rgba(224, 163, 58, 0.36), transparent 75%); }
+.city-vp .tile.iso-b.risk-low .t-hit { background: radial-gradient(ellipse at 50% 80%, rgba(224, 163, 58, 0.18), transparent 75%); }
+html.reduce-motion .paint-slot canvas, html.saver .paint-slot canvas { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .paint-slot canvas { animation: none !important; } }

@@ -22,8 +22,8 @@ import { castleName } from '../../systems/identity.js';
 import { ERAS, eraOf, TH_MILESTONES, thRequirements } from '../../data/eras.js';
 import { ensureArtDefs, buildingSvg, buildingIcon, terrainSvg, plainVariant, roadSvg, upIcon } from '../art.js';
 import { openUpgradeList, openRenameCastle } from '../upgrades.js';
-import { frameOf, placeStyle, hitClip, artHeight, sceneryLayer, wallLayer, raidColumnHtml, keepBox, diamondPath } from '../isoView.js';
-import { buildingIsoSvg, isoUse, roadIso, decoIso, trophyIso, lotIso, scaffoldIso, isoInline } from '../isoArt.js';
+import { frameOf, placeStyle, hitClip, artHeight, raidColumnHtml, keepBox, diamondPath } from '../isoView.js';
+import { trophyIso, isoInline } from '../isoArt.js';
 import { tileCenter, depth, LAYER, tileAt as isoTileAt, toScreen } from '../../systems/iso.js';
 import { FAMILY_OF, COUNTRY_ONLY } from '../../data/castle.js';
 import { decoDef, placeTrophy, trophiesToPlace, nextTrophies } from '../../systems/trophies.js';
@@ -32,7 +32,7 @@ import { readyHarvests, collectHarvest } from '../../systems/harvest.js';
 import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { undoReorganize, enlargeCastle, enlargePreview, nextEncStage } from '../../systems/castle.js';
 import { TROPHIES } from '../../data/trophies.js';
-import { paintIsoGround } from '../atlas.js';
+import { cityItems, groundOpts, attachPaint, paintRes } from '../paint/cityPaint.js';
 import { groundMatrix } from '../../systems/iso.js';
 import { gateOf, alleeTiles, rectOf, fortLevel as fortLvl } from '../../systems/castle.js';
 import { openPlans } from '../plansUi.js';
@@ -136,11 +136,10 @@ function objHtml(app, b, ctx) {
   const fam = FAMILY_OF[b.type] || (COUNTRY_ONLY.includes(b.type) ? 'country' : 'places');
   cls.push('fam-' + fam);
   let hgt = artHeight(b.type, tier);
-  if (b.type === 'road') { inner += isoUse('road', roadIso); label = 'Route'; hgt = 6; cls.push('iso-flat'); }
+  if (b.type === 'road') { label = 'Route'; hgt = 6; cls.push('iso-flat'); }
   else if (b.type === 'deco') {
     const td = decoDef(b.deco);
     label = td?.name || 'Décoration';
-    inner += td?.trophy ? isoUse(`tr-${td.shape}-${td.color}`, () => trophyIso(td.shape, td.color)) : isoUse(`deco-${b.deco}`, () => decoIso(td?.icon || '🗿'));
     hgt = td?.trophy ? 90 : 50;
     cls.push(td?.trophy ? 'trophy' : 'deco');
   } else {
@@ -148,9 +147,7 @@ function objHtml(app, b, ctx) {
     label = `${bName(b)} niveau ${b.level}`;
     const active = ctx.active.has(b.id);
     const river = b.type === 'mill' && ctx.riverSide(b);
-    const opts = { active, river, season: ctx.scene.season, level: b.level };
-    const key = `b-${b.type}-${tier}-${v % 4}-${active ? 1 : 0}${river ? 'r' : ''}${b.type === 'farm' ? ctx.scene.season : ''}${b.type === 'monument' ? b.level : ''}`;
-    inner += isoUse(key, () => buildingIsoSvg(b.type, tier, v, opts));
+    void river; void v;
     const major = b.type === 'townhall' || b.type === 'castle' || b.type === 'monument';
     if (major) cls.push('major');
     if (active) cls.push('active');
@@ -183,7 +180,6 @@ function objHtml(app, b, ctx) {
   }
   if (q) {
     cls.push('st-build');
-    if (b.level > 0) inner += isoUse('scaffold', scaffoldIso, 'iso-art iso-over');
     inner += `<span class="t-build" title="${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours">🔨</span>${progress(q.start, q.end)}`;
   }
   if (ctx.glow?.has(b.id)) cls.push('glow-new');
@@ -200,7 +196,7 @@ function objHtml(app, b, ctx) {
 function lotHtml(app, lot, ctx) {
   const d = BUILDINGS[lot.type];
   const sel = ctx.sel && ctx.sel.x === lot.x && ctx.sel.y === lot.y;
-  return `<button class="tile iso-b lot ${sel ? 'sel' : ''}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};--top:108px" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}"><span class="t-hit" style="${hitClip(60)}"></span>${isoUse(`lot-${lot.type}`, () => lotIso(d.icon))}<span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
+  return `<button class="tile iso-b lot ${sel ? 'sel' : ''}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};--top:108px" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}"><span class="t-hit" style="${hitClip(60)}"></span><span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
 }
 // Mode Construire : cases où le bâtiment choisi peut aller (bonus de placement), cases interdites marquées d'une croix
 function placeHints(app, ctx) {
@@ -214,20 +210,6 @@ function placeHints(app, ctx) {
       const adj = adjacencyBonus(s, ctx.place, x, y, ctx.mods).total;
       out.push(`<span class="iso-hint ok ${adj > 0 ? 'pos' : ''}" style="left:${Math.round(c.sx)}px;top:${Math.round(c.sy)}px;z-index:${depth(x, y, LAYER.ground + 1)}" aria-hidden="true">${adj > 0 ? '+' + Math.round(adj * 100) + '%' : '·'}</span>`);
     } else if (pc.zone && ['keep', 'faubourg'].includes(pc.zone)) out.push(`<span class="iso-hint no" style="left:${Math.round(c.sx)}px;top:${Math.round(c.sy)}px;z-index:${depth(x, y, LAYER.ground + 1)}" title="${esc(pc.reason)}" aria-hidden="true">✕</span>`);
-  }
-  return out.join('');
-}
-// Aperçu d'un plan (ou du mode architecte) : silhouettes fantômes aux places prévues
-function ghostsHtml(app, ctx) {
-  const out = [];
-  // v20 : silhouettes du mode architecte (bâtiments à venir), visibles en permanence, plus nettes en mode architecte
-  for (const g of ghosts(ctx.s)) {
-    if (ctx.at.has(g.x + ',' + g.y)) continue;
-    out.push(`<div class="iso-ghost arch ${app.ui.architect ? 'on' : ''}" style="${placeStyle(ctx.f, g.x, g.y, LAYER.building)}" aria-hidden="true">${isoUse(`b-${g.type}-0-0-0`, () => buildingIsoSvg(g.type, 0, 0, { active: false }))}</div>`);
-  }
-  for (const [k, type] of ctx.planTo) {
-    const [x, y] = k.split(',').map(Number);
-    out.push(`<div class="iso-ghost" style="${placeStyle(ctx.f, x, y, LAYER.building)}" aria-hidden="true">${isoUse(`b-${type}-1-0-0`, () => buildingIsoSvg(type, 1, 0, { active: false }))}</div>`);
   }
   return out.join('');
 }
@@ -577,18 +559,9 @@ function bindCityTip(app, vp) {
 // v20 : sol projeté (canvas orthogonal en cache, matrice CSS) ; repeint seulement si terrain, saison, enceinte ou
 // douves changent
 function attachGround(app) {
-  const slot = document.querySelector('#city-vp .ground-slot');
-  if (!slot) return;
-  const s = app.state, scene = cityScene(app), q = gfxOf(s);
-  const film = app.ui.film;
-  const r = film ? film.rect : rectOf(s);
-  const fort = { rect: r, moat: fortLvl(s, 'moat'), allee: film ? [] : alleeTiles(s, r), gate: gateOf(s, r) };
-  const cv = paintIsoGround(s, scene, groundKey(s, scene, q) + '|' + JSON.stringify(fort), q, fort);
-  const f = frameOf(s), res = cv.width / s.city.w;
-  const m = groundMatrix(f, res).map((v) => Math.round(v * 10000) / 10000);
-  cv.style.transform = `matrix(${m.join(',')})`;
-  cv.style.transformOrigin = '0 0';
-  if (cv.parentElement !== slot) { slot.innerHTML = ''; slot.appendChild(cv); }
+  const vp = document.getElementById('city-vp'), p = app._paint;
+  if (!vp || !p) return;
+  attachPaint(vp.querySelector('.paint-slot.pg'), vp.querySelector('.paint-slot.ps'), p.state, p.f, p.R, p.items, p.gopts);
 }
 
 
@@ -704,7 +677,8 @@ const cityView = {
     const night = ['night', 'dusk'].includes(ctx.scene.light.phase);
     const building = app.ui.buildMode || app.ui.placeType || app.ui.moveId;
     const rank = titleOf(s).rank;
-    const walls = film ? wallLayer({ ...s, castle: { ...s.castle, rect: film.rect } }, f, { night }) : wallLayer(s, f, { night, raid, titleRank: rank });
+    // v21 : scène peinte (canvas) ; les boutons ci-dessous ne gardent que la zone cliquable, le nom et les signaux
+    app._paint = { state: s, f, R: paintRes(f, gfxOf(s)), items: cityItems(app, ctx, { film, night, raid, rank }), gopts: groundOpts(app, ctx, film) };
     const selPath = sel ? `<path class="iso-selpath" d="${diamondPath(f, sel.x, sel.y)}"/>` : '';
     const rectPath = (r) => { const a = toScreen(f, r.x0, r.y0), b = toScreen(f, r.x1 + 1, r.y0), c = toScreen(f, r.x1 + 1, r.y1 + 1), d = toScreen(f, r.x0, r.y1 + 1); return `M${a.sx} ${a.sy}L${b.sx} ${b.sy}L${c.sx} ${c.sy}L${d.sx} ${d.sy}Z`; };
     const future = app.ui.architect ? futureStages(s).map((st) => `<path class="iso-future" d="${rectPath(st.rect)}"/><text class="iso-future-t" x="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sx)}" y="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sy)}">${st.size}×${st.size} · HdV ${st.th}</text>`).join('') : '';
@@ -715,11 +689,11 @@ const cityView = {
         ${sceneLayersHtml(ctx.scene, 'city')}
         <div class="mapvp city-vp iso" id="city-vp" data-zl="${cityZoomLevel(cam.z)}">
           <div class="mapvp-inner iso-world" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px;transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})">
-            <div class="ground-slot iso-ground"></div>
+            <div class="paint-slot pg" aria-hidden="true"></div>
             <svg class="iso-overlay" width="${Math.round(f.width)}" height="${Math.round(f.height)}" aria-hidden="true">${future}${selPath}<path id="iso-hl" class="iso-hl" d=""/></svg>
-            ${reuse('iso-scenery', sceneryLayer(s, f, ctx.scene.season))}
-            ${reuse(`iso-walls ${growing ? 'grow' : ''}`, walls + (raid && !film ? raidColumnHtml(s, f, raid) : ''))}
-            <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}${ghostsHtml(app, ctx)}</div>
+            <div class="paint-slot ps ${growing ? 'grow' : ''}" aria-hidden="true"></div>
+            ${raid && !film ? reuse('iso-walls', raidColumnHtml(s, f, raid)) : ''}
+            <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}</div>
             <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div>
           </div>
           <div class="ring-wrap" id="city-ring" data-x="${sel ? sel.x : ''}" data-y="${sel ? sel.y : ''}">${ring}</div>
