@@ -363,9 +363,9 @@ export function dropShadow(p, u0, v0, u1, v1, height, alpha = 0.34) {
   g.restore();
 }
 export function roundShadow(p, cu, cv, r, height, alpha = 0.32) {
-  const g = p.sg || p.g, [x, y] = p.P(cu + height * 0.003, cv - height * 0.001);
+  const g = p.sg || p.g, [x, y] = p.P(cu + height * 0.0015, cv - height * 0.0005);
   g.save(); if (p.sg && p.sgOff) g.translate(p.sgOff[0], p.sgOff[1]); g.filter = `blur(${5 * p.s}px)`; g.fillStyle = `rgba(22,30,12,${alpha})`;
-  g.beginPath(); g.ellipse(x + height * 0.12 * p.s, y, r * 90.5 * p.s + height * 0.12 * p.s, r * 45.25 * p.s + 3 * p.s, 0, 0, 7); g.fill(); g.restore();
+  g.beginPath(); g.ellipse(x + height * 0.05 * p.s, y, r * 90.5 * p.s + height * 0.05 * p.s, r * 45.25 * p.s + 3 * p.s, 0, 0, 7); g.fill(); g.restore();
 }
 // Case d'herbe vive (dégradé, brins, fleurs), ou de terre battue / pavés
 export function groundTile(p, u, v, kind = 'grass') {
