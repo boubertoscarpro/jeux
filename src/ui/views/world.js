@@ -37,6 +37,7 @@ import { npcList, npcOf, npcOffers, npcState } from '../../systems/npcs.js';
 import { autoFillAttack, autoFillNote, halfOfEach } from '../../systems/autofill.js';
 import { RAID, RAID_COUNTS, raidTargetOk, raidStatus, raidCycle, startRaidOrder, raidResText } from '../../systems/raidOrders.js';
 import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
+import { poiPainter, drawPoiPainted, outpostPainter, drawColumn } from '../paint/worldPaint.js';
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
 import { drawWorldTerrain, drawFog, gfxOf, paintMini, miniFrame } from '../atlas.js';
@@ -170,7 +171,7 @@ export function drawMap(app) {
     ctx.strokeStyle = col; ctx.globalAlpha = 0.85; ctx.lineWidth = Math.max(2, Math.min(4, T / 10)); ctx.setLineDash([7, 5]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
     const eng = Object.entries(m.engines || m.enginesBack || {}).filter(([, n]) => n > 0);
-    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col, icon: MARCH_TYPES[m.type]?.icon || '⚑', angle: m.phase === 'work' ? null : Math.atan2(toward.y - from.y, toward.x - from.x), end, eng: eng.map(([k]) => ATTACK_ENGINES[k]?.icon).join(''), label: `${MARCH_TYPES[m.type]?.name || 'Marche'}${m.phase === 'back' ? ' (retour)' : m.phase === 'work' ? ' (sur place)' : ''}${eng.length ? ` · ${eng.map(([k, n]) => `${n} ${ATTACK_ENGINES[k]?.icon || ''}`).join(' ')}` : ''}` });
+    tokens.push({ army: m.type !== 'explore' && m.type !== 'gather', x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col, icon: MARCH_TYPES[m.type]?.icon || '⚑', angle: m.phase === 'work' ? null : Math.atan2(toward.y - from.y, toward.x - from.x), end, eng: eng.map(([k]) => ATTACK_ENGINES[k]?.icon).join(''), label: `${MARCH_TYPES[m.type]?.name || 'Marche'}${m.phase === 'back' ? ' (retour)' : m.phase === 'work' ? ' (sur place)' : ''}${eng.length ? ` · ${eng.map(([k, n]) => `${n} ${ATTACK_ENGINES[k]?.icon || ''}`).join(' ')}` : ''}` });
   }
   for (const t of s.expeditions || []) {
     if (t.status === 'idle' || !t.at) continue;
@@ -199,7 +200,7 @@ export function drawMap(app) {
     const start = r.start || r.arrive - 10 * 60000;
     const f = Math.max(0, Math.min(1, (now - start) / Math.max(1, r.arrive - start)));
     const eng = levelOf(s, 'watchtower') >= INTEL.engines ? Object.entries(r.engines || {}).filter(([, n]) => n > 0) : [];
-    tokens.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#d62828', icon: '⚔️', angle: Math.atan2(b.y - a.y, b.x - a.x), end: r.arrive, eng: eng.map(([k]) => ATTACK_ENGINES[k]?.icon).join(''), label: `Raid : ${r.name}${eng.length ? ` · ${eng.map(([k, n]) => `${n} ${ATTACK_ENGINES[k]?.icon || ''}`).join(' ')}` : ''}`, raid: true });
+    tokens.push({ army: true, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#d62828', icon: '⚔️', angle: Math.atan2(b.y - a.y, b.x - a.x), end: r.arrive, eng: eng.map(([k]) => ATTACK_ENGINES[k]?.icon).join(''), label: `Raid : ${r.name}${eng.length ? ` · ${eng.map(([k, n]) => `${n} ${ATTACK_ENGINES[k]?.icon || ''}`).join(' ')}` : ''}`, raid: true });
   }
   // Réseau logistique : routes des avant-postes vers leur relais (couleur selon le niveau, rouge si dangereuse)
   const net = logisticsNetwork(s, now);
@@ -251,7 +252,14 @@ export function drawMap(app) {
       const face = lordFaceImage({ name: p.breach.lord, scars: p.breach.nem?.scars, titles: p.breach.nem?.titles, tier: 1 + Math.floor((p.breach.level - 1) / 5) });
       if (face) { const fs = Math.round(rb * 1.1); ctx.drawImage(face, px + rb * 0.9, py - rb * 1.6, fs, fs); }
     }
-    else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
+    else {
+      // v21 : lieux peints (capitale, royaumes, cités, villages, camps, ruines, mines) dès la vue intermédiaire
+      const painter = T >= 13 && !(p.infested && def.kind === 'gather') ? poiPainter(s, p, def, { th: thLevel(s), rivalColor: RIVALS[p.rival]?.color }) : null;
+      if (painter) {
+        if (def.kind === 'capital' || def.kind === 'kingdom') { ctx.fillStyle = def.kind === 'capital' ? 'rgba(255,220,120,0.22)' : 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.55, T * painter.w * 0.3, 0, 0, 7); ctx.fill(); }
+        drawPoiPainted(ctx, painter, px, py, T, cleared ? 0.45 : 1);
+      } else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
+    }
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
     if (p.danger > 0 && def.kind !== 'boss' && def.kind !== 'breach' && T > 16) {
       const n = Math.min(5, p.danger), pw = Math.max(3, r * 0.28);
@@ -271,7 +279,8 @@ export function drawMap(app) {
     const px = ox + (t.x + 0.5) * T, py = oy + (t.y + 0.5) * T;
     const sz = Math.max(8, Math.min(26, T * 0.55));
     const hasPoi = !!w.pois[key(t.x, t.y)];
-    drawBanner(ctx, hasPoi ? px + T * 0.3 : px, hasPoi ? py - T * 0.3 : py, sz, banner);
+    if (!hasPoi && T >= 14) drawPoiPainted(ctx, outpostPainter(banner), px, py, T);
+    else drawBanner(ctx, hasPoi ? px + T * 0.3 : px, hasPoi ? py - T * 0.3 : py, sz, banner);
     if (t.hamlet && T >= 14) drawHamlet(ctx, px - T * 0.32, py + T * 0.18, T, t.hamlet);
     if (T >= 12) labels.push({ x: px, y: py, offset: sz * 0.6 + 2, text: `${(() => { const bd = borderOf(s, t); return bd?.kind === 'contested' ? '⚔️' : bd?.kind === 'friendly' ? '🤝' : '🚩'; })()} ${outpostLabel(t)}`, prio: 70, size: lsize, color: '#ffe9a8', border: banner });
   }
@@ -318,7 +327,9 @@ export function drawMap(app) {
   // Pions d'armée (au-dessus des lieux) et leur chrono
   const tr = Math.max(7, Math.min(15, T * 0.34));
   for (const k of tokens) {
-    drawToken(ctx, k.x, k.y, tr, k.col, k.icon, k.angle);
+    // v21 : les armées en marche sont des colonnes peintes (soldats, étendard) ; caravanes et expéditions gardent leur pion
+    if (k.army && T >= 10) drawColumn(ctx, k.x, k.y, Math.max(22, Math.min(64, T * 1.1)), { color: k.raid ? '#a8322a' : banner, tunic: k.raid ? '#6b1e16' : '#2f5fb0', n: k.raid ? 5 : 4, angle: k.angle ?? 0, frame: reduceMotion ? 0 : Math.floor(now / 350) % 2 });
+    else drawToken(ctx, k.x, k.y, tr, k.col, k.icon, k.angle);
     // v19 : engins de siège qui accompagnent la colonne (petit cartouche au-dessus du pion)
     if (k.eng && T >= 10) { const fs = Math.max(10, Math.round(tr * 0.9)); ctx.font = `${fs}px sans-serif`; const wE = ctx.measureText(k.eng).width + 8; ctx.fillStyle = 'rgba(20,14,8,0.85)'; ctx.fillRect(k.x - wE / 2, k.y - tr - fs - 6, wE, fs + 4); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(k.eng, k.x, k.y - tr - fs / 2 - 4); }
     if (T >= 18 && k.end) labels.push({ x: k.x, y: k.y, offset: tr + 4, text: `${k.label} · ${fmtTime(k.end - now)}`, prio: k.raid ? 90 : 50, size: Math.max(10, lsize - 1), color: k.raid ? '#ffd0d0' : '#e8f4ff', bg: k.raid ? 'rgba(90,10,10,0.85)' : 'rgba(10,20,35,0.8)' });

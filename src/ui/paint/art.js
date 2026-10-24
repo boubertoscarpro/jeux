@@ -706,3 +706,30 @@ export function drawbridge(p, at, down = true) {
   g.strokeStyle = rgba('#3a2412', 0.6); g.lineWidth = 0.8 * s; for (let k = 1; k < 8; k++) { g.beginPath(); g.moveTo(...p.P(0.3, at + 0.14 + k * 0.12)); g.lineTo(...p.P(0.7, at + 0.14 + k * 0.12)); g.stroke(); }
 }
 export { figure, groundTile, water, smoke, tree };
+
+// ───────── Carte du monde (v21) ─────────
+// Camp de brigands : palissade de pieux, tentes rapiécées, feu de camp ; plus il est fort, plus il s'étend
+export function camp(p, level = 1, color = '#7a2a20') {
+  const g = p.g, s = p.s, n = Math.min(5, 1 + Math.ceil(level / 2));
+  const spots = [[0.35, 0.35], [0.66, 0.4], [0.4, 0.68], [0.7, 0.7], [0.52, 0.22]];
+  // pieux en cercle
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2, u = 0.5 + Math.cos(a) * 0.44, v = 0.5 + Math.sin(a) * 0.44;
+    if (Math.sin(a) > 0.6 && Math.cos(a) > 0.6) continue; // entrée
+    const [x, y] = p.P(u, v);
+    g.fillStyle = '#8a5a30'; g.beginPath(); g.moveTo(x - 2 * s, y); g.lineTo(x - 2 * s, y - 12 * s); g.lineTo(x, y - 16 * s); g.lineTo(x + 2 * s, y - 12 * s); g.lineTo(x + 2 * s, y); g.closePath(); g.fill(); strokeInk(p, 0.7);
+  }
+  for (let i = 0; i < n; i++) tent(p, spots[i][0], spots[i][1], 0.12, 26, i % 2 ? '#6b5a3a' : color, '#d8c8a0', i === 0 ? ['#2a1a10', color] : null);
+  // feu de camp
+  const [fx, fy] = p.P(0.55, 0.55);
+  g.fillStyle = '#5a3a20'; g.fillRect(fx - 6 * s, fy - 2 * s, 12 * s, 3 * s);
+  const fl = g.createRadialGradient(fx, fy - 5 * s, 0, fx, fy - 5 * s, 10 * s); fl.addColorStop(0, 'rgba(255,230,120,1)'); fl.addColorStop(0.5, 'rgba(255,120,40,.85)'); fl.addColorStop(1, 'rgba(255,80,20,0)');
+  g.fillStyle = fl; g.beginPath(); g.arc(fx, fy - 5 * s, 10 * s, 0, 7); g.fill();
+  smoke(p, fx + 2 * s, fy - 16 * s, 3);
+}
+// Village abandonné : deux masures au toit crevé
+export function hamletRuin(p) {
+  hall(p, 0, 1, {});
+  const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.5, 30);
+  g.fillStyle = '#2a1a10'; g.beginPath(); g.moveTo(x - 8 * s, y); g.lineTo(x + 2 * s, y - 6 * s); g.lineTo(x + 9 * s, y + 3 * s); g.lineTo(x - 1 * s, y + 6 * s); g.closePath(); g.fill();
+}
