@@ -1,3 +1,4 @@
+import { realmTick } from '../systems/realm21.js';
 import { npcTick } from '../systems/npcs.js';
 import { ensurePlaces } from '../systems/places.js';
 import { castleTick } from '../systems/castle.js';
@@ -139,6 +140,7 @@ export function processDue(state, t) {
     npcTick(state, t);
     surveyTick(state, t);
     raidTick(state, t);
+    realmTick(state, t);
     farlandTick(state, t, mods);
     choresTick(state, t);
     for (const h of state.heroes) if (h.assignment) giveXp(state, h, 2, mods);

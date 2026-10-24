@@ -1,3 +1,4 @@
+import { realmActions, realmChanges } from './realmUi.js';
 import { lifeBurst } from './paint/life.js';
 import { spriteAt } from './paint/cityPaint.js';
 import { claimAll } from '../systems/comfort.js';
@@ -616,6 +617,8 @@ export class App {
     'goto-tile': castleActions['goto-tile'],
     ...repActions,
     ...stageActions,
+    ...realmActions,
+    ...realmChanges,
   };
 
   modal(html, actions = {}, cls = '') {

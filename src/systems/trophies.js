@@ -19,6 +19,10 @@ export function trophyCount(state, kind) {
     case 'projects': return Object.keys(state.projects?.done || {}).length;
     case 'sagas': return Object.keys(state.sagas?.done || {}).length;
     case 'clears': return st.hardClears || 0;
+    case 'healer': return state.realm21?.stats?.healed || 0;
+    case 'league': return state.realm21?.stats?.leagueBroken || 0;
+    case 'allies': return state.realm21?.stats?.alliesHonored || 0;
+    case 'relics': return state.realm21?.stats?.relicsPlaced || 0;
     default: return 0;
   }
 }

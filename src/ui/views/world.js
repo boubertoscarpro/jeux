@@ -1,3 +1,4 @@
+import { campLevel, campScale } from '../../systems/realm21.js';
 import { armyPresets, presetUnits, saveArmyPreset } from '../../systems/comfort.js';
 import { mapPalette, a11yPrefs } from '../../systems/a11y.js';
 import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
@@ -268,7 +269,7 @@ export function drawMap(app) {
     }
     if (p.infested && T > 16) { ctx.font = `${Math.round(r * 0.8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🕷️', px + r * 0.85, py - r * 0.85); }
     // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
-    const name = def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.name || def.name;
+    const name = def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.type === 'banditCamp' ? `${p.name || def.name} · niv. ${campLevel(p)}` : p.name || def.name;
     const prio = { capital: 100, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
     const minT = { capital: 6, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
     if (T >= minT) labels.push({ x: px, y: py, offset: rb ? rb * 0.95 + 3 : r + (p.danger > 0 && T > 16 ? 6 : 2), text: rb ? `${name} · ${p.breach.level}` : name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
@@ -643,7 +644,8 @@ function tilePanel(app) {
     } else if (def.kind === 'danger') {
       if (poi.clearedUntil > now) html += `<p class="ok">Site nettoyé. Les ennemis reviendront dans ${countdown(poi.clearedUntil)}.</p>`;
       else {
-        const k = 1 + poi.danger * 0.45;
+        const k = (1 + poi.danger * 0.45) * (poi.type === 'banditCamp' ? campScale(poi) : 1);
+        if (poi.type === 'banditCamp') html += `<div class="panel-sub"><h4>🗡️ Camp de niveau ${campLevel(poi)}/10</h4><div class="small">Ennemis et butin +${Math.round((campScale(poi) - 1) * 100)} %. Laissé tranquille, il gagne un niveau par jour ; nettoyé, il en perd 3. Nettoyer souvent le même camp irrite la ligue des brigands (riposte commune) ; laisser grandir les camps de niveau 5+ rend les routes dangereuses.</div></div>`;
         html += `<div class="panel-sub"><h4>Défenseurs</h4>${enemyBlock(app, poi, poi.enemies)}</div>
           <div class="panel-sub"><h4>Butin estimé</h4>${resChips(Object.fromEntries(Object.entries(def.loot).map(([r, v]) => [r, v * k])))}
           ${def.rare ? `<div class="small">Rares : ${Object.keys(def.rare).map((r) => resIcon(r, 16, RESOURCES[r]?.icon) + ' ' + RESOURCES[r].name).join(', ')}</div>` : ''}

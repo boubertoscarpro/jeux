@@ -1,3 +1,4 @@
+import { describeAlly, resolveAlly } from './realm21.js';
 import { EXPLORE_EVENTS } from '../data/exploration.js';
 import { EXPEDITION_EVENTS } from '../data/workers.js';
 import { resolvePending } from './marches.js';
@@ -12,6 +13,7 @@ export function describePending(state, p) {
   if (p.kind === 'riddle') return describeRiddle(p);
   if (p.kind === 'saga') return describeSaga(p);
   if (p.kind === 'npc') return describeNpc(state, p);
+  if (p.kind === 'ally') return describeAlly(state, p);
   if (p.kind === 'anomaly') return { icon: ANOMALY.icon, title: ANOMALY.title, text: ANOMALY.text, choices: ANOMALY.choices.map((c) => ({ label: c.label, hint: c.desc })), deadline: p.deadline, def: ANOMALY.default, coords: `(${p.x}, ${p.y})` };
   if (p.kind === 'exp') {
     const ev = EXPEDITION_EVENTS[p.event];
@@ -33,6 +35,7 @@ export function resolveAny(state, pid, idx, now = Date.now()) {
   if (p.kind === 'riddle') return resolveRiddle(state, pid, idx, now);
   if (p.kind === 'saga') return resolveSaga(state, pid, idx, now);
   if (p.kind === 'npc') return resolveNpc(state, pid, idx, now);
+  if (p.kind === 'ally') return resolveAlly(state, pid, idx, now);
   if (p.kind === 'anomaly') return resolveAnomaly(state, pid, idx, now);
   if (p.kind === 'dilemma' || p.kind === 'secret') return resolveDecision(state, pid, idx, now);
   return resolvePending(state, pid, idx, now);

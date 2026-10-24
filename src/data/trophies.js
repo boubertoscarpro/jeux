@@ -10,6 +10,11 @@ export const TROPHY_KINDS = {
   projects: { name: 'Obélisque de la Couronne', shape: 'obelisk', color: '#2f9c94', what: 'grands projets achevés', tiers: [1, 3, 5] },
   sagas: { name: 'Stèle des sagas', shape: 'obelisk', color: '#3f6fa3', what: 'sagas terminées', tiers: [1, 3, 6] },
   clears: { name: 'Colonne des terres sûres', shape: 'column', color: '#4e7d3a', what: 'sites difficiles nettoyés', tiers: [10, 40, 100] },
+  // v21 « Couleurs du Royaume » : soins, ligue brisée, frères d'armes, reliquaire (formes nouvelles : croix, boucliers, châsse)
+  healer: { name: 'Croix du soigneur', shape: 'cross', color: '#c8322a', what: 'blessés soignés', tiers: [50, 250, 1000] },
+  league: { name: 'Épée brisée de la ligue', shape: 'sword', color: '#7a2a20', what: 'ligues des brigands brisées', tiers: [1, 3, 6] },
+  allies: { name: 'Boucliers des frères d’armes', shape: 'shields', color: '#2f5fb0', what: 'garnisons alliées honorées', tiers: [1, 5, 15] },
+  relics: { name: 'Châsse du reliquaire', shape: 'reliquary', color: '#e2b84a', what: 'reliques posées', tiers: [1, 4, 9] },
 };
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 // Une entrée par palier : clé « tr_<sorte>_<n> »

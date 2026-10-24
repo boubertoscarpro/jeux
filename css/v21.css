@@ -79,3 +79,8 @@ html.reduce-motion .win, html.saver .win { animation: none; }
 @keyframes w21-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.14); filter: brightness(1.5); } 100% { transform: scale(1); } }
 html.reduce-motion .w21-num, html.saver .w21-num { animation: none; }
 #win-root { overflow: hidden; }
+/* Mécaniques v21 : lignes des blessés, reliques, châtelain */
+.r21-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid rgba(201, 165, 74, 0.15); }
+.r21-row > span:first-child { flex: 1 1 200px; }
+.r21-card h2 { display: flex; align-items: center; gap: 8px; }
+.r21-card h2 .mini { margin-left: auto; }

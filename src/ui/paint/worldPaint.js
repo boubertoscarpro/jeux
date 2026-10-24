@@ -14,7 +14,7 @@ export function poiPainter(state, p, def, { th = 1, rivalColor = null } = {}) {
   if (kind === 'kingdom') return { key: `kg${rivalColor}`, w: 1.7, draw: (pp) => { PAINT.castle(pp, 4, 1, { active: true }); banner(pp, 0.5, 0.5, 120, [rivalColor || '#7a2a20', '#f1d36a'], 30); } };
   if (kind === 'town') { const r = Math.min(3, p.rank || 0); return { key: `town${r}`, w: 1.5 + r * 0.1, draw: (pp) => PAINT.market(pp, 1 + r, 2, { active: true }) }; }
   if (kind === 'village') return { key: 'vil', w: 1.2, draw: (pp) => hamletRuin(pp) };
-  if (p.type === 'banditCamp') { const lv = Math.max(1, p.level || p.danger || 1); return { key: `camp${Math.min(5, lv)}`, w: 1.35, draw: (pp) => camp(pp, lv) }; }
+  if (p.type === 'banditCamp') { const lv = Math.max(1, p.lvl || 1); return { key: `camp${Math.min(5, lv)}`, w: 1.35, draw: (pp) => camp(pp, lv) }; }
   if (p.type === 'ruinSite' || p.type === 'lostCity') return { key: `ruin${p.type}`, w: p.type === 'lostCity' ? 1.6 : 1.2, draw: (pp) => scenery(pp, 'rubble', p.type === 'lostCity' ? 3 : 1, 'summer') };
   if (p.type === 'abandonedMine') return { key: 'mine', w: 1.25, draw: (pp) => PAINT.mine(pp, 1, 0, { active: false }) };
   return null;

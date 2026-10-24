@@ -1,3 +1,5 @@
+import { grantRelic } from './realm21.js';
+import { BUILDING_RELICS } from '../data/realm21.js';
 // Mystères archéologiques persistants (voir data/archaeology.js).
 // Cycle : indice → 3 sites à localiser (zone indiquée, il faut explorer) → fouilles → étude de chaque fragment →
 // énigme → lieu unique, bonus permanent, plan de forge. Un seul mystère actif à la fois.
@@ -180,7 +182,9 @@ export function answerRiddle(state, k, now = Date.now()) {
   grantSpeedups(state, { speed60: 1 }, `mystère « ${def.name} »`, now, `mystery:${m.id}`);
   chronicle(state, `Le mystère « ${def.name} » est résolu : ${def.place.name} est retrouvé. ${def.reward.text}.`, now);
   feat(def.place.icon, `${def.place.name} retrouvé`, def.reward.text);
-  return { ok: true, correct: true, text: `${def.reward.text}${plan ? ` · plan « ${plan} »` : ''}` };
+  // v21 : chaque lieu retrouvé livre une relique de bâtiment
+  const rl = grantRelic(state, null, 'archaeo', now);
+  return { ok: true, correct: true, text: `${def.reward.text}${plan ? ` · plan « ${plan} »` : ''} · relique « ${rl ? BUILDING_RELICS[rl.key].name : ''} »` };
 }
 
 export function abandonMystery(state, now = Date.now()) {

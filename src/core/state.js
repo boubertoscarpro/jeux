@@ -115,6 +115,8 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     boss: null,
     nextBoss: now + 45 * 60 * 1000,
     raids: [],
+    // v21 : blessés, vétérans, reliques de bâtiment, mémoire du châtelain, ligue des brigands, garnison alliée, décorations
+    realm21: { wounded: [], veterans: {}, relics: [], castellanMem: {}, brigands: { anger: 0, clears: {}, warned: false, angerAt: 0 }, garrison: null, deco: {}, stats: { healed: 0, abandoned: 0, leagueBroken: 0, alliesHonored: 0, relicsPlaced: 0 } },
     territories: {},
     buffs: [],
     guild: null,

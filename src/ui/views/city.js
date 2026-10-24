@@ -1,3 +1,4 @@
+import { hospiceBlock, relicBlock, decoAuraBlock } from '../realmUi.js';
 import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
 import { sceneState, groundKey } from '../../systems/scene.js';
 import { paintCityGround, gfxOf } from '../atlas.js';
@@ -320,7 +321,7 @@ function prodBlock(s, b, mods) {
 function buildingPanel(app, b, mods) {
   const s = app.state;
   if (b.type === 'deco') {
-    return `<h3>${COSMETICS[b.deco].icon} ${esc(COSMETICS[b.deco].name)}</h3><p class="muted">Décoration. Dans les faubourgs, près de maisons, d’un marché ou d’une taverne, elle remonte le moral des ouvriers ; dans la cour, celui de la garnison.</p>${zoneBlock(app, b)}
+    return `<h3>${COSMETICS[b.deco].icon} ${esc(COSMETICS[b.deco].name)}</h3><p class="muted">Décoration. Dans les faubourgs, près de maisons, d’un marché ou d’une taverne, elle remonte le moral des ouvriers ; dans la cour, celui de la garnison.</p>${zoneBlock(app, b)}${decoAuraBlock(app, b)}
       <button class="btn" data-action="move" data-id="${b.id}">Déplacer</button> <button class="btn ghost" data-action="demolish" data-id="${b.id}">Retirer</button>`;
   }
   const def = BUILDINGS[b.type];
@@ -343,6 +344,7 @@ function buildingPanel(app, b, mods) {
     ${b.level > 0 && b.type !== 'road' ? `<div class="small ${roadConnected(s).has(b.id) ? 'ok' : 'muted'}">${roadConnected(s).has(b.id) ? '✔ Relié au réseau de routes (+5%)' : '🟫 Non relié aux routes : une route pavée jusqu’à l’hôtel de ville donne +5%'}</div>` : ''}
     ${q ? `<div class="panel-sub"><b>${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours</b> → niv. ${q.level} · ${countdown(q.end)}${progress(q.start, q.end)}${speedupLine(s, q)}</div>` : ''}
     ${b.level > 0 ? prodBlock(s, b, mods) : ''}
+    ${b.type === 'hospice' && b.level > 0 ? hospiceBlock(app, b) : ''}${b.level > 0 ? relicBlock(app, b) : ''}
     ${effects ? `<div class="panel-sub"><h4>Effets</h4>${Object.entries(effects).map(([k, v]) => `<div class="small">${esc(effectName(k))} : <b>${fmtEffect(k, v)}</b></div>`).join('')}
       ${Object.keys(prox).length ? `<div class="small ok">✔ Bonus de proximité : ${Object.entries(prox).map(([k, v]) => `${esc(effectName(k))} ${pct(v)}`).join(', ')}</div>` : def.near || def.adjFx ? '<div class="small off">✗ Bonus de proximité inactif</div>' : ''}</div>` : ''}
     ${info && !q ? upgradeBlock(app, b, def, next, info, mods) : ''}

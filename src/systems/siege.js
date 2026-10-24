@@ -1,3 +1,4 @@
+import { castellanDefense, learnCastellan, castellanAdapt } from './realm21.js';
 // v19 « L'Art du siège » (module pur, testable) : protections des places fortes, engins d'attaque et de défense,
 // production et arsenal, contres dégressifs et bornés, bataille par flancs, vagues et cour (chaque combat passe par
 // simulateBattle), raids qui assiègent et s'adaptent, renseignement de la tour de guet, conseil de guerre, plans.
@@ -535,6 +536,9 @@ export function raidEngines(state, poi, army, t, flankHint = null) {
   const mem = siegeState(state).memory[poi?.rival ?? 'x'] || null;
   let adapt = null;
   const extra = {};
+  // v21 : un châtelain vu deux fois de suite au même poste : ils attaquent ailleurs, avec le contre-engin
+  const ca = !prot.oneFlank ? castellanAdapt(state, poi?.rival ?? 'x') : null;
+  if (ca) { if (ca.main) main = ca.main; Object.assign(extra, ca.engines); adapt = ca.text; }
   if (mem && !prot.oneFlank) {
     const seenAt = (f, k) => (mem.flanks?.[f]?.[k] || 0);
     if (main === 'front' && seenAt('front', 'pitch') >= 3) { main = seenAt('left', 'stones') <= seenAt('right', 'stones') ? 'left' : 'right'; extra.mantlets = 3; adapt = `trop de poix à la porte la dernière fois : ils viennent par le ${flankName(main)}, avec des mantelets`; }
@@ -548,6 +552,9 @@ export function raidEngines(state, poi, army, t, flankHint = null) {
     if (f === 'front') e.ram = Math.ceil(n * 0.6); else e.ladders = Math.ceil(n * 0.6);
     if (prot.moat > 0) e.fascines = Math.ceil(n * 0.2);
     if (extra.mantlets) e.mantlets = extra.mantlets; else if (n >= 6) e.mantlets = Math.ceil(n * 0.2);
+    if (extra.ladders && f !== 'front') e.ladders = (e.ladders || 0) + extra.ladders;
+    if (extra.ram && f === 'front') e.ram = (e.ram || 0) + extra.ram;
+    if (extra.fascines && prot.moat > 0) e.fascines = (e.fascines || 0) + extra.fascines;
     if (extra.tower && f !== 'front') e.tower = extra.tower;
     return e;
   };
@@ -662,7 +669,12 @@ export function loadDefensePlan(state, idx) {
 // ───────── Défense du château face à un raid (appelée par rivals.resolveRaid) ─────────
 export function defendCastle(state, raid, defenders, defMods, t, ctxExtra = {}) {
   const S = siegeState(state);
-  const prot = castleProtections(state, ctxExtra.mods || computeMods(state, t));
+  const prot = { ...castleProtections(state, ctxExtra.mods || computeMods(state, t)) };
+  // v21 : le châtelain renforce son poste et la garnison ; le seigneur retient ce qu'il a vu
+  const cas = castellanDefense(state);
+  if (cas && prot[cas.prot] > 0) prot[cas.prot] = prot[cas.prot] * cas.protMult;
+  if (cas) defMods = { ...defMods, 'combat.def': (defMods['combat.def'] || 0) + cas.def };
+  learnCastellan(state, raid.rival);
   const plan = raid.plan || raidEngines(state, { rival: raid.rival }, raid.army, t, raid.flank).plan;
   const waves = planToWaves(plan, raid.army);
   const res = siegeBattle(

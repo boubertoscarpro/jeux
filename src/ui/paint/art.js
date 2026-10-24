@@ -373,6 +373,15 @@ export const PAINT = {
     } else tower(p, 0.5, 0.5, 0.18, 0, H, { roof: fam('military', v), roofKind: 'tile', roofH: 34, windows: 2, flag: t >= 4 ? ['#2f5fb0', '#f1d36a'] : null });
     const [x, y] = p.P(0.5, 0.62, H - 10); if (t >= 3) figure(p, x, y, { tunic: '#2f5fb0', helm: true, spear: true });
   },
+  // v21 : hospice — long bâtiment blanc à toit d'ardoise, jardin de simples, bannières à la croix
+  hospice: (p, t, v, o) => {
+    hall(p, t, v, { low: 'plaster', high: 'plaster', lowC: '#f1e8d6', highC: '#f6efe2', roof: fam('military', v), kind: 'slate', u0: 0.12, v0: 0.22, u1: 0.88, v1: 0.76, h1: 22, h2: 18, rh: 24, sym: 'flask', active: o.active, turret: false });
+    const g = p.g, s = p.s;
+    for (const [u, vv] of [[0.1, 0.86], [0.92, 0.6]]) {
+      banner(p, u, vv, 0, ['#f6efe2', '#c8322a'], 18);
+    }
+    for (let i = 0; i < 7; i++) { const [x, y] = p.P(0.2 + i * 0.09, 0.9); g.fillStyle = '#4f8a2a'; g.beginPath(); g.arc(x, y - 2 * s, 3 * s, 0, 7); g.fill(); g.fillStyle = i % 2 ? '#f6efe2' : '#b6d4ff'; g.beginPath(); g.arc(x, y - 3.5 * s, 1.3 * s, 0, 7); g.fill(); }
+  },
   embassy: (p, t, v, o) => {
     hall(p, t, v, { low: 'stone', high: 'plaster', roof: fam('places', v), kind: 'slate', u0: 0.14, v0: 0.18, u1: 0.86, v1: 0.78, h1: 24, h2: 20, rh: 28, sym: 'scale', active: o.active });
     banner(p, 0.08, 0.9, 0, ['#2f5fb0', '#f1d36a'], 16); banner(p, 0.3, 0.94, 0, ['#4f8a3a', '#f6efe0'], 16); banner(p, 0.94, 0.62, 0, ['#a83a2a', '#f6efe0'], 16);
@@ -625,6 +634,39 @@ export function trophy(p, shape = 'obelisk', color = PAL.gold) {
     box(p, 0.28, 0.42, 0.72, 0.58, 60, 72, { G: (gg, W, H, k) => { MAT.stone(gg, W, H, p, PAL.stone, k); gg.fillStyle = color; gg.fillRect(0, H * 0.35, W, H * 0.3); }, D: mat(p, 'stone'), top: lit(PAL.stone, 0.05) }); return;
   }
   if (shape === 'column') { tower(p, 0.5, 0.5, 0.08, 10, 70, { roof: null, crenels: false, windows: 0, stone: '#f2ead8' }); const [x, y] = p.P(0.5, 0.5, 72); g.fillStyle = color; g.beginPath(); g.arc(x, y - 6 * s, 7 * s, 0, 7); g.fill(); strokeInk(p, 1); return; }
+  // v21 : croix du soigneur, épée brisée de la ligue, boucliers des frères d'armes, châsse du reliquaire
+  if (shape === 'cross') {
+    box(p, 0.46, 0.46, 0.54, 0.54, 10, 70, { G: mat(p, 'stone', '#f2ead8'), D: mat(p, 'stone', '#f2ead8') });
+    const [x, y] = p.P(0.5, 0.5, 52);
+    g.fillStyle = '#f6efe2'; g.beginPath(); g.roundRect(x - 13 * s, y - 15 * s, 26 * s, 26 * s, 5 * s); g.fill(); strokeInk(p, 1.1);
+    g.fillStyle = color; g.fillRect(x - 3.5 * s, y - 11 * s, 7 * s, 18 * s); g.fillRect(x - 9 * s, y - 5.5 * s, 18 * s, 7 * s);
+    return;
+  }
+  if (shape === 'sword') {
+    const [x, y] = p.P(0.5, 0.5, 10);
+    g.save(); g.translate(x, y - 4 * s); g.rotate(-0.35);
+    g.fillStyle = '#cfd6de'; g.beginPath(); g.moveTo(-3 * s, 0); g.lineTo(3 * s, 0); g.lineTo(2.5 * s, -30 * s); g.lineTo(-1 * s, -36 * s); g.lineTo(-2.5 * s, -30 * s); g.closePath(); g.fill(); strokeInk(p, 1);
+    g.fillStyle = color; g.fillRect(-11 * s, -42 * s, 22 * s, 5 * s); g.strokeStyle = INK; g.lineWidth = 1 * s; g.strokeRect(-11 * s, -42 * s, 22 * s, 5 * s);
+    g.fillStyle = '#5a3a20'; g.fillRect(-2 * s, -56 * s, 4 * s, 14 * s); g.fillStyle = PAL.gold; g.beginPath(); g.arc(0, -58 * s, 3.5 * s, 0, 7); g.fill(); strokeInk(p, 0.8);
+    g.restore();
+    g.fillStyle = '#cfd6de'; g.beginPath(); g.moveTo(x + 8 * s, y - 2 * s); g.lineTo(x + 22 * s, y - 6 * s); g.lineTo(x + 21 * s, y - 2 * s); g.closePath(); g.fill(); strokeInk(p, 0.8);
+    return;
+  }
+  if (shape === 'shields') {
+    for (const [dx, c] of [[-9, color], [9, lit(color, -0.25)]]) {
+      const [x, y] = p.P(0.5, 0.5, 40);
+      g.fillStyle = c; g.beginPath(); g.moveTo(x + dx * s - 11 * s, y - 14 * s); g.lineTo(x + dx * s + 11 * s, y - 14 * s); g.lineTo(x + dx * s + 10 * s, y + 4 * s); g.quadraticCurveTo(x + dx * s, y + 16 * s, x + dx * s - 10 * s, y + 4 * s); g.closePath(); g.fill(); strokeInk(p, 1.1);
+      g.fillStyle = PAL.gold; g.fillRect(x + dx * s - 1.5 * s, y - 12 * s, 3 * s, 20 * s);
+    }
+    post(p, 0.5, 0.5, 34, '#8a5a30');
+    return;
+  }
+  if (shape === 'reliquary') {
+    box(p, 0.36, 0.4, 0.64, 0.6, 10, 30, { G: mat(p, 'planks', '#c99a2e'), D: mat(p, 'planks', '#a87a20') });
+    gable(p, 0.35, 0.39, 0.65, 0.61, 30, 14, { axis: 'u', color, kind: 'slate', o: 0.02 });
+    const [x, y] = p.P(0.5, 0.6, 20); g.fillStyle = '#fff3c4'; g.beginPath(); g.arc(x, y, 3.2 * s, 0, 7); g.fill(); strokeInk(p, 0.7);
+    return;
+  }
   // statue dorée
   const [x, y] = p.P(0.5, 0.5, 10);
   const gr = g.createLinearGradient(x - 9 * s, 0, x + 9 * s, 0); gr.addColorStop(0, lit(color, 0.35)); gr.addColorStop(1, lit(color, -0.3));
