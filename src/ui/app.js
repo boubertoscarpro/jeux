@@ -1,3 +1,6 @@
+import { realmActions, realmChanges } from './realmUi.js';
+import { lifeBurst } from './paint/life.js';
+import { spriteAt } from './paint/cityPaint.js';
 import { claimAll } from '../systems/comfort.js';
 import { repActions } from './repercussions.js';
 import { stageActions } from './stage.js';
@@ -134,7 +137,7 @@ export class App {
     // v15 : mode économie d'énergie (aucune animation continue, carte redessinée seulement si elle change)
     document.documentElement.classList.toggle('saver', !!m.saver);
     // v16 : qualité graphique (faible : aucune animation de bâtiment sur la carte du royaume)
-    for (const q of ['low', 'medium', 'high']) document.documentElement.classList.toggle('gfx-' + q, (m.gfx || 'medium') === q);
+    for (const q of ['low', 'medium', 'high']) document.documentElement.classList.toggle('gfx-' + q, (m.gfx || 'high') === q);
     // v17 : accessibilité (taille du texte, contraste élevé, daltonisme, police, météo et nuit, noms, mode simplifié)
     const a = a11yPrefs(this.state), h = document.documentElement;
     h.style.setProperty('--text-scale', String(a.textScale));
@@ -614,6 +617,8 @@ export class App {
     'goto-tile': castleActions['goto-tile'],
     ...repActions,
     ...stageActions,
+    ...realmActions,
+    ...realmChanges,
   };
 
   modal(html, actions = {}, cls = '') {
@@ -654,7 +659,7 @@ export class App {
   // Rien pendant le rattrapage hors-ligne (le rapport d'absence le résume déjà).
   feat(f) {
     if (this.booting || typeof document === 'undefined') return;
-    if (f.at) { this.ui.flashTile = { x: f.at.x, y: f.at.y, until: Date.now() + 1500 }; this.dirty = true; }
+    if (f.at) { this.ui.flashTile = { x: f.at.x, y: f.at.y, until: Date.now() + 1500 }; this.dirty = true; if (this.ui.map === 'city') { const sp = spriteAt(this, f.at.x, f.at.y); setTimeout(() => lifeBurst(f.at.x, f.at.y, sp?.sprite, sp?.R), 60); } }
     if (!f.title) return;
     (this.featQueue ||= []).push(f);
     if (this.featQueue.length > 3) this.featQueue.splice(0, this.featQueue.length - 3);

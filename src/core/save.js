@@ -1,3 +1,4 @@
+import { ensureRealm21 } from '../systems/realm21.js';
 import { ensureSiege } from '../systems/siege.js';
 import { ensureArmory } from '../systems/armory.js';
 import { initLegacyCampaign } from '../systems/campaign.js';
@@ -194,6 +195,8 @@ export function migrate(data) {
   ensureArmory(data, data.meta.lastTick || Date.now());
   // v19 « L'Art du siège » : béliers → engins, outils posés → engins posés, répartitions conservées
   ensureSiege(data);
+  // v21 « Couleurs du Royaume » : décorations posées entretenues au chargement, camps de brigands au niveau 1
+  ensureRealm21(data, data.meta.lastTick || Date.now());
   data.version = SAVE_VERSION;
   // Une partie chargée ou importée doit d'abord prouver qu'elle tourne (≈1 s) avant de pouvoir remplacer la copie
   // de secours : l'indicateur « démarrage réussi » et la date de copie d'une autre partie ne sont pas repris

@@ -1,3 +1,4 @@
+import { flyGains } from './juice.js';
 import { sideRepercussions } from './repercussions.js';
 import { applySurplus } from '../systems/surplus.js';
 import { coatSvg } from './heraldry.js';
@@ -195,7 +196,7 @@ export const sideActions = {
   'cancel-craft': (app, el) => app.act(() => cancelCraft(app.state, el.dataset.id)),
   recall: (app, el) => app.act(() => recallMarch(app.state, el.dataset.id), 'Marche rappelée'),
   'raid-stop': (app, el) => app.confirm('<h2>Arrêter les raids en série ?</h2><p>Aucune nouvelle attaque ne partira. Une attaque déjà en route va au bout et rentre normalement. 80 % de l’intendance des attaques non menées est rendue.</p>', 'Arrêter', () => app.act(() => cancelRaidOrder(app.state, el.dataset.id), 'Raids en série arrêtés')),
-  'claim-quest': (app, el) => app.act(() => claimMission(app.state, el.dataset.id), 'Récompense obtenue !'),
+  'claim-quest': (app, el) => { const at = el.getBoundingClientRect(); const r = app.act(() => claimMission(app.state, el.dataset.id), 'Récompense obtenue !'); if (r?.reward) flyGains({ x: at.left + at.width / 2, y: at.top }, Object.fromEntries(Object.entries(r.reward).filter(([, v]) => typeof v === 'number'))); },
   'claim-chapter': (app, el) => app.act(() => claimChapter(app.state, +el.dataset.n), 'Chapitre terminé : récompense obtenue !'),
   'adv-snooze': (app, el) => { app.act(() => snoozeAdvice(app.state, el.dataset.id), 'Conseil reporté de 4 h'); refreshAdvice(app); },
   'adv-dismiss': (app, el) => { app.act(() => dismissAdvice(app.state, el.dataset.id), 'Conseil ignoré'); refreshAdvice(app); },

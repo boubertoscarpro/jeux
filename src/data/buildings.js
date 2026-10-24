@@ -214,6 +214,13 @@ export const BUILDINGS = {
     near: { targets: ['castle', 'townhall'], range: 2, effects: { 'train.speed': 0.1, 'city.def': 0.03 } },
     maxCount: N(1),
   },
+  // v21 « Couleurs du Royaume » : l'hospice recueille les blessés des combats ; on les soigne avec des potions de soin
+  hospice: {
+    name: 'Hospice', icon: '⛑️', cat: 'military', maxLevel: 20, req: { townhall: 5 },
+    desc: 'Recueille une part des soldats tombés (blessés). Soignés en 12 h avec des potions de soin, ils reviennent ; soignés vite, certains deviennent vétérans.',
+    cost: { wood: 400, stone: 300, gold: 150, herbs: 40 }, time: 120,
+    maxCount: N(1),
+  },
   stable: {
     name: 'Écurie', icon: '🐎', cat: 'military', maxLevel: 25, req: { townhall: 4 },
     desc: 'Forme la cavalerie. +10% vitesse de formation près d’un élevage.',

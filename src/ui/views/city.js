@@ -1,3 +1,5 @@
+import { paintedThumb } from '../paint/thumbs.js';
+import { hospiceBlock, relicBlock, decoAuraBlock } from '../realmUi.js';
 import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
 import { sceneState, groundKey } from '../../systems/scene.js';
 import { paintCityGround, gfxOf } from '../atlas.js';
@@ -22,8 +24,8 @@ import { castleName } from '../../systems/identity.js';
 import { ERAS, eraOf, TH_MILESTONES, thRequirements } from '../../data/eras.js';
 import { ensureArtDefs, buildingSvg, buildingIcon, terrainSvg, plainVariant, roadSvg, upIcon } from '../art.js';
 import { openUpgradeList, openRenameCastle } from '../upgrades.js';
-import { frameOf, placeStyle, hitClip, artHeight, sceneryLayer, wallLayer, raidColumnHtml, keepBox, diamondPath } from '../isoView.js';
-import { buildingIsoSvg, isoUse, roadIso, decoIso, trophyIso, lotIso, scaffoldIso, isoInline } from '../isoArt.js';
+import { frameOf, placeStyle, hitClip, artHeight, raidColumnHtml, keepBox, diamondPath } from '../isoView.js';
+import { trophyIso, isoInline } from '../isoArt.js';
 import { tileCenter, depth, LAYER, tileAt as isoTileAt, toScreen } from '../../systems/iso.js';
 import { FAMILY_OF, COUNTRY_ONLY } from '../../data/castle.js';
 import { decoDef, placeTrophy, trophiesToPlace, nextTrophies } from '../../systems/trophies.js';
@@ -32,7 +34,10 @@ import { readyHarvests, collectHarvest } from '../../systems/harvest.js';
 import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { undoReorganize, enlargeCastle, enlargePreview, nextEncStage } from '../../systems/castle.js';
 import { TROPHIES } from '../../data/trophies.js';
-import { paintIsoGround } from '../atlas.js';
+import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx } from '../paint/cityPaint.js';
+import { mountLife, lifeRedraw } from '../paint/life.js';
+import { flyGains } from '../juice.js';
+import { lifeDensity } from '../../systems/life.js';
 import { groundMatrix } from '../../systems/iso.js';
 import { gateOf, alleeTiles, rectOf, fortLevel as fortLvl } from '../../systems/castle.js';
 import { openPlans } from '../plansUi.js';
@@ -136,11 +141,10 @@ function objHtml(app, b, ctx) {
   const fam = FAMILY_OF[b.type] || (COUNTRY_ONLY.includes(b.type) ? 'country' : 'places');
   cls.push('fam-' + fam);
   let hgt = artHeight(b.type, tier);
-  if (b.type === 'road') { inner += isoUse('road', roadIso); label = 'Route'; hgt = 6; cls.push('iso-flat'); }
+  if (b.type === 'road') { label = 'Route'; hgt = 6; cls.push('iso-flat'); }
   else if (b.type === 'deco') {
     const td = decoDef(b.deco);
     label = td?.name || 'Décoration';
-    inner += td?.trophy ? isoUse(`tr-${td.shape}-${td.color}`, () => trophyIso(td.shape, td.color)) : isoUse(`deco-${b.deco}`, () => decoIso(td?.icon || '🗿'));
     hgt = td?.trophy ? 90 : 50;
     cls.push(td?.trophy ? 'trophy' : 'deco');
   } else {
@@ -148,9 +152,7 @@ function objHtml(app, b, ctx) {
     label = `${bName(b)} niveau ${b.level}`;
     const active = ctx.active.has(b.id);
     const river = b.type === 'mill' && ctx.riverSide(b);
-    const opts = { active, river, season: ctx.scene.season, level: b.level };
-    const key = `b-${b.type}-${tier}-${v % 4}-${active ? 1 : 0}${river ? 'r' : ''}${b.type === 'farm' ? ctx.scene.season : ''}${b.type === 'monument' ? b.level : ''}`;
-    inner += isoUse(key, () => buildingIsoSvg(b.type, tier, v, opts));
+    void river; void v;
     const major = b.type === 'townhall' || b.type === 'castle' || b.type === 'monument';
     if (major) cls.push('major');
     if (active) cls.push('active');
@@ -183,7 +185,6 @@ function objHtml(app, b, ctx) {
   }
   if (q) {
     cls.push('st-build');
-    if (b.level > 0) inner += isoUse('scaffold', scaffoldIso, 'iso-art iso-over');
     inner += `<span class="t-build" title="${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours">🔨</span>${progress(q.start, q.end)}`;
   }
   if (ctx.glow?.has(b.id)) cls.push('glow-new');
@@ -200,7 +201,7 @@ function objHtml(app, b, ctx) {
 function lotHtml(app, lot, ctx) {
   const d = BUILDINGS[lot.type];
   const sel = ctx.sel && ctx.sel.x === lot.x && ctx.sel.y === lot.y;
-  return `<button class="tile iso-b lot ${sel ? 'sel' : ''}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};--top:108px" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}"><span class="t-hit" style="${hitClip(60)}"></span>${isoUse(`lot-${lot.type}`, () => lotIso(d.icon))}<span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
+  return `<button class="tile iso-b lot ${sel ? 'sel' : ''}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};--top:108px" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}"><span class="t-hit" style="${hitClip(60)}"></span><span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
 }
 // Mode Construire : cases où le bâtiment choisi peut aller (bonus de placement), cases interdites marquées d'une croix
 function placeHints(app, ctx) {
@@ -214,20 +215,6 @@ function placeHints(app, ctx) {
       const adj = adjacencyBonus(s, ctx.place, x, y, ctx.mods).total;
       out.push(`<span class="iso-hint ok ${adj > 0 ? 'pos' : ''}" style="left:${Math.round(c.sx)}px;top:${Math.round(c.sy)}px;z-index:${depth(x, y, LAYER.ground + 1)}" aria-hidden="true">${adj > 0 ? '+' + Math.round(adj * 100) + '%' : '·'}</span>`);
     } else if (pc.zone && ['keep', 'faubourg'].includes(pc.zone)) out.push(`<span class="iso-hint no" style="left:${Math.round(c.sx)}px;top:${Math.round(c.sy)}px;z-index:${depth(x, y, LAYER.ground + 1)}" title="${esc(pc.reason)}" aria-hidden="true">✕</span>`);
-  }
-  return out.join('');
-}
-// Aperçu d'un plan (ou du mode architecte) : silhouettes fantômes aux places prévues
-function ghostsHtml(app, ctx) {
-  const out = [];
-  // v20 : silhouettes du mode architecte (bâtiments à venir), visibles en permanence, plus nettes en mode architecte
-  for (const g of ghosts(ctx.s)) {
-    if (ctx.at.has(g.x + ',' + g.y)) continue;
-    out.push(`<div class="iso-ghost arch ${app.ui.architect ? 'on' : ''}" style="${placeStyle(ctx.f, g.x, g.y, LAYER.building)}" aria-hidden="true">${isoUse(`b-${g.type}-0-0-0`, () => buildingIsoSvg(g.type, 0, 0, { active: false }))}</div>`);
-  }
-  for (const [k, type] of ctx.planTo) {
-    const [x, y] = k.split(',').map(Number);
-    out.push(`<div class="iso-ghost" style="${placeStyle(ctx.f, x, y, LAYER.building)}" aria-hidden="true">${isoUse(`b-${type}-1-0-0`, () => buildingIsoSvg(type, 1, 0, { active: false }))}</div>`);
   }
   return out.join('');
 }
@@ -335,7 +322,7 @@ function prodBlock(s, b, mods) {
 function buildingPanel(app, b, mods) {
   const s = app.state;
   if (b.type === 'deco') {
-    return `<h3>${COSMETICS[b.deco].icon} ${esc(COSMETICS[b.deco].name)}</h3><p class="muted">Décoration. Dans les faubourgs, près de maisons, d’un marché ou d’une taverne, elle remonte le moral des ouvriers ; dans la cour, celui de la garnison.</p>${zoneBlock(app, b)}
+    return `<h3>${COSMETICS[b.deco].icon} ${esc(COSMETICS[b.deco].name)}</h3><p class="muted">Décoration. Dans les faubourgs, près de maisons, d’un marché ou d’une taverne, elle remonte le moral des ouvriers ; dans la cour, celui de la garnison.</p>${zoneBlock(app, b)}${decoAuraBlock(app, b)}
       <button class="btn" data-action="move" data-id="${b.id}">Déplacer</button> <button class="btn ghost" data-action="demolish" data-id="${b.id}">Retirer</button>`;
   }
   const def = BUILDINGS[b.type];
@@ -346,7 +333,7 @@ function buildingPanel(app, b, mods) {
   const prox = proximityEffects(s, b);
   const links = { tavern: ['heroes', 'Recruter des héros'], forge: ['craft', 'Ouvrir la forge'], laboratory: ['craft', 'Ouvrir le laboratoire'], market: ['market', 'Ouvrir le marché'],
     library: ['research', 'Recherches'], barracks: ['army', 'Former des troupes'], stable: ['army', 'Former des troupes'], workshop: ['army', 'Former des troupes'], guildhall: ['guild', 'Guilde'], castle: ['army', 'Armée'] };
-  return `<div class="b-panel-head">${buildingSvg(b.type, b.level, 'b-art b-art-panel', b.type === 'monument' ? ORIENTS[b.orient]?.color : null)}<div><h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}/${def.maxLevel}</span></h3>
+  return `<div class="b-panel-head">${b.type === 'monument' ? buildingSvg(b.type, b.level, 'b-art b-art-panel', ORIENTS[b.orient]?.color) : paintedThumb(b.type, b.level, 96, buildingSvg(b.type, b.level, 'b-art b-art-panel'))}<div><h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}/${def.maxLevel}</span></h3>
     ${b.type === 'townhall' ? `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle" title="Renommer le château principal">✎ Renommer</button></div><div class="small muted">Château principal de ${esc(s.meta.kingdomName)}</div>` : ''}</div></div>
     <p class="muted">${esc(def.desc)}</p>
     ${zoneBlock(app, b)}
@@ -358,6 +345,7 @@ function buildingPanel(app, b, mods) {
     ${b.level > 0 && b.type !== 'road' ? `<div class="small ${roadConnected(s).has(b.id) ? 'ok' : 'muted'}">${roadConnected(s).has(b.id) ? '✔ Relié au réseau de routes (+5%)' : '🟫 Non relié aux routes : une route pavée jusqu’à l’hôtel de ville donne +5%'}</div>` : ''}
     ${q ? `<div class="panel-sub"><b>${q.kind === 'build' ? 'Construction' : 'Amélioration'} en cours</b> → niv. ${q.level} · ${countdown(q.end)}${progress(q.start, q.end)}${speedupLine(s, q)}</div>` : ''}
     ${b.level > 0 ? prodBlock(s, b, mods) : ''}
+    ${b.type === 'hospice' && b.level > 0 ? hospiceBlock(app, b) : ''}${b.level > 0 ? relicBlock(app, b) : ''}
     ${effects ? `<div class="panel-sub"><h4>Effets</h4>${Object.entries(effects).map(([k, v]) => `<div class="small">${esc(effectName(k))} : <b>${fmtEffect(k, v)}</b></div>`).join('')}
       ${Object.keys(prox).length ? `<div class="small ok">✔ Bonus de proximité : ${Object.entries(prox).map(([k, v]) => `${esc(effectName(k))} ${pct(v)}`).join(', ')}</div>` : def.near || def.adjFx ? '<div class="small off">✗ Bonus de proximité inactif</div>' : ''}</div>` : ''}
     ${info && !q ? upgradeBlock(app, b, def, next, info, mods) : ''}
@@ -456,6 +444,7 @@ function onCityCam(vp, cam) {
   clearTimeout(vp._mv); vp._mv = setTimeout(() => { vp.classList.remove('moving'); declutter(vp); }, 280);
   vp.querySelector('#city-tip')?.classList.remove('on');
   placeRing(vp, cam);
+  lifeRedraw();
 }
 // v20 : couches lourdes et rarement changées (décor de la campagne, muraille) : leurs nœuds sont gardés d'un rendu à
 // l'autre tant que leur contenu ne change pas (le rendu ne pose qu'une place vide, remplie ou rattachée après)
@@ -577,18 +566,10 @@ function bindCityTip(app, vp) {
 // v20 : sol projeté (canvas orthogonal en cache, matrice CSS) ; repeint seulement si terrain, saison, enceinte ou
 // douves changent
 function attachGround(app) {
-  const slot = document.querySelector('#city-vp .ground-slot');
-  if (!slot) return;
-  const s = app.state, scene = cityScene(app), q = gfxOf(s);
-  const film = app.ui.film;
-  const r = film ? film.rect : rectOf(s);
-  const fort = { rect: r, moat: fortLvl(s, 'moat'), allee: film ? [] : alleeTiles(s, r), gate: gateOf(s, r) };
-  const cv = paintIsoGround(s, scene, groundKey(s, scene, q) + '|' + JSON.stringify(fort), q, fort);
-  const f = frameOf(s), res = cv.width / s.city.w;
-  const m = groundMatrix(f, res).map((v) => Math.round(v * 10000) / 10000);
-  cv.style.transform = `matrix(${m.join(',')})`;
-  cv.style.transformOrigin = '0 0';
-  if (cv.parentElement !== slot) { slot.innerHTML = ''; slot.appendChild(cv); }
+  const vp = document.getElementById('city-vp'), p = app._paint;
+  if (!vp || !p) return;
+  attachPaint(vp.querySelector('.paint-slot.pg'), vp.querySelector('.paint-slot.ps'), p.state, p.f, p.R, p.items, p.gopts);
+  if (app._life) mountLife(vp, app, { ...app._life, fx: paintFx() });
 }
 
 
@@ -645,10 +626,10 @@ function buildPanel(app, mods, ups) {
     items = owned.map((k) => `<button class="bp-item ${app.ui.placeDeco === k ? 'active' : ''}" data-action="deco-mode" data-key="${k}" title="Placer : ${esc(COSMETICS[k].name)} (faubourgs : moral des ouvriers ; cour : moral de la garnison)"><span class="bp-ic">${COSMETICS[k].icon}</span><span class="bp-n">${esc(COSMETICS[k].name)}</span></button>`).join('') || '<span class="muted small">Aucune décoration à placer. Elles se gagnent (jalons, saison, événements).</span>';
   } else {
     items = Object.entries(BUILDINGS).filter(([t, d]) => d.grid !== false && t !== 'road' && BUILD_TABS[tab].cats.includes(d.cat)).map(([t, d]) => {
-      if (d.isPlace) { const b = allBuildings(s).find((x) => x.type === t); return `<button class="bp-item" ${b ? `data-action="goto-tile" data-x="${b.x}" data-y="${b.y}"` : 'disabled'} title="${esc(d.desc)} ${b ? 'Posé d’office : cliquez pour le voir.' : 'Se pose de lui-même quand sa fonction s’ouvre.'}">${buildingIcon(t, 30)}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small muted">${b ? 'posé' : 'à venir'}</span></button>`; }
+      if (d.isPlace) { const b = allBuildings(s).find((x) => x.type === t); return `<button class="bp-item" ${b ? `data-action="goto-tile" data-x="${b.x}" data-y="${b.y}"` : 'disabled'} title="${esc(d.desc)} ${b ? 'Posé d’office : cliquez pour le voir.' : 'Se pose de lui-même quand sa fonction s’ouvre.'}">${paintedThumb(t, 1, 44, buildingIcon(t, 30))}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small muted">${b ? 'posé' : 'à venir'}</span></button>`; }
       const req = buildRequirement(s, t);
       const { cost } = getUpgradeInfo(s, t, 1, mods);
-      return `<button class="bp-item ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? `disabled title="${esc(d.name)} — ${esc(req)}"` : `title="${esc(d.name)} — ${esc(d.desc)} · ${esc(ruleText(t))}"`} aria-label="${esc(d.name)}">${buildingIcon(t, 30)}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small">${req ? esc(req) : Object.entries(cost).slice(0, 2).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || ''}`).join(' ')}</span></button>`;
+      return `<button class="bp-item ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? `disabled title="${esc(d.name)} — ${esc(req)}"` : `title="${esc(d.name)} — ${esc(d.desc)} · ${esc(ruleText(t))}"`} aria-label="${esc(d.name)}">${paintedThumb(t, 1, 44, buildingIcon(t, 30))}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small">${req ? esc(req) : Object.entries(cost).slice(0, 2).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || ''}`).join(' ')}</span></button>`;
     }).join('');
     if (tab === 'mil') items += ['wall', 'moat'].map((type) => { const u = upgradeCheck(s, 'fort:' + type, mods); const lvl = s.city.fort[type] || 0; return `<button class="bp-item" data-action="upgrade" data-id="fort:${type}" ${['ready', 'queue'].includes(u.status) ? '' : `disabled title="${esc(u.reasons?.[0] || '')}"`}>${BUILDINGS[type].icon}<span class="bp-n">${esc(BUILDINGS[type].name)} → ${lvl + 1}</span><span class="bp-c small">${u.cost ? Object.entries(u.cost).slice(0, 2).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || ''}`).join(' ') : esc(u.reasons?.[0] || '')}</span></button>`; }).join('');
   }
@@ -704,7 +685,9 @@ const cityView = {
     const night = ['night', 'dusk'].includes(ctx.scene.light.phase);
     const building = app.ui.buildMode || app.ui.placeType || app.ui.moveId;
     const rank = titleOf(s).rank;
-    const walls = film ? wallLayer({ ...s, castle: { ...s.castle, rect: film.rect } }, f, { night }) : wallLayer(s, f, { night, raid, titleRank: rank });
+    // v21 : scène peinte (canvas) ; les boutons ci-dessous ne gardent que la zone cliquable, le nom et les signaux
+    app._paint = { state: s, f, R: paintRes(f, gfxOf(s)), items: cityItems(app, ctx, { film, night, raid, rank }), gopts: groundOpts(app, ctx, film) };
+    app._life = lifeData(app, ctx, film, lifeDensity(film ? { ...s, raids: [] } : s, { phase: ctx.scene.light.phase, season: ctx.scene.season, gfx: gfxOf(s) }));
     const selPath = sel ? `<path class="iso-selpath" d="${diamondPath(f, sel.x, sel.y)}"/>` : '';
     const rectPath = (r) => { const a = toScreen(f, r.x0, r.y0), b = toScreen(f, r.x1 + 1, r.y0), c = toScreen(f, r.x1 + 1, r.y1 + 1), d = toScreen(f, r.x0, r.y1 + 1); return `M${a.sx} ${a.sy}L${b.sx} ${b.sy}L${c.sx} ${c.sy}L${d.sx} ${d.sy}Z`; };
     const future = app.ui.architect ? futureStages(s).map((st) => `<path class="iso-future" d="${rectPath(st.rect)}"/><text class="iso-future-t" x="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sx)}" y="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sy)}">${st.size}×${st.size} · HdV ${st.th}</text>`).join('') : '';
@@ -715,11 +698,11 @@ const cityView = {
         ${sceneLayersHtml(ctx.scene, 'city')}
         <div class="mapvp city-vp iso" id="city-vp" data-zl="${cityZoomLevel(cam.z)}">
           <div class="mapvp-inner iso-world" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px;transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})">
-            <div class="ground-slot iso-ground"></div>
+            <div class="paint-slot pg" aria-hidden="true"></div>
             <svg class="iso-overlay" width="${Math.round(f.width)}" height="${Math.round(f.height)}" aria-hidden="true">${future}${selPath}<path id="iso-hl" class="iso-hl" d=""/></svg>
-            ${reuse('iso-scenery', sceneryLayer(s, f, ctx.scene.season))}
-            ${reuse(`iso-walls ${growing ? 'grow' : ''}`, walls + (raid && !film ? raidColumnHtml(s, f, raid) : ''))}
-            <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}${ghostsHtml(app, ctx)}</div>
+            <div class="paint-slot ps ${growing ? 'grow' : ''}" aria-hidden="true"></div>
+            ${raid && !film ? reuse('iso-walls', raidColumnHtml(s, f, raid)) : ''}
+            <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}</div>
             <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div>
           </div>
           <div class="ring-wrap" id="city-ring" data-x="${sel ? sel.x : ''}" data-y="${sel ? sel.y : ''}">${ring}</div>
@@ -737,8 +720,8 @@ const cityView = {
     </div>`;
   },
   actions: {
-    harvest: (app, el) => { app.act(() => collectHarvest(app.state, el.dataset.id, computeMods(app.state)), (r) => `🪙 Bonus récolté : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); },
-    'harvest-all': (app) => { app.act(() => collectHarvest(app.state, null, computeMods(app.state)), (r) => `🪙 Ressources bonus récoltées : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); },
+    harvest: (app, el) => { const at = el.getBoundingClientRect(); const r = app.act(() => collectHarvest(app.state, el.dataset.id, computeMods(app.state)), (r) => `🪙 Bonus récolté : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); if (r?.got) flyGains({ x: at.left + at.width / 2, y: at.top }, r.got); },
+    'harvest-all': (app, el) => { const at = el.getBoundingClientRect(); const r = app.act(() => collectHarvest(app.state, null, computeMods(app.state)), (r) => `🪙 Ressources bonus récoltées : ${Object.entries(r.got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k]?.icon || k}`).join(' ')}`); if (r?.got) flyGains({ x: at.left + at.width / 2, y: at.top }, r.got); },
     'reorg-preview': (app) => {
       const R = app.state.castle?.reorg;
       if (app.ui.planPreview || !R) { app.ui.planPreview = null; app.render(); return; }

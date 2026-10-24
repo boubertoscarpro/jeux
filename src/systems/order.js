@@ -1,3 +1,4 @@
+import { decoAuras } from './realm21.js';
 // v20 « Ma forteresse » — Ordre public du château principal (module pur). Inspiré du genre, relié à ce qui existe :
 // décorations et trophées de la cour, lieux, monument, muraille, autorité de l'hôtel de ville ; les maisons (or et
 // ouvriers) le font baisser. Effet à rendement décroissant sur la production et la vitesse de formation, borné, et
@@ -32,6 +33,9 @@ export function publicOrder(state) {
   if (trophies) parts.push([`${trophies} trophée${trophies > 1 ? 's' : ''} exposé${trophies > 1 ? 's' : ''}`, ORDER.trophy * trophies]);
   if (places) parts.push([`${places} lieu${places > 1 ? 'x' : ''} (sanctuaire, ambassade…)`, ORDER.place * places]);
   if (mon) parts.push([`Monument dynastique (${mon} étape${mon > 1 ? 's' : ''})`, ORDER.perMonument * mon]);
+  // v21 : auras des décorations (près des maisons, de l'hôtel de ville), usées après 48 h sans entretien
+  const au = decoAuras(state).order;
+  if (au) parts.push(['Auras des décorations bien placées', au]);
   if (hcount) parts.push([`${hcount} maison${hcount > 1 ? 's' : ''} (ruelles, foule)`, -Math.round(houses)]);
   const value = Math.round(parts.reduce((a, [, v]) => a + v, 0));
   return { value, parts, bonus: orderBonus(value) };

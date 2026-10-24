@@ -38,6 +38,7 @@ import { TERRITORY_SPECS } from '../src/data/territories.js';
 import { recruitWorker, assignMany, housing } from '../src/systems/workforce.js';
 import { unlockAutomation } from '../src/systems/automation.js';
 import { shardState } from '../src/systems/shards.js';
+import { healWounded } from '../src/systems/realm21.js';
 import { setPolicy, policyState } from '../src/systems/policy.js';
 import { POLICIES } from '../src/data/policies.js';
 import { logisticsNetwork } from '../src/systems/logistics.js';
@@ -78,7 +79,7 @@ function v15Metrics(s) {
   };
 }
 const ECO = ['farm', 'sawmill', 'quarry', 'mine', 'house', 'warehouse', 'mill', 'bakery', 'market', 'charcoal', 'foundry', 'library', 'herbalist', 'hunter', 'tannery', 'weaver', 'carpentry', 'fishery'];
-const MIL = ['barracks', 'castle', 'stable', 'forge', 'watchtower', 'armory', 'quartermaster', 'tavern'];
+const MIL = ['barracks', 'castle', 'stable', 'forge', 'watchtower', 'armory', 'quartermaster', 'tavern', 'hospice'];
 
 export const PROFILES = {
   casual:   { name: 'Occasionnel', sessions: [8, 20], every: 0, build: [...ECO.slice(0, 6), 'barracks', 'library'], army: 0.15, explore: 0.3, attack: 0.2, territories: 0, contracts: 0.5 },
@@ -107,6 +108,9 @@ function session(s, p, now) {
   claimCampaign(s, now);
   for (const m of milestoneList(s)) if (m.done) claimMilestone(s, m.id, now);
   for (const pd of [...s.pending]) resolveAny(s, pd.id, 0, now);
+  // v21 : soigner les blessés quand des potions sont en réserve
+  if (globalThis.__v21Potions) s.inventory.consumables.healPotion = 999; // mesure de la borne haute (soins parfaits)
+  if (s.realm21?.wounded?.length) healWounded(s, null, now);
   // Construction
   if (s.queues.build.length < 1) {
     let done = false;
@@ -220,6 +224,7 @@ export function simulate(profileKey, days = 7, seed = 1, kingdomType = null, che
     territories: Object.keys(s.territories).length, contracts: s.stats.contracts || 0, goldPerH: Math.round(net.gold || 0), foodNet: Math.round(net.food || 0),
     wealth: Math.round(wealth), famineH: Math.round(famineMin / 60), cappedH: Math.round(cappedMin / 60), shards: shardState(s).count + shardState(s).tickets * 10,
     raidsLost: s.stats.raidsLost || 0, raids: (s.stats.raidsLost || 0) + (s.stats.raidsRepelled || 0), overflowGold: Math.round(s.stats.overflowGold || 0), stability: Object.values(s.territories).length ? Math.round(Object.values(s.territories).reduce((a, t) => a + (Number.isFinite(t.stability) ? t.stability : 70), 0) / Object.values(s.territories).length) : 0, revolts: Object.values(s.territories).filter((t) => t.revolt).length, taxes: Math.round(s.stats.taxes || 0), saveKB: Math.round(serialize(s).length / 1024),
+    hospice: Object.values(s.city.buildings).reduce((m, b) => (b.type === 'hospice' ? Math.max(m, b.level) : m), 0), healed: s.realm21?.stats?.healed || 0, abandoned: s.realm21?.stats?.abandoned || 0, veterans: Object.values(s.realm21?.veterans || {}).reduce((a, b) => a + b, 0), league: s.realm21?.stats?.leagueBroken || 0,
     mysteries: Object.keys(s.archaeo?.solved || {}).length + (s.archaeo?.active ? 0.5 : 0),
     hostile: Object.values(s.council?.favor || {}).filter((v) => v <= 30).length, loyal: Object.values(s.council?.favor || {}).filter((v) => v >= 70).length,
     logiEff: (() => { const n = logisticsNetwork(s, t), v = Object.values(n); return v.length ? Math.round((v.reduce((a, r) => a + r.eff, 0) / v.length) * 100) : 100; })(),
@@ -310,7 +315,7 @@ if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--pr
     const avg = Object.fromEntries(Object.keys(runs[0]).map((f) => [f, typeof runs[0][f] === 'number' ? runs.reduce((a, r) => a + r[f], 0) / runs.length : runs[0][f]]));
     return avg;
   });
-  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'heroPow', 'items', 'worn', 'goldSold', 'gemsSold', 'gemsCut', 'scrapped', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'crises', 'crRes', 'crEnd', 'crStage', 'crRevolts', 'burnt', 'fires', 'omens', 'omFalse', 'omVer', 'omPrep', 'reserve', 'resUsed', 'regent', 'absorbed', 'lostProd', 'signs', 'omHalf', 'contained', 'nemMet', 'nemScars', 'nemTitles', 'nemRev', 'nemAdapt', 'saveKB'];
+  const cols = ['profile', 'th', 'chapter', 'levels', 'techs', 'army', 'battlesWon', 'battlesLost', 'explored', 'territories', 'contracts', 'goldPerH', 'foodNet', 'wealth', 'famineH', 'cappedH', 'raids', 'raidsLost', 'overflowGold', 'stability', 'revolts', 'taxes', 'logiEff', 'hostile', 'loyal', 'mysteries', 'plans', 'chTiers', 'chTries', 'legends', 'legendFails', 'monument', 'chronicles', 'rivals', 'memory', 'spEarnedMin', 'spSavedMin', 'rspSavedMin', 'crownDone', 'qlDone', 'reactions', 'chronicleN', 'gemsSpent', 'gemsLeft', 'heroPow', 'items', 'worn', 'goldSold', 'gemsSold', 'gemsCut', 'scrapped', 'brWins', 'brTier', 'brLosses', 'brLevel', 'allies', 'commissions', 'hamlets', 'codex', 'shards', 'crises', 'crRes', 'crEnd', 'crStage', 'crRevolts', 'burnt', 'fires', 'omens', 'omFalse', 'omVer', 'omPrep', 'reserve', 'resUsed', 'regent', 'absorbed', 'lostProd', 'signs', 'omHalf', 'contained', 'nemMet', 'nemScars', 'nemTitles', 'nemRev', 'nemAdapt', 'hospice', 'healed', 'abandoned', 'veterans', 'league', 'saveKB'];
   console.log(`Simulation de ${days} jours, ${seeds} partie(s) par profil\n`);
   console.log('| ' + cols.join(' | ') + ' |');
   console.log('|' + cols.map(() => '---').join('|') + '|');

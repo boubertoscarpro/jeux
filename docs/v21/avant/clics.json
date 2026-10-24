@@ -1,0 +1,24 @@
+{
+ "ravitaillement": {
+  "erreur": "locator.click: Timeout 4000ms exceeded.",
+  "clics": 2
+ },
+ "defense": {
+  "clics": 2,
+  "ok": true
+ },
+ "raids": {
+  "erreur": "locator.click: Timeout 4000ms exceeded.",
+  "clics": 3
+ },
+ "menage": {
+  "rapportsLus": 60,
+  "note": "aucun moyen manuel avant la v20"
+ },
+ "reglageV20": {
+  "clics": 6,
+  "ok": true
+ }
+}
+erreurs :
+Cannot read properties of undefined (reading 'x')

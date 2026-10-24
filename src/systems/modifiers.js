@@ -1,3 +1,4 @@
+import { realmMods } from './realm21.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { castleMods } from './castle.js';
 import { orderMods } from './order.js';
@@ -59,6 +60,8 @@ export function computeMods(state, now = Date.now()) {
   // v20 : ordre public du château (rendement décroissant) et titre de noblesse (avantages bornés)
   merge(m, orderMods(state));
   merge(m, nobilityMods(state));
+  // v21 : vétérans, reliques de bâtiment, auras des décorations
+  merge(m, realmMods(state, now));
   // Bâtiments
   for (const b of allBuildings(state)) {
     if (b.level <= 0) continue;

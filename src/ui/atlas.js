@@ -211,7 +211,7 @@ export const GFX = {
   medium: { city: 26, chunk: 24, lodA: 8, fog: 4, decor: true },
   high: { city: 32, chunk: 32, lodA: 8, fog: 6, decor: true },
 };
-export const gfxOf = (state) => (GFX[state?.meta?.gfx] ? state.meta.gfx : 'medium');
+export const gfxOf = (state) => (GFX[state?.meta?.gfx] ? state.meta.gfx : 'high');
 
 // ───────── Sol du royaume ─────────
 let cityGround = { key: '', canvas: null, ms: 0 };

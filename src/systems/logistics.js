@@ -1,3 +1,4 @@
+import { insecurity } from './realm21.js';
 // Réseau logistique entre le château et les avant-postes.
 // La production d'un avant-poste doit être acheminée jusqu'au château : chaque avant-poste est relié soit
 // directement au château, soit à un autre avant-poste déjà relié par une route (transit par plusieurs territoires).
@@ -38,7 +39,9 @@ export function segmentDanger(state, a, b, now = Date.now()) {
       if (p && POI_TYPES[p.type]?.kind === 'danger' && !(p.clearedUntil > now)) seen.add(`${p.x},${p.y}`);
     }
   }
-  return { danger: seen.size + (war ? LOGI.warZone : 0), sites: seen.size, war };
+  // v21 : camps de brigands forts laissés tranquilles → insécurité des routes
+  const ins = insecurity(state, now);
+  return { danger: seen.size + (war ? LOGI.warZone : 0) + ins, sites: seen.size, war, insecurity: ins };
 }
 
 function segment(state, t, node, now) {

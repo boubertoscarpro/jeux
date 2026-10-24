@@ -16,7 +16,7 @@ export const FAUBOURG_DEPTH = 3;
 // Où l'on peut bâtir (v20) : toute la ville dans les murs ; la campagne productive dehors ; quelques bâtiments partout
 export const KEEP_ONLY = ['townhall', 'castle', 'warehouse', 'house', 'market', 'tavern', 'library', 'guildhall', 'laboratory', 'bakery', 'foundry',
   'weaver', 'carpentry', 'armory', 'quartermaster', 'forge', 'barracks', 'stable', 'workshop', 'embassy', 'cartographer', 'herald', 'lists',
-  'scriptorium', 'sanctuary', 'observatory', 'monument'];
+  'scriptorium', 'sanctuary', 'observatory', 'monument', 'hospice'];
 export const COUNTRY_ONLY = ['farm', 'pasture', 'orchard', 'sawmill', 'quarry', 'mine', 'charcoal', 'hunter', 'herbalist', 'fishery', 'port'];
 export const OUTSIDE_ONLY = [];
 export const ZONE_RULE_TEXT = {
@@ -35,7 +35,7 @@ export const FAMILIES = {
 };
 export const FAMILY_OF = {
   townhall: 'core', castle: 'core', warehouse: 'core',
-  barracks: 'military', stable: 'military', workshop: 'military', watchtower: 'military', armory: 'military', quartermaster: 'military', lists: 'military',
+  barracks: 'military', stable: 'military', workshop: 'military', watchtower: 'military', hospice: 'military', armory: 'military', quartermaster: 'military', lists: 'military',
   house: 'economy', market: 'economy', bakery: 'economy', foundry: 'economy', weaver: 'economy', carpentry: 'economy', forge: 'economy', mill: 'economy', tannery: 'economy',
   library: 'knowledge', laboratory: 'knowledge', observatory: 'knowledge', scriptorium: 'knowledge', cartographer: 'knowledge',
   tavern: 'places', guildhall: 'places', embassy: 'places', herald: 'places', sanctuary: 'places', monument: 'places', deco: 'places', trophy: 'places',

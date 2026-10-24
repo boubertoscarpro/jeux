@@ -1,0 +1,3 @@
+{"total":2002,"view":541,"hud":233,"objets":112,"decor":0,"murs":0,"canvas":3}
+{"total":2024,"view":566,"hud":230,"objets":112,"decor":0,"murs":1,"canvas":3}
+{"total":1989,"view":540,"hud":221,"objets":112,"decor":0,"murs":0,"canvas":3}

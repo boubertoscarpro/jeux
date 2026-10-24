@@ -1,3 +1,4 @@
+import { offerGarrison, garrisonUnits, addWounded, leagueStrike, leagueOutcome, realm } from './realm21.js';
 import { raidEngines, defendCastle } from './siege.js';
 import { fortifyFactor, noteHostile } from './reactions.js';
 import { recordLoss } from './losses.js';
@@ -91,6 +92,8 @@ export function rivalTick(state, now) {
   }
   if (thLevel(state) < PROTECTION_TH) return;
   if (state.raids.length || (state.raidCooldown || 0) > now) return;
+  // v21 : la ligue des brigands, poussée à bout, riposte avant tout seigneur
+  if (leagueStrike(state, now, thLevel(state))) { state.raidCooldown = now + 45 * 60000 + RAID_TRUCE_H * 3600 * 1000; return; }
   const candidates = kingdoms(state).filter((p) => raidWillingness(state, p.rival) > 0 || (p.anger || 0) > 0);
   if (!candidates.length) return;
   const p = rng.pick(candidates);
@@ -108,6 +111,8 @@ export function rivalTick(state, now) {
   const sg = raidEngines(state, p, army, now, flank);
   state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army: sg.army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0, flank: sg.mainFlank || flank, flankSeen: flankRevealed(state), plan: sg.plan, engines: sg.engines, style: sg.style, styleText: sg.styleText, adapt: sg.adapt, mainFlank: sg.mainFlank });
   if (p.anger) p.anger--;
+  // v21 : un voisin en bons termes peut proposer une garnison (décision en attente, refusable)
+  offerGarrison(state, state.raids[state.raids.length - 1], now);
   log(state, 'bad', `🚨 ${RIVALS[p.rival].lord} (${p.name}) lance un raid contre ${castleName(state)} ! Arrivée dans ${Math.round(warn / 60000)} min.`, now);
   toast(`🚨 Raid en approche : ${p.name}`, 'bad');
 }
@@ -122,17 +127,25 @@ export function resolveRaid(state, raid, t) {
   if (mods.militia) defenders.militia = 10 + thLevel(state) * 5;
   const allies = allyReinforcements(state);
   if (allies) for (const [u, n] of Object.entries(allies)) defenders[u] = (defenders[u] || 0) + n;
+  // v21 : garnison alliée acceptée pour ce raid
+  const gar = garrisonUnits(state, raid);
+  if (gar) for (const [u, n] of Object.entries(gar)) defenders[u] = (defenders[u] || 0) + n;
   const def = Object.keys(defenders).length && Object.values(defenders).some((n) => n > 0) ? defenders : { militia: 5 };
   // v19 : défense par flancs, vagues et cour, avec les engins posés sur les remparts (systems/siege.js)
   const flank = FLANKS[raid.flank] ? raid.flank : 'front';
   const defMods = { ...mods, 'combat.def': (mods['combat.def'] || 0) + (mods['city.def'] || 0) };
   const { res } = defendCastle(state, raid, def, defMods, t, { mods, supply: (state.resources.bread || 0) > 50, famine: state.famine });
+  // v21 : une part des soldats tombés survit blessée (hospice)
+  const own = {};
+  for (const [u, n] of Object.entries(state.army)) if (UNITS[u] && u !== 'scout' && u !== 'spy') { const l = n - (res.defRemaining[u] || 0); if (l > 0) own[u] = l; }
+  const hurt = addWounded(state, own, 'def', t, raid.name);
   // Pertes de la garnison
   const newArmy = { scout: scouts };
   for (const [u, n] of Object.entries(res.defRemaining)) if (UNITS[u] && u !== 'scout') newArmy[u] = n;
   for (const u of ['spy']) if (state.army[u]) newArmy[u] = state.army[u];
   state.army = newArmy;
   const win = res.winner === 'defender';
+  if (raid.league) leagueOutcome(state, win, t);
   // v19 : la cour est prise dès qu'un flanc cède ; l'intérieur (bâtiments de la cour, entrepôt intra-muros) n'est
   // livré qu'à une percée sur deux flancs ou plus, sinon avec la chance de brèche de la v16 (les défenseurs se replient
   // dans le donjon) : un royaume battu ne perd pas plus qu'avant
@@ -176,6 +189,8 @@ export function resolveRaid(state, raid, t) {
     else text += ' Sans muraille, rien n’a arrêté les pillards.';
   }
   const nDef = Object.values(def).reduce((a, b) => a + b, 0);
+  if (hurt) text += ` ${hurt} blessés ont été portés à l’hospice : soignez-les sous 24 h.`;
+  if (gar) text += ` La garnison de ${RIVALS[realm(state).garrison?.faction]?.name || 'votre allié'} a tenu les murs avec vous.`;
   const prep = `Préparation : ${nDef} défenseurs${allies ? ' (dont renforts alliés)' : ''}, muraille +${Math.round(fort * 100)} % de défense, ${(state.resources.bread || 0) > 50 ? 'rations de pain distribuées' : 'pas de pain (moral réduit)'}${mods['city.def'] ? `, défense de la ville +${Math.round(mods['city.def'] * 100)} %` : ''}.`;
   const flankTxt = ` ${res.key}${raid.adapt ? ` Ils s’étaient adaptés : ${raid.adapt}.` : ''}`;
   text = `${text} ${prep}${flankTxt}`;

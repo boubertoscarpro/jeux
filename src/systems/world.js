@@ -1,3 +1,4 @@
+import { campScale, scaleEnemies } from './realm21.js';
 import { regenMult } from './worldmarks.js';
 import { CHAR_TO_TERRAIN, POI_TYPES, SECONDS_PER_TILE, TERRAINS, EVENT_REACH } from '../data/world.js';
 import { UNITS } from '../data/units.js';
@@ -102,6 +103,7 @@ export function worldUpkeep(state, dtSec, now, mods = null) {
     if (def.kind === 'danger' && poi.clearedUntil && poi.clearedUntil <= now) {
       poi.clearedUntil = 0;
       poi.enemies = makeEnemies(poi.type, poi.danger);
+      if (poi.type === 'banditCamp') poi.enemies = scaleEnemies(poi.enemies, campScale(poi)); // v21 : niveau du camp
       poi.scouted = false;
     }
     // Les sites temporaires (événements) disparaissent

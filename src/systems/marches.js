@@ -1,3 +1,4 @@
+import { addWounded, campScale, onCampCleared, onAttackLaunched } from './realm21.js';
 import { attackFortress, hashSeed, siegeState, planEngines, validatePlan } from './siege.js';
 import { payBounty, npcMeet } from './npcs.js';
 import { scar } from './worldmarks.js';
@@ -135,6 +136,8 @@ export function sendMarch(state, opts, now = Date.now()) {
     phase: 'out', start: now, arrive: now + travel, travel, loot: {}, items: [], log: [], retreat: opts.retreat ?? 0.5,
   };
   if (m.heroId) state.heroes.find((h) => h.id === m.heroId).marchId = m.id;
+  // v21 : une garnison alliée exige qu'aucune attaque ne parte du château pendant sa présence
+  if (['attack', 'boss', 'dungeon'].includes(opts.type)) onAttackLaunched(state, now);
   // v19 : les engins du plan de siège quittent l'arsenal avec l'armée
   if (opts.type === 'attack' && opts.siegePlan) {
     const need = planEngines(opts.siegePlan);
@@ -191,6 +194,11 @@ function addReport(state, rep) {
   if (state.reports.length > 60) state.reports.length = 60;
 }
 
+// v21 : une part des soldats tombés en campagne rentre blessée à l'hospice (s'il a des lits libres)
+function woundedOf(state, res, t, label = '') {
+  const n = addWounded(state, res.attLosses, 'att', t, label);
+  if (n) log(state, 'info', `⛑️ ${n} blessés ramenés à l’hospice (${label || 'combat'}) : soignez-les sous 24 h.`, t);
+}
 function heroOf(state, m) { return state.heroes.find((h) => h.id === m.heroId) || null; }
 
 // Combat générique pour une marche ; applique les pertes et renvoie le résultat
@@ -217,6 +225,7 @@ function marchBattle(state, m, enemies, t, opts = {}) {
     const killed = Object.entries(res.defLosses).reduce((s, [, n]) => s + n * 10, 0);
     if (hero) giveXp(state, hero, 20 + killed, mods);
     if (res.winner === 'attacker') { state.stats.battlesWon++; state.stats.siegesWon = (state.stats.siegesWon || 0) + 1; state.season.points += SEASON.points.battle; } else state.stats.battlesLost++;
+    woundedOf(state, res, t, opts.enemyLabel);
     return res;
   }
   const res = simulateBattle(
@@ -231,6 +240,7 @@ function marchBattle(state, m, enemies, t, opts = {}) {
   if (hero) giveXp(state, hero, 20 + killed, mods);
   if (res.winner === 'attacker' && !opts.bossHp) { state.stats.battlesWon++; state.season.points += SEASON.points.battle; }
   else if (!opts.bossHp) state.stats.battlesLost++;
+  woundedOf(state, res, t, opts.enemyLabel);
   return res;
 }
 
@@ -395,11 +405,12 @@ function arriveAttack(state, m, t, mods, poi) {
       baseLoot = onRivalDefeated(state, poi, t);
     } else {
       // Raids en série : la région s'appauvrit à chaque attaque répétée (m.lootMult < 1)
-      const k = (1 + poi.danger * 0.45) * (m.lootMult || 1);
+      const k = (1 + poi.danger * 0.45) * (m.lootMult || 1) * (poi.type === 'banditCamp' ? campScale(poi) : 1); // v21 : niveau du camp
       for (const [r, v] of Object.entries(def.loot || {})) baseLoot[r] = Math.round(v * k * rng.float(0.85, 1.15));
       addInto(baseLoot, rareRolls(state, m, poi, mods, 0.02 * poi.danger));
       poi.clearedUntil = t + (def.respawn || 3600) * 1000;
       poi.enemies = {};
+      if (poi.type === 'banditCamp') onCampCleared(state, poi, t); // v21 : la ligue des brigands s'irrite
       if (poi.danger >= 3) state.stats.hardClears++;
       state.season.points += poi.danger >= 3 ? SEASON.points.hardClear : 0;
       guildProgress(state, 'clears', 1);

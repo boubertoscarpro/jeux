@@ -1,3 +1,4 @@
+import { relicProdBonus } from './realm21.js';
 import { recordLoss } from './losses.js';
 import { zoneProdBonus } from './castle.js';
 import { absorbOverflow } from './reserve.js';
@@ -63,7 +64,7 @@ export function roadConnected(state) {
 // Multiplicateur global d'un bâtiment (adjacence, ouvriers, route, dégâts)
 function buildingBonus(state, b, mods, adj, roads) {
   const sector = SECTOR_OF[b.type];
-  let bonus = adj.total + (sector ? mods['work.' + sector] || 0 : 0) + zoneProdBonus(state, b); // v16 : effet de zone
+  let bonus = adj.total + (sector ? mods['work.' + sector] || 0 : 0) + zoneProdBonus(state, b) + relicProdBonus(state, b); // v16 : effet de zone ; v21 : reliques
   if (roads.has(b.id)) bonus += 0.05 + (mods['road.bonus'] || 0);
   return bonus;
 }

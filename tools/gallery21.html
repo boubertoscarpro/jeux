@@ -1,0 +1,32 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Galerie v21</title>
+<style>body{margin:0;background:#6fae3c;font:12px Georgia,serif;color:#fff}.row{display:flex;flex-wrap:wrap;gap:4px;padding:4px}.c{text-align:center;background:rgba(0,0,0,.12);border-radius:8px}.c b{display:block;padding:2px;text-shadow:0 1px 0 #000}</style></head><body><div id="root" class="row"></div>
+<script type="module">
+import { pen, groundTile, drawFx } from '../src/ui/paint/paint.js';
+import { bake } from '../src/ui/paint/bake.js';
+import { PAINT, scenery, road, lot, scaffold, deco, trophy, wallPiece, wallTower, gatehouse } from '../src/ui/paint/art.js';
+const S = 1;
+const root = document.getElementById('root');
+const q = new URLSearchParams(location.search);
+const tiers = (q.get('t') || '0,2,4,5').split(',').map(Number);
+const types = (q.get('only') || Object.keys(PAINT).filter((k) => !k.endsWith('_')).join(',')).split(',');
+function cell(label, draw, ground = 'grass') {
+  const w = 180 * S, h = 230 * S, ox = 90 * S, oy = 150 * S;
+  const c = document.createElement('div'); c.className = 'c';
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; c.appendChild(cv);
+  const b = document.createElement('b'); b.textContent = label; c.appendChild(b); root.appendChild(c);
+  const g = cv.getContext('2d');
+  groundTile(pen(g, ox, oy, S, label), 0, 0, ground);
+  const fx = [];
+  const art = bake(w, h, (bg) => { const p = pen(bg, ox, oy, S, label); p.noGround = true; p.sg = g; p.fx = fx; draw(p); }, { s: S });
+  g.drawImage(art, 0, 0); drawFx(g, fx);
+}
+for (const t of types) for (const ti of tiers) cell(`${t} ${ti}`, (p) => PAINT[t](p, ti, ti, { active: true, season: 'summer', level: ti * 5 + 1, river: false }));
+cell('moulin à eau', (p) => PAINT.mill(p, 3, 0, { river: true, active: true }));
+for (const ter of ['forest', 'mountain', 'rubble']) for (const v of [0, 1]) cell(`${ter} ${v}`, (p) => scenery(p, ter, v, 'summer'));
+cell('forêt hiver', (p) => scenery(p, 'forest', 2, 'winter'));
+cell('route', (p) => road(p)); cell('terrain vague', (p) => lot(p)); cell('échafaudage', (p) => scaffold(p, 60));
+for (const i of ['⛲', '🗿', '🌷', '🏮']) cell('déco ' + i, (p) => deco(p, i));
+for (const sh of ['obelisk', 'banner', 'arch', 'column', 'statue']) cell('trophée ' + sh, (p) => trophy(p, sh, '#e2b84a'));
+for (const st of ['palisade', 'stone', 'fortress']) { cell('mur ' + st, (p) => { wallPiece(p, st, 'u', 0.5, { guard: '#2f5fb0' }); }); cell('tour ' + st, (p) => wallTower(p, st, 0.5, 0.5, { flag: ['#2f5fb0', '#f1d36a'] })); cell('porte ' + st, (p) => gatehouse(p, st, 0.5, { banner: ['#2f5fb0', '#f1d36a'] })); }
+document.body.dataset.ready = 1;
+</script></body></html>
