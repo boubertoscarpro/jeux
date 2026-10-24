@@ -403,6 +403,8 @@ export function notablePlaces(state) {
   return out.sort((a, b) => a.d - b.d);
 }
 
+// v22 : le guide des quêtes centre la carte sur un lieu et l'ouvre
+export const worldFocus = (app, x, y, zoom = 1) => focusTile(app, x, y, zoom);
 function focusTile(app, x, y, zoom = null) {
   const c = cam(app);
   c.x = x + 0.5; c.y = y + 0.5;

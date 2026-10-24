@@ -213,7 +213,7 @@ function placeHints(app, ctx) {
     const c = tileCenter(f, x, y);
     if (pc.ok) {
       const adj = adjacencyBonus(s, ctx.place, x, y, ctx.mods).total;
-      out.push(`<span class="iso-hint ok ${adj > 0 ? 'pos' : ''}" style="left:${Math.round(c.sx)}px;top:${Math.round(c.sy)}px;z-index:${depth(x, y, LAYER.ground + 1)}" aria-hidden="true">${adj > 0 ? '+' + Math.round(adj * 100) + '%' : '·'}</span>`);
+      out.push(`<span class="iso-hint ok ${adj > 0 ? 'pos' : ''}" data-x="${x}" data-y="${y}" style="left:${Math.round(c.sx)}px;top:${Math.round(c.sy)}px;z-index:${depth(x, y, LAYER.ground + 1)}" aria-hidden="true">${adj > 0 ? '+' + Math.round(adj * 100) + '%' : '·'}</span>`);
     } else if (pc.zone && ['keep', 'faubourg'].includes(pc.zone)) out.push(`<span class="iso-hint no" style="left:${Math.round(c.sx)}px;top:${Math.round(c.sy)}px;z-index:${depth(x, y, LAYER.ground + 1)}" title="${esc(pc.reason)}" aria-hidden="true">✕</span>`);
   }
   return out.join('');

@@ -21,6 +21,13 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v22 — Sceaux et Livre des quêtes** :
+> - **Aucun emoji** : les 336 symboles du jeu sont remplacés par des sceaux dessinés pour Cendrelande (planche dans `docs/v22/sceaux.png`), dans l'interface, la carte du monde et les textes.
+> - **Livre des quêtes** : un livre relié à deux pages (signets par catégorie, récit, objectif, récompense), ouvert par la touche Q.
+> - **« Montre-moi »** : la carte se centre, un gantelet d'or montre où toucher, et le conseiller guide chaque étape jusqu'au bout de la quête.
+>
+> Voir [`docs/V22.md`](docs/V22.md).
+
 > **v21 — Couleurs du Royaume** : le royaume prend des couleurs chaudes et s'anime.
 > - **Une scène peinte** :
 >   - bâtiments, décor et muraille peints en Canvas 2D, puis gardés en image : matières, lumière chaude, ombres portées, contour ;

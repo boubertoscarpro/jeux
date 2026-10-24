@@ -1,3 +1,5 @@
+import questbookView, { bookEntries } from './views/questbook.js';
+import { startGuide, guideActions } from './questGuide.js';
 import { watchSigils } from './sigils.js';
 import { realmActions, realmChanges } from './realmUi.js';
 import { lifeBurst } from './paint/life.js';
@@ -112,7 +114,7 @@ export const VIEWS = GROUPS.flatMap((g) => g.tabs);
 // écran s'ouvre en fenêtre par-dessus, depuis son lieu (data/places.js), l'affichage fixe ou la liste des Lieux.
 // Les fenêtres internes (fiche d'un bâtiment, case du monde) ne sont pas des écrans du jeu : elles n'ont pas de lieu.
 export const MAP_VIEWS = [...MAP_SCREENS, 'outpost'];
-const INTERNAL = [bldgView, tileView, outpostView];
+const INTERNAL = [bldgView, tileView, outpostView, questbookView];
 const groupOf = (viewId) => GROUPS.find((g) => g.tabs.some((t) => t.id === viewId));
 const placeName = (k) => { const p = PLACES[k]; return p ? (p.kind === 'building' ? BUILDINGS[p.type]?.name : p.name) : ''; };
 const placeIcon = (k) => { const p = PLACES[k]; return p ? (p.kind === 'building' ? BUILDINGS[p.type]?.icon : p.icon) : ''; };
@@ -554,7 +556,7 @@ export class App {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target?.tagName || '') || ev.target?.isContentEditable;
       if (typing || open || ev.altKey || ev.metaKey || (ev.ctrlKey && ev.key.toLowerCase() !== 'k')) return;
       const k = ev.key.toLowerCase();
-      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('goals'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this), t: () => openKingdomText(this) };
+      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('questbook'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this), t: () => openKingdomText(this) };
       if (ev.ctrlKey && k === 'k') { ev.preventDefault(); openPlaces(this); return; }
       if (map[k]) { ev.preventDefault(); map[k](); }
     });
@@ -621,6 +623,9 @@ export class App {
     ...stageActions,
     ...realmActions,
     ...realmChanges,
+    ...guideActions,
+    // v22 : « Montre-moi » depuis la colonne des quêtes (quête du parcours)
+    'quest-show': (app, el) => { const e = bookEntries(app.state).list.find((x) => x.uid === `c:${el.dataset.id}`); if (e) startGuide(app, { ...(e.raw || {}), title: e.title, desc: e.desc, view: e.view, target: e.target }); },
   };
 
   modal(html, actions = {}, cls = '') {
