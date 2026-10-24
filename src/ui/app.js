@@ -1,3 +1,4 @@
+import { watchSigils } from './sigils.js';
 import { realmActions, realmChanges } from './realmUi.js';
 import { lifeBurst } from './paint/life.js';
 import { spriteAt } from './paint/cityPaint.js';
@@ -185,6 +186,7 @@ export class App {
     ensureIconDefs(); ensureArtDefs();
     this.applyPrefs();
     this.bindEvents();
+    watchSigils(document.body); // v22 : aucun emoji affiché, chaque symbole devient un sceau dessiné
     bus.on('changed', () => { this.dirty = true; });
     bus.on('toast', ({ text, type }) => this.toast(text, type));
     bindAnnouncer(this, bus); // v17 : raids, crises, chantiers terminés annoncés aux lecteurs d'écran

@@ -1,3 +1,4 @@
+import { drawSigil, fillTextSigils } from '../sigils.js';
 import { campLevel, campScale } from '../../systems/realm21.js';
 import { armyPresets, presetUnits, saveArmyPreset } from '../../systems/comfort.js';
 import { mapPalette, a11yPrefs } from '../../systems/a11y.js';
@@ -267,7 +268,7 @@ export function drawMap(app) {
       ctx.fillStyle = p.danger >= 4 ? PAL.bad : p.danger >= 2 ? PAL.warn : '#ffe58a';
       for (let i = 0; i < n; i++) ctx.fillRect(px - (n * pw * 1.3) / 2 + i * pw * 1.3, py + r + 1, pw, pw * 0.8);
     }
-    if (p.infested && T > 16) { ctx.font = `${Math.round(r * 0.8)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🕷️', px + r * 0.85, py - r * 0.85); }
+    if (p.infested && T > 16) drawSigil(ctx, '🕷', px + r * 0.85, py - r * 0.85, r * 0.8, '#e8d6ff');
     // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
     const name = def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.type === 'banditCamp' ? `${p.name || def.name} · niv. ${campLevel(p)}` : p.name || def.name;
     const prio = { capital: 100, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
@@ -332,7 +333,7 @@ export function drawMap(app) {
     if (k.army && T >= 10) drawColumn(ctx, k.x, k.y, Math.max(22, Math.min(64, T * 1.1)), { color: k.raid ? '#a8322a' : banner, tunic: k.raid ? '#6b1e16' : '#2f5fb0', n: k.raid ? 5 : 4, angle: k.angle ?? 0, frame: reduceMotion ? 0 : Math.floor(now / 350) % 2 });
     else drawToken(ctx, k.x, k.y, tr, k.col, k.icon, k.angle);
     // v19 : engins de siège qui accompagnent la colonne (petit cartouche au-dessus du pion)
-    if (k.eng && T >= 10) { const fs = Math.max(10, Math.round(tr * 0.9)); ctx.font = `${fs}px sans-serif`; const wE = ctx.measureText(k.eng).width + 8; ctx.fillStyle = 'rgba(20,14,8,0.85)'; ctx.fillRect(k.x - wE / 2, k.y - tr - fs - 6, wE, fs + 4); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.fillText(k.eng, k.x, k.y - tr - fs / 2 - 4); }
+    if (k.eng && T >= 10) { const fs = Math.max(10, Math.round(tr * 0.9)); ctx.font = `${fs}px sans-serif`; const wE = ctx.measureText(k.eng).width + 8; ctx.fillStyle = 'rgba(20,14,8,0.85)'; ctx.fillRect(k.x - wE / 2, k.y - tr - fs - 6, wE, fs + 4); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; fillTextSigils(ctx, k.eng, k.x, k.y - tr - fs / 2 - 4); }
     if (T >= 18 && k.end) labels.push({ x: k.x, y: k.y, offset: tr + 4, text: `${k.label} · ${fmtTime(k.end - now)}`, prio: k.raid ? 90 : 50, size: Math.max(10, lsize - 1), color: k.raid ? '#ffd0d0' : '#e8f4ff', bg: k.raid ? 'rgba(90,10,10,0.85)' : 'rgba(10,20,35,0.8)' });
   }
   // Les commandes posées sur la carte (filtres, zoom, mini-carte) ne doivent pas masquer d'étiquette

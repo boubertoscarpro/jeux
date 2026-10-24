@@ -41,7 +41,7 @@
 .item-wrap .pick { position: absolute; top: 4px; right: 4px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; min-width: 26px; min-height: 26px; }
 .item-wrap .pick input { width: 18px; height: 18px; }
 .item-wrap.picked .item-card { outline: 2px solid var(--gold, #e6c37a); outline-offset: 1px; }
-.item-wrap.picked .pick::after { content: '✔'; font-size: 12px; margin-left: 2px; }
+.item-wrap.picked .pick::after { content: ''; font-size: 12px; margin-left: 2px; }
 .inv-tools input[type="search"] { min-width: 180px; }
 .rules { list-style: none; padding: 0; }
 .armory-reports { padding-left: 18px; }

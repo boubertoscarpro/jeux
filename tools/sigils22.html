@@ -1,0 +1,7 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Sceaux de Cendrelande</title>
+<style>body{margin:0;background:#2a1d13;color:#f3e6c4;font:12px Georgia,serif}h1{margin:12px 16px;font-size:20px}.g{display:grid;grid-template-columns:repeat(auto-fill,96px);gap:6px;padding:8px 16px}.c{background:#3a2a1c;border:1px solid #8a6a3e;border-radius:8px;text-align:center;padding:6px 2px}.c svg{width:40px;height:40px;color:#f3d27a}.c div{font-size:10px;margin-top:2px;overflow:hidden;white-space:nowrap}</style></head>
+<body><h1>Sceaux de Cendrelande (v22) — un dessin par symbole, aucun emoji</h1><div class="g" id="g"></div>
+<script type="module">
+import { SIGILS, sigilByKey } from '../src/ui/sigils.js';
+document.getElementById('g').innerHTML = Object.keys(SIGILS).map((k) => `<div class="c">${sigilByKey(k)}<div>${k}</div></div>`).join('');
+</script></body></html>

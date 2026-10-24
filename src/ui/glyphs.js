@@ -1,3 +1,4 @@
+import { sigilSvg, sigilKey } from './sigils.js';
 // v15 — Une seule langue d'icônes dans l'interface : glyphes SVG monochromes (trait d'encre, couleur du texte) pour
 // les emojis les plus fréquents des onglets, titres, boutons et puces. Une passe après chaque rendu remplace l'emoji
 // de tête de ces éléments par son glyphe ; un emoji sans glyphe est harmonisé (taille, alignement, teinte adoucie).
@@ -73,10 +74,8 @@ export const GLYPHS = {
 };
 const ALIAS = { '⚔': '⚔️', '⚖': '⚖️', '🗓': '🗓️', '🛡': '🛡️', '🗺': '🗺️', '👁': '👁️', '🎟': '🎟️', '⚠': '⚠️', '🏛': '🏛️', '🏗': '🏗️', '🛠': '🛠️', '❄': '❄️', '🏚': '🏚️', '🗡': '🗡️' };
 
-export const glyphSvg = (e, cls = 'gl') => {
-  const k = GLYPHS[e] ? e : ALIAS[e];
-  return k ? `<svg class="${cls}" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true">${GLYPHS[k]}</svg>` : null;
-};
+// v22 : tous les symboles passent par les sceaux de Cendrelande (sigils.js), un seul jeu de dessins
+export const glyphSvg = (e, cls = 'gl') => (sigilKey(e) ? sigilSvg(e, cls) : null);
 
 // Emoji de tête d'un texte (y compris les séquences avec sélecteur de variante ou liant ZWJ)
 const LEAD = /^(\s*)((?:\p{Extended_Pictographic}|[←-⇿⌀-⏿⬀-⯿✀-➿])(?:️|‍(?:\p{Extended_Pictographic}|[♀♂])️?)*)\s?/u;

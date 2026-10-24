@@ -1,9 +1,10 @@
+import { drawSigil, fillTextSigils } from './sigils.js';
 // Rendu de la carte du monde (canvas) : textures de terrain mises en cache, frontières selon la relation,
 // médaillons de lieux, étiquettes sans chevauchement, armées et raids animés. Aucune règle de jeu ici.
 import { TERRAINS } from '../data/world.js';
 import { STANCES } from '../data/world.js';
 
-const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+// v22 : plus de police emoji sur la carte (sceaux dessinés, voir sigils.js)
 
 // Relation d'une faction avec le joueur → couleur de frontière (ennemi, allié, neutre)
 export const RELATION_STYLE = {
@@ -115,9 +116,8 @@ export function drawMedallion(ctx, px, py, r, ring, icon, opts = {}) {
   ctx.shadowBlur = 0;
   ctx.lineWidth = Math.max(1.5, r * 0.16); ctx.strokeStyle = ring;
   ctx.beginPath(); ctx.arc(px, py, r - ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
-  ctx.font = `${Math.round(r * 1.18)}px ${EMOJI_FONT}`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(icon, px, py + r * 0.06);
+  // v22 : le sceau dessiné du lieu (aucun emoji)
+  drawSigil(ctx, icon, px, py, r * 1.2, opts.ink || '#f6ecd2');
   ctx.restore();
 }
 
@@ -160,7 +160,7 @@ export function placeLabels(ctx, labels, W, H, blocked = []) {
     if (l.border) { ctx.strokeStyle = l.border; ctx.lineWidth = 1; ctx.stroke(); }
     ctx.font = `600 ${l.size}px Inter, system-ui, sans-serif`;
     ctx.fillStyle = l.color || '#f3e6c4'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(l.text, x + w / 2, y + h / 2 + 0.5);
+    fillTextSigils(ctx, l.text, x + w / 2, y + h / 2 + 0.5);
   }
   return out;
 }
@@ -176,8 +176,7 @@ export function drawToken(ctx, x, y, r, color, icon, angle) {
   }
   ctx.fillStyle = color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.font = `${Math.round(r * 1.15)}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(icon, 0, r * 0.06);
+  drawSigil(ctx, icon, 0, 0, r * 1.2, '#fff');
   ctx.restore();
 }
 
