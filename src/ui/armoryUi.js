@@ -9,7 +9,7 @@ import { fmtTime } from '../core/util.js';
 import { computeMods } from '../systems/modifiers.js';
 import {
   armoryState, planAutoEquip, applyAutoEquip, undoLast, undoAvailable, heroRole, roleLabel, compareItem, setPriority, moveHeroPriority, priorityOrder,
-  setArmoryOption, bulkPreview, bulkApply, sellQuote, sellItems, dismantleItems, gemName, gemText, gemQuotaLeft, saveFilter, heroGainText, parseGemKey,
+  setArmoryOption, bulkPreview, bulkApply, sellQuote, sellItems, dismantleItems, gemName, gemText, gemQuotaLeft, saveFilter, heroGainText, parseGemKey, autoSellRule, lootRules,
 } from '../systems/armory.js';
 import { esc, costList, resChips, rarityTag } from './components.js';
 
@@ -133,6 +133,12 @@ export function openBulk(app) {
   app.modal(`<h2>🧹 Vente et démantèlement en masse</h2>
     <div class="row gap wrap" role="radiogroup" aria-label="Action"><button class="mini ${d.kind === 'dismantle' ? 'primary' : ''}" role="radio" aria-checked="${d.kind === 'dismantle'}" data-action="bulk-kind" data-k="dismantle">⚒️ Démanteler à la forge (métal et matériaux)</button><button class="mini ${d.kind === 'sell' ? 'primary' : ''}" role="radio" aria-checked="${d.kind === 'sell'}" data-action="bulk-kind" data-k="sell">💎 Vendre au Joaillier (or et gemmes)</button></div>
     <div class="row gap wrap small">Préréglages : ${Object.entries(BULK_PRESETS).map(([k, p]) => `<button class="mini" data-action="bulk-preset" data-k="${k}">${esc(p.label)}</button>`).join('')}${A.filters.map((x, i) => `<button class="mini ghost" data-action="bulk-saved" data-i="${i}">★ ${esc(x.name)}</button>`).join('')}</div>
+    <fieldset class="bulk-groups"><legend>Sélection groupée</legend>
+      <div class="bg-row" role="group" aria-label="Raretés choisies"><span class="small">Raretés</span>${RARITY_ORDER.map((r) => `<button class="chip-t r-${r} ${(f.rarities || []).includes(r) ? 'on' : ''}" aria-pressed="${(f.rarities || []).includes(r)}" data-action="bulk-grp" data-g="rarities" data-v="${r}">${esc(RARITIES[r].name)} <i>${groupCount(s, 'rarity', r)}</i></button>`).join('')}</div>
+      <div class="bg-row" role="group" aria-label="Emplacements choisis"><span class="small">Emplacements</span>${SLOT_ORDER.map((k) => `<button class="chip-t ${(f.slots || []).includes(k) ? 'on' : ''}" aria-pressed="${(f.slots || []).includes(k)}" data-action="bulk-grp" data-g="slots" data-v="${k}">${esc(SLOTS[k].name)} <i>${groupCount(s, 'slot', k)}</i></button>`).join('')}</div>
+      <p class="small muted">Cochez plusieurs groupes : la sélection réunit toutes les pièces de ces raretés et de ces emplacements, sans jamais toucher aux pièces portées, verrouillées, réservées ou meilleures pour un héros.</p>
+      <div class="row gap wrap"><button class="btn small" data-action="bulk-auto" ${(f.rarities || []).length || f.maxRarity ? '' : 'disabled title="Choisissez au moins une rareté"'}>Vendre automatiquement ce groupe à chaque butin</button>${autoRules(s)}</div>
+    </fieldset>
     <div class="bulk-filters">
       <label>Rareté maximale <select data-change="bulk-f" data-k="maxRarity"><option value="">Toutes</option>${RARITY_ORDER.map((r) => `<option value="${r}" ${f.maxRarity === r ? 'selected' : ''}>${esc(RARITIES[r].name)}</option>`).join('')}</select></label>
       <label>Emplacement <select data-change="bulk-f" data-k="slot"><option value="">Tous</option>${SLOT_ORDER.map((k) => `<option value="${k}" ${f.slot === k ? 'selected' : ''}>${esc(SLOTS[k].name)}</option>`).join('')}</select></label>
@@ -146,7 +152,26 @@ export function openBulk(app) {
     <div class="row gap wrap end"><button class="btn ghost small" data-action="bulk-save">★ Enregistrer ce filtre</button><button class="btn ghost" data-action="close-modal">Annuler</button><button class="btn ${d.kind === 'sell' ? 'primary' : 'danger'}" data-action="bulk-confirm" ${pv.n ? '' : 'disabled'}>${d.kind === 'sell' ? 'Vendre' : 'Démanteler'} ${pv.n} objet${pv.n > 1 ? 's' : ''}</button></div>
     <p class="small muted">Annulable pendant ${Math.round(UNDO_MS / 60000)} min, tant que ce qui a été obtenu n’est pas dépensé.</p>`, bulkActions, 'wide');
 }
+const groupCount = (s, k, v) => s.inventory.items.filter((it) => it[k] === v && !it.equippedBy && !it.locked).length;
+const autoRules = (s) => { const n = lootRules(s).filter((o) => o.enabled && o.action.type === 'lootSell').length; return n ? `<span class="small muted">${n} règle${n > 1 ? 's' : ''} de vente automatique active${n > 1 ? 's' : ''} (Armurerie › Règles de tri)</span>` : ''; };
 const bulkActions = {
+  'bulk-grp': (app, el) => {
+    const f = app.ui.bulk.filter, g = el.dataset.g, v = el.dataset.v;
+    const set = new Set(f[g] || []);
+    if (set.has(v)) set.delete(v); else set.add(v);
+    f[g] = [...set];
+    if (!f[g].length) delete f[g];
+    if (g === 'rarities' && f.rarities) delete f.maxRarity;
+    if (g === 'slots' && f.slots) delete f.slot;
+    openBulk(app);
+  },
+  'bulk-auto': (app) => {
+    const r = autoSellRule(app.state, app.ui.bulk.filter);
+    if (!r.ok) return app.toast(r.reason, 'warn');
+    app.save();
+    app.toast(`Vente automatique : « ${r.label} ». Chaque butin de ce groupe sera vendu à son arrivée.`, 'good');
+    openBulk(app);
+  },
   'bulk-kind': (app, el) => { app.ui.bulk.kind = el.dataset.k; openBulk(app); },
   'bulk-preset': (app, el) => { app.ui.bulk.filter = { ...BULK_PRESETS[el.dataset.k].filter }; openBulk(app); },
   'bulk-saved': (app, el) => { app.ui.bulk.filter = { ...armoryState(app.state).filters[+el.dataset.i].filter }; openBulk(app); },

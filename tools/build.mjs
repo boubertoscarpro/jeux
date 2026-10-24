@@ -17,7 +17,7 @@ const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 // Polices embarquées en données (aucune requête externe : le fichier unique fonctionne hors ligne)
 let fonts = await readFile(root + 'css/fonts.css', 'utf8');
 for (const m of fonts.matchAll(/url\('fonts\/([^']+)'\)/g)) fonts = fonts.replace(m[0], `url(data:font/woff2;base64,${(await readFile(root + 'css/fonts/' + m[1])).toString('base64')})`);
-const css = fonts + '\n' + (await readFile(root + 'css/style.css', 'utf8')) + '\n' + (await readFile(root + 'css/theme.css', 'utf8')) + '\n' + (await readFile(root + 'css/v15.css', 'utf8')) + '\n' + (await readFile(root + 'css/v16.css', 'utf8')) + '\n' + (await readFile(root + 'css/v16b.css', 'utf8')) + '\n' + (await readFile(root + 'css/v17.css', 'utf8')) + '\n' + (await readFile(root + 'css/v18.css', 'utf8')) + '\n' + (await readFile(root + 'css/v19.css', 'utf8')) + '\n' + (await readFile(root + 'css/v20.css', 'utf8')) + '\n' + (await readFile(root + 'css/v21.css', 'utf8'));
+const css = fonts + '\n' + (await readFile(root + 'css/style.css', 'utf8')) + '\n' + (await readFile(root + 'css/theme.css', 'utf8')) + '\n' + (await readFile(root + 'css/v15.css', 'utf8')) + '\n' + (await readFile(root + 'css/v16.css', 'utf8')) + '\n' + (await readFile(root + 'css/v16b.css', 'utf8')) + '\n' + (await readFile(root + 'css/v17.css', 'utf8')) + '\n' + (await readFile(root + 'css/v18.css', 'utf8')) + '\n' + (await readFile(root + 'css/v19.css', 'utf8')) + '\n' + (await readFile(root + 'css/v20.css', 'utf8')) + '\n' + (await readFile(root + 'css/v21.css', 'utf8')) + '\n' + (await readFile(root + 'css/v22.css', 'utf8'));
 let html = await readFile(root + 'index.html', 'utf8');
 html = html
   .replace('<link rel="stylesheet" href="css/fonts.css">', '')
@@ -31,6 +31,7 @@ html = html
   .replace('<link rel="stylesheet" href="css/v19.css">', '')
   .replace('<link rel="stylesheet" href="css/v20.css">', '')
   .replace('<link rel="stylesheet" href="css/v21.css">', '')
+  .replace('<link rel="stylesheet" href="css/v22.css">', '')
   .replace('<script type="module" src="src/main.js"></script>', () => `<script>${js}</script>`);
 await mkdir(root + 'dist', { recursive: true });
 await writeFile(root + 'dist/cendrelande.html', html);

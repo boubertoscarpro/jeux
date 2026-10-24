@@ -2,6 +2,7 @@
 // la vue d'un avant-poste : le centre reste libre pour la carte. Mêmes positions partout ; seuls quelques boutons
 // changent de sens (le globe devient « Retour au château »).
 // Badges : un point = nouveauté, un chiffre = quantité, « ! » = urgence (toujours écrits, jamais la couleur seule).
+import { hubButtons } from './hubs.js';
 import { LAYERS, layerValues, layerSummary } from '../systems/layers.js';
 import { timeline, TIMELINE_HOURS } from '../systems/timeline.js';
 import { inTime } from '../systems/wording.js';
@@ -230,17 +231,14 @@ function bottomRight(app) {
   const s = app.state;
   const onWorld = app.ui.map === 'world' || app.ui.map === 'outpost';
   const B = badges(s);
-  const guildB = app.views.guild?.badge?.(app) || 0;
   const building = app.ui.buildMode;
   return `<div class="hud-br">
     ${app.ui.map === 'city' ? layerBar(app) : ''}
     <div class="hud-zoom">${app.ui.map === 'outpost' ? '' : `${btn('hud-fit', '⤢', 'Vue d’ensemble')}${btn('hud-center', '⌖', 'Recentrer sur le château')}${btn('hud-zoom', '＋', 'Zoomer', '', 'data-z="1.25"')}${btn('hud-zoom', '－', 'Dézoomer', '', 'data-z="0.8"')}`}${app.ui.map === 'city' ? `${btn('architect', '📐', 'Mode architecte : planifier les bâtiments à venir et voir les agrandissements', '', `aria-pressed="${!!app.ui.architect}"`)}${btn('film-start', '🎞️', 'Le film du château : rejouer sa croissance')}${btn('photo-mode', '📷', 'Mode photo : cacher l’affichage, choisir l’heure et la saison, enregistrer une image')}` : ''}</div>
     <div class="hud-actions" role="toolbar" aria-label="Actions">
       <button class="hud-a ${building ? 'on' : ''}" data-action="build-mode" aria-pressed="${!!building}" title="Construire (touche B)" aria-label="Construire"><span>🔨</span><small>Construire</small></button>
-      <button class="hud-a" data-action="nav" data-view="army" title="Armée (touche A)" aria-label="Armée"><span>⚔️</span><small>Armée</small></button>
-      <button class="hud-a ph-hide" data-action="nav" data-view="guild" title="Guilde" aria-label="Guilde"><span>🛡️</span><small>Guilde</small>${badge(guildB, 'guilde')}</button>
+      ${hubButtons(app, badge)}
       <button class="hud-a" data-action="nav" data-view="defense" title="Rapports et défense (touche R)" aria-label="Rapports"><span>✉️</span><small>Rapports</small>${B.reports ? badge(B.reports, 'défaites non lues') : B.reportsDot ? badge('•', 'rapports non lus') : ''}</button>
-      <button class="hud-a" data-action="places" title="Tous les lieux (touche L)" aria-label="Lieux"><span>▦</span><small>Lieux</small></button>
       ${domainSelect(app, 'bottom')}<button class="hud-globe" data-action="toggle-map" title="${onWorld ? 'Retour au château (touche M)' : 'Carte du monde (touche M)'}" aria-label="${onWorld ? 'Retour au château' : 'Monde'}"><span>${onWorld ? '🏰' : '🌍'}</span><small>${onWorld ? 'Château' : 'Monde'}</small></button>
     </div>
   </div>`;

@@ -437,11 +437,16 @@ const CITY_ZMIN = 0.2, CITY_ZMAX = 2.4;
 // Niveaux de détail : vue globale (far), intermédiaire (mid), rapprochée (near)
 export const cityZoomLevel = (z) => (z < 0.42 ? 'far' : z < 1.25 ? 'mid' : 'near');
 
-function onCityCam(vp, cam) {
+function onCityCam(vp, cam, app = null) {
   const zl = cityZoomLevel(cam.z);
   if (vp.dataset.zl !== zl) vp.dataset.zl = zl;
   if (!vp.classList.contains('moving')) vp.classList.add('moving');
-  clearTimeout(vp._mv); vp._mv = setTimeout(() => { vp.classList.remove('moving'); declutter(vp); }, 280);
+  clearTimeout(vp._mv); vp._mv = setTimeout(() => {
+    vp.classList.remove('moving'); declutter(vp);
+    // v22b : zoom posé → scène repeinte à la finesse voulue (plus de pixels flous en gros plan)
+    const p = app?._paint;
+    if (p && vp.isConnected) { const R2 = paintRes(p.f, gfxOf(app.state), cam.z); if (R2 !== p.R) { p.R = R2; attachGround(app); } }
+  }, 280);
   vp.querySelector('#city-tip')?.classList.remove('on');
   placeRing(vp, cam);
   lifeRedraw();
@@ -657,7 +662,7 @@ const cityView = {
     if (cam0.centerOn) { centerOnTown(app, vp, cam0.centerOn); cam0.centerOn = null; }
     if (app.ui.cityFocus) { centerOnTown(app, vp, app.ui.cityFocus); app.ui.cityFocus = null; }
     vp._center = (x, y) => { centerOnTown(app, vp, { x, y }); app.ui.cityFocus = null; vp._apply?.(); };
-    bindPanZoom(vp, { getCam: () => cityCam(app), zMin: CITY_ZMIN, zMax: CITY_ZMAX, onChange: (cam) => onCityCam(vp, cam) });
+    bindPanZoom(vp, { getCam: () => cityCam(app), zMin: CITY_ZMIN, zMax: CITY_ZMAX, onChange: (cam) => onCityCam(vp, cam, app) });
     bindCityTip(app, vp);
     declutter(vp);
     if (app.ui.focusUpgrade) { document.getElementById('up-block')?.scrollIntoView({ block: 'nearest' }); app.ui.focusUpgrade = false; }
@@ -686,7 +691,7 @@ const cityView = {
     const building = app.ui.buildMode || app.ui.placeType || app.ui.moveId;
     const rank = titleOf(s).rank;
     // v21 : scène peinte (canvas) ; les boutons ci-dessous ne gardent que la zone cliquable, le nom et les signaux
-    app._paint = { state: s, f, R: paintRes(f, gfxOf(s)), items: cityItems(app, ctx, { film, night, raid, rank }), gopts: groundOpts(app, ctx, film) };
+    app._paint = { state: s, f, R: paintRes(f, gfxOf(s), cityCam(app).z), items: cityItems(app, ctx, { film, night, raid, rank }), gopts: groundOpts(app, ctx, film) };
     app._life = lifeData(app, ctx, film, lifeDensity(film ? { ...s, raids: [] } : s, { phase: ctx.scene.light.phase, season: ctx.scene.season, gfx: gfxOf(s) }));
     const selPath = sel ? `<path class="iso-selpath" d="${diamondPath(f, sel.x, sel.y)}"/>` : '';
     const rectPath = (r) => { const a = toScreen(f, r.x0, r.y0), b = toScreen(f, r.x1 + 1, r.y0), c = toScreen(f, r.x1 + 1, r.y1 + 1), d = toScreen(f, r.x0, r.y1 + 1); return `M${a.sx} ${a.sy}L${b.sx} ${b.sy}L${c.sx} ${c.sy}L${d.sx} ${d.sy}Z`; };
@@ -703,7 +708,7 @@ const cityView = {
             <div class="paint-slot ps ${growing ? 'grow' : ''}" aria-hidden="true"></div>
             ${raid && !film ? reuse('iso-walls', raidColumnHtml(s, f, raid)) : ''}
             <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}</div>
-            <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div>
+            <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-clouds" style="animation-delay:-${Math.round((Date.now() / 1000) % 140)}s"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div>
           </div>
           <div class="ring-wrap" id="city-ring" data-x="${sel ? sel.x : ''}" data-y="${sel ? sel.y : ''}">${ring}</div>
           <div class="map-tip" id="city-tip" role="tooltip"></div>

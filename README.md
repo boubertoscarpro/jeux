@@ -21,6 +21,14 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v22b — Pôles, Boutique et Ciel** :
+> - **Pôles du royaume** : à la place de « Lieux », quatre boutons à côté du globe (Économie, Armée, Royaume, Savoir), chacun avec ses rubriques. Touches E, K et J ; la recherche de tous les écrans reste sur L.
+> - **Boutique de la Couronne** : passe-temps, potions et coffres d'armurier contre des pièces d'or. Très chère, le prix monte à chaque achat du jour, quantités limitées.
+> - **Vente groupée** : plusieurs raretés et emplacements à la fois, et « Vendre automatiquement ce groupe à chaque butin ».
+> - **Ciel** : pluie, orage, neige et brume refaits en couches CSS. Ombres de nuages par beau temps. Scène repeinte plus finement quand on zoome.
+>
+> Voir [`docs/V22.md`](docs/V22.md#v22b).
+
 > **v22 — Sceaux et Livre des quêtes** :
 > - **Aucun emoji** : les 336 symboles du jeu sont remplacés par des sceaux dessinés pour Cendrelande (planche dans `docs/v22/sceaux.png`), dans l'interface, la carte du monde et les textes.
 > - **Livre des quêtes** : un livre relié à deux pages (signets par catégorie, récit, objectif, récompense), ouvert par la touche Q.

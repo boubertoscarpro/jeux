@@ -1,3 +1,4 @@
+import { openHub, hubActions } from './hubs.js';
 import questbookView, { bookEntries } from './views/questbook.js';
 import { startGuide, guideActions } from './questGuide.js';
 import { watchSigils } from './sigils.js';
@@ -69,6 +70,7 @@ import goalsView from './views/goals.js';
 import policyView from './views/policy.js';
 import projectsView from './views/projects.js';
 import shopView from './views/shop.js';
+import goldShopView from './views/goldshop.js';
 import archaeoView from './views/archaeology.js';
 import councilView from './views/council.js';
 import legacyView from './views/legacy.js';
@@ -101,7 +103,7 @@ export const GROUPS = [
   { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, farlandsView, factionsView, archaeoView, legendView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView, defenseView, choresView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
-  { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView] },
+  { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView, goldShopView] },
   { id: 'g-heroes', title: 'Héros', icon: '🧙', tabs: [heroesView, craftView] },
   { id: 'g-tech', title: 'Technologies', icon: '🔬', tabs: [researchView, talentsView, legacyView] },
   { id: 'g-events', title: 'Événements', icon: '🎪', tabs: [eventView, eventShopView, calendarView, adminView] },
@@ -337,7 +339,7 @@ export class App {
       this.toast(`Ouvrez « ${BUILDINGS[b.type].name} » dans votre château : bouton « Ouvrir ».`, 'info');
     } else if (p?.kind === 'map') { this.ui.hudHl = 'toggle-map'; this.toast('Ouvrez la carte du monde : bouton « Monde » en bas à droite (touche M).', 'info'); }
     else if (p?.kind === 'hud') { this.ui.hudHl = pk === 'profile' ? 'profile' : 'settings'; this.toast(pk === 'profile' ? 'Ouvrez votre profil : médaillon en haut à gauche.' : 'Ouvrez les réglages : engrenage en haut à droite.', 'info'); }
-    else { this.ui.hudHl = 'places'; this.toast(`Ce lieu n’est pas encore bâti : ouvrez « Lieux » (touche L) ou cliquez son panneau dans le château.`, 'info'); }
+    else { this.ui.hudHl = 'hub'; this.toast(`Ce lieu n’est pas encore bâti : ouvrez son pôle (Économie, Armée, Royaume, Savoir, en bas à droite) ou cliquez son panneau dans le château.`, 'info'); }
     this.render();
   }
 
@@ -553,10 +555,11 @@ export class App {
         return;
       }
       // v16 : raccourcis (hors saisie) : M monde/château, B construire, A armée, Q quêtes, R rapports, L lieux
+      // v22b : E pôle Économie, K pôle Royaume, J pôle Savoir
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target?.tagName || '') || ev.target?.isContentEditable;
       if (typing || open || ev.altKey || ev.metaKey || (ev.ctrlKey && ev.key.toLowerCase() !== 'k')) return;
       const k = ev.key.toLowerCase();
-      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('questbook'), r: () => this.go('defense'), l: () => openPlaces(this), '/': () => openPlaces(this), t: () => openKingdomText(this) };
+      const map = { m: () => this.globalActions['toggle-map'](this), b: () => this.globalActions['build-mode'](this), a: () => this.go('army'), q: () => this.go('questbook'), r: () => this.go('defense'), l: () => openPlaces(this), e: () => openHub(this, 'economy'), k: () => openHub(this, 'realm'), j: () => openHub(this, 'lore'), '/': () => openPlaces(this), t: () => openKingdomText(this) };
       if (ev.ctrlKey && k === 'k') { ev.preventDefault(); openPlaces(this); return; }
       if (map[k]) { ev.preventDefault(); map[k](); }
     });
@@ -618,6 +621,7 @@ export class App {
     ...queueActions,
     goto: (app, el) => app.go(el.dataset.view, el.dataset.sel ? JSON.parse(el.dataset.sel) : {}),
     places: (app) => openPlaces(app),
+    ...hubActions,
     'goto-tile': castleActions['goto-tile'],
     ...repActions,
     ...stageActions,

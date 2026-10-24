@@ -13,8 +13,10 @@ import { terrainAt } from '../../systems/city.js';
 
 // Qualité graphique : pixels de canvas par pixel du monde (borné pour les très grands domaines)
 const RES = { high: 1.5, medium: 1.25, low: 1 };
-export function paintRes(f, gfx) {
-  const want = RES[gfx] || RES.high;
+// v22b : selon le zoom et la densité de l'écran, par paliers de 0,5 (la scène est repeinte quand le zoom se pose)
+export function paintRes(f, gfx, z = 1) {
+  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const want = Math.max(1, Math.round((RES[gfx] || RES.high) * dpr * Math.max(0.7, Math.min(2.2, z)) * 2) / 2);
   return Math.max(0.75, Math.min(want, 8192 / f.width, Math.sqrt(24e6 / (f.width * f.height))));
 }
 

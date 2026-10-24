@@ -14,7 +14,7 @@ export const PLACES = {
   forge: { kind: 'building', type: 'forge', screens: ['craft'] },
   armory: { kind: 'building', type: 'armory', screens: ['craft'] },
   library: { kind: 'building', type: 'library', screens: ['research', 'codex'] },
-  market: { kind: 'building', type: 'market', screens: ['market', 'convoys', 'shop'] },
+  market: { kind: 'building', type: 'market', screens: ['market', 'convoys', 'shop', 'goldshop'] },
   port: { kind: 'building', type: 'port', screens: ['convoys'] },
   warehouse: { kind: 'building', type: 'warehouse', screens: ['ecoReport', 'chains', 'workers', 'steward'] },
   guildhall: { kind: 'building', type: 'guildhall', screens: ['guild'] },

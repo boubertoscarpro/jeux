@@ -115,7 +115,7 @@ export function describeOrder(o) {
     resBelow: () => `${res(c.res)} < ${fmt(c.value)}`, resAbove: () => `${res(c.res)} > ${fmt(c.value)}`, every: () => `toutes les ${c.minutes} min`,
     idleWorkers: () => `ouvriers inactifs ≥ ${c.value}`, unitBelow: () => `${UNITS[c.unit]?.name || c.unit} en ville < ${c.value}`, raid: () => 'un raid approche',
     damaged: () => 'un bâtiment est endommagé', season: () => `saison = ${c.season}`, expIdle: () => 'une équipe est au repos',
-    loot: () => `un objet arrive (${c.slot ? SLOTS[c.slot]?.name.toLowerCase() + ', ' : ''}${c.rarityMin ? `${RARITIES[c.rarityMin]?.name.toLowerCase()} ou mieux` : `${RARITIES[c.rarityMax]?.name.toLowerCase() || 'toute rareté'} ou moins`}${c.useful === 'useless' ? ', utile à aucun héros' : ''})`,
+    loot: () => (c.rarities || c.slots) ? `un objet arrive (${(c.rarities || []).map((r) => RARITIES[r]?.name.toLowerCase()).join(', ') || `${RARITIES[c.rarityMax]?.name.toLowerCase() || 'toute rareté'} ou moins`} ; ${(c.slots || []).map((k) => SLOTS[k]?.name.toLowerCase()).join(', ') || (c.slot ? SLOTS[c.slot]?.name.toLowerCase() : 'tout emplacement')}${c.maxIlvl ? ` ; niveau ${c.maxIlvl} au plus` : ''}${c.useful === 'useless' ? ', utile à aucun héros' : ''})` : `un objet arrive (${c.slot ? SLOTS[c.slot]?.name.toLowerCase() + ', ' : ''}${c.rarityMin ? `${RARITIES[c.rarityMin]?.name.toLowerCase()} ou mieux` : `${RARITIES[c.rarityMax]?.name.toLowerCase() || 'toute rareté'} ou moins`}${c.useful === 'useless' ? ', utile à aucun héros' : ''})`,
   }[c.type]?.() || '?';
   const act = {
     assign: () => `affecter ${a.count} ouvriers → ${WORK_SECTORS[a.sector]?.name}`, sellAbove: () => `vendre le ${res(a.res)} au-delà de ${fmt(a.value)}`,

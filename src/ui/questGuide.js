@@ -4,6 +4,7 @@
 // jouant pour de vrai (le guide ne clique jamais à la place du joueur) ; s'il s'écarte, le guide reprend à la bonne
 // étape. Les étapes sont déduites de la quête (construire, améliorer, déblayer, explorer, récolter, combattre,
 // former, rechercher, ouvrir un écran). Rien en mouvement réduit : l'anneau ne pulse pas.
+import { HUBS, HUB_OF } from '../data/hubs.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { SCREEN_PLACE, PLACES } from '../data/places.js';
 import { POI_TYPES } from '../data/world.js';
@@ -78,6 +79,12 @@ function openScreenSteps(app, view, title) {
   if (b) return [
     clickTile(app, b, BUILDINGS[b.type].name),
     { text: `Choisissez « Ouvrir » pour l’écran « ${title} ».`, target: () => Q(`#city-ring [data-action="nav"][data-view="${view}"]`) || Q('#city-ring [data-action="nav"]'), done: () => app.ui.win === view },
+  ];
+  // v22b : sinon par son pôle (Économie, Armée, Royaume, Savoir), à côté du globe
+  const hk = HUB_OF[view];
+  if (hk && typeof document !== 'undefined') return [
+    { text: `Ouvrez le pôle « ${HUBS[hk].name} », en bas à droite.`, target: () => Q(`.hud-actions [data-action="hub"][data-k="${hk}"]`), done: () => app.ui.win === view || !!document.querySelector(`#modal-root.open .hub[data-hub="${hk}"]`) },
+    { text: `Choisissez « ${title} ».`, target: () => Q(`#modal-root .hub [data-action="nav"][data-view="${view}"]`), done: () => app.ui.win === view },
   ];
   return [{ text: `Ouvrez l’écran « ${title} ».`, target: () => null, done: () => app.ui.win === view, enter: () => app.go(view) }];
 }
