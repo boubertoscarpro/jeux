@@ -8,7 +8,8 @@ import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { sizeTier, variantOf } from '../../systems/mapSignals.js';
 import { decoDef } from '../../systems/trophies.js';
 import { ghosts } from '../../systems/architect.js';
-import { drawFx } from './paint.js';
+import { WALLP } from './art.js';
+import { terrainAt } from '../../systems/city.js';
 
 // Qualité graphique : pixels de canvas par pixel du monde (borné pour les très grands domaines)
 const RES = { high: 1.5, medium: 1.25, low: 1 };
@@ -99,12 +100,38 @@ export function attachPaint(gslot, slot, state, f, R, items, gopts) {
   const key = R + '|' + W + 'x' + H + '|' + items.map((it) => `${it.k}@${it.x},${it.y}${it.alpha ?? ''}${it.filter || ''}${it.depth}`).join(';');
   if (key !== keep.sceneKey) {
     const { fx } = drawScene(keep.scene, items, f, R);
-    keep.fx = fx;
-    // fumées : statiques ici (la couche de vie les anime quand elle est active)
-    drawFx(keep.scene.getContext('2d'), fx.map((e) => ({ ...e, s: R })));
+    // fumées : animées (ou figées) par la couche de vie, en coordonnées du monde
+    keep.fx = fx.map((e) => ({ x: e.x / R, y: e.y / R, n: e.n }));
     keep.sceneKey = key;
   }
 }
 export const paintFx = () => keep.fx;
 export const sceneCanvases = () => ({ ground: keep.ground, scene: keep.scene });
 export { paintStats };
+
+// Données de la couche de vie : cases où l'on marche, allée des charrettes, rempart avant des gardes, eau
+export function lifeData(app, ctx, film, density) {
+  const s = ctx.s, r = film ? film.rect : rectOf(s), g = gateOf(s, r), W = s.city.w, Hh = s.city.h;
+  const solid = (x, y) => { const b = ctx.at.get(x + ',' + y); return !!b && b.type !== 'road'; };
+  const walk = [];
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    const inside = x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
+    const b = ctx.at.get(x + ',' + y), d = Math.max(r.x0 - x, x - r.x1, r.y0 - y, y - r.y1);
+    // dedans : la cour pavée ; dehors : routes et prés libres autour des douves
+    const out = b ? b.type === 'road' : d >= 2 && d <= 4 && terrainAt(s, x, y) === 'plain';
+    if (inside ? solid(x, y) || ctx.lots.has(x + ',' + y) : !out) continue;
+    // pas de passant juste derrière un bâtiment (il serait dessiné par-dessus le toit)
+    if (solid(x + 1, y) || solid(x, y + 1) || solid(x + 1, y + 1)) continue;
+    walk.push([x, y]);
+  }
+  const allee = alleeTiles(s, r).map((a) => [a.x, a.y]);
+  if (allee.length) { allee.sort((a, b) => a[1] - b[1]); allee.push([g.x, Math.min(Hh - 1, r.y1 + 3)]); }
+  const style = wallStyle(fortLevel(s, 'wall')).key;
+  const perim = style && style !== 'stakes' ? [[r.x0 + 0.2, r.y1 + 1], [r.x1 + 1, r.y1 + 1], [r.x1 + 1, r.y0 + 0.2]] : [];
+  const water = [];
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    const ring = Math.max(r.x0 - x, x - r.x1, r.y0 - y, y - r.y1) === 1;
+    if ((ring && fortLevel(s, 'moat') > 0) || terrainAt(s, x, y) === 'river') water.push([x, y]);
+  }
+  return { f: ctx.f, walk, allee: allee.length > 1 ? allee : [], perim, wallH: (WALLP[style]?.h || 30) + 2, water, fx: keep.fx, density };
+}

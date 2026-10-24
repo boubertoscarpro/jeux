@@ -32,7 +32,9 @@ import { readyHarvests, collectHarvest } from '../../systems/harvest.js';
 import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { undoReorganize, enlargeCastle, enlargePreview, nextEncStage } from '../../systems/castle.js';
 import { TROPHIES } from '../../data/trophies.js';
-import { cityItems, groundOpts, attachPaint, paintRes } from '../paint/cityPaint.js';
+import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx } from '../paint/cityPaint.js';
+import { mountLife, lifeRedraw } from '../paint/life.js';
+import { lifeDensity } from '../../systems/life.js';
 import { groundMatrix } from '../../systems/iso.js';
 import { gateOf, alleeTiles, rectOf, fortLevel as fortLvl } from '../../systems/castle.js';
 import { openPlans } from '../plansUi.js';
@@ -438,6 +440,7 @@ function onCityCam(vp, cam) {
   clearTimeout(vp._mv); vp._mv = setTimeout(() => { vp.classList.remove('moving'); declutter(vp); }, 280);
   vp.querySelector('#city-tip')?.classList.remove('on');
   placeRing(vp, cam);
+  lifeRedraw();
 }
 // v20 : couches lourdes et rarement changées (décor de la campagne, muraille) : leurs nœuds sont gardés d'un rendu à
 // l'autre tant que leur contenu ne change pas (le rendu ne pose qu'une place vide, remplie ou rattachée après)
@@ -562,6 +565,7 @@ function attachGround(app) {
   const vp = document.getElementById('city-vp'), p = app._paint;
   if (!vp || !p) return;
   attachPaint(vp.querySelector('.paint-slot.pg'), vp.querySelector('.paint-slot.ps'), p.state, p.f, p.R, p.items, p.gopts);
+  if (app._life) mountLife(vp, app, { ...app._life, fx: paintFx() });
 }
 
 
@@ -679,6 +683,7 @@ const cityView = {
     const rank = titleOf(s).rank;
     // v21 : scène peinte (canvas) ; les boutons ci-dessous ne gardent que la zone cliquable, le nom et les signaux
     app._paint = { state: s, f, R: paintRes(f, gfxOf(s)), items: cityItems(app, ctx, { film, night, raid, rank }), gopts: groundOpts(app, ctx, film) };
+    app._life = lifeData(app, ctx, film, lifeDensity(film ? { ...s, raids: [] } : s, { phase: ctx.scene.light.phase, season: ctx.scene.season, gfx: gfxOf(s) }));
     const selPath = sel ? `<path class="iso-selpath" d="${diamondPath(f, sel.x, sel.y)}"/>` : '';
     const rectPath = (r) => { const a = toScreen(f, r.x0, r.y0), b = toScreen(f, r.x1 + 1, r.y0), c = toScreen(f, r.x1 + 1, r.y1 + 1), d = toScreen(f, r.x0, r.y1 + 1); return `M${a.sx} ${a.sy}L${b.sx} ${b.sy}L${c.sx} ${c.sy}L${d.sx} ${d.sy}Z`; };
     const future = app.ui.architect ? futureStages(s).map((st) => `<path class="iso-future" d="${rectPath(st.rect)}"/><text class="iso-future-t" x="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sx)}" y="${Math.round(toScreen(f, st.rect.x1 + 1, st.rect.y0).sy)}">${st.size}×${st.size} · HdV ${st.th}</text>`).join('') : '';
