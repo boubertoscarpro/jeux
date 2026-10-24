@@ -1,3 +1,4 @@
+import { syncEventSites } from '../systems/eventSites.js';
 import { realmTick } from '../systems/realm21.js';
 import { npcTick } from '../systems/npcs.js';
 import { ensurePlaces } from '../systems/places.js';
@@ -114,6 +115,7 @@ export function processDue(state, t) {
     checkFeats(state, t);
     serverFeedTick(state, t);
     liveTick(state, t);
+    syncEventSites(state, t); // v24 : l'événement en cours est un lieu de la carte du monde
     territoryTick(state, dt, t);
     processPlanned(state, t);
     seasonTick(state, t);

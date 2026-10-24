@@ -64,6 +64,42 @@ export const decoSprite = (icon, season, s) => sprite(`d|${icon}|${season}`, s, 
 export const trophySprite = (shape, color, s) => sprite(`t|${shape}|${color}`, s, (p) => trophy(p, shape, color));
 
 // ───────── Sol peint (mis en cache) ─────────
+// Couleur des terres sauvages autour du domaine (même valeur pour le fond de la vue : views/city.js, --wild)
+const WILD = { spring: '#4f7d34', summer: '#4a7a2f', autumn: '#6e6a2e', winter: '#c3ccd4' };
+export const wildColor = (season) => WILD[season] || WILD.summer;
+// Lisière du domaine : une bande de prairie adoucie qui se fond dans les terres sauvages, des bosquets derrière les
+// bords du fond (ils montent hors du domaine) et des buissons bas devant (ils ne cachent rien de la ville)
+// Bande adoucie hors du losange : peinte AVANT la prairie (sinon elle voilerait tout le domaine)
+function edgeBand(g, f, R, W, Hh, season) {
+  const P = (x, y) => { const q = toScreen(f, x, y); return [q.sx * R, q.sy * R]; };
+  const C = P(W / 2, Hh / 2), grow = (pt, k) => [C[0] + (pt[0] - C[0]) * k, C[1] + (pt[1] - C[1]) * k];
+  g.save(); g.filter = `blur(${Math.round(16 * R)}px)`;
+  poly(g, [P(0, 0), P(W, 0), P(W, Hh), P(0, Hh)].map((q) => grow(q, 1.035))); g.fillStyle = rgba(lit(GRASS[season] || GRASS.summer, -0.12), 0.75); g.fill();
+  g.restore(); g.filter = 'none';
+}
+function edgeGrove(g, f, R, W, Hh, season, wild, r) {
+  const P = (x, y) => { const q = toScreen(f, x, y); return [q.sx * R, q.sy * R]; };
+  const leaf = season === 'winter' ? '#8fa79a' : season === 'autumn' ? '#a8742c' : '#3f7a2e', leafD = lit(leaf, -0.3), leafL = lit(leaf, 0.22);
+  // bosquets : arrière (bords nord-ouest et nord-est), buissons : avant (bords sud)
+  const edges = [[[0, 0], [W, 0], [0, -1], true], [[0, 0], [0, Hh], [-1, 0], true], [[W, 0], [W, Hh], [1, 0], false], [[0, Hh], [W, Hh], [0, 1], false]];
+  for (const [[ax, ay], [bx, by], [nx, ny], back] of edges) {
+    const len = Math.hypot(bx - ax, by - ay), n = Math.round(len * (back ? 1.6 : 1.1));
+    for (let i = 0; i < n; i++) {
+      if (r() < 0.22) continue; // clairières
+      const t = (i + r() * 0.6) / n, out = back ? 0.35 + r() * 0.9 : 0.25 + r() * 0.5;
+      const [x, y] = P(ax + (bx - ax) * t + nx * out, ay + (by - ay) * t + ny * out);
+      const rad = (back ? 13 + r() * 12 : 7 + r() * 6) * R;
+      g.fillStyle = 'rgba(16,28,10,0.28)'; g.beginPath(); g.ellipse(x + rad * 0.3, y + rad * 0.15, rad * 1.05, rad * 0.5, 0, 0, 7); g.fill();
+      if (back) { g.fillStyle = '#5a3a20'; g.fillRect(x - 1.6 * R, y - rad * 0.6, 3.2 * R, rad * 0.65); }
+      const cy = back ? y - rad * 1.05 : y - rad * 0.45;
+      g.fillStyle = leafD; g.beginPath(); g.arc(x, cy, rad, 0, 7); g.fill();
+      g.fillStyle = leaf; g.beginPath(); g.arc(x - rad * 0.18, cy - rad * 0.16, rad * 0.8, 0, 7); g.fill();
+      g.fillStyle = leafL; g.beginPath(); g.arc(x - rad * 0.36, cy - rad * 0.38, rad * 0.34, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(26,18,10,0.55)'; g.lineWidth = 1.2 * R; g.beginPath(); g.arc(x, cy, rad, 0, 7); g.stroke();
+    }
+  }
+  void wild;
+}
 let groundCache = { key: '', cv: null };
 const GRASS = { spring: '#86c24e', summer: '#78b844', autumn: '#a0a844', winter: '#e8eef2' };
 export function groundCanvas(state, f, R, o) {
@@ -74,8 +110,11 @@ export function groundCanvas(state, f, R, o) {
   const cv = mk(Math.ceil(f.width * R), Math.ceil(f.height * R)), g = cv.getContext('2d');
   const r = rng(W * 31 + Hh);
   const base = GRASS[o.season] || GRASS.summer;
-  // fond : prairie continue, taches d'ombre et de lumière
-  g.fillStyle = lit(base, -0.05); g.fillRect(0, 0, cv.width, cv.height);
+  // v24 : hors du domaine, les terres sauvages, de la couleur exacte du fond de la vue (wildColor) : le bord du canvas
+  // ne se voit plus au dézoom. La lisière (bande adoucie, bosquets) est dessinée plus bas, autour du losange.
+  const wild = wildColor(o.season);
+  g.fillStyle = wild; g.fillRect(0, 0, cv.width, cv.height);
+  edgeBand(g, f, R, W, Hh, o.season);
   const tileAt = (x, y) => T[y * W + x];
   const inRect = (x, y) => x >= o.rect.x0 && x <= o.rect.x1 && y >= o.rect.y0 && y <= o.rect.y1;
   const ring = (x, y) => { const d = Math.max(o.rect.x0 - x, 0, x - o.rect.x1, o.rect.y0 - y, 0, y - o.rect.y1); return d === 1; };
@@ -139,8 +178,11 @@ export function groundCanvas(state, f, R, o) {
   }
   // pont-levis devant la porte, au-dessus des douves
   if (o.gate && o.moat > 0) { const q = toScreen(f, o.gate.x, o.gate.y); drawbridge(pen(g, q.sx * R, q.sy * R, R), 1, true); }
-  // bord du domaine : liseré sombre
-  poly(g, corners); g.strokeStyle = 'rgba(30,40,14,.45)'; g.lineWidth = 3 * R; g.stroke();
+  // v24 : bord du domaine — ombre douce vers l'intérieur au lieu d'un trait sombre
+  g.save(); poly(g, corners); g.clip();
+  g.filter = `blur(${Math.round(10 * R)}px)`; poly(g, corners); g.strokeStyle = rgba(lit(wild, -0.25), 0.55); g.lineWidth = 22 * R; g.stroke();
+  g.restore(); g.filter = 'none';
+  edgeGrove(g, f, R, W, Hh, o.season, wild, r);
   groundCache = { key, cv };
   paintStats.groundMs = (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
   return cv;

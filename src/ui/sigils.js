@@ -133,6 +133,19 @@ export const SIGILS = {
   repeat: [S('M4 10V9a4 4 0 0 1 4-4h11l-3-3M20 14v1a4 4 0 0 1-4 4H5l3 3')],
   shuffle: [S('M3 7h4l10 10h4M3 17h4l10-10h4M18 4l3 3-3 3M18 14l3 3-3 3')],
   undo: [S('M5 9a8 8 0 1 1 1 7M5 4v5h5')],
+  // v24 · Commandes de l'interface (fermer, replier, zoom, recentrer…) : de vrais sceaux, plus de glyphes de police
+  close: [Hf(c(12, 12, 9)), S('M8 8l8 8M16 8l-8 8')],
+  fail: [S('M6 7c3 2 8 7 11 11M17 6c-3 3-7 8-10 12')],
+  triUp: [F('M12 5l7 12H5Z'), S('M12 5l7 12H5Z')],
+  triDown: [F('M12 19L5 7h14Z'), S('M12 19L5 7h14Z')],
+  fit: [S('M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M9 9l-4-4M15 9l4-4M15 15l4 4M9 15l-4 4'), Hf('M9 9h6v6H9Z')],
+  center: [S(c(12, 12, 6) + 'M12 2v5M12 17v5M2 12h5M17 12h5'), F(c(12, 12, 1.8))],
+  plus: [S('M12 5v14M5 12h14')],
+  minus: [S('M5 12h14')],
+  socket: [Hf('M12 4l7 8-7 8-7-8Z'), S('M12 4l7 8-7 8-7-8ZM12 8l3.5 4-3.5 4-3.5-4Z')],
+  arrowLeft: [S('M20 12H5M11 6l-6 6 6 6')],
+  arrowBold: [F('M3 9h10V5l8 7-8 7v-4H3Z')],
+  undoArc: [S('M8 6L4 10l4 4M4 10h10a6 6 0 0 1 0 12h-3')],
   pause: [S('M8 5v14M16 5v14')],
   stop: [S('M7 7h10v10H7Z')],
   hourglass: [S('M7 3h10M7 21h10M8 3c0 5 8 6 8 9s-8 4-8 9M16 3c0 5-8 6-8 9s8 4 8 9'), Hf('M9 19c0-2 6-2 6 0Z')],
@@ -298,7 +311,7 @@ const MAP = {
   crate: '📦', bag: '🎒 🧳', thread: '🧵 🪢', yarn: '🧶', glove: '🧤', boot: '🥾', coat: '🧥 🥋 👔', feather: '🪶', pen: '✎ ✏', log: '🪵', rock: '🪨', chain: '⛓ 🔗',
   candle: '🕯', lantern: '🏮', bulb: '💡', statue: '🗿 🗽', urn: '🏺 ⚱', tomb: '🪦', coffin: '⚰', tent: '🎪 ⛺ 🏕', fountain: '⛲', wheel: '🎡 ☸', die: '🎲',
   ticket: '🎟 🎫', gift: '🎁', party: '🎉 🎊', masks: '🎭', palette: '🎨', flag: '🚩 ⚑', flagWhite: '🏳', flagBlack: '🏴', flags: '🎌', pirate: '🏴‍☠',
-  barrier: '🚧', forbidden: '⛔ 🚫', alarm: '🚨', warning: '⚠', question: '❓ ❔', info: 'ℹ', check: '✔ ✅ ☑', cross: '❌ ✖ ✕', arrowRight: '➡', play: '▶',
+  barrier: '🚧', forbidden: '⛔ 🚫', alarm: '🚨', warning: '⚠', question: '❓ ❔', info: 'ℹ', check: '✔ ✅ ☑', cross: '❌ ✖', close: '✕', fail: '✗', triUp: '▲', triDown: '▼', fit: '⤢', center: '⌖', plus: '＋', minus: '－', socket: '◇', arrowLeft: '←', arrowBold: '➜', undoArc: '↶', arrowRight: '➡', play: '▶',
   ff: '⏩', up: '⬆', down: '⬇', back: '↩', lr: '↔', repeat: '🔁 🔄', shuffle: '🔀', undo: '↺', pause: '⏸', stop: '⏹', hourglass: '⏳ ⌛', stopwatch: '⏱',
   clock: '🕐 🕰', alarmClock: '⏰', calendar: '🗓 📅 📆', chart: '📊', chartUp: '📈', chartDown: '📉', cart: '🛒', wagon: '🚚 🛻', road: '🛤 🛣', bridge: '🌉',
   anchor: '⚓', ship: '⛵ 🚢', sled: '🛷', satellite: '🛰', compass: '🧭', map: '🗺', globe: '🌍 🌎 🌏', puzzle: '🧩', broom: '🧹', ladder: '🪜', hook: '🪝', trap: '🪤',
@@ -326,9 +339,10 @@ const RES_EMOJI = { '🪵': 'wood', '🪨': 'stone', '⛓': 'iron', '🍖': 'foo
 const norm = (e) => e.replace(/️/g, '');
 export const SIGIL_OF = {};
 for (const [k, list] of Object.entries(MAP)) for (const e of list.split(' ')) SIGIL_OF[norm(e)] = k;
-// Expression des symboles à remplacer (pictogrammes, drapeaux, séquences liées, variantes de teinte de peau)
-export const EMOJI_RE = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic}|[♀♂])️?|[\u{1F3FB}-\u{1F3FF}])*️?/gu;
-const HAS = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+// Expression des symboles à remplacer (pictogrammes, drapeaux, séquences liées, variantes de teinte de peau) et, depuis
+// la v24, les glyphes de commande de l'interface (✕ ▲ ▼ ⤢ ⌖ ＋ － ↺ ↶ ◇ ➜ ←) : chacun a son sceau dessiné
+export const EMOJI_RE = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}|[✕✗▲▼⤢⌖＋－↺↶◇➜←])(?:️|‍(?:\p{Extended_Pictographic}|[♀♂])️?|[\u{1F3FB}-\u{1F3FF}])*️?/gu;
+const HAS = /\p{Extended_Pictographic}|\p{Regional_Indicator}|[✕✗▲▼⤢⌖＋－↺↶◇➜←]/u;
 export const hasEmoji = (t) => !!t && HAS.test(t);
 // Sceau d'un emoji (séquence liée inconnue : sa première partie)
 export function sigilKey(e) {

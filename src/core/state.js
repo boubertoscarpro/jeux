@@ -10,13 +10,16 @@ import { initFactions } from '../systems/factions.js';
 import { applyKingdomChoice } from '../systems/kingdom.js';
 import { ensureIdentity } from '../systems/identity.js';
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 // Royaume de départ 24×16 (384 cases, contre 14×10 auparavant) ; chaque agrandissement ajoute 4 colonnes et 2 rangées.
-export const CITY_W = 24;
-export const CITY_H = 16;
+// v24 : domaine carré (32 × 32, puis jusqu'à 48 × 48), hameau au centre ; les anciennes parties sont étendues vers
+// l'est et le sud jusqu'au carré (save.js, migration 9 → 10), rien n'est déplacé
+export const CITY_W = 32;
+export const CITY_H = 32;
+export const LEGACY_CITY = { w: 24, h: 16 }; // taille d'avant la v24 (migrations anciennes)
 // Centre du hameau (hôtel de ville)
-export const TOWN_X = 11;
-export const TOWN_Y = 7;
+export const TOWN_X = 15;
+export const TOWN_Y = 15;
 export const RUBBLE_COUNT = 14; // inchangé : un royaume plus grand ne donne pas plus de butin de déblaiement
 
 // Génère le terrain de la ville : rivière, forêts, montagnes, décombres

@@ -79,7 +79,7 @@ const path = require('path');
   const vpBox = await (await page.$('#city-vp')).boundingBox();
   await page.mouse.move(vpBox.x + vpBox.width / 2, vpBox.y + vpBox.height / 2);
   await page.mouse.wheel(0, 400);
-  const tileEl = await page.$('.tile[data-x="12"][data-y="7"]');
+  const tileEl = await page.$('.tile[data-x="16"][data-y="15"]');
   const tb = await tileEl.boundingBox();
   // v20 : vue isométrique — un bâtiment de devant peut cacher une partie de celui-ci : on vise un point réellement visible
   const pt = await tileEl.evaluate((el) => {
@@ -93,7 +93,7 @@ const path = require('path');
   void tb;
   await page.mouse.click(pt.x, pt.y);
   const cs = await page.evaluate(() => window.cendrelande.ui.citySel);
-  if (!cs || cs.x !== 12 || cs.y !== 7) errors.push('ville : sélection décalée après zoom ' + JSON.stringify(cs));
+  if (!cs || cs.x !== 16 || cs.y !== 15) errors.push('ville : sélection décalée après zoom ' + JSON.stringify(cs));
   await page.evaluate(() => { const a = window.cendrelande; a.ui.citySel = null; a.state.world.revealed.fill(1); a.go('world'); });
   await page.waitForTimeout(150);
   await page.click('#hud [data-action="hud-zoom"][data-z="1.25"]'); await page.waitForTimeout(300);

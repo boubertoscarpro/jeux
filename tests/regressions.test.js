@@ -29,7 +29,7 @@ function base(seed = 'reg') {
   const s = createNewState({ seed, now: T0 });
   const put = (type, x, y, level = 1) => { s.city.buildings[`b_${type}_${x}_${y}`] = { id: `b_${type}_${x}_${y}`, type, level, x, y }; };
   put('market', 9, 4, 3);
-  s.city.buildings.b_townhall_11_7.level = 6;
+  s.city.buildings.b_townhall_15_15.level = 6;
   return { s, put };
 }
 
@@ -114,7 +114,7 @@ test('Chaînes : une chaîne proche de la capacité ne gaspille plus ses matièr
 test('Construction : une fortification ne peut pas être payée deux fois', () => {
   const { s } = base('fort');
   for (const r of Object.keys(s.resources)) s.resources[r] = 50000;
-  s.city.buildings.b_townhall_11_7.level = 10;
+  s.city.buildings.b_townhall_15_15.level = 10;
   const mods = computeMods(s, T0);
   mods.buildQueue = 3;
   const r1 = startBuild(s, 'wall', 0, 0, T0);
@@ -212,7 +212,7 @@ test('Combat : aucune composition ne domine sur tous les terrains (archers, cava
 
 test('Dynastie : pas d’exploit d’Éclats ni de doublons fantômes après prestige', () => {
   const { s } = base('dyn');
-  s.city.buildings.b_townhall_11_7.level = 15;
+  s.city.buildings.b_townhall_15_15.level = 15;
   const sh = shardState(s);
   sh.count = 42; sh.feats.wonder = T0; sh.owned.khanSword = 1;
   s.artifacts = { mountainHeart: { t: s.meta.created - 1 } };

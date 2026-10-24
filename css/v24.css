@@ -1,0 +1,14 @@
+/* v24 « Le monde et ses cibles » — limite du domaine du château : le fond de la vue a la couleur des terres sauvages
+   peintes autour du domaine (scene.js, wildColor), un léger voile assombrit seulement les bords de l'écran. */
+.city-vp.iso { background: var(--wild, #4a7a2f); }
+.city-vp.iso::after { content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3; box-shadow: inset 0 0 160px rgba(12, 20, 8, 0.38); }
+
+/* Fiche d'un lieu d'événement : cibles en rangées, liseré à la couleur de l'événement */
+.ev-site { border-left: 4px solid var(--ev, #c9a24a); }
+.ev-site.is-boss { box-shadow: inset 0 0 0 1px rgba(200, 60, 40, 0.45); }
+.ev-site h5 { margin: 10px 0 4px; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: #e9cf8a; }
+.ev-targets { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ev-t { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 9px; background: rgba(255, 236, 190, 0.06); border: 1px solid rgba(214, 178, 94, 0.25); }
+.ev-t.boss { border-color: #c0392b; background: rgba(192, 57, 43, 0.12); }
+.ev-t .ev-ta { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.ev-t .mini { min-height: 36px; }

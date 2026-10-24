@@ -4,26 +4,43 @@
 // Les colonnes en marche (soldats, bannière) remplacent les pions ronds ; le trajet pointillé et le compte à rebours
 // restent dessinés par views/world.js.
 import { sprite } from './scene.js';
-import { PAINT, camp, hamletRuin, scenery } from './art.js';
+import { PAINT, hamletRuin, scenery, TARGETS, FORT_STYLES } from './art.js';
 import { banner } from './paint.js';
 
 // Peintre d'un lieu (null : le médaillon reste)
 export function poiPainter(state, p, def, { th = 1, rivalColor = null } = {}) {
   const kind = def.kind;
   if (kind === 'capital') { const tier = th >= 20 ? 5 : th >= 10 ? 3 : 1; return { key: `cap${tier}`, w: 1.9, draw: (pp) => PAINT.townhall(pp, tier, 0, { active: true }) }; }
-  if (kind === 'kingdom') return { key: `kg${rivalColor}`, w: 1.7, draw: (pp) => { PAINT.castle(pp, 4, 1, { active: true }); banner(pp, 0.5, 0.5, 120, [rivalColor || '#7a2a20', '#f1d36a'], 30); } };
+  // v24 : chaque royaume rival a son architecture (FORT_STYLES) ; sa forteresse grandit avec sa puissance
+  if (kind === 'kingdom') { const st = (p.rival ?? 0) % FORT_STYLES.length, t = Math.min(4, 2 + Math.floor((p.power || 1) / 1.2)); return { key: `kg${st}|${t}|${rivalColor}`, w: 1.8, draw: (pp) => TARGETS.kingdom(pp, t, st, { style: st, color: rivalColor }) }; }
   if (kind === 'town') { const r = Math.min(3, p.rank || 0); return { key: `town${r}`, w: 1.5 + r * 0.1, draw: (pp) => PAINT.market(pp, 1 + r, 2, { active: true }) }; }
   if (kind === 'village') return { key: 'vil', w: 1.2, draw: (pp) => hamletRuin(pp) };
-  if (p.type === 'banditCamp') { const lv = Math.max(1, p.lvl || 1); return { key: `camp${Math.min(5, lv)}`, w: 1.35, draw: (pp) => camp(pp, lv) }; }
+  // v24 : camps de brigands par palier (désordonnés, palissadés, tours de guet, double tour) et disposition variée
+  if (p.type === 'banditCamp') { const t = Math.min(4, Math.max(1, Math.ceil((p.lvl || p.danger || 1) / 1.5))), v = variantAt(p); return { key: `camp${t}|${v}`, w: 1.4, draw: (pp) => TARGETS.banditCamp(pp, t, v, { season: 'summer' }) }; }
   if (p.type === 'ruinSite' || p.type === 'lostCity') return { key: `ruin${p.type}`, w: p.type === 'lostCity' ? 1.6 : 1.2, draw: (pp) => scenery(pp, 'rubble', p.type === 'lostCity' ? 3 : 1, 'summer') };
-  if (p.type === 'abandonedMine') return { key: 'mine', w: 1.25, draw: (pp) => PAINT.mine(pp, 1, 0, { active: false }) };
+  if (p.type === 'abandonedMine') return { key: 'mine', w: 1.25, draw: (pp) => { PAINT.mine(pp, 1, 0, { active: false }); } };
+  // v24 : toutes les autres catégories ont leur dessin (sites de ressources, cryptes, repaires, donjons, boss,
+  // marchands, lieux d'événement) ; palier d'après le danger, disposition d'après la position
+  const tk = def.npc ? 'npc' : p.type;
+  if (TARGETS[tk]) {
+    const t = tk === 'eventSite' ? 3 : Math.min(4, Math.max(1, Math.round(p.danger || (def.danger ? def.danger[0] : 1)) || 1)), v = variantAt(p);
+    const phase = tk === 'eventSite' ? p.phase || 'active' : '';
+    const big = { boss: 1.7, eventSite: 1.7, dungeon: 1.45, ancientGrove: 1.4, crypt: 1.3 }[tk] || 1.25;
+    return { key: `tg${tk}|${t}|${v}|${phase}|${p.color || ''}`, w: big, draw: (pp) => TARGETS[tk](pp, t, v, { season: 'summer', active: true, phase, color: p.color }) };
+  }
   return null;
 }
-// Résolution de cuisson selon la taille d'une case à l'écran
-const bakeScale = (T) => (T >= 44 ? 0.75 : T >= 22 ? 0.5 : 0.35);
+// Disposition d'un lieu (0 à 3), stable : d'après sa position sur la carte
+const variantAt = (p) => (((p.x * 7 + p.y * 13) % 4) + 4) % 4;
+// Résolution de cuisson selon la taille réelle du dessin à l'écran (densité de l'écran comprise), par paliers de 0,25 :
+// net en gros plan (v24), léger en vue d'ensemble ; plafonnée pour la mémoire du cache
+const bakeScale = (T, w = 1.25) => {
+  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  return Math.max(0.35, Math.min(1.5, Math.ceil(((T * w) / 128) * dpr * 4) / 4));
+};
 // Dessine un lieu peint centré sur (px, py) ; renvoie la demi-largeur occupée (pour les étiquettes)
 export function drawPoiPainted(ctx, painter, px, py, T, alpha = 1) {
-  const s = bakeScale(T);
+  const s = bakeScale(T, painter.w);
   const sp = sprite('w|' + painter.key, s, painter.draw);
   if (!sp.art) return 0;
   const k = (T * painter.w) / (128 * s);
