@@ -26,17 +26,18 @@ const H = 3600000;
 const count = (s, t) => s.city.terrain.filter((x) => x === t).length;
 const free = (s, type, pred = () => true) => { for (let y = 0; y < s.city.h; y++) for (let x = 0; x < s.city.w; x++) if (pred(x, y) && placementCheck(s, type, x, y).ok) return { x, y }; return null; };
 
-test('Royaume : 24×16 dès le départ, plus de cases constructibles, même nombre de décombres, hameau centré', () => {
+test('Royaume (v24) : domaine carré 32×32 dès le départ, plus de cases constructibles, même nombre de décombres, hameau centré', () => {
   for (const seed of [1, 7, 'abc', 4242]) {
     const s = createNewState({ seed, now: T0 });
     assert.equal(s.city.w, CITY_W); assert.equal(s.city.h, CITY_H);
-    assert.equal(CITY_W * CITY_H, 384);
-    assert.equal(s.city.terrain.length, 384);
+    assert.equal(CITY_W, CITY_H, 'domaine carré');
+    assert.equal(CITY_W * CITY_H, 1024);
+    assert.equal(s.city.terrain.length, 1024);
     assert.equal(count(s, 'rubble'), RUBBLE_COUNT, 'pas plus de butin de déblaiement qu’avant');
     assert.ok(count(s, 'plain') >= 200, `cases libres : ${count(s, 'plain')}`);
     for (const t of ['river', 'forest', 'mountain']) assert.ok(count(s, t) > 5, t);
     const th = Object.values(s.city.buildings).find((b) => b.type === 'townhall');
-    assert.ok(th.x >= 8 && th.x <= 15 && th.y >= 5 && th.y <= 10, 'hôtel de ville vers le centre');
+    assert.ok(Math.abs(th.x - CITY_W / 2) <= 2 && Math.abs(th.y - CITY_H / 2) <= 2, 'hôtel de ville au centre');
     // Les bonus d'adjacence restent accessibles : scierie/forêt, carrière/montagne, ferme/rivière
     const mods = computeMods(s, T0);
     for (const type of ['sawmill', 'quarry', 'farm']) {
@@ -66,7 +67,7 @@ test('Royaume : construire, sélectionner et déplacer partout, y compris aux bo
   assert.equal(placementCheck(s, 'house', s.city.w, 0).ok, false, 'hors carte refusé');
 });
 
-test('Agrandissement du domaine : +4 colonnes, +2 rangées, rien ne bouge, jusqu’à 40×24', () => {
+test('Agrandissement du domaine (v24) : +4 colonnes, +4 rangées, rien ne bouge, carré jusqu’à 48×48', () => {
   rng.setSource(mulberry32(3));
   const s = createNewState({ seed: 'dom', now: T0 });
   for (const r of Object.keys(s.resources)) s.resources[r] = 1e6;
@@ -75,8 +76,8 @@ test('Agrandissement du domaine : +4 colonnes, +2 rangées, rien ne bouge, jusqu
   const blds = JSON.stringify(s.city.buildings);
   for (let i = 0; i < DOMAIN_STEPS.length; i++) assert.ok(expandDomain(s, T0).ok);
   rng.setSource(null);
-  assert.equal(s.city.w, 40); assert.equal(s.city.h, 24);
-  for (let y = 0; y < 16; y++) for (let x = 0; x < w0; x++) assert.equal(s.city.terrain[y * s.city.w + x], before[y * w0 + x]);
+  assert.equal(s.city.w, 48); assert.equal(s.city.h, 48);
+  for (let y = 0; y < CITY_H; y++) for (let x = 0; x < w0; x++) assert.equal(s.city.terrain[y * s.city.w + x], before[y * w0 + x]);
   assert.equal(JSON.stringify(s.city.buildings), blds);
   assert.ok(count(s, 'rubble') < RUBBLE_COUNT + 30, 'peu de décombres ajoutés');
 });
@@ -170,14 +171,14 @@ function legacySave(seed = 'legacy') {
 test('Migration v7 → v8 : ville et monde agrandis sans rien déplacer ni perdre', () => {
   const old = legacySave();
   const st = deserialize(JSON.stringify(old));
-  // Ville : 24+4 × 16+2 (un agrandissement déjà acheté), ancienne zone intacte, bâtiments aux mêmes coordonnées
-  assert.equal(st.city.w, 28); assert.equal(st.city.h, 18);
+  // Ville : v8 28×18 (un agrandissement acheté), puis v24 carré de 32 + 4 = 36 ; ancienne zone intacte, bâtiments aux mêmes coordonnées
+  assert.equal(st.city.w, 36); assert.equal(st.city.h, 36);
   // v20 : la ville fortifiée et ses douves sont aplanies (forêt, montagne, rivière) ; tout le reste est intact
   const rr = st.castle.rect;
-  for (let y = 0; y < old.city.h; y++) for (let x = 0; x < old.city.w; x++) if (!(x >= rr.x0 - 1 && x <= rr.x1 + 1 && y >= rr.y0 - 1 && y <= rr.y1 + 1)) assert.equal(st.city.terrain[y * 28 + x], old.city.terrain[y * old.city.w + x], `${x},${y}`);
+  for (let y = 0; y < old.city.h; y++) for (let x = 0; x < old.city.w; x++) if (!(x >= rr.x0 - 1 && x <= rr.x1 + 1 && y >= rr.y0 - 1 && y <= rr.y1 + 1)) assert.equal(st.city.terrain[y * 36 + x], old.city.terrain[y * old.city.w + x], `${x},${y}`);
   assert.deepEqual(noPlaces(st.city.buildings), old.city.buildings);
   assert.deepEqual(st.city.fort, old.city.fort);
-  const newRubble = st.city.terrain.filter((t, i) => t === 'rubble' && ((i % 28) >= old.city.w || Math.floor(i / 28) >= old.city.h)).length;
+  const newRubble = st.city.terrain.filter((t, i) => t === 'rubble' && ((i % 36) >= old.city.w || Math.floor(i / 36) >= old.city.h)).length;
   assert.equal(newRubble, 0, 'aucun décombre (butin) ajouté');
   // Monde : agrandi à WORLD_SIZE, ancienne zone identique (terrain, brouillard, sites, capitale, territoires)
   const w = st.world;
@@ -205,7 +206,7 @@ test('Migration v7 → v8 : ville et monde agrandis sans rien déplacer ni perdr
   // La partie continue normalement, et un second chargement ne change plus rien
   assert.doesNotThrow(() => advance(st, T0 + 6 * H));
   const again = deserialize(serialize(st));
-  assert.equal(again.world.size, WORLD_SIZE); assert.equal(again.city.w, 28);
+  assert.equal(again.world.size, WORLD_SIZE); assert.equal(again.city.w, 36);
   assert.deepEqual(again.city.terrain, st.city.terrain);
 });
 

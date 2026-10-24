@@ -355,7 +355,7 @@ test('Architecte : silhouettes gratuites, valides, retirées quand la case est p
 test('Film : la date de chaque bâtiment se lit dans son identifiant ; les images rejouent la croissance', () => {
   const t = Date.UTC(2026, 3, 2);
   assert.equal(buildTime(`b_${t.toString(36)}a1`), t);
-  assert.equal(buildTime('b_townhall_11_7'), 0);
+  assert.equal(buildTime('b_townhall_15_15'), 0);
   const s = realm();
   put(s, `b_${(T0 + H).toString(36)}x`, 'library', 10, 6);
   put(s, `b_${(T0 + 5 * H).toString(36)}y`, 'forge', 12, 6);

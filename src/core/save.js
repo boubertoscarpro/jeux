@@ -7,7 +7,7 @@ import { ensureTown } from '../systems/outposts.js';
 import { migrateCastle, castleState, ensureFortress } from '../systems/castle.js';
 import { autoPlaceTrophies } from '../systems/trophies.js';
 import { KINGDOM_TYPES, ORIGINS, DIFFICULTIES } from '../data/kingdoms.js';
-import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H } from './state.js';
+import { createNewState, SAVE_VERSION, extendCity, CITY_W, CITY_H, LEGACY_CITY } from './state.js';
 import { extendWorld } from '../systems/worldgen.js';
 import { mulberry32 } from './rng.js';
 import { ensureIdentity } from '../systems/identity.js';
@@ -57,7 +57,7 @@ export const MIGRATIONS = {
     const seed = Number(d.meta?.seed) || 1;
     const dom = Math.max(0, Math.floor(d.domain || 0));
     if (Array.isArray(d.city?.terrain) && d.city.w > 0 && d.city.h > 0 && d.city.terrain.length === d.city.w * d.city.h) {
-      extendCity(d, CITY_W + 4 * dom, CITY_H + 2 * dom, mulberry32(seed ^ 0x77), 0);
+      extendCity(d, LEGACY_CITY.w + 4 * dom, LEGACY_CITY.h + 2 * dom, mulberry32(seed ^ 0x77), 0);
     }
     const w = d.world;
     if (w && typeof w.terrain === 'string' && Array.isArray(w.revealed) && w.size > 0 && w.terrain.length === w.size * w.size && w.capital && w.pois) extendWorld(w, seed);
@@ -68,6 +68,18 @@ export const MIGRATIONS = {
   // et missions dynamiques (ajouts purs, complétés par fill). Rien n'est retiré ni déplacé.
   8: (d) => {
     ensureIdentity(d);
+    return d;
+  },
+  // v9 → v10 (v24) : domaine carré. La ville s'étend vers l'est et le sud jusqu'à un carré de côté
+  // max(32 + 4 × agrandissements achetés, largeur, hauteur) ; bâtiments, enceinte et coordonnées inchangés, aucun
+  // décombre ajouté (pas de butin de déblaiement offert).
+  9: (d) => {
+    const c = d.city;
+    if (Array.isArray(c?.terrain) && c.w > 0 && c.h > 0 && c.terrain.length === c.w * c.h) {
+      const dom = Math.max(0, Math.floor(d.domain || 0));
+      const side = Math.max(CITY_W + 4 * dom, c.w, c.h);
+      extendCity(d, side, Math.max(side, CITY_H + 4 * dom), mulberry32((Number(d.meta?.seed) || 1) ^ 0x24), 0);
+    }
     return d;
   },
 };

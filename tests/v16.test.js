@@ -45,14 +45,14 @@ const noPlaces = (o) => Object.fromEntries(Object.entries(o).filter(([k, v]) => 
 test('Zones (v20) : ville fortifiée 6 × 6 autour de l’hôtel de ville, douves sur 1 case, abords sur 2, campagne au-delà', () => {
   const s = realm();
   const r = rectOf(s);
-  assert.deepEqual(r, { x0: 9, y0: 5, x1: 14, y1: 10 });
-  assert.equal(zoneAt(s, 11, 7), 'keep');
-  assert.equal(zoneAt(s, 14, 10), 'keep');
-  assert.equal(zoneAt(s, 8, 7), 'moat');
-  assert.equal(zoneAt(s, 7, 7), 'faubourg');
-  assert.equal(zoneAt(s, 6, 7), 'faubourg');
-  assert.equal(zoneAt(s, 5, 7), 'country');
-  assert.equal(zoneAt(s, 16, 7), 'faubourg');
+  assert.deepEqual(r, { x0: 13, y0: 13, x1: 18, y1: 18 });
+  assert.equal(zoneAt(s, 15, 15), 'keep');
+  assert.equal(zoneAt(s, 18, 18), 'keep');
+  assert.equal(zoneAt(s, 12, 15), 'moat');
+  assert.equal(zoneAt(s, 11, 15), 'faubourg');
+  assert.equal(zoneAt(s, 10, 15), 'faubourg');
+  assert.equal(zoneAt(s, 9, 15), 'country');
+  assert.equal(zoneAt(s, 20, 15), 'faubourg');
 });
 
 test('Placement (v20) : la ville dans les murs, les champs dehors, quelques métiers partout, rien sur les douves', () => {
@@ -61,16 +61,16 @@ test('Placement (v20) : la ville dans les murs, les champs dehors, quelques mét
   assert.equal(ruleOf('market'), 'keep');
   assert.equal(ruleOf('farm'), 'country');
   assert.equal(ruleOf('tannery'), 'any');
-  assert.equal(placementCheck(s, 'library', 10, 6).ok, true);
-  assert.match(placementCheck(s, 'library', 18, 7).reason, /dans les murs/);
-  assert.equal(placementCheck(s, 'farm', 18, 7).ok, true);
-  assert.match(placementCheck(s, 'farm', 10, 6).reason, /hors les murs/);
-  assert.equal(placementCheck(s, 'tannery', 10, 6).ok, true);
-  assert.equal(placementCheck(s, 'tannery', 18, 7).ok, true);
-  assert.equal(placementCheck(s, 'tannery', 8, 7).ok, false, 'douves : inconstructibles');
-  assert.equal(placementCheck(s, 'library', 11, 9).ok, false, 'allée de la porte réservée');
+  assert.equal(placementCheck(s, 'library', 14, 14).ok, true);
+  assert.match(placementCheck(s, 'library', 22, 15).reason, /dans les murs/);
+  assert.equal(placementCheck(s, 'farm', 22, 15).ok, true);
+  assert.match(placementCheck(s, 'farm', 14, 14).reason, /hors les murs/);
+  assert.equal(placementCheck(s, 'tannery', 14, 14).ok, true);
+  assert.equal(placementCheck(s, 'tannery', 22, 15).ok, true);
+  assert.equal(placementCheck(s, 'tannery', 12, 15).ok, false, 'douves : inconstructibles');
+  assert.equal(placementCheck(s, 'library', 15, 17).ok, false, 'allée de la porte réservée');
   for (const t of [...KEEP_ONLY, ...COUNTRY_ONLY]) assert.ok(BUILDINGS[t], t);
-  assert.equal(startBuild(s, 'library', 18, 7, T0).ok, false);
+  assert.equal(startBuild(s, 'library', 22, 15, T0).ok, false);
 });
 
 test('Effets de zone (v20) : plus de malus pour les maisons ou le marché dans les murs ; entrepôts protégés, bornés', () => {
@@ -123,7 +123,7 @@ test('Raids : brèche selon muraille et douves ; la cour n’est exposée qu’e
   assert.ok(Math.abs(breachChance(s) - Math.max(SIEGE.breachMin, 0.65 - 0.25 - 0.15)) < 1e-9);
   s.city.fort.wall = 25; s.city.fort.moat = 10;
   assert.equal(breachChance(s), SIEGE.breachMin);
-  put(s, 'lib', 'library', 10, 6); put(s, 'f1', 'farm', 18, 7);
+  put(s, 'lib', 'library', 14, 14); put(s, 'f1', 'farm', 22, 15);
   assert.deepEqual(raidTargets(s, false).map((b) => b.id), ['f1']);
   assert.ok(raidTargets(s, true).some((b) => b.id === 'lib'));
   assert.ok(!raidTargets(s, true).some((b) => b.type === 'townhall'));
@@ -171,7 +171,7 @@ test('Feu : il ne traverse pas les douves, mais traverse une enceinte sans douve
   rng.setSource(mulberry32(3));
   try {
     const s = realm();
-    put(s, 'a', 'house', 14, 7); put(s, 'b', 'house', 15, 7); // de part et d'autre de la muraille est (v20 : 6 × 6)
+    put(s, 'a', 'house', 18, 15); put(s, 'b', 'house', 19, 15); // de part et d'autre de la muraille est (v20 : 6 × 6)
     s.city.buildings.a.damaged = true;
     assert.equal(moatBetween(s, s.city.buildings.a, s.city.buildings.b), false);
     s.city.fort.moat = 1;
@@ -192,7 +192,7 @@ test('Crue : les douves débordent moins quand elles sont larges ; débordement 
   assert.ok(Math.abs(moatOverflowChance(s) - 0.54) < 1e-9);
   s.city.fort.moat = 10;
   assert.equal(moatOverflowChance(s), 0);
-  put(s, 'in', 'house', 9, 7); put(s, 'out', 'house', 8, 7); put(s, 'far', 'house', 11, 7);
+  put(s, 'in', 'house', 13, 15); put(s, 'out', 'house', 12, 15); put(s, 'far', 'house', 15, 15);
   const bank = moatBank(s).map((b) => b.id);
   assert.ok(bank.includes('in') && bank.includes('out') && !bank.includes('far'));
   assert.ok(floodZone(s, true).some((b) => b.id === 'in'));
@@ -253,14 +253,14 @@ test('Flancs intégrés au raid : un flanc dégarni perd plus souvent qu’un fl
 // ───────── Décorations ─────────
 test('Décorations utiles (v20) : dans les murs (garnison, et ouvriers près des maisons), dehors sans effet ; bornées', () => {
   const s = realm();
-  s.city.buildings.d1 = { id: 'd1', type: 'deco', deco: 'x', level: 1, x: 13, y: 7 }; // à côté de la maison (12, 8)
-  s.city.buildings.d2 = { id: 'd2', type: 'deco', deco: 'y', level: 1, x: 20, y: 8 };
-  s.city.buildings.d3 = { id: 'd3', type: 'deco', deco: 'z', level: 1, x: 10, y: 5 };
+  s.city.buildings.d1 = { id: 'd1', type: 'deco', deco: 'x', level: 1, x: 17, y: 15 }; // à côté de la maison (16, 16)
+  s.city.buildings.d2 = { id: 'd2', type: 'deco', deco: 'y', level: 1, x: 24, y: 16 };
+  s.city.buildings.d3 = { id: 'd3', type: 'deco', deco: 'z', level: 1, x: 14, y: 13 };
   let e = decoEffects(s);
   assert.equal(e.mods['worker.morale'], DECO_FX.keepNear.per);
   assert.equal(e.mods['combat.morale'], 2 * DECO_FX.keep.per);
   assert.equal(e.list.find((x) => x.id === 'd2').active, false);
-  for (let i = 0; i < 12; i++) s.city.buildings['k' + i] = { id: 'k' + i, type: 'deco', deco: 'k' + i, level: 1, x: 9 + (i % 6), y: 9 + Math.floor(i / 6) };
+  for (let i = 0; i < 12; i++) s.city.buildings['k' + i] = { id: 'k' + i, type: 'deco', deco: 'k' + i, level: 1, x: 13 + (i % 6), y: 17 + Math.floor(i / 6) };
   e = decoEffects(s);
   assert.ok((e.mods['worker.morale'] || 0) <= DECO_FX.keepNear.per * DECO_FX.keepNear.max);
   assert.ok(e.mods['combat.morale'] <= DECO_FX.keep.per * DECO_FX.keep.max);
@@ -337,17 +337,17 @@ test('Migration : une vraie sauvegarde v15 reçoit une enceinte, rien n’est d�
 
 test('Migration : l’enceinte n’enferme ni champ ni carrière', () => {
   const s = realm();
-  put(s, 'lib', 'library', 14, 7); put(s, 'far', 'forge', 16, 7); put(s, 'farm', 'farm', 11, 3);
+  put(s, 'lib', 'library', 18, 15); put(s, 'far', 'forge', 20, 15); put(s, 'farm', 'farm', 15, 11);
   delete s.castle;
   migrateCastle(s, T0);
-  assert.equal(zoneAt(s, 14, 7), 'keep', 'la bibliothèque proche est rattrapée par l’enceinte');
-  assert.notEqual(zoneAt(s, 16, 7), 'keep', 'la forge lointaine reste dehors (enceinte courte, muraille non affaiblie)');
-  assert.notEqual(zoneAt(s, 11, 3), 'keep', 'la ferme reste dehors');
+  assert.equal(zoneAt(s, 18, 15), 'keep', 'la bibliothèque proche est rattrapée par l’enceinte');
+  assert.notEqual(zoneAt(s, 20, 15), 'keep', 'la forge lointaine reste dehors (enceinte courte, muraille non affaiblie)');
+  assert.notEqual(zoneAt(s, 15, 11), 'keep', 'la ferme reste dehors');
   // Une ferme sur le chemin : l'enceinte ne s'étend pas jusqu'à la forge plutôt que d'enfermer la ferme
   const s2 = realm();
-  put(s2, 'forge', 'forge', 11, 3); put(s2, 'farm', 'farm', 11, 4);
+  put(s2, 'forge', 'forge', 15, 11); put(s2, 'farm', 'farm', 15, 12);
   delete s2.castle;
   migrateCastle(s2, T0);
-  assert.notEqual(zoneAt(s2, 11, 4), 'keep');
+  assert.notEqual(zoneAt(s2, 15, 12), 'keep');
   assert.ok(misplaced(s2).some((b) => b.id === 'forge'), 'la forge reste dehors, active, à déménager');
 });

@@ -21,6 +21,15 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v24 — Carte du monde, cibles, événements et icônes** :
+> - **Bords du château propres** : plus de rectangle ni de contour sombre en dézoomant ; le domaine, désormais carré (32 × 32, jusqu'à 48 × 48), est bordé d'une lisière de forêt et de buissons.
+> - **Cibles dessinées** : chaque type de lieu du monde a son dessin (scierie, carrière, mine, crypte, antre, donjon, camp de brigands, royaume…), qui grandit avec le niveau et varie d'une case à l'autre.
+> - **Événements sur la carte** : un camp d'événement apparaît près de la capitale ; on le sélectionne et on l'attaque directement depuis la carte. Son dessin suit l'événement : annoncé, en cours, boss, nettoyé, puis retiré.
+> - **Icônes** : les commandes de l'interface (fermer, zoom, recentrer, replier, annuler, châsse…) sont des sceaux dessinés, et non plus des caractères de police.
+> - **Anciennes sauvegardes** : elles sont migrées sans rien déplacer.
+>
+> Voir [`docs/V24.md`](docs/V24.md).
+
 > **v23 — Refonte artistique** :
 > - **Château remis dans le bon ordre** : tours, murs et porte se recouvrent enfin correctement, grâce à un tri par emprise au sol, vérifié par des tests de composition.
 > - **Bâtiments qui grandissent vraiment** : soubassement, épis puis faîtage doré ; la maison, l'entrepôt et l'observatoire sont redessinés palier par palier.

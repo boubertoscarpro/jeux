@@ -115,6 +115,7 @@ export function attachPaint(gslot, slot, state, f, R, items, gopts) {
 export const paintFx = () => keep.fx;
 export const sceneCanvases = () => ({ ground: keep.ground, scene: keep.scene });
 export { paintStats };
+export { wildColor } from './scene.js';
 
 // Données de la couche de vie : cases où l'on marche, allée des charrettes, rempart avant des gardes, eau
 export function lifeData(app, ctx, film, density) {

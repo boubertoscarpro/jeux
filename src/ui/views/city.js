@@ -34,7 +34,7 @@ import { readyHarvests, collectHarvest } from '../../systems/harvest.js';
 import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { undoReorganize, enlargeCastle, enlargePreview, nextEncStage } from '../../systems/castle.js';
 import { TROPHIES } from '../../data/trophies.js';
-import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx, paintStats } from '../paint/cityPaint.js';
+import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx, paintStats, wildColor } from '../paint/cityPaint.js';
 import { mountLife, lifeRedraw } from '../paint/life.js';
 import { flyGains } from '../juice.js';
 import { lifeDensity } from '../../systems/life.js';
@@ -700,7 +700,7 @@ const cityView = {
     return `<div class="city-layout">
       <div class="stage city-stage iso-stage ${app.ui.layer ? 'layer-on' : ''} ${building ? 'building' : ''} ${app.ui.photo ? 'photo' : ''} ${app.ui.architect ? 'architect' : ''} wind-${WIND[s.weather?.type] ?? 1} ${sceneClasses(ctx.scene)}" style="--banner:${bannerColor(s)}">
         ${sceneLayersHtml(ctx.scene, 'city')}
-        <div class="mapvp city-vp iso" id="city-vp" data-zl="${cityZoomLevel(cam.z)}">
+        <div class="mapvp city-vp iso" id="city-vp" data-zl="${cityZoomLevel(cam.z)}" style="--wild:${wildColor(ctx.scene.season)}">
           <div class="mapvp-inner iso-world" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px;transform: translate(${cam.x}px, ${cam.y}px) scale(${cam.z})">
             <div class="paint-slot pg" aria-hidden="true"></div>
             <svg class="iso-overlay" width="${Math.round(f.width)}" height="${Math.round(f.height)}" aria-hidden="true">${future}${selPath}<path id="iso-hl" class="iso-hl" d=""/></svg>

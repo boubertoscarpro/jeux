@@ -1,3 +1,5 @@
+import eventView from './events.js';
+import { eventSiteTargets } from '../../systems/eventSites.js';
 import { drawSigil, fillTextSigils } from '../sigils.js';
 import { campLevel, campScale } from '../../systems/realm21.js';
 import { armyPresets, presetUnits, saveArmyPreset } from '../../systems/comfort.js';
@@ -85,6 +87,7 @@ const POI_CAT = (p) => {
   if (def.kind === 'danger') return 'danger';
   if (def.kind === 'town' || def.kind === 'kingdom' || def.kind === 'village') return 'social';
   if (def.kind === 'npc') return 'npc';
+  if (def.kind === 'event') return 'always';
   return 'always';
 };
 export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes', npc: '🧑 Personnages' };
@@ -231,7 +234,7 @@ export function drawMap(app) {
     if (F[cat] === false && def.kind !== 'capital') continue;
     const px = ox + (p.x + 0.5) * T, py = oy + (p.y + 0.5) * T;
     const cleared = p.clearedUntil > now || (def.kind === 'gather' && p.amount < 1);
-    const major = def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'town' || def.kind === 'boss';
+    const major = def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'town' || def.kind === 'boss' || def.kind === 'event';
     // Vue d'ensemble : les sites mineurs deviennent des points colorés, les lieux majeurs gardent leur médaillon
     if (T < 13 && !major) {
       ctx.globalAlpha = cleared ? 0.35 : 0.95;
@@ -242,7 +245,7 @@ export function drawMap(app) {
     }
     const icon = p.type === 'kingdom' ? RIVALS[p.rival]?.icon || def.icon : p.type === 'boss' && s.boss ? ALL_UNITS[BOSSES[s.boss.key].unit].icon : def.icon;
     const r = major ? Math.max(9, Math.min(def.kind === 'capital' ? 38 : 33, T * (def.kind === 'capital' ? 0.62 : 0.52))) : Math.max(7, Math.min(26, T * 0.4));
-    const ring = def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color || CAT_COLOR.social : def.kind === 'boss' ? '#ff3b3b' : CAT_COLOR[cat];
+    const ring = def.kind === 'event' ? p.color || '#e2b84a' : def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color || CAT_COLOR.social : def.kind === 'boss' ? '#ff3b3b' : CAT_COLOR[cat];
     // Lieux rares (donjons, cité perdue) et très dangereux : halo pulsé (fixe si animations réduites)
     const pulse = reduceMotion ? 0.5 : 0.5 + 0.5 * Math.sin(now / 420);
     const glow = def.kind === 'boss' ? `rgba(255,60,60,${0.5 + 0.4 * Math.sin(now / 300)})` : def.kind === 'capital' ? 'rgba(255,220,120,0.7)'
@@ -258,6 +261,7 @@ export function drawMap(app) {
       // v21 : lieux peints (capitale, royaumes, cités, villages, camps, ruines, mines) dès la vue intermédiaire
       const painter = T >= 13 && !(p.infested && def.kind === 'gather') ? poiPainter(s, p, def, { th: thLevel(s), rivalColor: RIVALS[p.rival]?.color }) : null;
       if (painter) {
+        if (def.kind === 'event' && p.phase !== 'upcoming' && p.phase !== 'cleared') { ctx.fillStyle = hexA(p.color || '#e2b84a', p.phase === 'boss' ? 0.38 : 0.24); ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.6, T * painter.w * 0.32, 0, 0, 7); ctx.fill(); }
         if (def.kind === 'capital' || def.kind === 'kingdom') { ctx.fillStyle = def.kind === 'capital' ? 'rgba(255,220,120,0.22)' : 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.55, T * painter.w * 0.3, 0, 0, 7); ctx.fill(); }
         drawPoiPainted(ctx, painter, px, py, T, cleared ? 0.45 : 1);
       } else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
@@ -270,9 +274,9 @@ export function drawMap(app) {
     }
     if (p.infested && T > 16) drawSigil(ctx, '🕷', px + r * 0.85, py - r * 0.85, r * 0.8, '#e8d6ff');
     // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
-    const name = def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.type === 'banditCamp' ? `${p.name || def.name} · niv. ${campLevel(p)}` : p.name || def.name;
-    const prio = { capital: 100, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
-    const minT = { capital: 6, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
+    const name = def.kind === 'event' ? `${p.name} · ${EVENT_PHASE[p.phase] || ''}` : def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.type === 'banditCamp' ? `${p.name || def.name} · niv. ${campLevel(p)}` : p.name || def.name;
+    const prio = { capital: 100, event: 90, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
+    const minT = { capital: 6, event: 10, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
     if (T >= minT) labels.push({ x: px, y: py, offset: rb ? rb * 0.95 + 3 : r + (p.danger > 0 && T > 16 ? 6 : 2), text: rb ? `${name} · ${p.breach.level}` : name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
   }
   // Avant-postes du joueur : étendard + nom
@@ -420,6 +424,25 @@ function refreshDrawer(app) {
   if (!app.ui.worldSel) { if (app.ui.win === 'tile') app.closeWin(false); drawMap(app); return; }
   if (app.ui.win === 'tile') app.renderWin(); else app.go('tile');
 }
+// ───────── v24 : fiche du lieu d'événement (cibles et attaque directe, règles de l'événement) ─────────
+const EVENT_PHASE = { upcoming: 'à venir', active: 'en cours', boss: 'le chef est là', cleared: 'tout est nettoyé' };
+const hexA = (c, a) => { const n = parseInt(String(c).slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+const ACT_LABEL = { attack: 'Attaquer', escort: 'Escorter', trade: 'Commercer', spy: 'Espionner', dig: 'Fouiller', deliver: 'Livrer', solve: 'Résoudre', track: 'Pister', garrison: 'Tenir', withdraw: 'Rappeler', mine: 'Extraire', harvest: 'Récolter' };
+function eventSitePanel(app, poi, now) {
+  const s = app.state;
+  if (poi.phase === 'upcoming') return `<div class="panel-sub ev-site"><h4>${esc(poi.name)}</h4><p>Le camp se dresse : l’événement commence dans <b>${countdown(poi.until)}</b>. Ses cibles ne sont pas encore attaquables.</p><button class="btn" data-action="nav" data-view="event">Voir le calendrier</button></div>`;
+  const list = eventSiteTargets(s, now);
+  // d'abord ce qui se combat (chef, camps), puis les autres actions (extraire, livrer, pister…)
+  const fight = list.filter((x) => x.actions.includes('attack')), other = list.filter((x) => !x.actions.includes('attack'));
+  const row = ({ t, name, actions }) => `<li class="ev-t ${t.type === 'boss' ? 'boss' : ''}"><div class="ev-tn"><b>${esc(name)}</b>${t.tier && t.type !== 'boss' ? ` <span class="small muted">rang ${t.tier}</span>` : ''}${t.enemies ? `<div class="small muted">${Object.values(t.enemies).reduce((a, b) => a + b, 0)} ennemis</div>` : ''}</div>
+    <div class="ev-ta">${actions.map((a) => `<button class="mini ${a === 'attack' ? 'primary' : ''}" data-action="ev-send" data-act="${a}" data-id="${t.id}" data-x="${t.x}" data-y="${t.y}">${esc(ACT_LABEL[a] || a)}</button>`).join('') || '<span class="small muted">en attente</span>'}</div></li>`;
+  const block = (title, l, n) => (l.length ? `<h5>${title}</h5><ul class="ev-targets">${l.slice(0, n).map(row).join('')}</ul>${l.length > n ? `<div class="small muted">… et ${l.length - n} autres sur la carte de l’événement</div>` : ''}` : '');
+  return `<div class="panel-sub ev-site ${poi.phase === 'boss' ? 'is-boss' : ''}" style="--ev:${poi.color || '#c9a24a'}"><h4>${esc(poi.name)} <span class="small muted">· ${esc(EVENT_PHASE[poi.phase] || '')}</span></h4>
+    <div class="small">Se termine dans <b>${countdown(poi.until)}</b>. Les combats suivent les règles de l’événement ; butin et monnaie arrivent comme d’habitude.</div>
+    ${list.length ? block('À attaquer', fight, 6) + block('Autres actions', other, 4) : '<p class="muted">Plus aucune cible pour l’instant : elles réapparaissent au fil de l’événement.</p>'}
+    <button class="btn ghost small" data-action="nav" data-view="event">Ouvrir l’événement (carte, boutique, classement)</button></div>`;
+}
+
 export const tileView = {
   id: 'tile', title: 'Case',
   title_(app) { const sel = app.ui.worldSel; return sel ? `Case (${sel.x}, ${sel.y})` : 'Carte du monde'; },
@@ -627,7 +650,7 @@ function tilePanel(app) {
   if (own && !terr) html += `<div class="small">${own}</div>`;
   if (poi) {
     const def = POI_TYPES[poi.type];
-    html += `<div class="poi-head"><span class="poi-icon">${poi.type === 'kingdom' ? RIVALS[poi.rival].icon : def.icon}</span><div><b>${esc(poi.name || def.name)}</b><div class="small">${def.kind === 'breach' ? 'Seigneurs de la Brèche · ' : ''}Danger : ${dangerStars(poi.danger)}${poi.infested ? ' · 🕷️ infesté' : ''}${poi.temp ? ' · ⏳ temporaire' : ''}</div></div></div>`;
+    html += `<div class="poi-head"><span class="poi-icon">${poi.type === 'kingdom' ? RIVALS[poi.rival].icon : def.icon}</span><div><b>${esc(poi.name || def.name)}</b><div class="small">${def.kind === 'breach' ? 'Seigneurs de la Brèche · ' : ''}${def.kind === 'event' ? 'Événement en cours sur la carte' : `Danger : ${dangerStars(poi.danger)}`}${poi.infested ? ' · 🕷️ infesté' : ''}${poi.temp ? ' · ⏳ temporaire' : ''}</div></div></div>`;
     if (def.kind === 'capital') html += `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle">✎ Renommer</button></div><p class="small">Capitale de ${esc(s.meta.kingdomName)}. Toutes les marches partent d’ici.</p>`;
     if (def.kind === 'gather') {
       const r = RESOURCES[def.res];
@@ -669,6 +692,7 @@ function tilePanel(app) {
       html += townPanel(app, poi, mods);
     }
     if (def.kind === 'npc') html += npcPanel(s, poi, now);
+    if (def.kind === 'event') html += eventSitePanel(app, poi, now);
     if (def.kind === 'village') html += `<p>${poi.visited ? 'Vous avez déjà fouillé ce village.' : 'Un village abandonné. Envoyez des éclaireurs : des survivants s’y cachent peut-être.'}</p><button class="btn primary" data-action="march" data-type="explore">🧭 Explorer</button>`;
     if (def.kind === 'boss' && s.boss) {
       const b = BOSSES[s.boss.key];
@@ -687,7 +711,7 @@ function tilePanel(app) {
       <div class="castle-name">${esc(outpostLabel(terr))} <button class="mini ghost" data-action="rename-outpost" data-k="${key(x, y)}">✎ Renommer</button></div>
       <div class="small">${cat ? `${cat.icon} ${esc(cat.name)} · ` : ''}${sp ? `${sp.icon} ${esc(sp.name)} · ` : ''}Niveau ${terr.level || 1} · garnison ${Object.values(terr.garrison || {}).reduce((a, b) => a + b, 0)} soldats · ${stabLevel(stabOf(terr)).icon} stabilité ${Math.round(stabOf(terr))}${terr.revolt ? ' · <span class="bad">révolte</span>' : ''}</div>
       <button class="mini primary" data-action="visit-outpost" data-k="${key(x, y)}">🏰 Visiter</button> <button class="mini" data-action="nav" data-view="territories">Gérer →</button> <button class="mini ghost" data-action="abandon">Abandonner</button></div>`;
-  } else if (!poi || !['capital', 'town', 'kingdom', 'boss'].includes(POI_TYPES[poi.type].kind)) {
+  } else if (!poi || !['capital', 'town', 'kingdom', 'boss', 'event'].includes(POI_TYPES[poi.type].kind)) {
     const c = canClaim(s, x, y, now);
     const bonus = TERRAINS[ter].territory;
     const specs = TERRITORY_SPECS[ter] || [];
@@ -939,6 +963,9 @@ const worldView = {
     drawMap(app); updateSceneFx(document.querySelector('.world-stage'), sceneState(app.state, Date.now(), localHour()), 'world');
   },
   actions: {
+    // v24 : attaque directe depuis la fiche d'un lieu d'événement : même plan, même dialogue d'envoi que l'écran de
+    // l'événement (planLive, openSend, sendLive) ; rien n'est validé ici, tout l'est dans le moteur
+    'ev-send': (app, el) => eventView.actions['ev-send'](app, el),
     zoom: (app, el) => { const cv = document.getElementById('world-canvas'); if (!cv) return; const r = cv.getBoundingClientRect(); zoomWorldAt(cam(app), +el.dataset.z, r.width / 2, r.height / 2, r.width, r.height, app.state.world.size); drawMap(app); },
     fit: (app) => { const c = cam(app), S = app.state.world.size; c.zoom = 0; c.x = S / 2; c.y = S / 2; drawMap(app); },
     center: (app) => { const c = cam(app); c.x = app.state.world.capital.x + 0.5; c.y = app.state.world.capital.y + 0.5; c.zoom = 1; drawMap(app); },

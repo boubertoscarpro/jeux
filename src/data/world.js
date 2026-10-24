@@ -62,6 +62,8 @@ export const POI_TYPES = {
   kingdom:     { name: 'Royaume rival', icon: '🏯', kind: 'kingdom', terrain: ['plain', 'hills', 'forest'] },
   boss:        { name: 'Boss mondial', icon: '🐉', kind: 'boss', terrain: [] },
   capital:     { name: 'Votre capitale', icon: '🏰', kind: 'capital', terrain: [] },
+  // v24 : lieu de l'événement en cours (systems/eventSites.js) ; s'attaque par sa fiche, avec les règles de l'événement
+  eventSite:   { name: 'Camp d’événement', icon: '🎪', kind: 'event', terrain: [] },
 };
 
 // Variante obtenue après avoir nettoyé une mine abandonnée

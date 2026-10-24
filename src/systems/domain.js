@@ -4,8 +4,8 @@ import { pay, missing } from './economy.js';
 import { chronicle } from './chronicle.js';
 import { extendCity } from '../core/state.js';
 
-// Chaque étape ajoute 4 colonnes (est) et 2 rangées (sud) : de 24×16 à 40×24 cases
-export const DOMAIN_GROW = { w: 4, h: 2 };
+// Chaque étape ajoute 4 colonnes (est) et 4 rangées (sud) : le domaine reste carré, de 32×32 à 48×48 cases (v24)
+export const DOMAIN_GROW = { w: 4, h: 4 };
 
 // Agrandissement du domaine : la grille de la ville s'étend (vers l'est et le sud)
 export const DOMAIN_STEPS = [

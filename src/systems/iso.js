@@ -4,13 +4,16 @@
 // Le point (x, y) de la grille est le sommet haut de la case (x, y) ; son centre est (x + ½, y + ½).
 // La projection inverse sert aux clics, au survol, au clavier et au glisser-déposer sur les cases vides.
 
-export const ISO = { tw: 128, th: 64, top: 3, bottom: 1 }; // top/bottom : marges en hauteurs de case (bâtiments hauts, douves)
+// top/bottom : marges en hauteurs de case (bâtiments hauts, douves) ; side : marge à gauche et à droite, en largeurs
+// de case (v24 : la lisière du domaine se dessine autour du losange au lieu d'être coupée par le bord du canvas)
+export const ISO = { tw: 128, th: 64, top: 3, bottom: 2, side: 1.5 };
 
 // Géométrie de la scène pour une grille w × h : origine et taille du monde projeté (en px au zoom 1)
 export function isoFrame(w, h, tw = ISO.tw, th = ISO.th) {
-  const ox = h * (tw / 2);
+  const mx = ISO.side * tw;
+  const ox = h * (tw / 2) + mx;
   const oy = ISO.top * th;
-  return { tw, th, ox, oy, width: (w + h) * (tw / 2), height: (w + h) * (th / 2) + oy + ISO.bottom * th };
+  return { tw, th, ox, oy, mx, width: (w + h) * (tw / 2) + 2 * mx, height: (w + h) * (th / 2) + oy + ISO.bottom * th };
 }
 export function toScreen(f, x, y) {
   return { sx: (x - y) * (f.tw / 2) + f.ox, sy: (x + y) * (f.th / 2) + f.oy };
