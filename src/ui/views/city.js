@@ -1,3 +1,4 @@
+import { paintedThumb } from '../paint/thumbs.js';
 import { hospiceBlock, relicBlock, decoAuraBlock } from '../realmUi.js';
 import { drawerHtml, drawerOpen, fitStage } from '../stage.js';
 import { sceneState, groundKey } from '../../systems/scene.js';
@@ -332,7 +333,7 @@ function buildingPanel(app, b, mods) {
   const prox = proximityEffects(s, b);
   const links = { tavern: ['heroes', 'Recruter des héros'], forge: ['craft', 'Ouvrir la forge'], laboratory: ['craft', 'Ouvrir le laboratoire'], market: ['market', 'Ouvrir le marché'],
     library: ['research', 'Recherches'], barracks: ['army', 'Former des troupes'], stable: ['army', 'Former des troupes'], workshop: ['army', 'Former des troupes'], guildhall: ['guild', 'Guilde'], castle: ['army', 'Armée'] };
-  return `<div class="b-panel-head">${buildingSvg(b.type, b.level, 'b-art b-art-panel', b.type === 'monument' ? ORIENTS[b.orient]?.color : null)}<div><h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}/${def.maxLevel}</span></h3>
+  return `<div class="b-panel-head">${b.type === 'monument' ? buildingSvg(b.type, b.level, 'b-art b-art-panel', ORIENTS[b.orient]?.color) : paintedThumb(b.type, b.level, 96, buildingSvg(b.type, b.level, 'b-art b-art-panel'))}<div><h3>${def.icon} ${esc(def.name)} <span class="lvl">niv. ${b.level}/${def.maxLevel}</span></h3>
     ${b.type === 'townhall' ? `<div class="castle-name">🏰 <b>${esc(castleName(s))}</b> <button class="mini ghost" data-action="rename-castle" title="Renommer le château principal">✎ Renommer</button></div><div class="small muted">Château principal de ${esc(s.meta.kingdomName)}</div>` : ''}</div></div>
     <p class="muted">${esc(def.desc)}</p>
     ${zoneBlock(app, b)}
@@ -625,10 +626,10 @@ function buildPanel(app, mods, ups) {
     items = owned.map((k) => `<button class="bp-item ${app.ui.placeDeco === k ? 'active' : ''}" data-action="deco-mode" data-key="${k}" title="Placer : ${esc(COSMETICS[k].name)} (faubourgs : moral des ouvriers ; cour : moral de la garnison)"><span class="bp-ic">${COSMETICS[k].icon}</span><span class="bp-n">${esc(COSMETICS[k].name)}</span></button>`).join('') || '<span class="muted small">Aucune décoration à placer. Elles se gagnent (jalons, saison, événements).</span>';
   } else {
     items = Object.entries(BUILDINGS).filter(([t, d]) => d.grid !== false && t !== 'road' && BUILD_TABS[tab].cats.includes(d.cat)).map(([t, d]) => {
-      if (d.isPlace) { const b = allBuildings(s).find((x) => x.type === t); return `<button class="bp-item" ${b ? `data-action="goto-tile" data-x="${b.x}" data-y="${b.y}"` : 'disabled'} title="${esc(d.desc)} ${b ? 'Posé d’office : cliquez pour le voir.' : 'Se pose de lui-même quand sa fonction s’ouvre.'}">${buildingIcon(t, 30)}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small muted">${b ? 'posé' : 'à venir'}</span></button>`; }
+      if (d.isPlace) { const b = allBuildings(s).find((x) => x.type === t); return `<button class="bp-item" ${b ? `data-action="goto-tile" data-x="${b.x}" data-y="${b.y}"` : 'disabled'} title="${esc(d.desc)} ${b ? 'Posé d’office : cliquez pour le voir.' : 'Se pose de lui-même quand sa fonction s’ouvre.'}">${paintedThumb(t, 1, 44, buildingIcon(t, 30))}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small muted">${b ? 'posé' : 'à venir'}</span></button>`; }
       const req = buildRequirement(s, t);
       const { cost } = getUpgradeInfo(s, t, 1, mods);
-      return `<button class="bp-item ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? `disabled title="${esc(d.name)} — ${esc(req)}"` : `title="${esc(d.name)} — ${esc(d.desc)} · ${esc(ruleText(t))}"`} aria-label="${esc(d.name)}">${buildingIcon(t, 30)}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small">${req ? esc(req) : Object.entries(cost).slice(0, 2).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || ''}`).join(' ')}</span></button>`;
+      return `<button class="bp-item ${app.ui.placeType === t ? 'active' : ''}" data-action="place-mode" data-type="${t}" ${req ? `disabled title="${esc(d.name)} — ${esc(req)}"` : `title="${esc(d.name)} — ${esc(d.desc)} · ${esc(ruleText(t))}"`} aria-label="${esc(d.name)}">${paintedThumb(t, 1, 44, buildingIcon(t, 30))}<span class="bp-n">${esc(d.name)}</span><span class="bp-c small">${req ? esc(req) : Object.entries(cost).slice(0, 2).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || ''}`).join(' ')}</span></button>`;
     }).join('');
     if (tab === 'mil') items += ['wall', 'moat'].map((type) => { const u = upgradeCheck(s, 'fort:' + type, mods); const lvl = s.city.fort[type] || 0; return `<button class="bp-item" data-action="upgrade" data-id="fort:${type}" ${['ready', 'queue'].includes(u.status) ? '' : `disabled title="${esc(u.reasons?.[0] || '')}"`}>${BUILDINGS[type].icon}<span class="bp-n">${esc(BUILDINGS[type].name)} → ${lvl + 1}</span><span class="bp-c small">${u.cost ? Object.entries(u.cost).slice(0, 2).map(([r, v]) => `${fmt(v)} ${RESOURCES[r]?.icon || ''}`).join(' ') : esc(u.reasons?.[0] || '')}</span></button>`; }).join('');
   }

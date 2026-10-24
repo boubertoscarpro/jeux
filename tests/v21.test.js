@@ -80,14 +80,14 @@ test('Vie : la foule suit l’état (ordre, famine, raid, nuit) et la garde n’
 });
 
 // ───────── B1 : hospice ─────────
-test('Hospice : sans lits pas de blessés ; 30 % des pertes en défense, 20 % en campagne, plafonnés aux lits', () => {
+test('Hospice : sans lits pas de blessés ; 15 % des pertes en défense, 8 % en campagne, plafonnés aux lits', () => {
   const s = realmState();
   assert.equal(R.addWounded(s, { spearman: 100 }, 'def', T0), 0, 'sans hospice, les tombés sont perdus');
   put(s, 'hs', 'hospice', 5, 5, 2);
   assert.equal(R.hospiceBeds(s), HOSPICE.bedsBase + 2 * HOSPICE.bedsPerLevel);
-  assert.equal(R.addWounded(s, { spearman: 100 }, 'def', T0), 30);
-  assert.equal(R.addWounded(s, { archer: 100 }, 'att', T0), 20);
-  assert.equal(R.addWounded(s, { archer: 1000 }, 'def', T0), R.hospiceBeds(s) - 50, 'plafond des lits');
+  assert.equal(R.addWounded(s, { spearman: 100 }, 'def', T0), 15);
+  assert.equal(R.addWounded(s, { archer: 100 }, 'att', T0), 8);
+  assert.equal(R.addWounded(s, { archer: 1000 }, 'def', T0), R.hospiceBeds(s) - 23, 'plafond des lits');
   assert.equal(R.woundedCount(s), R.hospiceBeds(s));
 });
 test('Hospice : soins (une potion pour 10), retour à la garnison, vétérans si soignés vite, abandon puni', () => {
@@ -95,7 +95,7 @@ test('Hospice : soins (une potion pour 10), retour à la garnison, vétérans si
   put(s, 'hs', 'hospice', 5, 5, 4);
   s.army = { spearman: 400 };
   s.inventory.consumables.healPotion = 0;
-  R.addWounded(s, { spearman: 100 }, 'def', T0);
+  R.addWounded(s, { spearman: 200 }, 'def', T0);
   assert.equal(R.healWounded(s, null, T0 + H).ok, false, 'pas de potion, pas de soin');
   s.inventory.consumables.healPotion = 10;
   const h = R.healWounded(s, null, T0 + H);
@@ -110,7 +110,7 @@ test('Hospice : soins (une potion pour 10), retour à la garnison, vétérans si
   assert.ok(computeMods(s, T0 + 14 * H)['unit.spearman.atk'] > 0 && computeMods(s, T0 + 14 * H)['unit.spearman.atk'] <= HOSPICE.vetAtk + 1e-9);
   // Abandon
   const f0 = favorOf(s, 'peasants');
-  R.addWounded(s, { spearman: 100 }, 'def', T0 + 20 * H);
+  R.addWounded(s, { spearman: 200 }, 'def', T0 + 20 * H);
   R.hospiceTick(s, T0 + 20 * H + 25 * H);
   assert.equal(R.woundedCount(s), 0);
   assert.ok(favorOf(s, 'peasants') < f0, 'l’Assemblée des villages s’en souvient');

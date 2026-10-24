@@ -4,7 +4,9 @@
 
 // B1 — Une part des pertes devient des blessés, recueillis par l'hospice (dans la limite de ses lits)
 export const HOSPICE = {
-  defShare: 0.3, attShare: 0.2, // part des pertes qui survit blessée (défense du château, combats en campagne)
+  // part des pertes qui survit blessée (défense du château, combats en campagne). Mesuré : avec 30 % / 20 % et des soins
+  // parfaits, le profil « Armée » récupérait ≈ +20 % d'armée en 7 jours ; ramené à 15 % / 8 % pour rester sous +10 %
+  defShare: 0.15, attShare: 0.08,
   bedsBase: 40, bedsPerLevel: 25, // lits : 40 + 25 par niveau
   healH: 12, potionPer: 10, // 12 h de soins, une potion de soin pour 10 blessés
   earlyH: 6, vetShare: 0.35, vetCap: 0.1, vetAtk: 0.05, // soignés dans les 6 h : 35 % deviennent vétérans (≤ 10 % de l'effectif), +5 % d'attaque

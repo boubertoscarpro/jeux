@@ -4,13 +4,15 @@
 import { BUILDINGS } from '../data/buildings.js';
 import { BUILDING_RELICS, HOSPICE, CASTELLAN, BRIGANDS, DECO_WEAR } from '../data/realm21.js';
 import { HERO_CLASSES } from '../data/heroes.js';
+import { UNITS } from '../data/units.js';
 import { RIVALS } from '../data/world.js';
 import { realm, hospiceBeds, woundedCount, healWounded, potionsFor, relicSlots, relicsOf, freeRelics, placeRelic, relicFromFragments, castellanOf, castellanDefense, assignCastellan, dismissCastellan, insecurity, decoAuras, careDeco, realmWhy } from '../systems/realm21.js';
 import { esc, countdown, costList } from './components.js';
 import { fmt } from '../core/util.js';
 
 const sum = (o) => Object.values(o || {}).reduce((a, b) => a + b, 0);
-const unitList = (u) => Object.entries(u).map(([k, n]) => `${n} ${esc(k)}`).join(', ');
+const uName = (k) => UNITS[k]?.name?.toLowerCase() || k;
+const unitList = (u) => Object.entries(u).map(([k, n]) => `${n} ${esc(uName(k))}`).join(', ');
 
 // Fiche de l'hospice
 export function hospiceBlock(app, b) {
@@ -19,12 +21,12 @@ export function hospiceBlock(app, b) {
   const waiting = R.wounded.filter((g) => !g.healing), healing = R.wounded.filter((g) => g.healing);
   const need = waiting.reduce((a, g) => a + potionsFor(sum(g.units)), 0);
   return `<div class="panel-sub r21-hospice"><h4>⛑️ Blessés <span class="muted small">${w}/${beds} lits</span></h4>
-    <p class="small muted">En défense, 30 % des pertes survivent blessées ; en campagne, 20 %. Une potion de soin (🧪 ${pots} en réserve) pour ${HOSPICE.potionPer} blessés, 12 h de soins. Soignés dans les 6 h : certains reviennent vétérans. Sans soins sous 24 h, ils rentrent au village.</p>
+    <p class="small muted">En défense, 15 % des pertes survivent blessées ; en campagne, 8 %. Une potion de soin (🧪 ${pots} en réserve) pour ${HOSPICE.potionPer} blessés, 12 h de soins. Soignés dans les 6 h : certains reviennent vétérans. Sans soins sous 24 h, ils rentrent au village.</p>
     ${waiting.map((g) => `<div class="r21-row"><span>${sum(g.units)} blessés (${unitList(g.units)})${g.src ? ` · ${esc(g.src)}` : ''}</span><span class="small ${now - g.at > (HOSPICE.waitH - 6) * 3600000 ? 'warn-text' : 'muted'}">repartent ${countdown(g.at + HOSPICE.waitH * 3600000)}</span><button class="mini primary" data-action="r21-heal" data-id="${g.id}" ${pots < potionsFor(sum(g.units)) ? 'disabled' : ''}>Soigner (🧪 ${potionsFor(sum(g.units))})</button></div>`).join('')}
     ${healing.map((g) => `<div class="r21-row"><span>${sum(g.units)} en soins${g.early ? ' (à temps : vétérans possibles)' : ''}</span><span class="small muted">guéris ${countdown(g.done)}</span></div>`).join('')}
     ${!R.wounded.length ? '<div class="small muted">Aucun blessé pour l’instant.</div>' : ''}
     ${waiting.length > 1 ? `<button class="mini" data-action="r21-heal" ${pots < need ? 'disabled' : ''}>Tout soigner (🧪 ${need})</button>` : ''}
-    ${Object.values(R.veterans).some((n) => n > 0) ? `<div class="small ok">🎖️ Vétérans : ${Object.entries(R.veterans).filter(([, n]) => n > 0).map(([u, n]) => `${n} ${esc(u)}`).join(', ')} (attaque de leur unité jusqu’à +5 %)</div>` : ''}</div>`;
+    ${Object.values(R.veterans).some((n) => n > 0) ? `<div class="small ok">🎖️ Vétérans : ${Object.entries(R.veterans).filter(([, n]) => n > 0).map(([u, n]) => `${n} ${esc(uName(u))}`).join(', ')} (attaque de leur unité jusqu’à +5 %)</div>` : ''}</div>`;
 }
 // Reliques d'un bâtiment (et celles du trésor qui lui conviennent)
 export function relicBlock(app, b) {

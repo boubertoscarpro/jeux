@@ -21,6 +21,26 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v21 — Couleurs du Royaume** : le royaume prend des couleurs chaudes et s'anime.
+> - **Une scène peinte** :
+>   - bâtiments, décor et muraille peints en Canvas 2D, puis gardés en image : matières, lumière chaude, ombres portées, contour ;
+>   - une croissance visible à chaque palier ;
+>   - un sol peint, avec l'eau et les berges des douves ;
+>   - les boutons, invisibles, restent pour le clavier et le lecteur d'écran.
+> - **Un château vivant** : passants, gardes aux torches sur les remparts, charrettes, oiseaux, nuages, fumées des ateliers, reflets. Leur nombre suit la population, l'ordre public, la famine, un raid et la nuit.
+> - **Des retours gratifiants** : poussière, rebond et étincelles en fin de chantier ; les pièces volent vers la jauge.
+> - **L'interface** : bois sculpté, rivets d'or, rubans, signets de cuir, parchemin, icônes en relief. La qualité graphique est haute par défaut.
+> - **Le monde dessiné** : la capitale grandit avec l'hôtel de ville ; royaumes, cités, camps et avant-postes sont peints ; les armées marchent en colonnes avec leur étendard.
+> - **Six mécaniques** :
+>   - **Hospice** : les blessés se soignent avec des potions, certains reviennent vétérans.
+>   - **Reliques de bâtiment** : elles rayonnent sur les voisins.
+>   - **Châtelain** : les seigneurs apprennent son poste.
+>   - **Camps de brigands à niveaux** : la ligue riposte, et les camps négligés rendent les routes peu sûres.
+>   - **Garnison alliée** : elle a ses exigences.
+>   - **Auras des décorations** : elles s'usent.
+>
+> Rien de copié, aucune monnaie nouvelle, aucun avantage payant. Voir [`docs/AUDIT_V21.md`](docs/AUDIT_V21.md) et [`docs/V21.md`](docs/V21.md).
+
 > **v20 — Ma forteresse** : le royaume devient une forteresse vivante, vue en isométrique, dans ses murs et ses douves, avec les champs autour.
 > - **Vue isométrique** : losange 2:1, profondeur exacte, clic, survol et clavier par projection inverse ; le sol est mis en cache, seul ce qui bouge est redessiné. Bâtiments plus grands, toits colorés par famille, muraille crénelée avec tours, porte et pont-levis, bannières à vos armes, engins de la v19 sur leur flanc, fissures et réparations visibles.
 > - **La ville dans les murs** : tout ce qui est urbain se bâtit dans la ville fortifiée (6 × 6 à 11 × 11 cases selon l'hôtel de ville), la campagne productive dehors. Chaque agrandissement redessine murs et douves, mis en scène ; un agrandissement du domaine offre le palier suivant.

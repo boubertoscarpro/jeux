@@ -1,0 +1,5 @@
+normal 302 sous AA: 0 min 4.61
+hc 302 sous AA: 0 min 4.61
+cb-deut 302 sous AA: 0 min 4.61
+cb-prot 302 sous AA: 0 min 4.61
+cb-trit 302 sous AA: 0 min 4.61

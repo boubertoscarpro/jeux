@@ -8,6 +8,7 @@ import { TROPHIES } from '../data/trophies.js';
 import { COSMETICS } from '../data/social.js';
 import { POI_TYPES, RIVALS } from '../data/world.js';
 import { HERO_CLASSES } from '../data/heroes.js';
+import { UNITS } from '../data/units.js';
 import { log, toast, feat } from './log.js';
 import { shiftFavor } from './council.js';
 import { changeRelation } from './factions.js';
@@ -48,6 +49,7 @@ export function hospiceBeds(state) {
 export const woundedCount = (state) => realm(state).wounded.reduce((a, g) => a + sum(g.units), 0);
 // Une part des pertes devient des blessés (dans la limite des lits libres) ; renvoie le nombre recueilli
 export function addWounded(state, losses, side, now = Date.now(), src = '') {
+  if (globalThis.__noV21) return 0; // outil de simulation : comparaison avec et sans les blessés
   const free = hospiceBeds(state) - woundedCount(state);
   const lost = sum(losses);
   if (free <= 0 || lost <= 0) return 0;
@@ -416,9 +418,9 @@ export function realmMods(state, now = Date.now()) {
 export function realmWhy(state, now = Date.now()) {
   const R = realm(state), out = [];
   const beds = hospiceBeds(state), w = woundedCount(state);
-  out.push({ k: 'hospice', title: 'Hospice et blessés', lines: beds ? [`${beds} lits (40 + 25 par niveau${relicsIn(state, 'hospice').length ? ', relique +25 %' : ''}) ; ${w} blessés en ce moment.`, `En défense, 30 % des pertes survivent blessées ; en campagne, 20 %. Une potion de soin pour ${HOSPICE.potionPer} blessés, 12 h de soins.`, `Soignés dans les 6 h : 35 % reviennent vétérans (au plus 10 % de l’effectif, +5 % d’attaque). Sans soins sous 24 h, ils rentrent au village (faveur de l’Assemblée en baisse).`] : ['Pas d’hospice : les soldats tombés sont perdus. Bâtissez l’Hospice (HdV 5) pour recueillir des blessés.'] });
+  out.push({ k: 'hospice', title: 'Hospice et blessés', lines: beds ? [`${beds} lits (40 + 25 par niveau${relicsIn(state, 'hospice').length ? ', relique +25 %' : ''}) ; ${w} blessés en ce moment.`, `En défense, 15 % des pertes survivent blessées ; en campagne, 8 %. Une potion de soin pour ${HOSPICE.potionPer} blessés, 12 h de soins.`, `Soignés dans les 6 h : 35 % reviennent vétérans (au plus 10 % de l’effectif, +5 % d’attaque). Sans soins sous 24 h, ils rentrent au village (faveur de l’Assemblée en baisse).`] : ['Pas d’hospice : les soldats tombés sont perdus. Bâtissez l’Hospice (HdV 5) pour recueillir des blessés.'] });
   const vet = Object.entries(R.veterans).filter(([, n]) => n > 0);
-  if (vet.length) out.push({ k: 'veterans', title: 'Vétérans', lines: vet.map(([u, n]) => `${n} vétérans ${u} : attaque de l’unité +${Math.round((veteranMods(state)[`unit.${u}.atk`] || 0) * 1000) / 10} %`) });
+  if (vet.length) out.push({ k: 'veterans', title: 'Vétérans', lines: vet.map(([u, n]) => `${n} vétérans (${UNITS[u]?.name || u}) : attaque de l’unité +${Math.round((veteranMods(state)[`unit.${u}.atk`] || 0) * 1000) / 10} %`) });
   const placed = R.relics.filter((x) => x.bid);
   out.push({ k: 'relics', title: 'Reliques de bâtiment', lines: R.relics.length ? R.relics.map((x) => { const d = BUILDING_RELICS[x.key], b = x.bid && state.city.buildings[x.bid]; return `${d.icon} ${d.name} : ${b ? `${BUILDINGS[b.type]?.name} (${b.x}, ${b.y})${x.movingUntil > now ? ' — en transport' : ''}` : 'au trésor, à poser'} — ${d.desc}`; }) : ['Aucune relique. Elles viennent des fouilles, de 3 fragments de relique et de la ligue brisée.'], note: placed.length ? 'Les reliques qui rayonnent donnent la moitié de leur effet aux bâtiments voisins (8 cases).' : null });
   const c = castellanDefense(state);

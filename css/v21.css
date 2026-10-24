@@ -84,3 +84,7 @@ html.reduce-motion .w21-num, html.saver .w21-num { animation: none; }
 .r21-row > span:first-child { flex: 1 1 200px; }
 .r21-card h2 { display: flex; align-items: center; gap: 8px; }
 .r21-card h2 .mini { margin-left: auto; }
+/* Miniatures peintes (fiche, panneau Construire) */
+.b-thumb { object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45)); }
+.b-panel-head .b-thumb { flex: 0 0 auto; width: 96px; height: 96px; border-radius: 12px; background: radial-gradient(ellipse at 50% 70%, #9cc76a, #5e8f36 70%); box-shadow: inset 0 0 0 2px #8a6a3e, inset 0 0 0 4px rgba(0, 0, 0, 0.25); padding: 4px; }
+.bp-item .b-thumb { width: 54px; height: 54px; margin: -6px 0 -4px; }
