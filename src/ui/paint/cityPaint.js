@@ -37,7 +37,7 @@ export function cityItems(app, ctx, { film = null, night = false, raid = null, r
     if (film && !film.ids.has(b.id)) continue;
     const x = b.x, y = b.y, q = ctx.q.get(b.id);
     const alpha = ctx.planFrom.has(b.id) ? 0.4 : 1;
-    if (b.type === 'road') { items.push({ x, y, depth: depth(x, y, LAYER.ground + 1), k: 'road', sp: roadSprite, noShadow: true, alpha }); continue; }
+    if (b.type === 'road') { items.push({ x, y, flat: true, depth: depth(x, y, LAYER.ground + 1), k: 'road', sp: roadSprite, noShadow: true, alpha }); continue; }
     if (b.type === 'deco') {
       const td = decoDef(b.deco);
       if (td?.trophy) items.push({ x, y, depth: depth(x, y, LAYER.building), k: `t${td.shape}${td.color}`, sp: (r) => trophySprite(td.shape, td.color, r), alpha });
@@ -47,7 +47,12 @@ export function cityItems(app, ctx, { film = null, night = false, raid = null, r
     if (!(b.level > 0)) {
       // chantier d'un nouveau bâtiment : terrain piqueté et échafaudage
       items.push({ x, y, depth: depth(x, y, LAYER.building) - 1, k: 'lot', sp: lotSprite, alpha });
-      if (q) items.push({ x, y, depth: depth(x, y, LAYER.building), k: 'scaf40', sp: (r) => scaffoldSprite(40, r), alpha });
+      if (q) {
+        // v23 : le bâtiment monte derrière l'échafaudage, de la base au faîte, au rythme du chantier (12 paliers)
+        const prog = () => Math.max(0.08, Math.min(1, (Date.now() - q.start) / Math.max(1, q.end - q.start)));
+        items.push({ x, y, depth: depth(x, y, LAYER.building), k: `rise${b.type}`, prog, sp: (r) => buildingSprite(b.type, sizeTier(1), variantOf(x, y), { active: false, season, level: 1 }, r), noShadow: true, smoke: false });
+        items.push({ x, y, depth: depth(x, y, LAYER.building) + 1, k: 'scaf40', sp: (r) => scaffoldSprite(40, r), alpha });
+      }
       continue;
     }
     const tier = sizeTier(b.level || 1), v = variantOf(x, y);
@@ -99,7 +104,7 @@ export function attachPaint(gslot, slot, state, f, R, items, gopts) {
   // sol : le canvas peint en cache est recopié (même taille)
   const gcv = groundCanvas(state, f, R, gopts);
   if (keep.ground._src !== gcv) { const g = keep.ground.getContext('2d'); g.clearRect(0, 0, W, H); g.drawImage(gcv, 0, 0); keep.ground._src = gcv; }
-  const key = R + '|' + W + 'x' + H + '|' + items.map((it) => `${it.k}@${it.x},${it.y}${it.alpha ?? ''}${it.filter || ''}${it.depth}`).join(';');
+  const key = R + '|' + W + 'x' + H + '|' + items.map((it) => `${it.k}@${it.x},${it.y}${it.alpha ?? ''}${it.filter || ''}${it.depth}${it.prog ? '~' + Math.floor(it.prog() * 12) : ''}`).join(';');
   if (key !== keep.sceneKey) {
     const { fx } = drawScene(keep.scene, items, f, R);
     // fumées : animées (ou figées) par la couche de vie, en coordonnées du monde
@@ -115,13 +120,15 @@ export { paintStats };
 export function lifeData(app, ctx, film, density) {
   const s = ctx.s, r = film ? film.rect : rectOf(s), g = gateOf(s, r), W = s.city.w, Hh = s.city.h;
   const solid = (x, y) => { const b = ctx.at.get(x + ',' + y); return !!b && b.type !== 'road'; };
-  const walk = [];
+  const walk = [], walled = !!wallStyle(fortLevel(s, 'wall')).key;
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
     const inside = x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1;
     const b = ctx.at.get(x + ',' + y), d = Math.max(r.x0 - x, x - r.x1, r.y0 - y, y - r.y1);
     // dedans : la cour pavée ; dehors : routes et prés libres autour des douves
     const out = b ? b.type === 'road' : d >= 2 && d <= 4 && terrainAt(s, x, y) === 'plain';
     if (inside ? solid(x, y) || ctx.lots.has(x + ',' + y) : !out) continue;
+    // v23 : pas de passant sur la dernière rangée de la cour, juste derrière le rempart avant (il passerait devant lui)
+    if (inside && walled && (x === r.x1 || y === r.y1) && !(x === g.x && y === r.y1)) continue;
     // pas de passant juste derrière un bâtiment (il serait dessiné par-dessus le toit)
     if (solid(x + 1, y) || solid(x, y + 1) || solid(x + 1, y + 1)) continue;
     walk.push([x, y]);
@@ -135,7 +142,14 @@ export function lifeData(app, ctx, film, density) {
     const ring = Math.max(r.x0 - x, x - r.x1, r.y0 - y, y - r.y1) === 1;
     if ((ring && fortLevel(s, 'moat') > 0) || terrainAt(s, x, y) === 'river') water.push([x, y]);
   }
-  return { f: ctx.f, walk, allee: allee.length > 1 ? allee : [], perim, wallH: (WALLP[style]?.h || 30) + 2, water, fx: keep.fx, density };
+  // v23 : chantiers en cours (poussière et coups de marteau) ; ligne de la porte (la charrette passe sous la voûte)
+  const sites = [];
+  for (const q of s.queues?.build || []) {
+    const b = q.bid ? s.city.buildings[q.bid] : null;
+    const at = b ? { x: b.x, y: b.y } : q.kind === 'clear' ? { x: q.x, y: q.y } : null;
+    if (at) sites.push({ x: at.x, y: at.y, h: q.kind === 'clear' ? 10 : b && b.level > 0 ? 70 : 40 });
+  }
+  return { f: ctx.f, walk, allee: allee.length > 1 ? allee : [], perim, wallH: (WALLP[style]?.h || 30) + 2, water, fx: keep.fx, density, sites, gateY: style && style !== 'stakes' ? r.y1 + 1 : null };
 }
 
 // Dessin cuit déjà posé sur une case (rebond de fin de chantier)

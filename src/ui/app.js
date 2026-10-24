@@ -149,7 +149,6 @@ export class App {
     h.classList.toggle('hc', a.contrast);
     for (const c of ['deut', 'prot', 'trit']) h.classList.toggle('cb-' + c, a.colorVision === c);
     h.classList.toggle('font-readable', a.font === 'readable');
-    h.classList.toggle('no-weather', !a.weather);
     h.classList.toggle('no-night', !a.night);
     h.classList.toggle('show-names', a.showNames);
     h.classList.toggle('simple', a.simple);
@@ -408,7 +407,7 @@ export class App {
     const root = this.$('#win-root');
     if (!root) return;
     const id = this.ui.win;
-    if (!id) { root.innerHTML = ''; root.classList.remove('open'); return; }
+    if (!id) { root.innerHTML = ''; root.classList.remove('open'); this._winShown = null; return; }
     const view = this.views[id];
     if (!view) { this.ui.win = null; root.innerHTML = ''; return; }
     const pk = SCREEN_PLACE[id];
@@ -422,10 +421,13 @@ export class App {
     const tabs = !internal && p ? p.screens.filter((v) => this.views[v] && (v === id || !this.views[v].locked?.(this))) : [];
     const locked = view.locked?.(this);
     const help = helpFor(id) ? `<button class="win-ic" data-action="help" title="Aide sur cet écran" aria-label="Aide">❓</button>` : '';
+    // v23 : l'animation d'ouverture ne joue qu'à l'ouverture (ou au changement d'écran), pas à chaque nouveau rendu
+    const enter = !root.classList.contains('open') || this._winShown !== id;
+    this._winShown = id;
     root.classList.add('open');
     const body = locked ? `<div class="card locked-card"><h2>${esc(view.title)}</h2><p>${esc(locked)}</p><p class="muted small">Ce lieu s’ouvrira de lui-même : son panneau dans le château indique la condition.</p></div>` : view.render(this);
     const html = `<div class="win-backdrop" data-action="win-close"></div>
-      <section class="win" role="dialog" aria-modal="true" aria-labelledby="win-title" data-screen="${id}">
+      <section class="win${enter ? ' win-enter' : ''}" role="dialog" aria-modal="true" aria-labelledby="win-title" data-screen="${id}">
         <header class="win-head">
           ${this.ui.winHistory.length ? `<button class="win-ic" data-action="win-back" title="Retour" aria-label="Retour">←</button>` : ''}
           <h2 id="win-title">${icon} ${esc(title)} ${lvl}</h2>
@@ -447,7 +449,7 @@ export class App {
     if (h && norm(h.textContent) && norm(h.textContent) === norm(title)) h.classList.add('sr-only');
     if (!locked) view.after?.(this);
     iconize(root);
-    if (this._focusWin) { this._focusWin = false; root.querySelector('.win-x')?.focus(); }
+    if (this._focusWin) { this._focusWin = false; root.querySelector('.win-x')?.focus({ preventScroll: true }); }
   }
 
   closeWin(render = true) {
@@ -499,7 +501,19 @@ export class App {
     } else if (okMsg) this.toast(typeof okMsg === 'function' ? okMsg(r) : okMsg, 'good');
     this.render();
     if (!r || r.ok !== false) this.save();
+    else this.deny();
     return r;
+  }
+  // v23 : action refusée — le bouton touché (retrouvé après le nouveau rendu) se secoue brièvement ; en mouvement réduit,
+  // un liseré rouge à la place. Le refus lui-même est dit par la notification.
+  deny() {
+    const a = this._lastAct;
+    if (!a || typeof document === 'undefined') return;
+    const sel = `[data-action="${a.name}"]` + ['id', 'k', 'type', 'x', 'y', 'view'].filter((k) => a.data[k] != null).map((k) => `[data-${k}="${CSS.escape(a.data[k])}"]`).join('');
+    const el = document.querySelector(sel);
+    if (!el) return;
+    el.classList.remove('v23-deny'); void el.offsetWidth; el.classList.add('v23-deny');
+    el.addEventListener('animationend', () => el.classList.remove('v23-deny'), { once: true });
   }
 
   bindEvents() {
@@ -522,6 +536,7 @@ export class App {
       const inWin = !!el.closest('#win-root');
       const fn = (this.modalActions && this.modalActions[name]) || (inWin && winV?.actions?.[name]) || mapV?.actions?.[name] || winV?.actions?.[name] || sideActions[name] || this.globalActions[name];
       if ((name === 'goto' || name === 'nav') && this.modalActions) this.closeModal();
+      if (attr === 'data-action') this._lastAct = { name, data: { ...el.dataset } };
       if (fn) { ev.preventDefault?.(); fn(this, el, ev); }
     };
     document.addEventListener('click', (ev) => handle(ev, 'data-action'));
@@ -636,7 +651,8 @@ export class App {
     this.modalActions = actions;
     const root = document.getElementById('modal-root');
     if (!root.classList.contains('open') && document.activeElement && !root.contains(document.activeElement)) this._modalReturn = document.activeElement;
-    root.innerHTML = `<div class="modal-backdrop" data-action="close-modal"></div><div class="modal ${cls}" role="dialog"><button class="modal-x" data-action="close-modal" aria-label="Fermer">✕</button>${html}</div>`;
+    const enter = !root.classList.contains('open'); // v23 : animation d'entrée à l'ouverture seulement
+    root.innerHTML = `<div class="modal-backdrop" data-action="close-modal"></div><div class="modal ${cls}${enter ? ' modal-enter' : ''}" role="dialog"><button class="modal-x" data-action="close-modal" aria-label="Fermer">✕</button>${html}</div>`;
     root.classList.add('open');
     iconize(root);
     root.querySelector('.modal')?.setAttribute('aria-modal', 'true');

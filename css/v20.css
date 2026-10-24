@@ -53,7 +53,6 @@
 .city-vp .t-sig.sig-stopped i { font: italic 800 11px/1 var(--font); letter-spacing: -0.5px; }
 .city-vp .tile.iso-b .t-build { left: 50%; right: auto; top: calc(var(--top, 100px) - 24px); transform: translateX(-50%) scale(var(--bz, 1)); transform-origin: bottom center; }
 .city-vp .tile.iso-b .progress { left: 34px; right: 34px; top: 176px; bottom: auto; height: 6px; }
-.city-vp .tile.iso-b .fx-crowd { left: 26px; right: 26px; top: 160px; bottom: auto; }
 .city-vp .tile.iso-b .fx-fire { left: 50%; bottom: auto; top: calc(var(--top, 100px) + 8px); }
 .city-vp .tile.iso-b .fx-water { position: absolute; left: 10px; right: 10px; top: 150px; height: 40px; border-radius: 50%; }
 .city-vp[data-zl="far"] .tile.iso-b .t-sig.sig-stopped { display: none !important; }

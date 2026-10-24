@@ -34,7 +34,7 @@ import { readyHarvests, collectHarvest } from '../../systems/harvest.js';
 import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { undoReorganize, enlargeCastle, enlargePreview, nextEncStage } from '../../systems/castle.js';
 import { TROPHIES } from '../../data/trophies.js';
-import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx } from '../paint/cityPaint.js';
+import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx, paintStats } from '../paint/cityPaint.js';
 import { mountLife, lifeRedraw } from '../paint/life.js';
 import { flyGains } from '../juice.js';
 import { lifeDensity } from '../../systems/life.js';
@@ -98,7 +98,6 @@ function cityCtx(app, mods) {
   // v16 : terrains vagues (bâtiments « menu » à bâtir), forge au travail, foule du marché selon les caravanes
   const lots = new Map(vacantLots(s).map((l) => [l.x + ',' + l.y, l]));
   const crafting = (s.queues.craft || []).length > 0;
-  const crowd = Math.min(5, (s.caravans || []).length * 2 + ((s.market?.trades || 0) > 0 ? 1 : 0));
   // v16 : bulles (ce qui attend le joueur) et héros à leur poste, sauf en mode Construire
   const quiet = app.ui.buildMode || app.ui.placeType || app.ui.moveId;
   const bubbles = new Map(quiet ? [] : cityBubbles(s, mods).map((b) => [b.bid, b]));
@@ -121,7 +120,7 @@ function cityCtx(app, mods) {
     if (['forge', 'armory'].includes(b.type) ? crafting : !signals.get(b.id) || signals.get(b.id).kind !== 'stopped') active.add(b.id);
   }
   const riverSide = (b) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => terrainAt(s, b.x + dx, b.y + dy) === 'river');
-  return { f: frameOf(s), active, riverSide, glow, layer, rove, planTo, planFrom, s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, crowd, bubbles, posts, signals, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
+  return { f: frameOf(s), active, riverSide, glow, layer, rove, planTo, planFrom, s, mods, at, q, up, planned, risk, flood, scene, burning, flooded, charred, lots, crafting, bubbles, posts, signals, place: app.ui.placeType || (app.ui.moveId && s.city.buildings[app.ui.moveId]?.type), sel: app.ui.citySel };
 }
 
 function roadMask(ctx, x, y) {
@@ -174,7 +173,6 @@ function objHtml(app, b, ctx) {
     const lv = ctx.layer?.get(b.id);
     if (lv) { cls.push('lay', 'lay-' + lv.band); label += ` — ${LAYERS[app.ui.layer].name} : ${lv.label}`; inner += `<span class="t-lay" aria-hidden="true" title="${esc(lv.label)}"></span>`; }
     if ((b.starved || b.damaged) && !sg?.compact) cls.push('st-alert');
-    if (b.type === 'market' && ctx.crowd) inner += `<span class="fx-crowd" aria-hidden="true">${'<i></i>'.repeat(ctx.crowd)}</span>`;
     if (ctx.burning.has(b.id)) { cls.push('burning'); inner += `<span class="fx-fire" aria-hidden="true"><i></i><i></i><i></i></span><span class="fx-smoke" aria-hidden="true"></span>`; }
     else if (ctx.charred.has(b.id)) cls.push('charred');
     if (ctx.risk) {
@@ -574,6 +572,7 @@ function attachGround(app) {
   const vp = document.getElementById('city-vp'), p = app._paint;
   if (!vp || !p) return;
   attachPaint(vp.querySelector('.paint-slot.pg'), vp.querySelector('.paint-slot.ps'), p.state, p.f, p.R, p.items, p.gopts);
+  app.paintStats = paintStats; // mesures (outils de perf et de composition)
   if (app._life) mountLife(vp, app, { ...app._life, fx: paintFx() });
 }
 
@@ -708,7 +707,7 @@ const cityView = {
             <div class="paint-slot ps ${growing ? 'grow' : ''}" aria-hidden="true"></div>
             ${raid && !film ? reuse('iso-walls', raidColumnHtml(s, f, raid)) : ''}
             <div class="city-grid iso-objs ${s.meta.theme || ''} ${ups.count > 12 ? 'calm-ups' : ''}">${parts.join('')}${placeHints(app, ctx)}</div>
-            <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-clouds" style="animation-delay:-${Math.round((Date.now() / 1000) % 140)}s"></div><div class="fx-wx"></div><div class="fx-sign"></div></div></div>
+            <div class="castle-slot wx-slot" style="width:${Math.round(f.width)}px;height:${Math.round(f.height)}px" aria-hidden="true"><div class="scene-fx in-map"><div class="fx-light" style="--lt: rgba(${ctx.scene.light.tint.join(',')},${ctx.scene.light.a.toFixed(3)})"></div><div class="fx-sign"></div></div></div>
           </div>
           <div class="ring-wrap" id="city-ring" data-x="${sel ? sel.x : ''}" data-y="${sel ? sel.y : ''}">${ring}</div>
           <div class="map-tip" id="city-tip" role="tooltip"></div>

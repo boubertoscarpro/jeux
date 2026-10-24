@@ -9,7 +9,7 @@ import { toScreen, depth, LAYER } from '../../systems/iso.js';
 // ───────── Cache des dessins cuits ─────────
 const TOP = 340, BOT = 90, SIDE = 80; // marges autour d'une case (unités à l'échelle 1)
 const cache = new Map();
-export const paintStats = { baked: 0, bakeMs: 0, groundMs: 0, sceneMs: 0, items: 0 };
+export const paintStats = { baked: 0, bakeMs: 0, groundMs: 0, sceneMs: 0, sortMs: 0, items: 0, cycles: 0 };
 const mk = (w, h) => {
   if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(Math.max(1, w), Math.max(1, h));
   const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); return c;
@@ -146,7 +146,9 @@ export function groundCanvas(state, f, R, o) {
   return cv;
 }
 
-// ───────── Muraille : pièces, tours, porte (ordre de profondeur repris de la v20) ─────────
+// ───────── Muraille : pièces, tours, porte ─────────
+// Emprises au sol (en cases) servant au tri de profondeur : demi-épaisseur d'un pan de mur, rayon de tri d'une tour
+const WALL_T = 0.08, TOWER_R = 0.08;
 export function wallItems(state, f, w) {
   const { rect: r, gate: g, style, dmg = 0, night = false, raid = false, roofGold = false, c1 = '#2f5fb0', c2 = '#f1d36a', posted = {} } = w;
   const items = [];
@@ -155,11 +157,14 @@ export function wallItems(state, f, w) {
   const guardC = (i) => (i % 3 === 0 ? (raid ? '#a83a2a' : c1) : null);
   let i = 0;
   const mid = (a, b) => Math.floor((a + b) / 2);
+  // v23 : chaque pièce a son emprise au sol (un trait mince sur sa ligne de rempart) pour le tri de profondeur
   const piece = (x, y, axis, at, layer, dx, dy, extra = {}) => {
     const idx = i++;
     const engines = extra.engines || 0;
     const key = `w|${style}|${axis}|${at}|${cracked(idx) ? 'c' : ''}|${guardC(idx) || ''}|${extra.banner ? 'b' : ''}|${engines}`;
-    items.push({ x, y, key, depth: depth(dx, dy, layer), sp: (s) => sprite(key, s, (p) => {
+    const L = axis === 'u' ? y + at : x + at;
+    const box = axis === 'u' ? [x, x + 1, L - WALL_T, L + WALL_T] : [L - WALL_T, L + WALL_T, y, y + 1];
+    items.push({ x, y, key, box, prio: 1, wall: axis, depth: depth(dx, dy, layer), sp: (s) => sprite(key, s, (p) => {
       wallPiece(p, style, axis, at, { cracked: cracked(idx), guard: guardC(idx), banners: extra.banner ? [c1, c2] : null });
       if (engines) engineMarks(p, axis, at, engines, style);
     }) });
@@ -169,7 +174,7 @@ export function wallItems(state, f, w) {
   for (let y = r.y0; y <= r.y1; y++) piece(r.x0, y, 'v', 0, LAYER.wallBack, r.x0 - 0.5, y, { engines: y === mid(r.y0, r.y1) ? Math.min(3, flankCount('left')) : 0 });
   for (let x = r.x0; x <= r.x1; x++) {
     if (x === g.x) {
-      items.push({ x, y: r.y1, key: `wg|${style}|${raid ? 1 : 0}|${c1}`, depth: depth(x, r.y1 + 0.6, LAYER.wallFront), sp: (s) => sprite(`wg|${style}|${raid ? 1 : 0}|${c1}`, s, (p) => gatehouse(p, style, 1, { banner: [c1, c2], raid })) });
+      items.push({ x, y: r.y1, key: `wg|${style}|${raid ? 1 : 0}|${c1}`, box: [x - 0.1, x + 1.1, r.y1 + 1 - WALL_T, r.y1 + 1 + WALL_T], prio: 2, wall: 'u', depth: depth(x, r.y1 + 0.6, LAYER.wallFront), sp: (s) => sprite(`wg|${style}|${raid ? 1 : 0}|${c1}`, s, (p) => gatehouse(p, style, 1, { banner: [c1, c2], raid })) });
       continue;
     }
     piece(x, r.y1, 'u', 1, LAYER.wallFront, x, r.y1 + 0.5, { engines: (x === g.x - 1 || (g.x === r.x0 && x === r.x0 + 1)) ? Math.min(3, flankCount('front')) : 0 });
@@ -187,7 +192,9 @@ export function wallItems(state, f, w) {
       const front = cy > r.y1 || cx > r.x1;
       const flag = ((cx + cy) % 2) ? [c1, c2] : [c2, c1];
       const key = `wt|${style}|${lu}|${lv}|${roofGold ? 1 : 0}|${flag[0]}|${night ? 1 : 0}`;
-      items.push({ x: tx, y: ty, key, depth: depth(cx - 0.4, cy - 0.4, front ? LAYER.wallFront + 1 : LAYER.wallBack), sp: (s) => sprite(key, s, (p) => wallTower(p, style, lu, lv, { gold: roofGold, flag, torch: night })) });
+      // v23 : la tour est devant les pans de mur qui la rejoignent (emprise qui les chevauche, priorité plus haute) ;
+      // une tour arrière reste derrière les bâtiments de la cour, une tour avant devant eux (profondeur de repli)
+      items.push({ x: tx, y: ty, key, box: [cx - TOWER_R, cx + TOWER_R, cy - TOWER_R, cy + TOWER_R], prio: 2, tower: true, depth: front ? depth(cx - 0.4, cy - 0.4, LAYER.wallFront + 1) : depth(cx, cy, -6), sp: (s) => sprite(key, s, (p) => wallTower(p, style, lu, lv, { gold: roofGold, flag, torch: night })) });
     }
   }
   return items;
@@ -203,6 +210,79 @@ function engineMarks(p, axis, at, n, style) {
   }
 }
 
+// ───────── Ordre de dessin (v23) ─────────
+// Un seul nombre de profondeur ne suffit pas pour une enceinte : une tour doit passer devant les pans de mur qui la
+// rejoignent tout en restant derrière les bâtiments de la cour ; un pan de mur doit passer devant ce qui est derrière
+// lui et derrière ce qui est dans la cour, alors que les deux sont sur la même rangée. Chaque dessin a donc une emprise
+// au sol (box = [x0, x1, y0, y1], en cases) et l'ordre se déduit des emprises, deux à deux, pour les seuls dessins qui
+// se chevauchent à l'écran : A est derrière B si A finit avant B sur un axe (x ou y) sans que l'inverse soit vrai.
+// Emprises qui se chevauchent : la priorité décide (tour et porte > mur > le reste), puis la profondeur d'origine ;
+// emprises en diagonale (chacune « avant » l'autre sur un axe) : le centre le plus en arrière, puis la profondeur.
+// Les dessins plats (routes, terrains vagues) passent d'abord. Tri topologique, file ordonnée par la profondeur
+// d'origine (ordre stable, et repli sûr en cas de cycle).
+const EPS = 1e-6;
+export const footprint = (it) => it.box || (it.flat ? [it.x, it.x + 1, it.y, it.y + 1] : it.k?.[0] === 's' ? [it.x + 0.25, it.x + 0.75, it.y + 0.25, it.y + 0.75] : [it.x + 0.1, it.x + 0.9, it.y + 0.1, it.y + 0.9]);
+export function behind(a, b) {
+  const A = footprint(a), B = footprint(b);
+  const ab = A[1] <= B[0] + EPS || A[3] <= B[2] + EPS; // a finit avant b
+  const ba = B[1] <= A[0] + EPS || B[3] <= A[2] + EPS;
+  if (ab && !ba) return true;
+  if (ba && !ab) return false;
+  if (ab && ba) {
+    // côte à côte en diagonale (l'un plus à l'ouest, l'autre plus au nord). Un mur décide par sa propre ligne : ce qui
+    // est du côté de la cour d'un rempart du fond est devant lui, ce qui est dehors derrière un rempart avant aussi.
+    if (a.wall && !b.wall) return a.wall === 'u' ? A[3] <= B[2] + EPS : A[1] <= B[0] + EPS;
+    if (b.wall && !a.wall) return b.wall === 'u' ? !(B[3] <= A[2] + EPS) : !(B[1] <= A[0] + EPS);
+    // sinon : le centre le plus en arrière d'abord
+    const sa = A[0] + A[1] + A[2] + A[3], sb = B[0] + B[1] + B[2] + B[3];
+    if (Math.abs(sa - sb) > 0.02) return sa < sb;
+  } else if ((a.prio || 0) !== (b.prio || 0)) return (a.prio || 0) < (b.prio || 0);
+  return a.depth < b.depth || (a.depth === b.depth && a.x < b.x);
+}
+export function sortScene(placed) {
+  const flat = [], solid = [];
+  for (const p of placed) (p.it.flat ? flat : solid).push(p);
+  flat.sort((a, b) => a.it.depth - b.it.depth || a.it.x - b.it.x);
+  const n = solid.length;
+  // rectangles à l'écran ; seules les paires qui se chevauchent sont ordonnées
+  const R = solid.map((p) => (p.sp.art ? [p.X - p.sp.ax, p.Y - p.sp.ay, p.X - p.sp.ax + p.sp.art.width, p.Y - p.sp.ay + p.sp.art.height] : [p.X, p.Y, p.X, p.Y]));
+  const order = solid.map((_, i) => i).sort((a, b) => R[a][0] - R[b][0]);
+  const out = Array.from({ length: n }, () => []), indeg = new Array(n).fill(0);
+  for (let oi = 0; oi < n; oi++) {
+    const i = order[oi];
+    for (let oj = oi + 1; oj < n; oj++) {
+      const j = order[oj];
+      if (R[j][0] >= R[i][2]) break;
+      if (R[j][1] >= R[i][3] || R[i][1] >= R[j][3]) continue;
+      if (behind(solid[i].it, solid[j].it)) { out[i].push(j); indeg[j]++; } else { out[j].push(i); indeg[i]++; }
+    }
+  }
+  // file ordonnée par la profondeur d'origine (tas binaire)
+  const key = (i) => solid[i].it.depth * 1e4 + solid[i].it.x;
+  const heap = [];
+  const push = (i) => { heap.push(i); let c = heap.length - 1; while (c > 0) { const p = (c - 1) >> 1; if (key(heap[p]) <= key(heap[c])) break; [heap[p], heap[c]] = [heap[c], heap[p]]; c = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let c = 0; for (;;) { const l = 2 * c + 1, r = l + 1; let m = c; if (l < heap.length && key(heap[l]) < key(heap[m])) m = l; if (r < heap.length && key(heap[r]) < key(heap[m])) m = r; if (m === c) break; [heap[m], heap[c]] = [heap[c], heap[m]]; c = m; } } return top; };
+  for (let i = 0; i < n; i++) if (!indeg[i]) push(i);
+  const done = new Uint8Array(n), res = [];
+  let cycles = 0; const forced = [];
+  while (res.length < n) {
+    if (!heap.length) { // cycle (emprises enchevêtrées) : on libère le plus en arrière
+      let best = -1;
+      for (let i = 0; i < n; i++) if (!done[i] && (best < 0 || key(i) < key(best))) best = i;
+      indeg[best] = 0; push(best); cycles++;
+      if (forced.length < 4) forced.push(`${solid[best].it.k}@${solid[best].it.x},${solid[best].it.y}`);
+    }
+    const i = pop();
+    if (done[i]) continue;
+    done[i] = 1; res.push(solid[i]);
+    for (const j of out[i]) if (!done[j] && --indeg[j] === 0) push(j);
+  }
+  placed.length = 0;
+  placed.push(...flat, ...res);
+  paintStats.cycles = cycles; paintStats.forced = forced;
+  return placed;
+}
+
 // ───────── Dessin de la scène ─────────
 // items : { x, y, depth, sp(s) → sprite, alpha?, filter? } ; R : pixels de canvas par pixel du monde
 export function drawScene(cv, items, f, R) {
@@ -214,13 +294,20 @@ export function drawScene(cv, items, f, R) {
   // ombres portées d'abord (au sol, sous tous les volumes)
   g.globalAlpha = 1;
   for (const { it, X, Y, sp } of placed) if (sp.shadow && !it.noShadow) { g.globalAlpha = it.alpha ?? 1; g.drawImage(sp.shadow, X - sp.sx, Y - sp.sy); }
-  placed.sort((a, b) => a.it.depth - b.it.depth || a.it.x - b.it.x);
+  const ts = typeof performance !== 'undefined' ? performance.now() : 0;
+  sortScene(placed);
+  paintStats.sortMs = (typeof performance !== 'undefined' ? performance.now() : 0) - ts;
   const fx = [];
   for (const { it, X, Y, sp } of placed) {
     if (!sp.art) continue;
     g.globalAlpha = it.alpha ?? 1;
     g.filter = it.filter || 'none';
-    g.drawImage(sp.art, X - sp.ax, Y - sp.ay);
+    if (it.prog) {
+      // v23 : chantier — seule la partie déjà bâtie (depuis la base) est dessinée
+      const h = sp.art.height, k = it.prog();
+      g.save(); g.beginPath(); g.rect(X - sp.ax, Y - sp.ay + h * (1 - k), sp.art.width, h * k + 1); g.clip();
+      g.drawImage(sp.art, X - sp.ax, Y - sp.ay); g.restore();
+    } else g.drawImage(sp.art, X - sp.ax, Y - sp.ay);
     g.filter = 'none';
     if (it.smoke !== false) for (const e of sp.fx) fx.push({ x: X + e.x, y: Y + e.y, n: e.n, id: it.id });
   }

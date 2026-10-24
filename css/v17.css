@@ -54,16 +54,6 @@ html.hide-ups .city-vp .t-sig.sig-upgrade { display: none; }
 .city-stage > .scene-fx { display: none; }
 .wx-slot { overflow: hidden; z-index: 1; }
 .wx-slot .scene-fx.in-map { position: absolute; inset: 0; z-index: auto; }
-.wx-slot .fx-wx { inset: -160px 0 0 0 !important; will-change: transform; }
-.wx-rain .wx-slot .fx-wx, .wx-storm .wx-slot .fx-wx { animation: v17-fall-rain 0.6s linear infinite; }
-.wx-snow .wx-slot .fx-wx { background-size: 160px 160px !important; animation: v17-fall-snow 8s linear infinite; }
-@keyframes v17-fall-rain { from { transform: translateY(0); } to { transform: translateY(140px); } }
-@keyframes v17-fall-snow { from { transform: translateY(0); } to { transform: translateY(160px); } }
-.city-vp[data-zl="far"] .wx-slot .fx-wx { opacity: 0.45; }
-.city-vp.moving .wx-slot .fx-wx { animation-play-state: paused; }
-html.reduce-motion .wx-slot .fx-wx, html.saver .wx-slot .fx-wx { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .wx-slot .fx-wx { animation: none !important; } }
-html.no-weather .wx-slot, html.no-weather .scene-fx .fx-wx, html.no-weather .scene-fx .fx-light { display: none !important; }
 .city-vp .city-grid { position: relative; z-index: 1; }
 /* Écusson : en vue normale, un pictogramme de palier (1 à 6 crans) ; le chiffre en vue rapprochée, au survol, au focus */
 .city-vp .t-crest b { display: none; font: inherit; }
