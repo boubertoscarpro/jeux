@@ -87,6 +87,9 @@ export function hall(p, t, v, o = {}) {
     gable(p, u0 - 0.15, v0 + 0.19, u0 + 0.02, v1 - 0.05, h1 - 4, 12, { axis: 'v', color: lit(roof, -0.08), kind, o: 0.03 });
   }
   dropShadow(p, u0, v0, u1, v1, H + rh);
+  // v23 : soubassement de pierre, un peu plus large que les murs (le bâtiment est posé, pas collé au sol)
+  const plinthC = low === 'stone' ? lit(PAL.stoneD, -0.12) : '#a8946c';
+  box(p, u0 - 0.018, v0 - 0.018, u1 + 0.018, v1 + 0.018, 0, 5, { G: mat(p, 'stone', plinthC), D: mat(p, 'stone', plinthC), top: lit(plinthC, 0.12) });
   const floorG = withDeco(lowM, (gg, W, Hh) => { door(gg, W * (axis === 'u' ? 0.42 : 0.38), 13 * s, 17 * s, p, { arch: low === 'stone' }); windows(gg, W, p, 2, 6, 9, { glow: glow >= 1 ? 1 : -1 }); if (frontG) frontG(gg, W, Hh); });
   const floorD = withDeco(lowM, (gg, W, Hh) => { windows(gg, W, p, 2, 6, 9, { glow: -1 }); if (frontD) frontD(gg, W, Hh); });
   box(p, u0, v0, u1, v1, 0, h1, { G: floorG, D: floorD });
@@ -99,10 +102,50 @@ export function hall(p, t, v, o = {}) {
   const e = floors === 2 ? 0.02 : 0;
   if (chim) { const cu = axis === 'u' ? u0 + (u1 - u0) * 0.7 : u0 + 0.06, cv = axis === 'u' ? v0 + 0.06 : v0 + (v1 - v0) * 0.3; chimneyAt(p, cu, cv, H + 4, H + rh + 10, active); }
   gable(p, u0 - e, v0 - e, u1 + e, v1 + e, H, rh, { axis, color: roof, kind, gableMat: roofGable || highM });
+  // v23 : épis de faîtage (palier 4) puis faîtage doré (palier 5) : la richesse se lit sur le toit
+  if (t >= 4 && kind !== 'thatch') ridgeDress(p, u0 - e, v0 - e, u1 + e, v1 + e, H + rh, axis, t >= 5);
   if (sym) sign(p, u0 + 0.12, v1 + e, h1 - 4, sym);
   // tourelle d'angle (palier 4) et ornements (palier 5)
   if (t >= 4 && turret) tower(p, u1 + 0.02, v0 + 0.02, 0.1, 0, H + 14, { roof, roofKind: kind === 'thatch' ? 'tile' : kind, roofH: 26, crenels: false, windows: 1, flag: t >= 5 ? ['#2f5fb0', '#f1d36a'] : null });
   return H + rh;
+}
+// Épis aux deux bouts du faîtage ; gold : faîtage souligné d'or
+function ridgeDress(p, u0, v0, u1, v1, z, axis, gold) {
+  const g = p.g, s = p.s, o = 0.06;
+  const a = axis === 'u' ? p.P(u0 - o, (v0 + v1) / 2, z) : p.P((u0 + u1) / 2, v0 - o, z);
+  const b = axis === 'u' ? p.P(u1 + o, (v0 + v1) / 2, z) : p.P((u0 + u1) / 2, v1 + o, z);
+  if (gold) { g.lineCap = 'round'; g.strokeStyle = PAL.gold; g.lineWidth = 1.6 * s; g.beginPath(); g.moveTo(a[0], a[1] - 1.5 * s); g.lineTo(b[0], b[1] - 1.5 * s); g.stroke(); }
+  for (const [x, y] of [a, b]) {
+    g.strokeStyle = INK; g.lineWidth = 2.4 * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 9 * s); g.stroke();
+    g.strokeStyle = gold ? PAL.gold : '#5b6068'; g.lineWidth = 1.2 * s; g.stroke();
+    g.fillStyle = gold ? PAL.gold : '#5b6068'; g.beginPath(); g.arc(x, y - 10 * s, 2.2 * s, 0, 7); g.fill(); strokeInk(p, 0.7);
+  }
+}
+// Potence de levage au pignon d'un entrepôt, corde et charge suspendue
+function hoist(p, u, v, z, load = '#b3824c') {
+  const g = p.g, s = p.s, [x, y] = p.P(u, v, z), [x2, y2] = p.P(u, v + 0.16, z);
+  g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = 4.2 * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+  g.strokeStyle = '#7a4a26'; g.lineWidth = 2.6 * s; g.stroke();
+  g.strokeStyle = '#3a2a1c'; g.lineWidth = 0.9 * s; g.beginPath(); g.moveTo(x2, y2); g.lineTo(x2, y2 + 16 * s); g.stroke();
+  g.fillStyle = load; g.fillRect(x2 - 5 * s, y2 + 16 * s, 10 * s, 8 * s); g.strokeStyle = INK; g.lineWidth = 1 * s; g.strokeRect(x2 - 5 * s, y2 + 16 * s, 10 * s, 8 * s);
+  g.strokeStyle = rgba('#3a2412', 0.6); g.beginPath(); g.moveTo(x2 - 5 * s, y2 + 20 * s); g.lineTo(x2 + 5 * s, y2 + 20 * s); g.stroke();
+}
+// Puits de pierre à toit de bardeaux
+function well(p, u, v) {
+  const g = p.g, s = p.s, [x, y] = p.P(u, v);
+  g.fillStyle = 'rgba(22,30,12,0.25)'; g.beginPath(); g.ellipse(x + 3 * s, y + 1 * s, 10 * s, 4 * s, 0, 0, 7); g.fill();
+  g.fillStyle = '#b8a27a'; g.beginPath(); g.ellipse(x, y, 8 * s, 3.5 * s, 0, 0, Math.PI); g.lineTo(x - 8 * s, y - 8 * s); g.ellipse(x, y - 8 * s, 8 * s, 3.5 * s, 0, Math.PI, 0, true); g.closePath(); g.fill(); strokeInk(p, 0.9);
+  g.fillStyle = '#2c3a48'; g.beginPath(); g.ellipse(x, y - 8 * s, 6 * s, 2.4 * s, 0, 0, 7); g.fill(); strokeInk(p, 0.7);
+  g.strokeStyle = INK; g.lineWidth = 1.8 * s; g.beginPath(); g.moveTo(x - 7 * s, y - 8 * s); g.lineTo(x - 7 * s, y - 20 * s); g.moveTo(x + 7 * s, y - 8 * s); g.lineTo(x + 7 * s, y - 20 * s); g.stroke();
+  g.fillStyle = '#8a5a32'; g.beginPath(); g.moveTo(x - 10 * s, y - 19 * s); g.lineTo(x, y - 26 * s); g.lineTo(x + 10 * s, y - 19 * s); g.closePath(); g.fill(); strokeInk(p, 0.9);
+}
+// Petit potager clos (rangs de légumes)
+function garden(p, u0, v0, u1, v1, season = 'summer') {
+  const g = p.g, s = p.s;
+  poly(g, [p.P(u0, v0), p.P(u1, v0), p.P(u1, v1), p.P(u0, v1)]); g.fillStyle = '#7a5a36'; g.fill();
+  const leaf = season === 'winter' ? '#cfd8d0' : season === 'autumn' ? '#b8963a' : '#5aa83a';
+  for (let i = 1; i < 4; i++) { const v = v0 + ((v1 - v0) * i) / 4; for (let j = 1; j < 5; j++) { const [x, y] = p.P(u0 + ((u1 - u0) * j) / 5, v); g.fillStyle = leaf; g.beginPath(); g.ellipse(x, y - 1.5 * s, 2.6 * s, 1.8 * s, 0, 0, 7); g.fill(); } }
+  fence(p, u0, v1, u1, v1, 4); fence(p, u1, v0, u1, v1, 3);
 }
 function chimneyAt(p, u, v, z0, z1, smoking = true) {
   box(p, u, v, u + 0.065, v + 0.065, z0 - 8, z1, { G: mat(p, 'stone', '#b9806a'), D: mat(p, 'stone', '#b9806a'), top: '#3a2a20' });
@@ -190,6 +233,25 @@ function tent(p, u, v, r = 0.16, h = 34, c1 = '#c84a2e', c2 = '#f6efe0', flagC =
   g.fillStyle = '#2a1a10'; g.beginPath(); g.moveTo(b[0] - 3 * s, b[1] + ry); g.lineTo(b[0] + 1 * s, b[1] + ry - 12 * s); g.lineTo(b[0] + 5 * s, b[1] + ry); g.closePath(); g.fill();
   if (flagC) banner(p, u, v, h, flagC, 16);
 }
+// Galerie circulaire en encorbellement (garde-corps de bois) autour d'une tour
+function gallery(p, cu, cv, r, z) {
+  const g = p.g, s = p.s, [x, y] = p.P(cu, cv, z), rx = r * 90.5 * s, ry = r * 45.25 * s;
+  g.fillStyle = '#6b4524'; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fill(); strokeInk(p, 1);
+  g.fillStyle = '#8a5a32'; g.beginPath(); g.ellipse(x, y - 2 * s, rx, ry, 0, 0, 7); g.fill(); strokeInk(p, 0.8);
+  g.strokeStyle = '#5a3a20'; g.lineWidth = 1.2 * s;
+  for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI; const px = x + Math.cos(a) * rx, py = y - 2 * s + Math.sin(a) * ry; g.beginPath(); g.moveTo(px, py); g.lineTo(px, py - 7 * s); g.stroke(); }
+  g.strokeStyle = INK; g.lineWidth = 1.6 * s; g.beginPath(); g.ellipse(x, y - 9 * s, rx, ry, 0, 0, Math.PI); g.stroke();
+  g.strokeStyle = '#c9a36a'; g.lineWidth = 0.8 * s; g.stroke();
+}
+// Sphère armillaire dorée au sommet d'une coupole
+function armillary(p, cu, cv, z) {
+  const g = p.g, s = p.s, [x, y] = p.P(cu, cv, z), R = 9 * s;
+  g.strokeStyle = INK; g.lineWidth = 2.2 * s; g.beginPath(); g.moveTo(x, y + R + 6 * s); g.lineTo(x, y + R); g.stroke();
+  for (const [rx, ry, rot] of [[R, R, 0], [R, R * 0.35, 0.4], [R * 0.35, R, -0.3]]) {
+    g.beginPath(); g.ellipse(x, y, rx, ry, rot, 0, 7); g.strokeStyle = INK; g.lineWidth = 2.6 * s; g.stroke(); g.strokeStyle = PAL.gold; g.lineWidth = 1.4 * s; g.stroke();
+  }
+  g.fillStyle = '#f6dd94'; g.beginPath(); g.arc(x, y, 2.4 * s, 0, 7); g.fill(); strokeInk(p, 0.6);
+}
 function dome(p, cu, cv, r, z, color = '#3f74b0') {
   const g = p.g, s = p.s, rx = r * 90.5 * s, ry = r * 45.25 * s, [x, y] = p.P(cu, cv, z);
   g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI); g.ellipse(x, y, rx, rx * 0.95, 0, Math.PI, 0); g.closePath();
@@ -234,15 +296,21 @@ export const PAINT = {
   },
   house: (p, t, v, o) => {
     const roof = [PAL.red, PAL.orange, '#b0503a', PAL.brown][v % 4];
-    hall(p, t, v, { roof, kind: v % 3 === 2 ? 'thatch' : 'tile', axis: v % 2 ? 'v' : 'u', u0: 0.22, v0: 0.24, u1: 0.78, v1: 0.76, h1: 20, h2: 18, rh: 26, turret: false, active: o.active, frontG: (gg, W) => { const s = p.s; gg.fillStyle = '#7a4a26'; gg.fillRect(W * 0.66, 3 * p.s, 10 * s, 2.5 * s); for (let i = 0; i < 4; i++) { gg.fillStyle = ['#e8484a', '#ffd95a', '#f08aa0', '#b6d4ff'][i]; gg.beginPath(); gg.arc(W * 0.66 + 1.5 * s + i * 2.5 * s, 6.5 * s, 1.3 * s, 0, 7); gg.fill(); } } });
-    if (t >= 4) { barrel(p, 0.86, 0.9); }
-    if (t >= 5) banner(p, 0.9, 0.3, 0, ['#2f5fb0', '#f1d36a'], 16);
+    hall(p, t, v, { roof, kind: t === 0 || v % 3 === 2 ? 'thatch' : 'tile', axis: v % 2 ? 'v' : 'u', u0: 0.22, v0: 0.24, u1: 0.78, v1: 0.76, h1: 20, h2: 18, rh: 26, turret: false, active: o.active, frontG: (gg, W) => { const s = p.s; gg.fillStyle = '#7a4a26'; gg.fillRect(W * 0.66, 3 * p.s, 10 * s, 2.5 * s); for (let i = 0; i < 4; i++) { gg.fillStyle = ['#e8484a', '#ffd95a', '#f08aa0', '#b6d4ff'][i]; gg.beginPath(); gg.arc(W * 0.66 + 1.5 * s + i * 2.5 * s, 6.5 * s, 1.3 * s, 0, 7); gg.fill(); } } });
+    // v23 : potager clos (palier 3), puits (4), tourelle de manoir (5)
+    if (t >= 3) garden(p, 0.04, 0.8, 0.3, 0.98, o.season);
+    if (t >= 4) { barrel(p, 0.86, 0.9); well(p, 0.9, 0.62); }
+    if (t >= 5) { tower(p, 0.78, 0.24, 0.09, 0, 62, { roof, roofKind: 'tile', roofH: 24, crenels: false, windows: 1, flag: ['#2f5fb0', '#f1d36a'] }); }
   },
   warehouse: (p, t, v, o) => {
     hall(p, t, v, { low: 'planks', high: 'planks', lowC: '#9a6a3c', highC: '#8a5a32', roof: fam('core', v), kind: 'slate', u0: 0.12, v0: 0.18, u1: 0.88, v1: 0.72, h1: 26, h2: 16, rh: 26, chim: false, sym: 'coin', turret: false, maxFloors: 2,
       frontG: (gg, W) => { const s = p.s; gg.fillStyle = '#5a3418'; gg.fillRect(W * 0.62, 0, 20 * s, 20 * s); gg.strokeStyle = '#3b3b40'; gg.lineWidth = 1.4 * s; gg.beginPath(); gg.moveTo(W * 0.62, 0); gg.lineTo(W * 0.62 + 20 * s, 20 * s); gg.moveTo(W * 0.62 + 20 * s, 0); gg.lineTo(W * 0.62, 20 * s); gg.stroke(); } });
     crate(p, 0.14, 0.82); crate(p, 0.24, 0.84, 0.07, '#c9965a'); barrel(p, 0.86, 0.86); if (t >= 2) { crate(p, 0.18, 0.76, 0.06); barrel(p, 0.92, 0.78); }
+    // v23 : potence de levage au pignon (palier 2), charrette (3), pile de caisses (4), quai couvert (5)
+    if (t >= 2) hoist(p, 0.88, 0.28, 50, '#c9965a');
     if (t >= 3) cart(p, 0.6, 0.92);
+    if (t >= 4) { crate(p, 0.9, 0.62, 0.08); crate(p, 0.9, 0.62, 0.06, '#c9965a'); box(p, 0.91, 0.63, 0.97, 0.69, 9, 16, { G: mat(p, 'planks', '#a0703e'), D: mat(p, 'planks', '#a0703e'), top: '#c9965a' }); }
+    if (t >= 5) { post(p, 0.5, 0.86, 22); post(p, 0.84, 0.86, 22); shedRoof(p, 0.46, 0.72, 0.88, 0.88, 30, 22, lit(fam('core', v), -0.1), 'slate'); }
   },
   market: (p, t, v, o) => {
     const stripes = ['#c84a2e', '#3f74b0', '#e2b84a', '#4f8a3a'];
@@ -269,11 +337,19 @@ export const PAINT = {
     if (o.active !== false) { const [x, y] = p.P(0.76, 0.3, 90 + t * 8); smoke(p, x, y, 3); }
   },
   observatory: (p, t, v, o) => {
-    roundShadow(p, 0.5, 0.5, 0.24, 110);
-    tower(p, 0.5, 0.5, 0.24, 0, 54 + t * 8, { roof: null, windows: 2, crenels: true });
-    dome(p, 0.5, 0.5, 0.2, 58 + t * 8, fam('knowledge', v));
-    const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.5, 70 + t * 8);
-    g.strokeStyle = INK; g.lineWidth = 5 * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 14 * s, y - 16 * s); g.stroke(); g.strokeStyle = '#c9a36a'; g.lineWidth = 3 * s; g.stroke();
+    // v23 : une tour d'astronome qui grandit — annexe d'étude (palier 2), galerie d'observation (3), seconde
+    // coupole (4), sphère armillaire dorée (5). La lunette pointe toujours vers le ciel du sud-est.
+    const H = 54 + t * 8, col = fam('knowledge', v);
+    if (t >= 2) hall(p, Math.min(t, 2), v, { low: 'stone', high: 'stone', roof: col, kind: 'slate', u0: 0.06, v0: 0.5, u1: 0.42, v1: 0.92, h1: 20, h2: 14, rh: 18, sym: 'star', turret: false, annex: false, chim: false, maxFloors: 1 });
+    if (t >= 4) { roundShadow(p, 0.84, 0.8, 0.1, 60); tower(p, 0.84, 0.8, 0.1, 0, 40, { roof: null, windows: 1, crenels: false }); dome(p, 0.84, 0.8, 0.085, 42, lit(col, 0.1)); }
+    roundShadow(p, 0.56, 0.42, 0.24, 110);
+    tower(p, 0.56, 0.42, 0.24, 0, H, { roof: null, windows: 2, crenels: t < 3 });
+    if (t >= 3) gallery(p, 0.56, 0.42, 0.29, H - 2);
+    dome(p, 0.56, 0.42, 0.2, H + 4, col);
+    const g = p.g, s = p.s, [x, y] = p.P(0.56, 0.42, H + 16);
+    g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = 5.4 * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 15 * s, y - 17 * s); g.stroke(); g.strokeStyle = '#c9a36a'; g.lineWidth = 3.2 * s; g.stroke();
+    g.fillStyle = '#e2b84a'; g.beginPath(); g.arc(x + 15 * s, y - 17 * s, 2.2 * s, 0, 7); g.fill(); strokeInk(p, 0.6);
+    if (t >= 5) armillary(p, 0.56, 0.42, H + 40);
   },
   guildhall: (p, t, v, o) => {
     hall(p, t, v, { roof: fam('places', v), kind: 'tile', u0: 0.1, v0: 0.14, u1: 0.9, v1: 0.82, h1: 24, h2: 22, rh: 30, sym: 'shield', active: o.active });

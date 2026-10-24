@@ -68,7 +68,7 @@ export function mountLife(vp, app, data) {
   const world = vp.querySelector('.iso-world');
   if (L.cv.parentElement !== vp || L.cv.previousElementSibling !== world) world.after(L.cv);
   L.vp = vp; L.app = app;
-  const key = JSON.stringify([data.density, data.walk.length, data.allee, data.perim, data.fx.length]);
+  const key = JSON.stringify([data.density, data.walk.length, data.allee, data.perim, data.fx.length, data.sites?.length || 0]);
   if (!L.data || L.data.key !== key) { L.data = { ...data, key }; spawn(); }
   else L.data = { ...data, key };
   const html = document.documentElement;
@@ -185,9 +185,10 @@ function paintLife(g, t, [vx0, vy0, vx1, vy1]) {
       const ph = Math.sin(t * 1.6 + i * 1.7 + j * 2.3);
       const a = Math.max(0, ph) ** 6;
       if (a < 0.05) continue;
-      const x = q.sx + ((i * 37 + j * 53) % 60) - 30, y = q.sy + ((i * 23 + j * 31) % 24) - 12;
-      g.strokeStyle = `rgba(255,255,255,${(0.85 * a).toFixed(3)})`; g.lineWidth = 1.2;
-      g.beginPath(); g.moveTo(x - 4, y); g.lineTo(x + 4, y); g.moveTo(x, y - 2.4); g.lineTo(x, y + 2.4); g.stroke();
+      // v23 : une ride douce qui s'étire (les croix scintillantes faisaient « effet spécial » sur l'eau)
+      const x = q.sx + ((i * 37 + j * 53) % 60) - 30, y = q.sy + ((i * 23 + j * 31) % 24) - 12, w = 5 + a * 6;
+      g.strokeStyle = `rgba(235,246,255,${(0.42 * a).toFixed(3)})`; g.lineWidth = 1.1; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x - w, y); g.quadraticCurveTo(x, y - 1.6, x + w, y); g.stroke();
     }
   }
   // personnages et charrettes, triés par profondeur
@@ -203,6 +204,8 @@ function paintLife(g, t, [vx0, vy0, vx1, vy1]) {
       } });
     } else if (e.k === 'c') {
       const [gx, gy] = along(d.allee, e.s), q = toScreen(f, gx + 0.5, gy);
+      // v23 : sous la voûte de la porte, la charrette est cachée (elle passait par-dessus la muraille)
+      if (d.gateY != null && gy > d.gateY - 0.75 && gy < d.gateY + 0.35) continue;
       if (vis(q.sx, q.sy)) list.push({ y: q.sy, draw: () => g.drawImage(cartSprite(e.dir), q.sx - 28, q.sy - 32, 56, 40) });
     }
   }
@@ -218,6 +221,23 @@ function paintLife(g, t, [vx0, vy0, vx1, vy1]) {
       const gr = g.createRadialGradient(x, y, 0, x, y, rr);
       gr.addColorStop(0, `rgba(240,236,228,${(0.6 * (1 - a)).toFixed(3)})`); gr.addColorStop(1, 'rgba(240,236,228,0)');
       g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+    }
+  }
+  // v23 : chantiers en cours — bouffées de poussière au pied, étincelles du marteau en haut de l'échafaudage
+  for (let i = 0; i < (d.sites || []).length; i++) {
+    const st = d.sites[i], q = toScreen(f, st.x + 0.5, st.y + 0.5);
+    if (!vis(q.sx, q.sy)) continue;
+    const c = ((t * 0.7 + i * 0.41) % 1 + 1) % 1; // une bouffée toutes les 1,4 s
+    for (let j = 0; j < 3; j++) {
+      const a = Math.max(0, 1 - c * 1.6), side = j - 1, x = q.sx + side * (18 + c * 22), y = q.sy + 10 - c * 10, rr = 5 + c * 11;
+      if (a <= 0) break;
+      const gr = g.createRadialGradient(x, y, 0, x, y, rr); gr.addColorStop(0, `rgba(205,182,140,${(0.42 * a).toFixed(3)})`); gr.addColorStop(1, 'rgba(205,182,140,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+    }
+    const hit = ((t * 1.6 + i * 0.3) % 1 + 1) % 1; // coup de marteau : trois éclats brefs
+    if (hit < 0.22 && st.h > 20) {
+      const hx = q.sx + 10 + (i % 3) * 6, hy = q.sy - st.h * 0.9;
+      for (let k = 0; k < 3; k++) { const an = -Math.PI / 2 + (k - 1) * 0.7, dd = 4 + hit * 30; g.fillStyle = `rgba(255,214,120,${(1 - hit / 0.22).toFixed(3)})`; g.fillRect(hx + Math.cos(an) * dd - 1, hy + Math.sin(an) * dd - 1, 2, 2); }
     }
   }
   // fins de chantier : rebond, poussière, étincelles

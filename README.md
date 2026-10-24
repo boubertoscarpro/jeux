@@ -21,11 +21,20 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v23 — Refonte artistique** :
+> - **Château remis dans le bon ordre** : tours, murs et porte se recouvrent enfin correctement, grâce à un tri par emprise au sol, vérifié par des tests de composition.
+> - **Bâtiments qui grandissent vraiment** : soubassement, épis puis faîtage doré ; la maison, l'entrepôt et l'observatoire sont redessinés palier par palier.
+> - **Animations utiles** : le bâtiment monte derrière l'échafaudage, avec poussière et coups de marteau ; un bouton refusé se secoue ; les fenêtres s'ouvrent une seule fois.
+> - **Effets inutiles retirés** : la météo plaquée sur la scène devient une teinte du ciel ; les pulsations permanentes et le code mort sont retirés.
+> - **Défauts corrigés** : l'interface qui se décalait sur tablette, et la barre du bas illisible sur téléphone.
+>
+> Voir [`docs/V23.md`](docs/V23.md).
+
 > **v22b — Pôles, Boutique et Ciel** :
 > - **Pôles du royaume** : à la place de « Lieux », quatre boutons à côté du globe (Économie, Armée, Royaume, Savoir), chacun avec ses rubriques. Touches E, K et J ; la recherche de tous les écrans reste sur L.
 > - **Boutique de la Couronne** : passe-temps, potions et coffres d'armurier contre des pièces d'or. Très chère, le prix monte à chaque achat du jour, quantités limitées.
 > - **Vente groupée** : plusieurs raretés et emplacements à la fois, et « Vendre automatiquement ce groupe à chaque butin ».
-> - **Ciel** : pluie, orage, neige et brume refaits en couches CSS. Ombres de nuages par beau temps. Scène repeinte plus finement quand on zoome.
+> - **Ciel** : pluie, orage, neige et brume refaits en couches CSS (retirés en v23 au profit d'une teinte du ciel). Scène repeinte plus finement quand on zoome.
 >
 > Voir [`docs/V22.md`](docs/V22.md#v22b).
 

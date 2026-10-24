@@ -1,7 +1,8 @@
-// v15 — Couches d'état posées sur les cartes : météo (pluie, neige, brume, orage, chaleur), lumière du jour selon
-// l'heure réelle, signes des présages, et une légende écrite de ce que la carte montre (l'information ne passe jamais
-// par la couleur seule). Tout est piloté par sceneState (systems/scene.js) : rien n'est décoratif.
-// Les animations sont en CSS : « réduire les animations », prefers-reduced-motion et le mode économie les figent.
+// v15 — Couches d'état posées sur les cartes : lumière du jour selon l'heure réelle, teinte du ciel selon la météo,
+// signes des présages, et une légende écrite de ce que la carte montre (l'information ne passe jamais par la couleur
+// seule). Tout est piloté par sceneState (systems/scene.js) : rien n'est décoratif.
+// v23 : plus de pluie, de neige ni de brume dessinées par-dessus le jeu (une couche générique qui brouillait la scène) ;
+// la météo se lit dans la légende et dans la teinte du ciel (skyLight), intégrée à la lumière de la scène.
 import { SIGNS } from '../data/crises.js';
 import { esc } from './components.js';
 
@@ -32,7 +33,7 @@ export function sceneClasses(scene) {
 
 export function sceneLayersHtml(scene, kind = 'city') {
   const [r, g, b] = scene.light.tint;
-  return `<div class="scene-fx" aria-hidden="true"><div class="fx-light" style="--lt: rgba(${r},${g},${b},${scene.light.a.toFixed(3)})"></div><div class="fx-wx"></div><div class="fx-sign"></div></div>${sceneLegend(scene, kind)}`;
+  return `<div class="scene-fx" aria-hidden="true"><div class="fx-light" style="--lt: rgba(${r},${g},${b},${scene.light.a.toFixed(3)})"></div><div class="fx-sign"></div></div>${sceneLegend(scene, kind)}`;
 }
 
 // Mise à jour légère (chaque seconde) sans redessiner l'écran

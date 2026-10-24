@@ -1,0 +1,54 @@
+/* v23 « Refonte artistique » — couches de l'interface nommées, ouverture des fenêtres jouée une seule fois, refus
+   d'une action, et retrait des animations permanentes sans utilité. Tout mouvement suit « réduire les animations »,
+   le mode économie et prefers-reduced-motion. */
+
+/* ───────── Couches de l'interface (de bas en haut) ─────────
+   carte (canvas, boutons invisibles) < affichage fixe < panneau Construire < fenêtres < boîtes de dialogue
+   < effets de gain < notifications < bandeau de réussite < guide « Montre-moi ».
+   Les valeurs reprennent celles déjà en place ; elles sont nommées ici pour qu'une nouvelle règle s'y range. */
+
+
+/* ───────── Fenêtres et dialogues : entrée à l'ouverture seulement ─────────
+   (avant : l'animation rejouait à chaque nouveau rendu, donc après chaque clic dans une fenêtre) */
+.win { animation: none; }
+.win.win-enter { animation: v23-win-in 0.2s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+/* propriété scale (et non transform) : elle s'ajoute au placement de chaque format d'écran ; rien ne déborde du cadre
+   final pendant l'entrée (pas de glissement) */
+@keyframes v23-win-in { from { opacity: 0; scale: 0.985; } to { opacity: 1; scale: 1; } }
+.modal.modal-enter { animation: v23-modal-in 0.18s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+@keyframes v23-modal-in { from { opacity: 0; scale: 0.985; } to { opacity: 1; scale: 1; } }
+.win-tab { transition: background 0.15s ease, color 0.15s ease; }
+
+/* ───────── Action refusée : le bouton touché se secoue, le refus est dit par la notification ───────── */
+.v23-deny { animation: v23-deny 0.34s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+@keyframes v23-deny { 10%, 90% { translate: -1px 0; } 20%, 80% { translate: 2px 0; } 30%, 50%, 70% { translate: -4px 0; } 40%, 60% { translate: 4px 0; } }
+
+/* ───────── Animations permanentes retirées ───────── */
+.hub-tile .hub-badge { animation: none; }
+.gshop-item.avail .gshop-ico::after { animation: none; opacity: 0; }
+.gshop-item.avail:hover .gshop-ico::after { opacity: 1; animation: gshop-glint 1.1s ease-out 1; }
+
+/* Mouvement réduit, mode économie */
+html.reduce-motion .win.win-enter, html.reduce-motion .modal.modal-enter, html.saver .win.win-enter, html.saver .modal.modal-enter { animation: none; }
+html.reduce-motion .v23-deny, html.saver .v23-deny { animation: none; box-shadow: 0 0 0 3px #c0392b; }
+@media (prefers-reduced-motion: reduce) {
+  .win.win-enter, .modal.modal-enter, .gshop-item.avail:hover .gshop-ico::after { animation: none; }
+  .v23-deny { animation: none; box-shadow: 0 0 0 3px #c0392b; }
+}
+
+/* Téléphone : la fenêtre occupe tout l'écran, elle apparaît en fondu (sans glisser hors du cadre) */
+@media (max-width: 700px) {
+  .win.win-enter { animation-name: v23-fade; }
+}
+@keyframes v23-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Le cadre du jeu ne défile jamais : « clip » (et non « hidden ») empêche aussi les défilements programmés (focus,
+   scrollIntoView) qui décalaient tout l'affichage fixe de quelques dizaines de pixels */
+#app, #app.mapmode, #view, #app.mapmode #view { overflow: clip; }
+
+/* Téléphone : six boutons n'ont pas la place d'un nom lisible (14 px) ; ils gardent leur sceau, agrandi, et leur nom
+   reste dans aria-label et title (les noms se chevauchaient : « Construir », « Économie ») */
+@media (max-width: 480px) {
+  .hud-actions .hud-a > small { display: none; }
+  .hud-actions .hud-a > span svg { width: 26px; height: 26px; }
+}

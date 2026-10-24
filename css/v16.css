@@ -10,7 +10,6 @@
 .city-vp[data-zl="far"] .zone-label { font-size: 26px; }
 /* Aucune animation à l'intérieur des grands SVG du château : chacune repeindrait toute la couche (2 560 × 1 536 px au
    domaine maximal) à chaque image. Gardes, torches, colonne ennemie et douves en crue sont dessinés fixes. */
-@keyframes v16-guard { from { transform: translateY(0); } to { transform: translateY(-1.5px); } }
 /* Pastilles « amélioration » : elles ne pulsent plus en vue éloignée ni quand elles sont nombreuses (une animation
    par pastille sur toute la carte coûtait plus que tout le reste) ; l'icône reste affichée */
 .city-vp[data-zl="far"] .t-up, .city-vp[data-zl="mid"] .t-up, .city-grid.calm-ups .t-up { animation: none !important; }
@@ -29,10 +28,6 @@
 
 /* Vie du château : forge au travail, foule au marché */
 .fx-smoke.work { opacity: 0.75; }
-.fx-crowd { position: absolute; left: 6px; right: 6px; bottom: 2px; height: 10px; display: flex; justify-content: space-around; pointer-events: none; z-index: 4; }
-.fx-crowd i { width: 6px; height: 9px; border-radius: 3px 3px 1px 1px; background: #c9a36a; border: 1px solid #2b1d12; animation: v16-guard 1.6s ease-in-out infinite alternate; }
-.fx-crowd i:nth-child(2n) { background: #6d8db0; animation-delay: 0.4s; }
-.fx-crowd i:nth-child(3n) { background: #a8432f; animation-delay: 0.8s; }
 
 /* Anneau autour d'un bâtiment (hors de la carte transformée : taille constante) */
 .ring-wrap { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 8; pointer-events: none; }
@@ -86,22 +81,16 @@
 }
 
 /* Animations nouvelles coupées : réglage, système, économie d'énergie */
-html.reduce-motion .castle-over *, html.saver .castle-over *, html.reduce-motion .fx-crowd i, html.saver .fx-crowd i, html.reduce-motion .moat-flood, html.saver .moat-flood, html.reduce-motion .ring-btn { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .castle-over *, .fx-crowd i, .moat-flood, .ring-btn { animation: none !important; } }
+html.reduce-motion .castle-over *, html.saver .castle-over *, html.reduce-motion .moat-flood, html.saver .moat-flood, html.reduce-motion .ring-btn { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .castle-over *, .moat-flood, .ring-btn { animation: none !important; } }
 
 /* v16 — Performance de la scène (héritée de la v15) : la météo s'anime par transform (composition seule) au lieu de
    background-position (repeint plein écran à chaque image) ; le voile de lumière (mix-blend-mode) disparaît le jour. */
 .light-day .fx-light { display: none; }
-.wx-rain .fx-wx, .wx-storm .fx-wx { top: -140px; will-change: transform; animation: v16-rain 0.55s linear infinite; }
-.wx-snow .fx-wx { top: -200px; will-change: transform; background-size: 173px 200px, 211px 200px, 139px 200px, 257px 200px, 191px 200px; animation: v16-snow 9s linear infinite; }
-@keyframes v16-rain { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 140px, 0); } }
-@keyframes v16-snow { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 200px, 0); } }
-html.saver .wx-rain .fx-wx, html.saver .wx-storm .fx-wx, html.saver .wx-snow .fx-wx, html.reduce-motion .wx-rain .fx-wx, html.reduce-motion .wx-snow .fx-wx, html.reduce-motion .wx-storm .fx-wx { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .wx-rain .fx-wx, .wx-storm .fx-wx, .wx-snow .fx-wx { animation: none !important; } }
 
 /* v16 — Animations des bâtiments : en pause pendant les déplacements de la caméra et en vue éloignée ; coupées en
    qualité « faible » (elles n'apportent rien à cette distance et coûtaient un repeint à chaque image) */
 .city-vp.moving [class*="anim-"], .city-vp.moving .t-up, .city-vp[data-zl="far"] [class*="anim-"] { animation-play-state: paused !important; }
-html.gfx-low .city-vp [class*="anim-"], html.gfx-low .city-vp .t-up, html.gfx-low .fx-crowd i { animation: none !important; }
+html.gfx-low .city-vp [class*="anim-"], html.gfx-low .city-vp .t-up { animation: none !important; }
 .ring-btn.r-bl { transform: translate(-46px, 50px); }
 .ring-btn.r-br { transform: translate(46px, 50px); width: 44px; height: 44px; margin: -22px 0 0 -22px; font-size: 14px; }

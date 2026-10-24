@@ -1,6 +1,7 @@
 // v15 — « Le monde montre son état » : ce que les cartes doivent montrer, déduit de l'état RÉEL du jeu (module pur,
 // sans DOM, testable). Le rendu (src/ui/atlas.js, vues royaume et monde) se contente de dessiner ce résumé : rien de
 // ce qui change à l'écran n'est inventé. La lumière suit l'heure réelle de l'appareil.
+import { a11yPrefs } from './a11y.js';
 import { CATASTROPHES } from '../data/seasons.js';
 import { SIGNS } from '../data/crises.js';
 import { calendar } from './chronicle.js';
@@ -16,8 +17,22 @@ export function dayLight(hour) {
   return { phase: 'day', name: 'Jour', tint: [255, 255, 255], a: 0 };
 }
 
-// Particules de météo : pluie, neige, brume, orage ; la canicule ne montre qu'une chaleur (pas de particules)
+// Météo affichée (classe et légende) ; v23 : plus de particules, une teinte du ciel (skyLight)
 export const WEATHER_FX = { rain: 'rain', storm: 'storm', snow: 'snow', fog: 'fog', heat: 'heat', clear: null };
+// Teinte du ciel par temps : ciel bas et gris sous la pluie, sombre sous l'orage, laiteux dans la brume et la neige,
+// doré par la canicule. soft : éclaircit (mélange « écran ») au lieu d'assombrir.
+export const WX_GRADE = {
+  rain: { tint: [118, 136, 160], a: 0.16 }, storm: { tint: [64, 76, 106], a: 0.3 },
+  fog: { tint: [214, 218, 226], a: 0.26, soft: true }, snow: { tint: [222, 232, 244], a: 0.14, soft: true },
+  heat: { tint: [255, 200, 120], a: 0.14, soft: true },
+};
+export function skyLight(light, weather) {
+  const g = WX_GRADE[weather];
+  if (!g) return light;
+  if (!(light.a > 0)) return { ...light, tint: g.tint, a: g.a, soft: !!g.soft };
+  // de nuit ou à l'aube : la météo assombrit un peu la teinte de l'heure, sans la remplacer
+  return { ...light, tint: light.tint.map((v, i) => Math.round(v * 0.7 + g.tint[i] * 0.3)), a: Math.min(0.45, light.a + (g.soft ? 0.04 : g.a * 0.5)) };
+}
 
 const active = (state, type) => (state.crises?.active || []).filter((c) => c.type === type);
 
@@ -42,7 +57,7 @@ export function sceneState(state, now = Date.now(), hour = 12) {
   }
   return {
     season: cal.season.key,
-    light: dayLight(hour),
+    light: a11yPrefs(state).weather ? skyLight(dayLight(hour), WEATHER_FX[state.weather?.type]) : dayLight(hour),
     weather: WEATHER_FX[state.weather?.type] || null,
     catastrophe: cat,
     catastropheName: cat ? CATASTROPHES[cat].name : null,

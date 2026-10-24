@@ -180,7 +180,7 @@ function a11yCard(s) {
     <div class="form-row"><label>Couleurs</label>${seg('colorVision', Object.entries(COLOR_VISION))}</div>
     <p class="small muted">Les modes pour daltoniens changent aussi les couleurs des cartes et des jauges ; flèches, formes et libellés accompagnent toujours les couleurs.</p>
     <div class="form-row"><label>Police</label>${seg('font', [['default', 'Habituelle'], ['readable', 'Plus lisible']])}</div>
-    <div class="form-row"><label>Météo sur les cartes</label>${onoff('weather', 'Affichée', 'Masquée')}</div>
+    <div class="form-row"><label>Ciel selon la météo (gris de pluie, brume…)</label>${onoff('weather', 'Teinté', 'Toujours clair')}</div>
     <div class="form-row"><label>Jour et nuit</label>${onoff('night', 'Affichés', 'Toujours le jour')}</div>
     <div class="form-row"><label>Noms des bâtiments</label>${onoff('showNames', 'Toujours', 'Au survol et de près')}</div>
     <div class="form-row"><label>Durée des messages</label>${seg('toastSec', TOAST_SECS.map((v) => [v, `${v} s`]))}</div>
