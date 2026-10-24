@@ -497,6 +497,8 @@ export function bulkCandidates(state, filter = {}) {
   for (const it of state.inventory.items) {
     if (rIdx(it) > maxR) continue;
     if (filter.slot && it.slot !== filter.slot) continue;
+    if (filter.rarities?.length && !filter.rarities.includes(it.rarity)) continue;
+    if (filter.slots?.length && !filter.slots.includes(it.slot)) continue;
     if (filter.maxIlvl && (it.ilvl || 1) > filter.maxIlvl) continue;
     if (dup && !dup.has(it.id)) continue;
     const why = protectedReason(it, best);
@@ -542,6 +544,9 @@ export function ruleMatches(rule, it, state, C) {
   if (c.rarityMax && rIdx(it) > RARITY_ORDER.indexOf(c.rarityMax)) return false;
   if (c.rarityMin && rIdx(it) < RARITY_ORDER.indexOf(c.rarityMin)) return false;
   if (c.slot && it.slot !== c.slot) return false;
+  if (c.rarities?.length && !c.rarities.includes(it.rarity)) return false;
+  if (c.slots?.length && !c.slots.includes(it.slot)) return false;
+  if (c.maxIlvl && (it.ilvl || 1) > c.maxIlvl) return false;
   if (c.useful === 'useless' && improvesSomeone(state, it, C)) return false;
   return true;
 }
@@ -860,3 +865,22 @@ export function tavernAdvice(state) {
   return out;
 }
 export { parseGem as parseGemKey };
+
+// v22b : la sélection groupée du tri en masse (raretés, emplacements, niveau) devient une règle de vente automatique :
+// chaque butin qui lui correspond est vendu à son arrivée (jamais une pièce protégée, voir lootTick)
+export function autoSellRule(state, filter = {}, name = null) {
+  if (lootRules(state).length >= LOOT_RULES_MAX) return { ok: false, reason: `Au plus ${LOOT_RULES_MAX} règles de tri` };
+  const rarities = (filter.rarities || []).filter((r) => RARITIES[r]);
+  const slots = (filter.slots || []).filter((k) => SLOTS[k]);
+  const cond = { type: 'loot', rarityMax: RARITIES[filter.maxRarity] ? filter.maxRarity : '', slot: SLOTS[filter.slot] ? filter.slot : '', useful: filter.useless ? 'useless' : 'any' };
+  if (rarities.length) cond.rarities = rarities;
+  if (slots.length) cond.slots = slots;
+  if (filter.maxIlvl > 0) cond.maxIlvl = Math.floor(filter.maxIlvl);
+  if (!cond.rarityMax && !rarities.length) return { ok: false, reason: 'Choisissez au moins une rareté : la vente automatique de tout le butin est refusée' };
+  const rn = rarities.length ? rarities.map((r) => RARITIES[r].name.toLowerCase()).join(', ') : `≤ ${RARITIES[cond.rarityMax].name.toLowerCase()}`;
+  const sn = slots.length ? slots.map((k) => SLOTS[k].name.toLowerCase()).join(', ') : cond.slot ? SLOTS[cond.slot].name.toLowerCase() : 'tout emplacement';
+  const label = name || `Vendre ${rn} · ${sn}${cond.maxIlvl ? ` · niv. ≤ ${cond.maxIlvl}` : ''}${cond.useful === 'useless' ? ' · inutiles' : ''}`;
+  state.orders ||= [];
+  state.orders.push({ id: uid('o'), name: label.slice(0, 80), enabled: true, cond, action: { type: 'lootSell' }, cooldown: 0, lastRun: 0, runs: 0, lastMsg: '' });
+  return { ok: true, label };
+}

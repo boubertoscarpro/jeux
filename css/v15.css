@@ -36,7 +36,7 @@
   .res { padding: 3px 6px; }
 }
 
-/* ───── Écrans « carte » : la colonne de droite devient un tiroir, accessible par 📋 ───── */
+/* ───── Écrans « carte » : la colonne de droite devient un tiroir, accessible par le bouton du tiroir ───── */
 #app.mapmode { grid-template-columns: 84px minmax(0, 1fr); }
 #app.mapmode #side { display: none; }
 #app.mapmode .side-toggle { display: inline-flex; align-items: center; justify-content: center; }

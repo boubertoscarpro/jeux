@@ -1,3 +1,4 @@
+import { drawSigil } from './sigils.js';
 // Rendu du monde évolutif sur la carte du monde (canvas) et lignes d'explication de la fiche d'une case.
 import { MARKS, marksNear, markAt, TOWN_RANKS, HAMLET_MAX, HAMLET_STAB, HAMLET_HOURS } from '../systems/worldmarks.js';
 import { esc, countdown } from './components.js';
@@ -35,8 +36,7 @@ export function drawWorldMarks(ctx, s, { ox, oy, T, x0, x1, y0, y1, now }) {
       ctx.strokeStyle = 'rgba(140,230,120,0.75)'; ctx.lineWidth = Math.max(1.5, T * 0.05);
       ctx.beginPath(); ctx.arc(px + T / 2, py + T / 2, T * 0.62, 0, 7); ctx.stroke();
     } else if (m.kind === 'ruinedRoad' && T >= 14) {
-      ctx.font = `${Math.round(T * 0.38)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('🚧', px + T * 0.82, py + T * 0.82);
+      drawSigil(ctx, '🚧', px + T * 0.82, py + T * 0.82, T * 0.38, '#f3c76a');
     }
   }
 }

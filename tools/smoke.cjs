@@ -312,6 +312,10 @@ const path = require('path');
     // v16 : une carte (château, monde, avant-poste) se teste dans #view, un écran dans le corps de sa fenêtre
     const SEL = await page.evaluate((v) => { const a = window.cendrelande; a.closeModal(); if (v === 'outpost') a.ui.outpost = Object.keys(a.state.territories)[0]; a.go(v); return ['city', 'world', 'outpost'].includes(v) ? '#view [data-action]' : '#win-root .win-body [data-action]'; }, v);
     const n = await page.evaluate((sel) => document.querySelectorAll(sel).length, SEL);
+    // v22 : aucun emoji affiché (textes, infobulles, libellés), sur l'écran et dans une fenêtre ouverte
+    await page.waitForTimeout(30);
+    const emo = await page.evaluate(() => { const re = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u, out = []; const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT); for (let n = w.nextNode(); n; n = w.nextNode()) { if (n.nodeType === 3) { if (re.test(n.nodeValue) && !n.parentElement?.closest('script,style')) out.push(n.nodeValue.trim().slice(0, 40)); } else for (const at of ['title', 'aria-label', 'placeholder', 'alt']) { const v = n.getAttribute(at); if (v && re.test(v)) out.push(`[${at}] ${v.slice(0, 40)}`); } } return [...new Set(out)].slice(0, 5); });
+    if (emo.length) errors.push(`${v} : emoji affiché — ${emo.join(' | ')}`);
     for (let i = 0; i < Math.min(n, 40); i++) {
       const a = await page.evaluate(([i, sel]) => { const el = document.querySelectorAll(sel)[i]; return el && !el.disabled ? el.dataset.action : null; }, [i, SEL]);
       if (!a || SKIP.test(a) || a === 'nav') continue;
