@@ -64,7 +64,7 @@ Captures :
 
 | Mesure | v24 | v25 |
 |---|---|---|
-| `npm test` | 457 réussis | **MESURE_TESTS** |
+| `npm test` | 457 réussis | **472 réussis**, 0 échec (dont 18 tests v25) |
 | `npm run smoke` | aucune erreur | aucune erreur (52 vues, 482 actions) |
 | `npm run layout` | 372 vérifications | 372 vérifications, aucun problème |
 | `npm run overlaps` | 0 | 0 |
@@ -80,7 +80,24 @@ Le joueur simulé :
 
 Palier de passe atteint en 72 h (20 = événement fini) :
 
-MESURE_EVSIM
+| Événement | v24 (ancienne carte) passif / moyen / assidu | v25 (monde, calibré) passif / moyen / assidu |
+|---|---|---|
+| Cavaliers des Steppes | 6 / 20 / 20 | 9 / 20 / 20 |
+| Corsaires du Sud | 19 / 20 / 20 | 20 / 20 / 20 |
+| Hiver des Géants | 5 / 12 / 11 | 7 / 20 / 20 |
+| Ruines Anciennes | 0 / 0 / 0 | 7 / 20 / 20 |
+| Chasse au Dragon | 10 / 20 / 20 | 16 / 20 / 20 |
+| Guerre des Royaumes | 0 / 0 / 0 | 20 / 20 / 20 |
+| Ruée vers l’Or | 10 / 20 / 20 | 10 / 20 / 20 |
+| Colère du Volcan | 9 / 20 / 19 | 9 / 20 / 20 |
+| Nuit des Morts | 1 / 1 / 1 | 16 / 20 / 20 |
+| Siège des Anciens | 1 / 1 / 0 | 20 / 20 / 20 |
+| Convoi des Sept Marchands | 10 / 20 / 20 | 15 / 20 / 20 |
+| **Moyenne** | **6,5 / 12,2 / 11,9** | **13,5 / 20 / 20** |
+
+Le joueur moyen (une visite toutes les 2 h en journée) finit **les 11 événements en 72 h** (6 sur 11 en v24). Points par palier de passe (`passScale`) : Steppes 0,8 ; Géants 0,55 ; Ruines 0,35 ; Dragon 0,7 ; Guerre des Royaumes 0,3 ; Volcan 0,9 ; Nuit des Morts 0,15 ; Siège 0,2 ; Sept Marchands 0,9 ; Corsaires et Ruée vers l’Or inchangés. `npm run simulate` (profils et économie) : sans erreur.
+
+À surveiller : avec ce calibrage, le joueur passif finit aussi la Guerre des Royaumes et le Siège (les points y viennent surtout des régions tenues et des assauts, qui arrivent sans visite). Le joueur simulé ne tient pas compte de tout ce qu’un vrai joueur fait ; les réglages sont dans les données (`passScale`) et se retouchent facilement après ton essai.
 
 ## 4. Ce qui reste partiel (honnêtement)
 
