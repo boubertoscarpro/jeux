@@ -61,7 +61,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Horde de Tokhtamir', icon: '🐎', desc: 'Cavaliers redoutables dans les plaines, vulnérables aux lanciers.' },
     currency: { key: 'steppeMedals', name: 'Médailles des Steppes', icon: '🐎', convert: { res: 'food', per: 100, amount: 250 } },
     enemies: { camp: { nomadRider: 6, horseArcher: 5, nomadGuard: 3 }, caravan: { nomadRider: 5, horseArcher: 3 }, fortress: { nomadRider: 40, horseArcher: 35, nomadGuard: 30 } },
-    passScale: 0.95, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    passScale: 0.8, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { nomads: 0.35, targets: [{ type: 'camp', count: 12, tiers: [1, 7] }, { type: 'caravan', count: 3 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }, { type: 'treasure', count: 3 }, { type: 'village', count: 2 }] },
     objectives: [
       { id: 'c10', label: 'Vaincre 10 camps', stat: 'camps', target: 10, reward: { steppeMedals: 300, res: { food: 4000 } } },
@@ -131,7 +131,7 @@ export const LIVE_EVENTS = {
     currency: { key: 'frostShards', name: 'Éclats de givre', icon: '🧊', convert: { res: 'coal', per: 100, amount: 75 } },
     mods: { upkeep: 0.2, 'prod.food': -0.15, 'march.speed': -0.1 },
     enemies: { camp: { frostGiant: 1, iceWolf: 8 }, fortress: { frostGiant: 8, iceWolf: 40 }, pack: { iceWolf: 10 } },
-    passScale: 0.6, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    passScale: 0.55, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { frost: true, targets: [{ type: 'camp', count: 9, tiers: [1, 7] }, { type: 'hearth', count: 3 }, { type: 'pack', count: 3 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'g8', label: 'Abattre 8 camps de géants', stat: 'camps', target: 8, reward: { frostShards: 300, res: { coal: 600 } } },
@@ -163,7 +163,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Gardiens de l’Aube', icon: '🗿', desc: 'Golems patients : résistent aux tirs.' },
     currency: { key: 'ancientFragments', name: 'Fragments Anciens', icon: '🏺', convert: { res: 'stone', per: 100, amount: 300 } },
     enemies: { vault: { warden: 2, ancientSoldier: 8 }, fortress: { warden: 10, ancientSoldier: 50 } },
-    passScale: 0.4, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    passScale: 0.35, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { underFog: ['riddle', 'vault', 'treasure'], targets: [{ type: 'riddle', count: 6 }, { type: 'vault', count: 7, tiers: [1, 7] }, { type: 'treasure', count: 5 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'r4', label: 'Résoudre 4 énigmes', stat: 'riddles', target: 4, reward: { ancientFragments: 600, res: { crystals: 6 } } },
@@ -195,6 +195,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Couvée de Vorthak', icon: '🦎', desc: 'Dragonnets rapides ; le dragon redoute les trébuchets.' },
     currency: { key: 'dragonScales', name: 'Écailles de Dragon', icon: '🐉', convert: { res: 'iron', per: 100, amount: 200 } },
     enemies: { camp: { dragonling: 6 }, fortress: { dragonling: 40 } },
+    passScale: 0.7, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { trail: true, targets: [{ type: 'camp', count: 8, tiers: [1, 7] }, { type: 'trace', count: 1 }, { type: 'treasure', count: 3 }] },
     coop: { name: 'Vorthak l’Ancien', unit: 'elderDragon', hp: 60000000, serverRate: 0.015, tiers: [0.25, 0.5, 0.75, 1], rewards: [{ dragonScales: 500 }, { dragonScales: 1000, chest: 'rare' }, { dragonScales: 1500, mythicFragments: 5 }, { dragonScales: 3000, unique: 'dragonScale' }] },
     objectives: [
@@ -225,7 +226,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Légions du Seigneur de guerre', icon: '🚩', desc: 'Armées régulières équilibrées.' },
     currency: { key: 'warBanners', name: 'Bannières de conquête', icon: '🚩', convert: { res: 'iron', per: 100, amount: 175 } },
     enemies: { zone: { guard: 6, royalArcher: 5, royalKnight: 2 }, fortress: { guard: 50, royalArcher: 45, royalKnight: 30 } },
-    passScale: 0.5, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    passScale: 0.3, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { borders: true, targets: [{ type: 'zone', count: 7, tiers: [1, 7] }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'z3', label: 'Tenir 3 régions en même temps', stat: 'heldMax', target: 3, reward: { warBanners: 800, chest: 'rare' } },
@@ -286,6 +287,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Enfants du magma', icon: '🔥', desc: 'Élémentaires résistants aux tirs.' },
     currency: { key: 'embers', name: 'Braises volcaniques', icon: '🔥', convert: { res: 'coal', per: 100, amount: 100 } },
     enemies: { camp: { magmaling: 4 }, fortress: { magmaling: 30 } },
+    passScale: 0.9, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { volcano: true, targets: [{ type: 'vent', count: 8 }, { type: 'camp', count: 7, tiers: [2, 7] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'v6', label: 'Récolter 6 évents d’obsidienne', stat: 'vents', target: 6, reward: { embers: 600, res: { crystals: 10 } } },
@@ -314,7 +316,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Légion du Roi des Os', icon: '💀', desc: 'Goules et chevaliers de la mort ; craignent les épéistes.' },
     currency: { key: 'souls', name: 'Âmes errantes', icon: '👻', convert: { res: 'herbs', per: 100, amount: 38 } },
     enemies: { crypt: { ghoul: 10, skeleton: 6, deathKnight: 1 }, wave: { ghoul: 14, skeleton: 10, deathKnight: 3, wraith: 4 } },
-    passScale: 0.25, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    passScale: 0.15, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { hordes: true, targets: [{ type: 'crypt', count: 9, tiers: [1, 7] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'w3', label: 'Repousser 3 vagues', stat: 'waves', target: 3, reward: { souls: 600, chest: 'rare' } },
@@ -345,7 +347,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Horde de cendre', icon: '🏗️', desc: 'Engins de siège et soldats anciens.' },
     currency: { key: 'citadelSeals', name: 'Sceaux de la Citadelle', icon: '🏯', convert: { res: 'stone', per: 100, amount: 300 } },
     enemies: { camp: { ancientSoldier: 10, banditArcher: 6 }, assault: { ancientSoldier: 30, royalArcher: 20, royalKnight: 10 } },
-    passScale: 0.25, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    passScale: 0.2, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { assaultDir: true, targets: [{ type: 'bastion', count: 1 }, { type: 'camp', count: 8, tiers: [1, 7] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'a3', label: 'Participer à la défense de 3 assauts', stat: 'assaults', target: 3, reward: { citadelSeals: 600, chest: 'rare' } },
@@ -375,6 +377,7 @@ export const LIVE_EVENTS = {
     currency: { key: 'merchantSeals', name: 'Sceaux des Sept', icon: '📜', convert: { res: 'gold', per: 100, amount: 110 } },
     mods: { 'market.fee': 0.04, 'caravan.gain': 0.25 },
     enemies: { camp: { bandit: 8, banditArcher: 5, banditRider: 3 }, caravan: { guard: 6, royalArcher: 4 }, fortress: { bandit: 40, banditArcher: 30, banditRider: 25 } },
+    passScale: 0.9, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { routes: true, targets: [{ type: 'caravan', count: 7 }, { type: 'camp', count: 8, tiers: [1, 6] }, { type: 'village', count: 3 }, { type: 'treasure', count: 2 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'esc5', label: 'Escorter 5 convois', stat: 'escorts', target: 5, reward: { merchantSeals: 700, res: { silver: 20 } } },
