@@ -1,5 +1,7 @@
-import eventView from './events.js';
-import { eventSiteTargets } from '../../systems/eventSites.js';
+import { drawEventLayers, drawEventOverlay, eventPoiAlpha, ringHtml, ringActions, eventCardHtml, EVENT_PHASE_LABEL, hexA } from '../eventMap.js';
+import { liveState, eventTargetOfPoi, liveTarget, planLive, sendLive, livePreview, liveFoe, actionsFor, ACTIONS, targetName, actionCost, liveTravel, maxLiveMarches, eventMarches } from '../../systems/liveEvents.js';
+import { eventBases, nearestBase } from '../../systems/eventWorld.js';
+import { LIVE_EVENTS } from '../../data/liveEvents.js';
 import { drawSigil, fillTextSigils } from '../sigils.js';
 import { campLevel, campScale } from '../../systems/realm21.js';
 import { armyPresets, presetUnits, saveArmyPreset } from '../../systems/comfort.js';
@@ -38,7 +40,7 @@ import { ensureDungeon } from '../../systems/dungeons.js';
 import { DUNGEON_THEMES, DUNGEON_AFFIXES, ROOM_TYPES } from '../../data/dungeons.js';
 import { esc, costList, resChips, bar, countdown, progress } from '../components.js';
 import { npcList, npcOf, npcOffers, npcState } from '../../systems/npcs.js';
-import { autoFillAttack, autoFillNote, halfOfEach } from '../../systems/autofill.js';
+import { autoFillAttack, autoFillLive, autoFillNote, halfOfEach } from '../../systems/autofill.js';
 import { RAID, RAID_COUNTS, raidTargetOk, raidStatus, raidCycle, startRaidOrder, raidResText } from '../../systems/raidOrders.js';
 import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
 import { poiPainter, drawPoiPainted, outpostPainter, drawColumn } from '../paint/worldPaint.js';
@@ -87,18 +89,19 @@ const POI_CAT = (p) => {
   if (def.kind === 'danger') return 'danger';
   if (def.kind === 'town' || def.kind === 'kingdom' || def.kind === 'village') return 'social';
   if (def.kind === 'npc') return 'npc';
-  if (def.kind === 'event') return 'always';
+  if (def.kind === 'event') return 'event';
   return 'always';
 };
-export const MAP_FILTERS = { gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes', npc: '🧑 Personnages' };
+export const MAP_FILTERS = { event: '🎪 Événement', gather: '⛏️ Ressources', danger: '⚔️ Menaces', breach: '🏴 Brèche', dungeon: '🏚️ Donjons & ruines', social: '🏘️ Cités & royaumes', npc: '🧑 Personnages' };
 // v17 : couleurs de catégories selon le mode de couleurs (daltonisme) ; les icônes et la légende restent
-const CAT_BASE = { gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', npc: '#7fd7e8', always: '#ffffff', other: '#cccccc' };
+const CAT_BASE = { event: '#ffb347', gather: '#9be37a', danger: '#ff7a5c', breach: '#d0703f', dungeon: '#c99cff', social: '#ffd56b', npc: '#7fd7e8', always: '#ffffff', other: '#cccccc' };
 let CAT_COLOR = { ...CAT_BASE };
 const setPalette = (state) => { const p = mapPalette(state); const cb = a11yPrefs(state).colorVision !== 'none'; CAT_COLOR = cb ? { ...CAT_BASE, gather: p.good, danger: p.bad, breach: p.foe, npc: p.info, social: p.mine } : { ...CAT_BASE }; return p; };
-const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true }); f.breach ??= true; f.npc ??= true; return f; };
+const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: true, dungeon: true, social: true }); f.breach ??= true; f.npc ??= true; f.event ??= true; return f; };
 let rafPending = false;
 const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawMap(app); }); };
 
+const EVT_ICON = { camp: '⛺', port: '⚓', vault: '🚪', crypt: '⚰️', pack: '🐺', zone: '🚩', fortress: '🏯', boss: '👑', caravan: '🐫', ship: '⛵', treasure: '💰', village: '🏘️', hearth: '🔥', riddle: '❓', trace: '🐾', lair: '🐉', vein: '🪙', vent: '🌋', bastion: '🏰', horde: '💀', herald: '🎪' };
 function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span class="ok">Sûr</span>'; }
 
 export function drawMap(app) {
@@ -166,8 +169,8 @@ export function drawMap(app) {
   const tokens = [];
   const mark = (x, y) => ({ x: ox + (x + 0.5) * T, y: oy + (y + 0.5) * T });
   for (const m of s.marches) {
-    const a = mark(w.capital.x, w.capital.y), b = mark(m.x, m.y);
-    const col = m.type === 'attack' || m.type === 'boss' || m.type === 'dungeon' ? '#ff6b5a' : m.type === 'explore' || m.type === 'scout' ? '#6cc3ff' : '#ffd166';
+    const a = mark(m.from?.x ?? w.capital.x, m.from?.y ?? w.capital.y), b = mark(m.x, m.y);
+    const col = m.type === 'event' ? (m.action === 'attack' ? '#ff6b5a' : m.action === 'spy' || m.action === 'track' ? '#6cc3ff' : '#ffb347') : m.type === 'attack' || m.type === 'boss' || m.type === 'dungeon' ? '#ff6b5a' : m.type === 'explore' || m.type === 'scout' ? '#6cc3ff' : '#ffd166';
     let f = 1, end = null, toward = b, from = a;
     if (m.phase === 'out') { f = (now - m.start) / (m.arrive - m.start); end = m.arrive; }
     else if (m.phase === 'back') { f = 1 - (now - (m.returnAt - m.travel)) / m.travel; end = m.returnAt; toward = a; from = b; }
@@ -207,6 +210,8 @@ export function drawMap(app) {
     const eng = levelOf(s, 'watchtower') >= INTEL.engines ? Object.entries(r.engines || {}).filter(([, n]) => n > 0) : [];
     tokens.push({ army: true, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: '#d62828', icon: '⚔️', angle: Math.atan2(b.y - a.y, b.x - a.x), end: r.arrive, eng: eng.map(([k]) => ATTACK_ENGINES[k]?.icon).join(''), label: `Raid : ${r.name}${eng.length ? ` · ${eng.map(([k, n]) => `${n} ${ATTACK_ENGINES[k]?.icon || ''}`).join(' ')}` : ''}`, raid: true });
   }
+  // v25 : couches des événements (neige, lave, cases brûlées) et menaces en marche vers vos terres
+  tokens.push(...drawEventLayers(ctx, s, { T, ox, oy }, now, reduceMotion));
   // Réseau logistique : routes des avant-postes vers leur relais (couleur selon le niveau, rouge si dangereuse)
   const net = logisticsNetwork(s, now);
   for (const [k, r] of Object.entries(net)) {
@@ -234,7 +239,7 @@ export function drawMap(app) {
     if (F[cat] === false && def.kind !== 'capital') continue;
     const px = ox + (p.x + 0.5) * T, py = oy + (p.y + 0.5) * T;
     const cleared = p.clearedUntil > now || (def.kind === 'gather' && p.amount < 1);
-    const major = def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'town' || def.kind === 'boss' || def.kind === 'event';
+    const major = def.kind === 'capital' || def.kind === 'kingdom' || def.kind === 'town' || def.kind === 'boss' || (def.kind === 'event' && (p.phase === 'boss' || p.phase === 'upcoming'));
     // Vue d'ensemble : les sites mineurs deviennent des points colorés, les lieux majeurs gardent leur médaillon
     if (T < 13 && !major) {
       ctx.globalAlpha = cleared ? 0.35 : 0.95;
@@ -243,7 +248,7 @@ export function drawMap(app) {
       ctx.globalAlpha = 1;
       continue;
     }
-    const icon = p.type === 'kingdom' ? RIVALS[p.rival]?.icon || def.icon : p.type === 'boss' && s.boss ? ALL_UNITS[BOSSES[s.boss.key].unit].icon : def.icon;
+    const icon = p.type === 'evt' ? EVT_ICON[p.kind] || def.icon : p.type === 'kingdom' ? RIVALS[p.rival]?.icon || def.icon : p.type === 'boss' && s.boss ? ALL_UNITS[BOSSES[s.boss.key].unit].icon : def.icon;
     const r = major ? Math.max(9, Math.min(def.kind === 'capital' ? 38 : 33, T * (def.kind === 'capital' ? 0.62 : 0.52))) : Math.max(7, Math.min(26, T * 0.4));
     const ring = def.kind === 'event' ? p.color || '#e2b84a' : def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color || CAT_COLOR.social : def.kind === 'boss' ? '#ff3b3b' : CAT_COLOR[cat];
     // Lieux rares (donjons, cité perdue) et très dangereux : halo pulsé (fixe si animations réduites)
@@ -261,9 +266,10 @@ export function drawMap(app) {
       // v21 : lieux peints (capitale, royaumes, cités, villages, camps, ruines, mines) dès la vue intermédiaire
       const painter = T >= 13 && !(p.infested && def.kind === 'gather') ? poiPainter(s, p, def, { th: thLevel(s), rivalColor: RIVALS[p.rival]?.color }) : null;
       if (painter) {
-        if (def.kind === 'event' && p.phase !== 'upcoming' && p.phase !== 'cleared') { ctx.fillStyle = hexA(p.color || '#e2b84a', p.phase === 'boss' ? 0.38 : 0.24); ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.6, T * painter.w * 0.32, 0, 0, 7); ctx.fill(); }
+        if (def.kind === 'event' && p.phase !== 'upcoming' && p.phase !== 'cleared' && p.phase !== 'ended') { ctx.fillStyle = hexA(p.color || '#e2b84a', p.phase === 'boss' ? 0.38 : 0.24); ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.6, T * painter.w * 0.32, 0, 0, 7); ctx.fill(); }
         if (def.kind === 'capital' || def.kind === 'kingdom') { ctx.fillStyle = def.kind === 'capital' ? 'rgba(255,220,120,0.22)' : 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.55, T * painter.w * 0.3, 0, 0, 7); ctx.fill(); }
-        drawPoiPainted(ctx, painter, px, py, T, cleared ? 0.45 : 1);
+        drawPoiPainted(ctx, painter, px, py, T, def.kind === 'event' ? eventPoiAlpha(p, now) : cleared ? 0.45 : 1);
+        if (def.kind === 'event') drawEventOverlay(ctx, p, px, py, T, now, reduceMotion);
       } else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     }
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
@@ -274,9 +280,9 @@ export function drawMap(app) {
     }
     if (p.infested && T > 16) drawSigil(ctx, '🕷', px + r * 0.85, py - r * 0.85, r * 0.8, '#e8d6ff');
     // Étiquettes : capitale toujours, cités et royaumes en vue moyenne, autres lieux en vue rapprochée
-    const name = def.kind === 'event' ? `${p.name} · ${EVENT_PHASE[p.phase] || ''}` : def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.type === 'banditCamp' ? `${p.name || def.name} · niv. ${campLevel(p)}` : p.name || def.name;
-    const prio = { capital: 100, event: 90, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
-    const minT = { capital: 6, event: 10, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
+    const name = def.kind === 'event' ? (p.phase === 'active' || p.phase === 'boss' ? p.name : `${p.name} · ${EVENT_PHASE_LABEL[p.phase] || ''}`) : def.kind === 'capital' ? castleName(s) : def.kind === 'town' && p.rank ? `${p.name || def.name} ${'★'.repeat(p.rank)}` : p.type === 'banditCamp' ? `${p.name || def.name} · niv. ${campLevel(p)}` : p.name || def.name;
+    const prio = { capital: 100, event: p.phase === 'boss' ? 92 : 85, kingdom: 80, boss: 75, town: 60, breach: 55 }[def.kind] ?? (def.dungeon ? 40 : 10);
+    const minT = { capital: 6, event: p.phase === 'boss' || p.phase === 'upcoming' ? 10 : 20, kingdom: 14, boss: 14, town: 16, breach: 22 }[def.kind] ?? (def.dungeon || p.type === 'lostCity' ? 26 : 56);
     if (T >= minT) labels.push({ x: px, y: py, offset: rb ? rb * 0.95 + 3 : r + (p.danger > 0 && T > 16 ? 6 : 2), text: rb ? `${name} · ${p.breach.level}` : name, prio, size: def.kind === 'capital' ? lsize + 1 : lsize, color: def.kind === 'capital' ? '#ffe9a8' : def.kind === 'kingdom' ? '#ffd9d0' : '#f3e6c4', border: def.kind === 'capital' ? banner : def.kind === 'kingdom' ? RIVALS[p.rival]?.color : null });
   }
   // Avant-postes du joueur : étendard + nom
@@ -353,6 +359,7 @@ export function drawMap(app) {
     ctx.strokeStyle = `rgba(255,255,255,${pulse})`; ctx.lineWidth = 3;
     ctx.strokeRect(ox + sel.x * T + 1.5, oy + sel.y * T + 1.5, Math.max(3, T - 3), Math.max(3, T - 3));
   }
+  placeRing(app, ox, oy, T, W, H);
   drawMini(app, W, H);
   if (pending) redraw(app); // blocs de terrain encore à peindre : on continue à l'image suivante
   // Mesure du coût de rendu (outil de performance, tools/v15perf.cjs) : 120 dernières images
@@ -409,6 +416,17 @@ export function notablePlaces(state) {
 
 // v22 : le guide des quêtes centre la carte sur un lieu et l'ouvre
 export const worldFocus = (app, x, y, zoom = 1) => focusTile(app, x, y, zoom);
+// v25 : « Montre-moi » (écran de l'événement) : la carte du monde, centrée sur la cible, anneau d'actions ouvert
+export function worldShowRing(app, x, y) {
+  const c = cam(app);
+  c.x = x + 0.5; c.y = y + 0.5; c.zoom = Math.max(c.zoom || 0, 1.1);
+  app.ui.worldSel = { x, y }; app.ui.ring = { x, y };
+  if (app.ui.win) app.closeWin(false);
+  app.closeModal?.();
+  app.ui.map = 'world';
+  if (app.ui.view !== 'world') app.go('world'); else drawMap(app);
+}
+export { eventMarchDialog };
 function focusTile(app, x, y, zoom = null) {
   const c = cam(app);
   c.x = x + 0.5; c.y = y + 0.5;
@@ -424,25 +442,6 @@ function refreshDrawer(app) {
   if (!app.ui.worldSel) { if (app.ui.win === 'tile') app.closeWin(false); drawMap(app); return; }
   if (app.ui.win === 'tile') app.renderWin(); else app.go('tile');
 }
-// ───────── v24 : fiche du lieu d'événement (cibles et attaque directe, règles de l'événement) ─────────
-const EVENT_PHASE = { upcoming: 'à venir', active: 'en cours', boss: 'le chef est là', cleared: 'tout est nettoyé' };
-const hexA = (c, a) => { const n = parseInt(String(c).slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
-const ACT_LABEL = { attack: 'Attaquer', escort: 'Escorter', trade: 'Commercer', spy: 'Espionner', dig: 'Fouiller', deliver: 'Livrer', solve: 'Résoudre', track: 'Pister', garrison: 'Tenir', withdraw: 'Rappeler', mine: 'Extraire', harvest: 'Récolter' };
-function eventSitePanel(app, poi, now) {
-  const s = app.state;
-  if (poi.phase === 'upcoming') return `<div class="panel-sub ev-site"><h4>${esc(poi.name)}</h4><p>Le camp se dresse : l’événement commence dans <b>${countdown(poi.until)}</b>. Ses cibles ne sont pas encore attaquables.</p><button class="btn" data-action="nav" data-view="event">Voir le calendrier</button></div>`;
-  const list = eventSiteTargets(s, now);
-  // d'abord ce qui se combat (chef, camps), puis les autres actions (extraire, livrer, pister…)
-  const fight = list.filter((x) => x.actions.includes('attack')), other = list.filter((x) => !x.actions.includes('attack'));
-  const row = ({ t, name, actions }) => `<li class="ev-t ${t.type === 'boss' ? 'boss' : ''}"><div class="ev-tn"><b>${esc(name)}</b>${t.tier && t.type !== 'boss' ? ` <span class="small muted">rang ${t.tier}</span>` : ''}${t.enemies ? `<div class="small muted">${Object.values(t.enemies).reduce((a, b) => a + b, 0)} ennemis</div>` : ''}</div>
-    <div class="ev-ta">${actions.map((a) => `<button class="mini ${a === 'attack' ? 'primary' : ''}" data-action="ev-send" data-act="${a}" data-id="${t.id}" data-x="${t.x}" data-y="${t.y}">${esc(ACT_LABEL[a] || a)}</button>`).join('') || '<span class="small muted">en attente</span>'}</div></li>`;
-  const block = (title, l, n) => (l.length ? `<h5>${title}</h5><ul class="ev-targets">${l.slice(0, n).map(row).join('')}</ul>${l.length > n ? `<div class="small muted">… et ${l.length - n} autres sur la carte de l’événement</div>` : ''}` : '');
-  return `<div class="panel-sub ev-site ${poi.phase === 'boss' ? 'is-boss' : ''}" style="--ev:${poi.color || '#c9a24a'}"><h4>${esc(poi.name)} <span class="small muted">· ${esc(EVENT_PHASE[poi.phase] || '')}</span></h4>
-    <div class="small">Se termine dans <b>${countdown(poi.until)}</b>. Les combats suivent les règles de l’événement ; butin et monnaie arrivent comme d’habitude.</div>
-    ${list.length ? block('À attaquer', fight, 6) + block('Autres actions', other, 4) : '<p class="muted">Plus aucune cible pour l’instant : elles réapparaissent au fil de l’événement.</p>'}
-    <button class="btn ghost small" data-action="nav" data-view="event">Ouvrir l’événement (carte, boutique, classement)</button></div>`;
-}
-
 export const tileView = {
   id: 'tile', title: 'Case',
   title_(app) { const sel = app.ui.worldSel; return sel ? `Case (${sel.x}, ${sel.y})` : 'Carte du monde'; },
@@ -471,6 +470,21 @@ function worldTipHtml(app, x, y) {
     ${own ? `<div class="small">${own}</div>` : ''}<div class="small muted">Clic : détails et actions</div>`;
 }
 
+// v25 : anneau d'actions autour du lieu choisi (Attaquer, Espionner, actions d'événement, Infos), suit la caméra
+function placeRing(app, ox, oy, T, W, H) {
+  const el = document.getElementById('act-ring');
+  if (!el) return;
+  const r = app.ui.ring;
+  const poi = r && poiAt(app.state.world, r.x, r.y);
+  const html = poi ? ringHtml(app.state, poi) : '';
+  if (!html) { if (!el.hidden) { el.hidden = true; el.innerHTML = ''; el.dataset.k = ''; } if (r) app.ui.ring = null; return; }
+  const k = `${r.x},${r.y}|${poi.phase || ''}|${html.length}`;
+  if (el.dataset.k !== k) { el.innerHTML = html; el.dataset.k = k; }
+  const px = ox + (r.x + 0.5) * T, py = oy + (r.y + 0.5) * T;
+  el.style.left = `${Math.max(60, Math.min(W - 60, px))}px`; el.style.top = `${Math.max(60, Math.min(H - 60, py))}px`;
+  el.style.setProperty('--rr', `${Math.max(46, Math.min(78, T * 0.95))}px`);
+  el.hidden = false;
+}
 function bindCanvas(app) {
   const canvas = document.getElementById('world-canvas');
   if (!canvas || canvas.dataset.bound) return;
@@ -531,8 +545,12 @@ function bindCanvas(app) {
       const y = Math.floor((e.clientY - r.top - H / 2) / T + c.y);
       if (x >= 0 && y >= 0 && x < S && y < S) {
         app.ui.worldSel = { x, y };
-        refreshDrawer(app);
+        // Lieu avec des actions : l'anneau s'ouvre autour de lui (Infos ouvre la fiche) ; sinon, la fiche directement
+        const poi = isRevealed(app.state.world, x, y) && poiAt(app.state.world, x, y);
+        if (poi && ringActions(app.state, poi).length) { app.ui.ring = { x, y }; if (app.ui.win === 'tile') app.closeWin(false); }
+        else { app.ui.ring = null; refreshDrawer(app); }
         drawMap(app);
+        if (app.ui.ring) document.querySelector('#act-ring .ring-btn')?.focus({ preventScroll: true });
       }
     }
     if (drag && drag.id === e.pointerId) drag = null;
@@ -624,7 +642,7 @@ function tilePanel(app) {
         <div><span class="lg-sw" style="--c:${esc(s.meta.banner || '#e2b84a')}"></span> Vos avant-postes</div>
         ${['war', 'alliance', 'trade', 'truce', 'neutral'].map((k) => `<div><span class="lg-sw ${k === 'neutral' ? 'dashed' : ''}" style="--c:${RELATION_STYLE[k].color || '#9aa0ad'}"></span> ${esc(RELATION_STYLE[k].label)}</div>`).join('')}</div>
       <h4>Lieux</h4><div class="map-legend small">${Object.entries(MAP_FILTERS).map(([k, l]) => `<div><span class="lg-dot" style="--c:${CAT_COLOR[k]}"></span> ${esc(l)}</div>`).join('')}<div><span class="lg-dot" style="--c:#ff3b3b"></span> 🐉 Boss mondial</div></div>
-      <h4>Mouvements</h4><div class="map-legend small"><div>🧭 Bleu : exploration, espionnage</div><div>🧺 Jaune : récolte</div><div>⚔️ Rouge : attaque — trait rouge épais : <b>raid</b> vers votre château</div><div>⛺ Vert : expédition</div></div>
+      <h4>Mouvements</h4><div class="map-legend small"><div>🎪 Cibles d’événement : écusson = niveau (I à VII), bannière aux couleurs de l’événement, compte à rebours de réapparition</div><div>⚔️ Trait rouge : menace d’événement vers vos terres (harcèlement, horde, assaut) · trait orange : prospecteurs rivaux</div><div>❄️ Disque givré : front de neige (marches −25 %) · 🔥 cases de lave · cases noircies : piste du dragon</div><div>🧭 Bleu : exploration, espionnage</div><div>🧺 Jaune : récolte</div><div>⚔️ Rouge : attaque — trait rouge épais : <b>raid</b> vers votre château</div><div>⛺ Vert : expédition</div></div>
       <h4>Réseau et histoire</h4><div class="map-legend small"><div>🛣️ Routes des avant-postes (pointillé : piste ; rouge : trajet dangereux)</div><div>🏺 Zone de fouilles (cercle) et ⛏️ site localisé</div><div>🏛️ Lieu retrouvé (mystère résolu)</div><div>🏚️ 🗿 Vestiges des dynasties passées</div></div>
       <h4>Monde évolutif</h4><div class="map-legend small"><div>🔥 Halo sombre : terres ravagées par la guerre</div><div>🪵 Souches : bois surexploité · 🌳 cercle vert : forêt restaurée</div><div>🏡 Maisons près d’un étendard : hameau · 🚧 route en ruine</div><div>★ après le nom d’une cité : cité marchande</div><div>🏴 Forteresses de la Brèche : leur dessin grandit avec le palier</div></div>`;
   }
@@ -692,7 +710,7 @@ function tilePanel(app) {
       html += townPanel(app, poi, mods);
     }
     if (def.kind === 'npc') html += npcPanel(s, poi, now);
-    if (def.kind === 'event') html += eventSitePanel(app, poi, now);
+    if (def.kind === 'event') html += eventCardHtml(app, poi, now);
     if (def.kind === 'village') html += `<p>${poi.visited ? 'Vous avez déjà fouillé ce village.' : 'Un village abandonné. Envoyez des éclaireurs : des survivants s’y cachent peut-être.'}</p><button class="btn primary" data-action="march" data-type="explore">🧭 Explorer</button>`;
     if (def.kind === 'boss' && s.boss) {
       const b = BOSSES[s.boss.key];
@@ -799,10 +817,80 @@ function marchDialog(app, type, raid = 0) {
   updateMarchPreview(app);
 }
 
+// v25 : envoi vers une cible d'événement — la même fenêtre d'attaque que le monde (unités, compositions, remplissage
+// auto, commandant, formation), avec le point de départ (capitale ou avant-poste) et le temps de marche de chacun.
+// Toute la validation reste dans le moteur (planLive / sendLive).
+function eventMarchDialog(app, act, id) {
+  const s = app.state;
+  const cur = liveState(s).current;
+  const t = liveTarget(s, id);
+  if (!cur || !t) return app.toast('Cette cible a disparu', 'bad');
+  if (act === 'withdraw') return app.act(() => sendLive(s, { action: 'withdraw', targetId: id, units: {} }), 'Garnison rappelée');
+  const probe = planLive(s, { action: act, targetId: id, units: { _probe: 0 } });
+  if (!probe.ok && !/Sélectionnez|éclaireur/.test(probe.reason)) return app.toast(probe.reason, 'bad');
+  app.ui.ring = null;
+  const near = nearestBase(s, t.x, t.y);
+  const md = app.ui.marchDraft = { type: 'event', action: act, targetId: id, x: t.x, y: t.y, from: near.key, units: {}, heroId: null, formation: 'balanced' };
+  const foe = liveFoe(s, act, t);
+  if (act === 'spy' || act === 'track') md.units.scout = Math.min(1, s.army.scout || 0);
+  else if (foe) { const r = autoFillLive(s, md); if (r.ok) md.units = { ...r.units }; }
+  const idle = s.heroes.filter((h) => !h.marchId && !h.assignment);
+  const unitsAvail = Object.entries(s.army).filter(([u, n]) => n > 0 && UNITS[u]);
+  const def = LIVE_EVENTS[cur.key];
+  const bases = eventBases(s);
+  const title = `${ACTIONS[act].icon} ${ACTIONS[act].label} — ${esc(targetName(cur, t))}`;
+  const cost = actionCost(t, act);
+  app.modal(`<h2>${title}</h2>
+    <p class="small muted">${esc(def.name)} · (${t.x}, ${t.y})${cost ? ` · coût ${resChips(cost)}` : ''}${ACTIONS[act].hint ? ` · ${esc(ACTIONS[act].hint)}` : ''}</p>
+    <div class="march-grid">
+      <div>
+        <h4>Départ</h4>
+        <select data-change="mfrom" id="mfrom" aria-label="Point de départ">${bases.map((b) => `<option value="${esc(b.key)}" ${b.key === md.from ? 'selected' : ''}>${esc(b.key === 'capital' ? 'Capitale' : b.name)} · ${Math.hypot(b.x - t.x, b.y - t.y).toFixed(1)} cases</option>`).join('')}</select>
+        <h4>Unités</h4>
+        ${unitsAvail.length ? unitsAvail.map(([u, n]) => `<div class="unit-pick"><span title="${esc(UNITS[u].desc)}">${UNITS[u].icon} ${esc(UNITS[u].name)}</span>
+          <input type="number" min="0" max="${n}" value="${md.units[u] || 0}" data-input="mu" data-unit="${u}" id="mu-${u}"> <span class="muted small">/ ${n}</span>
+          <button class="mini ghost" data-action="mu-max" data-unit="${u}">max</button></div>`).join('') : '<div class="req">Aucune unité disponible.</div>'}
+        ${unitsAvail.length ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="mu-half">½ Moitié de chaque unité</button>${foe ? `<button class="mini primary" data-action="mu-auto" title="${foe.kind === 'boss' ? 'Contre un chef : toutes les unités de combat' : 'Le minimum pour gagner d’après l’estimation, plus une marge'}">⚖️ Remplissage auto</button>` : ''}<button class="mini ghost" data-action="mu-none">Vider</button></div>${presetRow(s)}<div class="small muted" id="mu-auto-note"></div>` : ''}
+        <h4>Commandant</h4>
+        <select data-change="mh" id="mh"><option value="">— Aucun —</option>${idle.map((h) => `<option value="${h.id}">${HERO_CLASSES[h.cls].icon} ${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select>
+        ${foe ? `<h4>Formation</h4><select data-change="mf" id="mf">${Object.entries(FORMATIONS).map(([k, f]) => `<option value="${k}">${f.icon} ${esc(f.name)}</option>`).join('')}</select><div class="muted small" id="mf-desc">${esc(FORMATIONS.balanced.desc)}</div>` : ''}
+      </div>
+      <div id="march-preview"></div>
+    </div>
+    <div class="row gap end"><button class="btn ghost" data-action="close-modal">Annuler</button><button class="btn primary" data-action="send-march">Envoyer</button></div>`, marchActions, 'wide');
+  updateMarchPreview(app);
+}
+function updateEventPreview(app, el) {
+  const s = app.state, md = app.ui.marchDraft;
+  const cur = liveState(s).current;
+  const t = liveTarget(s, md.targetId);
+  if (!cur || !t) { el.innerHTML = '<div class="req">Cette cible a disparu.</div>'; return; }
+  const units = Object.fromEntries(Object.entries(md.units).filter(([, n]) => n > 0));
+  const plan = planLive(s, md);
+  const mods = plan.mods || computeMods(s);
+  let html = '<h4>Estimation</h4>';
+  html += plan.ok ? `<div>⏱ Trajet depuis ${esc(plan.from.key === 'capital' ? 'la capitale' : plan.from.name)} : <b>${fmtTime(plan.travel)}</b> (aller)</div>` : `<div class="req">${esc(plan.reason)}</div>`;
+  if (Object.keys(units).length) {
+    const others = eventBases(s).filter((b) => b.key !== md.from).map((b) => `${esc(b.key === 'capital' ? 'Capitale' : b.name)} ${fmtTime(liveTravel(s, cur, b, t.x, t.y, units, mods))}`);
+    if (others.length) html += `<div class="small muted">Autres départs : ${others.join(' · ')}</div>`;
+    html += `<div>💪 Puissance : ${fmt(armyPower(units))}</div>`;
+    const pv = livePreview(s, md);
+    if (pv) {
+      html += pv.kind === 'boss' ? `<div class="verdict">🐉 Dégâts estimés : <b>${fmt(pv.pv.bossDamage)}</b></div>`
+        : `<div class="verdict ${pv.pv.winner === 'attacker' ? 'good' : 'bad'}">${pv.pv.winner === 'attacker' ? '✔' : '✖'} ${esc(pv.pv.verdict)}</div>${t.spied || pv.kind !== 'win' ? '' : '<div class="small muted">Défenseurs estimés (non espionnés) : l’issue réelle peut varier.</div>'}`;
+      const lost = Object.entries(pv.pv.attLosses).filter(([, n]) => n > 0);
+      html += `<div class="small">Pertes estimées : ${lost.map(([u, n]) => `${n} ${esc(UNITS[u]?.name || u)}`).join(', ') || 'aucune'}</div>`;
+    }
+  }
+  html += `<div class="small muted">Troupes d’événement en route : ${eventMarches(s).filter((m) => m.phase !== 'hold').length}/${maxLiveMarches(s)} (en plus de vos marches habituelles)</div>`;
+  el.innerHTML = html;
+}
+
 function updateMarchPreview(app) {
   const s = app.state, md = app.ui.marchDraft;
   const el = document.getElementById('march-preview');
   if (!el || !md) return;
+  if (md.type === 'event') return updateEventPreview(app, el);
   const plan = planMarch(s, md);
   const mods = plan.mods || computeMods(s);
   const units = Object.fromEntries(Object.entries(md.units).filter(([, n]) => n > 0));
@@ -900,8 +988,9 @@ const marchActions = {
     app.toast(r.ok ? `💾 Composition « ${name} » enregistrée` : r.reason || 'Composition vide', r.ok ? 'good' : 'bad');
     if (r.ok) { app.save(); const box = document.querySelector('.mu-presets-saved'); if (box) box.outerHTML = presetRow(app.state); }
   },
+  mfrom: (app, el) => { app.ui.marchDraft.from = el.value; updateMarchPreview(app); },
   'mu-auto': (app) => {
-    const r = autoFillAttack(app.state, app.ui.marchDraft);
+    const r = app.ui.marchDraft.type === 'event' ? autoFillLive(app.state, app.ui.marchDraft) : autoFillAttack(app.state, app.ui.marchDraft);
     if (!r.ok) { const n = document.getElementById('mu-auto-note'); if (n) n.textContent = autoFillNote(app.state, r); return; }
     setDraftUnits(app, r.units, autoFillNote(app.state, r));
   },
@@ -915,6 +1004,14 @@ const marchActions = {
   mrauto: (app, el) => { app.ui.marchDraft.raidAuto = el.checked; raidInfo(app); },
   'send-march': (app) => {
     const md = app.ui.marchDraft;
+    if (md.type === 'event') {
+      const r = sendLive(app.state, md);
+      if (!r.ok) return app.toast(r.reason, 'bad');
+      app.closeModal();
+      app.toast(`${ACTIONS[md.action].icon} Troupes en route depuis ${r.march.from.key === 'capital' ? 'la capitale' : r.march.from.name} (${fmtTime(r.march.travel)})`, 'good');
+      app.render(); app.save();
+      return;
+    }
     if (md.type === 'attack' && md.repeat > 1) {
       const o = startRaidOrder(app.state, { ...md, count: md.repeat, auto: !!md.raidAuto });
       if (!o.ok) return app.toast(o.reason, 'bad');
@@ -946,6 +1043,7 @@ const worldView = {
       <div class="world-canvas-wrap">
         <canvas id="world-canvas" aria-label="Carte du monde : cliquez sur une case pour l’inspecter"></canvas>
         <div class="map-tip" id="world-tip" role="tooltip"></div>
+        <div class="act-ring" id="act-ring" role="menu" aria-label="Actions sur ce lieu" hidden></div>
         <div class="map-filters">${surveyButton(app.state)}<button class="chip" data-action="fit" title="Vue d’ensemble du monde">⤢ Ensemble</button><button class="chip" data-action="center" title="Recentrer sur la capitale">🏰 Capitale</button>${app.state.boss ? '<button class="chip warn" data-action="goto-boss" title="Boss mondial">🐉 Boss</button>' : ''}<button class="chip" data-action="mini-toggle" aria-pressed="${!app.ui.miniOff}" title="Afficher / masquer la mini-carte">🗺️ Mini-carte</button>${Object.entries(MAP_FILTERS).map(([k, l]) => `<button class="chip ${filters(app)[k] ? 'on' : 'off'}" data-action="map-filter" data-k="${k}" aria-pressed="${filters(app)[k]}">${l}</button>`).join('')}
           <select class="map-places" data-change="map-place" aria-label="Aller à un lieu découvert"><option value="">📍 Aller à…</option>${notablePlaces(app.state).map((p) => `<option value="${p.x},${p.y}">${esc(p.label)} · ${Math.round(p.d)} cases</option>`).join('')}</select></div>
         <canvas id="world-mini" class="world-mini" ${app.ui.miniOff ? 'hidden' : ''} title="Mini-carte : cliquez pour vous y rendre"></canvas>
@@ -963,9 +1061,10 @@ const worldView = {
     drawMap(app); updateSceneFx(document.querySelector('.world-stage'), sceneState(app.state, Date.now(), localHour()), 'world');
   },
   actions: {
-    // v24 : attaque directe depuis la fiche d'un lieu d'événement : même plan, même dialogue d'envoi que l'écran de
-    // l'événement (planLive, openSend, sendLive) ; rien n'est validé ici, tout l'est dans le moteur
-    'ev-send': (app, el) => eventView.actions['ev-send'](app, el),
+    // v25 : cibles d'événement : la fenêtre d'attaque du monde (eventMarchDialog) ; validation par le moteur
+    'ev-send': (app, el) => eventMarchDialog(app, el.dataset.act, el.dataset.id),
+    'ring-march': (app, el) => { app.ui.ring = null; marchDialog(app, el.dataset.type); },
+    'ring-info': (app) => { app.ui.ring = null; refreshDrawer(app); drawMap(app); },
     zoom: (app, el) => { const cv = document.getElementById('world-canvas'); if (!cv) return; const r = cv.getBoundingClientRect(); zoomWorldAt(cam(app), +el.dataset.z, r.width / 2, r.height / 2, r.width, r.height, app.state.world.size); drawMap(app); },
     fit: (app) => { const c = cam(app), S = app.state.world.size; c.zoom = 0; c.x = S / 2; c.y = S / 2; drawMap(app); },
     center: (app) => { const c = cam(app); c.x = app.state.world.capital.x + 0.5; c.y = app.state.world.capital.y + 0.5; c.zoom = 1; drawMap(app); },

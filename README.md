@@ -21,6 +21,16 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v25 — Le monde en fête et en guerre (lot 1)** :
+> - **Les événements sur la carte du monde** : plus de carte à part. Camps, trésors, chefs, forteresses, convois et dangers apparaissent autour de vos terres : faibles près de chez vous, forts au loin.
+> - **Attaque directe** : on part de la capitale ou de l'avant-poste le plus proche, avec de vrais temps de marche.
+> - **Anneau d'actions** : un clic sur un lieu ouvre ses actions autour de lui (Attaquer, Espionner, Infos…). La fiche donne le niveau, les défenseurs estimés, les points et le temps de marche depuis chaque base.
+> - **Chaque événement se sert du vrai monde** : camps nomades, repaires au bord des rivières, front de neige, ruines sous le brouillard, piste du dragon, frontières disputées, course aux filons, lave, hordes à intercepter, assauts qui annoncent leur flanc, convois entre cités.
+> - **Menaces visibles** : chacune avance vers vos terres en trait rouge, avec un compte à rebours.
+> - **Anciennes sauvegardes** : les événements en cours y sont transposés sur le monde.
+>
+> Voir [`docs/V25.md`](docs/V25.md) et [`docs/AUDIT_V25.md`](docs/AUDIT_V25.md).
+
 > **v24 — Carte du monde, cibles, événements et icônes** :
 > - **Bords du château propres** : plus de rectangle ni de contour sombre en dézoomant ; le domaine, désormais carré (32 × 32, jusqu'à 48 × 48), est bordé d'une lisière de forêt et de buissons.
 > - **Cibles dessinées** : chaque type de lieu du monde a son dessin (scierie, carrière, mine, crypte, antre, donjon, camp de brigands, royaume…), qui grandit avec le niveau et varie d'une case à l'autre.

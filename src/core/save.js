@@ -1,4 +1,5 @@
 import { ensureRealm21 } from '../systems/realm21.js';
+import { ensureEventWorld } from '../systems/liveEvents.js';
 import { ensureSiege } from '../systems/siege.js';
 import { ensureArmory } from '../systems/armory.js';
 import { initLegacyCampaign } from '../systems/campaign.js';
@@ -128,7 +129,6 @@ function sanitize(d, fresh) {
   d.marches = d.marches.filter(marchOk);
   d.caravans = d.caravans.filter((c) => c && finite(c.end));
   d.raids = d.raids.filter((r) => r && finite(r.arrive) && r.army);
-  if (d.live) d.live.marches = (Array.isArray(d.live.marches) ? d.live.marches : []).filter(marchOk);
   for (const t of d.expeditions || []) {
     const due = { out: t.arrive, work: t.workEnd, back: t.returnAt }[t.status];
     if (t.status !== 'idle' && !finite(due)) { t.status = 'idle'; fixes.push('expédition ' + (t.name || t.id)); }
@@ -157,7 +157,7 @@ function sanitize(d, fresh) {
   if (d.campaign && !(d.campaign.chapter >= 1 && d.campaign.chapter <= 8)) { fixes.push('chapitre'); d.campaign.chapter = Math.min(8, Math.max(1, Math.floor(+d.campaign.chapter) || 1)); }
   if (d.shards) for (const k of ['count', 'tickets', 'mythicFragments', 'legendaryFragments', 'relicFragments']) if (!Number.isFinite(d.shards[k]) || d.shards[k] < 0) d.shards[k] = 0;
   // Références orphelines : héros marquant une marche disparue
-  const marchIds = new Set([...(d.marches || []).map((m) => m.id), ...(d.live?.marches || []).map((m) => m.id)]);
+  const marchIds = new Set([...(d.marches || []).map((m) => m.id), ...(Array.isArray(d.live?.marches) ? d.live.marches : []).map((m) => m?.id)]); // anciennes marches d'événement : rentrées juste après
   if (d.war?.active?.op?.heroId) marchIds.add('war'); // héros engagé dans une opération de campagne
   if (d.legendary?.active?.heroId) marchIds.add('legend'); // héros à la tête d'une expédition légendaire
   for (const h of d.heroes || []) if (h.marchId && !marchIds.has(h.marchId)) h.marchId = null;
@@ -209,6 +209,9 @@ export function migrate(data) {
   ensureSiege(data);
   // v21 « Couleurs du Royaume » : décorations posées entretenues au chargement, camps de brigands au niveau 1
   ensureRealm21(data, data.meta.lastTick || Date.now());
+  // v25 « Le monde en fête et en guerre » : plus de carte d'événement ; cibles transposées sur le monde, marches rentrées
+  const ev = ensureEventWorld(data, data.meta.lastTick || Date.now());
+  if (ev && (ev.marches || ev.targets)) data.meta.eventsMigrated = ev;
   data.version = SAVE_VERSION;
   // Une partie chargée ou importée doit d'abord prouver qu'elle tourne (≈1 s) avant de pouvoir remplacer la copie
   // de secours : l'indicateur « démarrage réussi » et la date de copie d'une autre partie ne sont pas repris

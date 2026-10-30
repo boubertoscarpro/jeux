@@ -1,4 +1,3 @@
-import { syncEventSites } from '../systems/eventSites.js';
 import { realmTick } from '../systems/realm21.js';
 import { npcTick } from '../systems/npcs.js';
 import { ensurePlaces } from '../systems/places.js';
@@ -37,7 +36,7 @@ import { factionsTick, treatiesTick, enemySpyTick } from '../systems/factions.js
 import { contractsTick } from '../systems/market.js';
 import { checkFeats, serverFeedTick } from '../systems/shards.js';
 import { netRates } from '../systems/economy.js';
-import { liveTick, liveNextTime, processLiveMarches } from '../systems/liveEvents.js';
+import { liveTick } from '../systems/liveEvents.js';
 import { territoryTick } from '../systems/territory.js';
 import { processPlanned } from '../systems/construction.js';
 import { seasonTick } from '../systems/quests.js';
@@ -71,7 +70,6 @@ function nextEventTime(state) {
   for (const c of state.caravans) min(c.end);
   for (const r of state.raids) min(r.arrive);
   for (const e of state.expeditions || []) min(expNextTime(e));
-  min(liveNextTime(state));
   min(state.meta.nextWorldTick); min(state.nextRivalTick);
   return t;
 }
@@ -91,7 +89,6 @@ export function processDue(state, t) {
   }
   for (const c of [...state.caravans]) if (c.end <= t) { completeCaravan(state, c, c.end); changed = true; }
   for (const e of [...(state.expeditions || [])]) if (expNextTime(e) <= t) { processExpedition(state, e, t); changed = true; }
-  if (processLiveMarches(state, t)) changed = true;
   for (const r of [...state.raids]) if (r.arrive <= t) {
     state.raids = state.raids.filter((x) => x.id !== r.id);
     resolveRaid(state, r, r.arrive);
@@ -115,7 +112,6 @@ export function processDue(state, t) {
     checkFeats(state, t);
     serverFeedTick(state, t);
     liveTick(state, t);
-    syncEventSites(state, t); // v24 : l'événement en cours est un lieu de la carte du monde
     territoryTick(state, dt, t);
     processPlanned(state, t);
     seasonTick(state, t);
@@ -201,7 +197,7 @@ export function advance(state, now = Date.now()) {
     // Toutes les échéances tombées dans la période ignorée sont recalées au début de la période simulée
     const shift = (o, ...ks) => { for (const k of ks) if (Number.isFinite(o[k]) && o[k] < t) o[k] = t; };
     for (const k of ['build', 'research', 'train', 'craft']) for (const q of state.queues[k]) shift(q, 'end');
-    for (const m of [...state.marches, ...(state.live?.marches || [])]) shift(m, 'arrive', 'workEnd', 'returnAt');
+    for (const m of state.marches) shift(m, 'arrive', 'workEnd', 'returnAt');
     for (const c of state.caravans) shift(c, 'end');
     for (const r of state.raids) shift(r, 'arrive');
     for (const e of state.expeditions || []) {

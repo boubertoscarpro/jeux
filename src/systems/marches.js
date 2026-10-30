@@ -42,9 +42,14 @@ export const MARCH_TYPES = {
   scout: { name: 'Espionnage', icon: '👁️' },
   boss: { name: 'Assaut du boss', icon: '🐉' },
   dungeon: { name: 'Expédition de donjon', icon: '🏚️' },
+  event: { name: 'Troupe d’événement', icon: '🎪' }, // v25 : marche vers une cible d'événement (règles : liveEvents.js)
 };
 
 export const maxMarches = (mods) => 2 + (mods.marches || 0);
+// v25 : les marches d'événement (type « event ») vivent dans state.marches ; leurs règles restent dans liveEvents.js,
+// qui s'enregistre ici (pas d'import circulaire). Elles ont leur propre plafond, en plus des marches du monde.
+export const EVENT_MARCH = { process: null, recall: null };
+export const worldMarches = (state) => state.marches.filter((m) => m.type !== 'event');
 
 export function carryCapacity(units, mods) {
   let c = 0;
@@ -79,7 +84,7 @@ export function planMarch(state, opts, now = Date.now()) {
   const mods = marchMods(state, heroId, potion, now);
   const poi = poiAt(world, x, y);
   const fail = (reason) => ({ ok: false, reason });
-  if (state.marches.length >= maxMarches(computeMods(state, now))) return fail('Nombre maximum de marches atteint (améliorez le Donjon)');
+  if (worldMarches(state).length >= maxMarches(computeMods(state, now))) return fail('Nombre maximum de marches atteint (améliorez le Donjon)');
   for (const [t, n] of Object.entries(units)) if ((state.army[t] || 0) < n) return fail(`Pas assez de ${UNITS[t].name}`);
   if (!unitCount(units)) return fail('Sélectionnez des unités');
   if (heroId) {
@@ -155,6 +160,7 @@ export function sendMarch(state, opts, now = Date.now()) {
 export function recallMarch(state, mid, now = Date.now()) {
   const m = state.marches.find((x) => x.id === mid);
   if (!m || m.phase === 'back') return { ok: false };
+  if (m.type === 'event') return EVENT_MARCH.recall ? EVENT_MARCH.recall(state, mid, now) : { ok: false };
   if (m.phase === 'out') {
     const elapsed = now - m.start;
     m.phase = 'back'; m.returnAt = now + elapsed;
@@ -180,6 +186,7 @@ export function marchNextTime(m) {
 }
 
 export function processMarch(state, m, now) {
+  if (m.type === 'event') { EVENT_MARCH.process?.(state, m, now); return; }
   if (m.phase === 'out' && now >= m.arrive) arrive(state, m, m.arrive);
   else if (m.phase === 'work' && now >= m.workEnd) {
     finishGather(state, m, 1, m.workEnd);

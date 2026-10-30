@@ -10,7 +10,7 @@ import { initFactions } from '../systems/factions.js';
 import { applyKingdomChoice } from '../systems/kingdom.js';
 import { ensureIdentity } from '../systems/identity.js';
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 // Royaume de départ 24×16 (384 cases, contre 14×10 auparavant) ; chaque agrandissement ajoute 4 colonnes et 2 rangées.
 // v24 : domaine carré (32 × 32, puis jusqu'à 48 × 48), hameau au centre ; les anciennes parties sont étendues vers
 // l'est et le sud jusqu'au carré (save.js, migration 9 → 10), rien n'est déplacé
@@ -152,7 +152,7 @@ export function createNewState({ seed = Math.floor(Math.random() * 1e9), kingdom
     nextDilemma: now + 40 * 60 * 1000,
     domain: 0,
     // --- Événements & Éclats Anciens ---
-    live: { calendar: [], history: [], occ: {}, current: null, marches: [], reports: [], surprises: [], nextSurprise: 0, nextFair: now + 5 * 86400000, unseenReport: null, totals: {} },
+    live: { calendar: [], history: [], occ: {}, current: null, reports: [], surprises: [], nextSurprise: 0, nextFair: now + 5 * 86400000, unseenReport: null, totals: {} },
     shards: { count: 0, tickets: 0, relicFragments: 0, mythicFragments: 0, legendaryFragments: 0, heat: {}, daily: {}, lastFreeTicket: 0, pity: { rare: 0, epic: 0, legendary: 0, mythic: 0 }, history: [], ledger: {}, feats: {}, forbiddenAt: 0, owned: {}, spins: 0, jackpots: 0 },
     notifications: [],
     sagas: { active: null, done: {}, nextAt: now + 90 * 60000, log: [] },

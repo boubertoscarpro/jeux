@@ -61,7 +61,8 @@ export const LIVE_EVENTS = {
     faction: { name: 'Horde de Tokhtamir', icon: '🐎', desc: 'Cavaliers redoutables dans les plaines, vulnérables aux lanciers.' },
     currency: { key: 'steppeMedals', name: 'Médailles des Steppes', icon: '🐎', convert: { res: 'food', per: 100, amount: 250 } },
     enemies: { camp: { nomadRider: 6, horseArcher: 5, nomadGuard: 3 }, caravan: { nomadRider: 5, horseArcher: 3 }, fortress: { nomadRider: 40, horseArcher: 35, nomadGuard: 30 } },
-    map: { w: 18, h: 11, terrain: { plain: 0.7, hills: 0.15, forest: 0.08, river: 0.07 }, targets: [{ type: 'camp', count: 12, tiers: [1, 7] }, { type: 'caravan', count: 3 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }, { type: 'treasure', count: 3 }, { type: 'village', count: 2 }] },
+    passScale: 0.95, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    world: { nomads: 0.35, targets: [{ type: 'camp', count: 12, tiers: [1, 7] }, { type: 'caravan', count: 3 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }, { type: 'treasure', count: 3 }, { type: 'village', count: 2 }] },
     objectives: [
       { id: 'c10', label: 'Vaincre 10 camps', stat: 'camps', target: 10, reward: { steppeMedals: 300, res: { food: 4000 } } },
       { id: 'c50', label: 'Vaincre 50 camps', stat: 'camps', target: 50, reward: { steppeMedals: 1500, chest: 'epic' } },
@@ -86,7 +87,7 @@ export const LIVE_EVENTS = {
       { id: 'knights', label: '20 Chevaliers', icon: '🏇', price: 1600, give: { units: { knight: 20 } } },
     ]),
     guild: { label: 'Votre guilde doit vaincre 2 000 camps', stat: 'camps', target: 2000, reward: { chest: 'epic', steppeMedals: 1000, buff: { name: 'Fierté de guilde', mods: { 'prod.all': 0.1 }, h: 12 } } },
-    special: { caravans: true, desc: 'Les caravanes nomades sillonnent la carte : attaquez-les, escortez-les, commercez ou espionnez-les pour connaître leur destination.' },
+    special: { caravans: true, desc: 'Les camps se dressent en anneaux autour de vos terres : petits près de chez vous, forts au loin. Certains camps nomades changent de place toutes les 4 h et harcèlent les avant-postes mal gardés. Les caravanes sillonnent la carte : attaquez-les, escortez-les, commercez ou espionnez-les.' },
   },
 
   // 2 ─────────────────────────────────────────────────────────────
@@ -96,7 +97,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Flotte du Sel', icon: '⚓', desc: 'Arquebusiers et abordeurs ; leurs navires fuient vite.' },
     currency: { key: 'corsairCoins', name: 'Pièces des Corsaires', icon: '⚓', convert: { res: 'gold', per: 100, amount: 100 } },
     enemies: { port: { corsair: 8, gunner: 5 }, ship: { corsair: 6, gunner: 4 }, fortress: { corsair: 45, gunner: 40 } },
-    map: { w: 18, h: 11, terrain: { river: 0.35, plain: 0.45, forest: 0.1, hills: 0.1 }, targets: [{ type: 'port', count: 8, tiers: [1, 6] }, { type: 'ship', count: 4 }, { type: 'treasure', count: 4 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
+    world: { riverside: ['port', 'ship'], targets: [{ type: 'port', count: 8, tiers: [1, 6] }, { type: 'ship', count: 4 }, { type: 'treasure', count: 4 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'p10', label: 'Piller 10 ports', stat: 'camps', target: 10, reward: { corsairCoins: 300, res: { gold: 2000 } } },
       { id: 'sh4', label: 'Aborder 4 navires', stat: 'ships', target: 4, reward: { corsairCoins: 600, chest: 'rare' } },
@@ -119,7 +120,7 @@ export const LIVE_EVENTS = {
       { id: 'crossbows', label: '40 Arbalétriers', icon: '🎯', price: 1500, give: { units: { crossbow: 40 } } },
     ]),
     guild: { label: 'Votre guilde doit piller 1 500 ports', stat: 'camps', target: 1500, reward: { chest: 'epic', corsairCoins: 1000 } },
-    special: { ships: true, portTrade: true, desc: 'Les ports pillables acceptent aussi le commerce maritime (vos ressources contre des Pièces). Les navires se déplacent ; un Port fluvial dans votre ville donne +30 % aux abordages.' },
+    special: { ships: true, portTrade: true, desc: 'Les repaires corsaires bordent les rivières du monde et guettent vos caravanes qui passent à moins de 3 cases (risque d’abordage). Ils acceptent aussi le commerce. Les navires descendent les rivières ; un Port fluvial dans votre ville donne +30 % aux abordages.' },
   },
 
   // 3 ─────────────────────────────────────────────────────────────
@@ -130,7 +131,8 @@ export const LIVE_EVENTS = {
     currency: { key: 'frostShards', name: 'Éclats de givre', icon: '🧊', convert: { res: 'coal', per: 100, amount: 75 } },
     mods: { upkeep: 0.2, 'prod.food': -0.15, 'march.speed': -0.1 },
     enemies: { camp: { frostGiant: 1, iceWolf: 8 }, fortress: { frostGiant: 8, iceWolf: 40 }, pack: { iceWolf: 10 } },
-    map: { w: 16, h: 10, terrain: { snow: 0.6, mountain: 0.15, forest: 0.15, plain: 0.1 }, targets: [{ type: 'camp', count: 9, tiers: [1, 7] }, { type: 'hearth', count: 3 }, { type: 'pack', count: 3 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
+    passScale: 0.6, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    world: { frost: true, targets: [{ type: 'camp', count: 9, tiers: [1, 7] }, { type: 'hearth', count: 3 }, { type: 'pack', count: 3 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'g8', label: 'Abattre 8 camps de géants', stat: 'camps', target: 8, reward: { frostShards: 300, res: { coal: 600 } } },
       { id: 'h10', label: 'Alimenter les Brasiers 10 fois', stat: 'deliveries', target: 10, reward: { frostShards: 600, chest: 'rare' } },
@@ -151,7 +153,7 @@ export const LIVE_EVENTS = {
       { id: 'heat', label: 'Feux de joie (+20 % nourriture, 6 h)', icon: '🔥', price: 700, give: { buff: { name: 'Feux de joie', mods: { 'prod.food': 0.2 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit alimenter 600 brasiers', stat: 'deliveries', target: 600, reward: { chest: 'epic', frostShards: 1000 } },
-    special: { hearth: true, desc: 'Survie : entretien +20 %, nourriture −15 %, marches −10 %. Alimentez les Brasiers pour gagner de la chaleur : chaque palier de chaleur augmente vos gains d’Éclats de givre.' },
+    special: { hearth: true, desc: 'Un front de neige avance sur une région du monde : les marches qui le traversent sont ralenties de 25 %, et les géants campent dans la zone gelée. Survie : entretien +20 %, nourriture −15 %, marches −10 %. Alimentez les Brasiers pour gagner de la chaleur.' },
   },
 
   // 4 ─────────────────────────────────────────────────────────────
@@ -161,7 +163,8 @@ export const LIVE_EVENTS = {
     faction: { name: 'Gardiens de l’Aube', icon: '🗿', desc: 'Golems patients : résistent aux tirs.' },
     currency: { key: 'ancientFragments', name: 'Fragments Anciens', icon: '🏺', convert: { res: 'stone', per: 100, amount: 300 } },
     enemies: { vault: { warden: 2, ancientSoldier: 8 }, fortress: { warden: 10, ancientSoldier: 50 } },
-    map: { w: 16, h: 10, fog: true, terrain: { ruins: 0.55, plain: 0.25, forest: 0.1, hills: 0.1 }, targets: [{ type: 'riddle', count: 6 }, { type: 'vault', count: 7, tiers: [1, 7] }, { type: 'treasure', count: 5 }, { type: 'boss', count: 1 }] },
+    passScale: 0.4, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    world: { underFog: ['riddle', 'vault', 'treasure'], targets: [{ type: 'riddle', count: 6 }, { type: 'vault', count: 7, tiers: [1, 7] }, { type: 'treasure', count: 5 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'r4', label: 'Résoudre 4 énigmes', stat: 'riddles', target: 4, reward: { ancientFragments: 600, res: { crystals: 6 } } },
       { id: 'v6', label: 'Ouvrir 6 chambres fortes', stat: 'camps', target: 6, reward: { ancientFragments: 500, chest: 'rare' } },
@@ -182,7 +185,7 @@ export const LIVE_EVENTS = {
       { id: 'wis', label: 'Sagesse antique (+20 % recherche, 6 h)', icon: '🧠', price: 900, give: { buff: { name: 'Sagesse antique', mods: { 'research.speed': 0.2 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit résoudre 300 énigmes', stat: 'riddles', target: 300, reward: { chest: 'epic', ancientFragments: 1000 } },
-    special: { riddles: true, fog: true, desc: 'La carte est dans le brouillard : explorez-la case par case. Les énigmes demandent réflexion (une mauvaise réponse scelle la salle 1 h).' },
+    special: { riddles: true, fog: true, desc: 'Les ruines sont cachées sous le brouillard du monde : vos éclaireurs les découvrent en explorant, et les cartes au trésor donnent de vraies coordonnées. Les énigmes demandent réflexion (une mauvaise réponse scelle la salle 1 h).' },
   },
 
   // 5 ─────────────────────────────────────────────────────────────
@@ -192,7 +195,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Couvée de Vorthak', icon: '🦎', desc: 'Dragonnets rapides ; le dragon redoute les trébuchets.' },
     currency: { key: 'dragonScales', name: 'Écailles de Dragon', icon: '🐉', convert: { res: 'iron', per: 100, amount: 200 } },
     enemies: { camp: { dragonling: 6 }, fortress: { dragonling: 40 } },
-    map: { w: 18, h: 11, terrain: { mountain: 0.3, ash: 0.25, hills: 0.25, plain: 0.2 }, targets: [{ type: 'camp', count: 8, tiers: [1, 7] }, { type: 'trace', count: 1 }, { type: 'treasure', count: 3 }] },
+    world: { trail: true, targets: [{ type: 'camp', count: 8, tiers: [1, 7] }, { type: 'trace', count: 1 }, { type: 'treasure', count: 3 }] },
     coop: { name: 'Vorthak l’Ancien', unit: 'elderDragon', hp: 60000000, serverRate: 0.015, tiers: [0.25, 0.5, 0.75, 1], rewards: [{ dragonScales: 500 }, { dragonScales: 1000, chest: 'rare' }, { dragonScales: 1500, mythicFragments: 5 }, { dragonScales: 3000, unique: 'dragonScale' }] },
     objectives: [
       { id: 'tr3', label: 'Suivre 3 pistes du dragon', stat: 'traces', target: 3, reward: { dragonScales: 500 } },
@@ -212,7 +215,7 @@ export const LIVE_EVENTS = {
       { id: 'fire', label: 'Sang de dragon (+20 % attaque, 3 h)', icon: '🩸', price: 1000, give: { buff: { name: 'Sang de dragon', mods: { 'combat.atk': 0.2 }, h: 3 } } },
     ]),
     guild: { label: 'Votre guilde doit infliger 5 000 000 de dégâts au dragon', stat: 'coopDamage', target: 5000000, reward: { chest: 'epic', dragonScales: 1500 } },
-    special: { tracking: true, coop: true, desc: 'Traque : suivez les pistes (3 étapes) pour localiser l’antre. Coopératif : vous et les seigneurs rivaux (IA, simulés localement) frappez le même dragon ; plus il est entamé, meilleures sont les récompenses — à condition d’avoir participé.' },
+    special: { tracking: true, coop: true, desc: 'Traque : chaque piste suivie mène à la suivante, le long des cases brûlées par le dragon, jusqu’à son antre. Coopératif : vous et les seigneurs rivaux (IA, simulés localement) frappez le même dragon ; plus il est entamé, meilleures sont les récompenses — à condition d’avoir participé.' },
   },
 
   // 6 ─────────────────────────────────────────────────────────────
@@ -221,8 +224,9 @@ export const LIVE_EVENTS = {
     story: 'Les marches frontalières sont en feu. Pendant trois jours, chaque région conquise et tenue rapporte des Bannières de conquête — mais l’ennemi contre-attaque sans relâche.',
     faction: { name: 'Légions du Seigneur de guerre', icon: '🚩', desc: 'Armées régulières équilibrées.' },
     currency: { key: 'warBanners', name: 'Bannières de conquête', icon: '🚩', convert: { res: 'iron', per: 100, amount: 175 } },
-    enemies: { zone: { guard: 10, royalArcher: 8, royalKnight: 4 }, fortress: { guard: 50, royalArcher: 45, royalKnight: 30 } },
-    map: { w: 16, h: 10, terrain: { plain: 0.5, hills: 0.25, forest: 0.15, river: 0.1 }, targets: [{ type: 'zone', count: 7, tiers: [1, 7] }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
+    enemies: { zone: { guard: 6, royalArcher: 5, royalKnight: 2 }, fortress: { guard: 50, royalArcher: 45, royalKnight: 30 } },
+    passScale: 0.5, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    world: { borders: true, targets: [{ type: 'zone', count: 7, tiers: [1, 7] }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'z3', label: 'Tenir 3 régions en même temps', stat: 'heldMax', target: 3, reward: { warBanners: 800, chest: 'rare' } },
       { id: 'z10', label: 'Conquérir 10 régions', stat: 'camps', target: 10, reward: { warBanners: 600 } },
@@ -242,7 +246,7 @@ export const LIVE_EVENTS = {
       { id: 'drill', label: 'Discipline (+20 % formation, 6 h)', icon: '🎖️', price: 800, give: { buff: { name: 'Discipline', mods: { 'train.speed': 0.2 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit conquérir 800 régions', stat: 'camps', target: 800, reward: { chest: 'epic', warBanners: 1000 } },
-    special: { zones: true, desc: 'Conquérez des régions : les survivants y restent en garnison. Chaque région tenue rapporte des Bannières toutes les heures, mais subit des contre-attaques toutes les 2 h.' },
+    special: { zones: true, desc: 'Les régions disputées sont sur vos vraies frontières avec les royaumes rivaux (les plus rancuniers d’abord). Conquérez-les : les survivants y restent en garnison. Chaque région tenue rapporte des Bannières toutes les heures, mais subit des contre-attaques toutes les 2 h.' },
   },
 
   // 7 ─────────────────────────────────────────────────────────────
@@ -252,7 +256,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Compagnie du Baron', icon: '💰', desc: 'Prospecteurs armés, peu disciplinés.' },
     currency: { key: 'nuggets', name: 'Pépites de la Ruée', icon: '🪙', convert: { res: 'gold', per: 100, amount: 125 } },
     enemies: { camp: { prospector: 10, banditArcher: 4 }, fortress: { prospector: 50, banditArcher: 30, banditRider: 20 } },
-    map: { w: 16, h: 10, terrain: { hills: 0.4, mountain: 0.2, river: 0.15, plain: 0.25 }, targets: [{ type: 'vein', count: 10 }, { type: 'camp', count: 6, tiers: [1, 6] }, { type: 'boss', count: 1 }] },
+    world: { veinTerrain: ['hills', 'mountain', 'river'], targets: [{ type: 'vein', count: 10 }, { type: 'camp', count: 6, tiers: [1, 6] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'v5', label: 'Exploiter 5 filons', stat: 'veins', target: 5, reward: { nuggets: 500, res: { silver: 20 } } },
       { id: 'v15', label: 'Exploiter 15 filons', stat: 'veins', target: 15, reward: { nuggets: 1500, chest: 'epic' } },
@@ -272,7 +276,7 @@ export const LIVE_EVENTS = {
       { id: 'boom', label: 'Fièvre de l’or (+30 % or, 6 h)', icon: '💰', price: 900, give: { buff: { name: 'Fièvre de l’or', mods: { 'prod.gold': 0.3 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit exploiter 1 200 filons', stat: 'veins', target: 1200, reward: { chest: 'epic', nuggets: 1000 } },
-    special: { veins: true, desc: 'Course aux filons : chaque filon s’épuise, et des prospecteurs rivaux en revendiquent toutes les heures. Envoyez vos troupes y travailler avant qu’il ne soit trop tard.' },
+    special: { veins: true, desc: 'Course aux filons : ils affleurent sur les collines, les montagnes et au bord des rivières. Chaque heure, un convoi de prospecteurs rivaux part, visible sur la carte, vers un filon libre : s’il arrive avant vos mineurs, le filon est perdu.' },
   },
 
   // 8 ─────────────────────────────────────────────────────────────
@@ -282,7 +286,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Enfants du magma', icon: '🔥', desc: 'Élémentaires résistants aux tirs.' },
     currency: { key: 'embers', name: 'Braises volcaniques', icon: '🔥', convert: { res: 'coal', per: 100, amount: 100 } },
     enemies: { camp: { magmaling: 4 }, fortress: { magmaling: 30 } },
-    map: { w: 16, h: 10, terrain: { ash: 0.55, mountain: 0.25, hills: 0.2 }, targets: [{ type: 'vent', count: 8 }, { type: 'camp', count: 7, tiers: [2, 7] }, { type: 'boss', count: 1 }] },
+    world: { volcano: true, targets: [{ type: 'vent', count: 8 }, { type: 'camp', count: 7, tiers: [2, 7] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'v6', label: 'Récolter 6 évents d’obsidienne', stat: 'vents', target: 6, reward: { embers: 600, res: { crystals: 10 } } },
       { id: 'c6', label: 'Éteindre 6 foyers élémentaires', stat: 'camps', target: 6, reward: { embers: 500, chest: 'rare' } },
@@ -300,7 +304,7 @@ export const LIVE_EVENTS = {
       { id: 'forge', label: 'Feu sacré (+30 % qualité de forge, 6 h)', icon: '⚒️', price: 900, give: { buff: { name: 'Feu sacré', mods: { 'craft.quality': 0.3 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit récolter 800 évents', stat: 'vents', target: 800, reward: { chest: 'epic', embers: 1000 } },
-    special: { lava: true, desc: 'Zone extrêmement dangereuse : la lave se déplace chaque heure. Une troupe sur un évent cerné par la lave peut perdre une partie de ses hommes. Les évents contiennent des ressources introuvables ailleurs (et parfois un Éclat Ancien).' },
+    special: { lava: true, desc: 'Un volcan s’éveille dans les montagnes : la lave se déplace chaque heure sur les cases voisines et ralentit la production des avant-postes proches. Une troupe sur un évent cerné par la lave peut perdre une partie de ses hommes. Les évents contiennent des ressources introuvables ailleurs (et parfois un Éclat Ancien).' },
   },
 
   // 9 ─────────────────────────────────────────────────────────────
@@ -310,7 +314,8 @@ export const LIVE_EVENTS = {
     faction: { name: 'Légion du Roi des Os', icon: '💀', desc: 'Goules et chevaliers de la mort ; craignent les épéistes.' },
     currency: { key: 'souls', name: 'Âmes errantes', icon: '👻', convert: { res: 'herbs', per: 100, amount: 38 } },
     enemies: { crypt: { ghoul: 10, skeleton: 6, deathKnight: 1 }, wave: { ghoul: 14, skeleton: 10, deathKnight: 3, wraith: 4 } },
-    map: { w: 16, h: 10, terrain: { swamp: 0.3, ruins: 0.3, forest: 0.25, plain: 0.15 }, targets: [{ type: 'crypt', count: 9, tiers: [1, 7] }, { type: 'boss', count: 1 }] },
+    passScale: 0.25, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    world: { hordes: true, targets: [{ type: 'crypt', count: 9, tiers: [1, 7] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'w3', label: 'Repousser 3 vagues', stat: 'waves', target: 3, reward: { souls: 600, chest: 'rare' } },
       { id: 'w8', label: 'Repousser 8 vagues', stat: 'waves', target: 8, reward: { souls: 1500, chest: 'epic' } },
@@ -330,7 +335,7 @@ export const LIVE_EVENTS = {
       { id: 'holy', label: 'Eau bénite (+20 % défense de la ville, 6 h)', icon: '💧', price: 800, give: { buff: { name: 'Eau bénite', mods: { 'city.def': 0.2 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit repousser 400 vagues', stat: 'waves', target: 400, reward: { chest: 'epic', souls: 1000 } },
-    special: { waves: true, every: 6, desc: 'Toutes les 6 h, une vague de morts-vivants attaque votre ville (gardez des troupes à la maison !). Chaque crypte purgée affaiblit la prochaine vague de 4 %. Vous pouvez allumer les Feux sacrés (200 herbes) avant une vague : +20 % de défense.' },
+    special: { waves: true, every: 6, desc: 'Toutes les 6 h, une horde sort d’une crypte et marche, visible, sur votre capitale ou un avant-poste : interceptez-la en chemin, ou gardez des troupes à la maison. Chaque crypte purgée affaiblit la prochaine vague de 4 %. Vous pouvez allumer les Feux sacrés (200 herbes) avant une vague : +20 % de défense.' },
   },
 
   // 10 ────────────────────────────────────────────────────────────
@@ -340,7 +345,8 @@ export const LIVE_EVENTS = {
     faction: { name: 'Horde de cendre', icon: '🏗️', desc: 'Engins de siège et soldats anciens.' },
     currency: { key: 'citadelSeals', name: 'Sceaux de la Citadelle', icon: '🏯', convert: { res: 'stone', per: 100, amount: 300 } },
     enemies: { camp: { ancientSoldier: 10, banditArcher: 6 }, assault: { ancientSoldier: 30, royalArcher: 20, royalKnight: 10 } },
-    map: { w: 16, h: 10, terrain: { plain: 0.45, hills: 0.25, ruins: 0.2, forest: 0.1 }, targets: [{ type: 'bastion', count: 1 }, { type: 'camp', count: 8, tiers: [1, 7] }, { type: 'boss', count: 1 }] },
+    passScale: 0.25, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    world: { assaultDir: true, targets: [{ type: 'bastion', count: 1 }, { type: 'camp', count: 8, tiers: [1, 7] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'a3', label: 'Participer à la défense de 3 assauts', stat: 'assaults', target: 3, reward: { citadelSeals: 600, chest: 'rare' } },
       { id: 'a8', label: 'Participer à la défense de 8 assauts', stat: 'assaults', target: 8, reward: { citadelSeals: 1500, chest: 'epic' } },
@@ -359,7 +365,7 @@ export const LIVE_EVENTS = {
       { id: 'wall', label: 'Remparts renforcés (+25 % défense de la ville, 6 h)', icon: '🧱', price: 900, give: { buff: { name: 'Remparts renforcés', mods: { 'city.def': 0.25 }, h: 6 } } },
     ]),
     guild: { label: 'Votre guilde doit tenir 300 assauts', stat: 'assaults', target: 300, reward: { chest: 'epic', citadelSeals: 1000 } },
-    special: { siege: true, every: 4, coop: true, desc: 'Envoyez des troupes en garnison dans la Citadelle. Toutes les 4 h, un assaut frappe : votre garnison combat aux côtés des seigneurs alliés (IA). L’intégrité de la Citadelle baisse à chaque assaut, moins si vous repoussez l’ennemi ; si elle tient jusqu’au bout, vous recevez une grande récompense.' },
+    special: { siege: true, every: 4, coop: true, desc: 'Envoyez des troupes en garnison dans la Citadelle, près de votre capitale. Toutes les 4 h, un assaut arrive d’une direction visible sur la carte, qui donne le flanc visé (vos défenseurs massés sur ce flanc aident la garnison) : votre garnison combat aux côtés des seigneurs alliés (IA). L’intégrité de la Citadelle baisse à chaque assaut, moins si vous repoussez l’ennemi ; si elle tient jusqu’au bout, vous recevez une grande récompense.' },
   },
   // 11 ────────────────────────────────────────────────────────────
   sevenMerchants: {
@@ -369,7 +375,7 @@ export const LIVE_EVENTS = {
     currency: { key: 'merchantSeals', name: 'Sceaux des Sept', icon: '📜', convert: { res: 'gold', per: 100, amount: 110 } },
     mods: { 'market.fee': 0.04, 'caravan.gain': 0.25 },
     enemies: { camp: { bandit: 8, banditArcher: 5, banditRider: 3 }, caravan: { guard: 6, royalArcher: 4 }, fortress: { bandit: 40, banditArcher: 30, banditRider: 25 } },
-    map: { w: 18, h: 11, terrain: { plain: 0.55, hills: 0.2, forest: 0.15, river: 0.1 }, targets: [{ type: 'caravan', count: 7 }, { type: 'camp', count: 8, tiers: [1, 6] }, { type: 'village', count: 3 }, { type: 'treasure', count: 2 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
+    world: { routes: true, targets: [{ type: 'caravan', count: 7 }, { type: 'camp', count: 8, tiers: [1, 6] }, { type: 'village', count: 3 }, { type: 'treasure', count: 2 }, { type: 'fortress', count: 1 }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'esc5', label: 'Escorter 5 convois', stat: 'escorts', target: 5, reward: { merchantSeals: 700, res: { silver: 20 } } },
       { id: 'tr8', label: 'Conclure 8 échanges avec les marchands', stat: 'trades', target: 8, reward: { merchantSeals: 600, chest: 'rare' } },
@@ -391,7 +397,7 @@ export const LIVE_EVENTS = {
       { id: 'pikes', label: '60 Lanciers', icon: '🔱', price: 600, give: { units: { spearman: 60 } } },
     ]),
     guild: { label: 'Votre guilde doit escorter 500 convois', stat: 'escorts', target: 500, reward: { chest: 'epic', merchantSeals: 1000 } },
-    special: { caravans: true, desc: 'Marché bouleversé : taxe du marché +4 %, caravanes vers les cités +25 %. Les convois des Sept traversent la carte : escortez-les (récompense sûre), commercez avec eux, ou pillez-les (plus lucratif, mais ce sont des gardes d’élite).' },
+    special: { caravans: true, desc: 'Marché bouleversé : taxe du marché +4 %, caravanes vers les cités +25 %. Les convois des Sept suivent les routes entre deux cités libres : escortez-les (récompense sûre), commercez avec eux, ou pillez-les (plus lucratif, mais ce sont des gardes d’élite).' },
   },
 
 };

@@ -9,7 +9,7 @@ import { rng, mulberry32 } from '../src/core/rng.js';
 import { startBuild, cancelBuild, startUpgrade } from '../src/systems/construction.js';
 import { campaignTick, claimMission, campaignState } from '../src/systems/campaign.js';
 import { missionState, claimDynMission } from '../src/systems/missions.js';
-import { startSurprise, buyFair, startEvent, sendLive, recallLive, processLiveMarches } from '../src/systems/liveEvents.js';
+import { startSurprise, buyFair, startEvent, sendLive, recallLive, processEventMarch } from '../src/systems/liveEvents.js';
 import { LIVE_EVENTS } from '../src/data/liveEvents.js';
 import { storageCap } from '../src/systems/economy.js';
 import { computeMods } from '../src/systems/modifiers.js';
@@ -62,7 +62,7 @@ test('Grande Foire : entrepôt plein → échange refusé AVANT paiement', () =>
 
 test('Marche d’événement rappelée avant d’agir : ce qui a été payé est rendu', () => {
   const s = base();
-  const key = Object.keys(LIVE_EVENTS).find((k) => LIVE_EVENTS[k].map.targets.some((t) => t.type === 'village'));
+  const key = Object.keys(LIVE_EVENTS).find((k) => LIVE_EVENTS[k].world.targets.some((t) => t.type === 'village'));
   const cur = startEvent(s, key, T0);
   s.army.spearman = 100; s.resources.food = 5000;
   const v = cur.map.targets.find((t) => t.type === 'village');
@@ -70,7 +70,7 @@ test('Marche d’événement rappelée avant d’agir : ce qui a été payé est
   assert.ok(r.ok && r.march.paid);
   assert.ok(s.resources.food < 5000);
   recallLive(s, r.march.id, T0 + 1000);
-  processLiveMarches(s, T0 + H);
+  processEventMarch(s, r.march, T0 + H);
   assert.equal(s.resources.food, 5000);
 });
 

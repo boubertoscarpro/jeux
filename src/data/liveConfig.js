@@ -10,6 +10,7 @@ export const LIVE_CONFIG = {
   lbSize: 200,            // seigneurs (vous + rivaux IA locaux) dans le tableau d'honneur
   respawnMin: 50,         // réapparition des camps (minutes)
   maxMarches: 3,          // marches d'événement simultanées (+1 tous les 4 niveaux d'Hôtel de ville)
+  travelMult: 4,          // v25 : trajets d'événement = vrais trajets du monde × ce coefficient (rythme des camps proches)
   autoCapPerDay: 400,     // plafond quotidien de monnaie gagnée par l'automatisation
   autoPerMin: 0.35,       // monnaie / minute / équipe d'expédition au travail
   memory: 4,              // un événement ne revient pas avant N autres

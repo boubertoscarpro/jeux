@@ -31,7 +31,7 @@ function strong(seed = 'ev') {
 test('Données : chaque événement est complet (monnaie, carte, objectifs, boutique, guilde)', () => {
   assert.ok(Object.keys(LIVE_EVENTS).length >= 10);
   for (const [k, d] of Object.entries(LIVE_EVENTS)) {
-    for (const f of ['name', 'icon', 'tags', 'currency', 'enemies', 'map', 'objectives', 'shop', 'guild', 'special']) assert.ok(d[f], `${k}.${f}`);
+    for (const f of ['name', 'icon', 'tags', 'currency', 'enemies', 'world', 'objectives', 'shop', 'guild', 'special']) assert.ok(d[f], `${k}.${f}`);
     assert.ok(d.currency.convert.amount > 0);
     assert.ok(d.shop.fixed.some((i) => i.exclusive), `${k} : objet exclusif`);
     assert.ok(d.shop.fixed.some((i) => i.give.shards && i.global), `${k} : Éclat en stock serveur limité`);
@@ -178,7 +178,7 @@ test('Mécaniques propres : vagues, siège, lave, filons, régions, brasiers, é
         const a = actionsFor(s, tg, t).find((x) => x !== 'withdraw');
         if (a) sendLive(s, { targetId: tg.id, action: a, units: { swordsman: 60, archer: 60, spearman: 60, knight: 15, scout: 1 } }, t);
       }
-      if (cur.map.revealed) sendLive(s, { action: 'explore', x: 4 + (i % 10), y: i % cur.map.h, units: { scout: 1 } }, t);
+      if (key === 'ruins') for (const tg of cur.map.targets.filter((x) => x.fog)) s.world.revealed[tg.y * s.world.size + tg.x] = 1; // éclaireurs du monde
       for (const p of s.pending.filter((x) => x.kind === 'riddle')) resolveAny(s, p.id, 0, t);
       for (const u of ['swordsman', 'archer', 'spearman', 'knight']) s.army[u] = Math.max(s.army[u], 400);
       s.army.scout = 30;
@@ -190,7 +190,7 @@ test('Mécaniques propres : vagues, siège, lave, filons, régions, brasiers, é
     if (key === 'goldRush') assert.ok(st.veins >= 1, 'filons exploités');
     if (key === 'kingdomWar') assert.ok(st.held >= 1, 'régions conquises');
     if (key === 'giants') assert.ok(st.deliveries >= 1 && cur.warmth >= 0, 'brasiers');
-    if (key === 'ruins') assert.ok(st.explored > 0, 'exploration du brouillard');
+    if (key === 'ruins') assert.ok(cur.map.targets.some((x) => x.fog) && (st.riddles || st.treasures || st.camps), 'ruines cachées sous le brouillard du monde, trouvées puis fouillées');
     if (key === 'dragonHunt') assert.ok(cur.coop.hp < cur.coop.maxHp, 'le serveur frappe le dragon');
     if (key === 'volcano') assert.ok(cur.map.lava.length > 0, 'lave');
     assert.ok(leaderboard(s, t).rank >= 1);
@@ -228,7 +228,9 @@ test('Sauvegarde : un événement en cours survit à la sérialisation ; vieille
   adminStart(s, 'ruins', T0);
   const back = deserialize(serialize(s));
   assert.equal(back.live.current.key, 'ruins');
-  assert.equal(back.live.current.map.revealed.length, back.live.current.map.w * back.live.current.map.h);
+  // v25 : les cibles sont sur la carte du monde (coordonnées du monde, pas de grille d'événement)
+  assert.ok(back.live.current.map.targets.length > 0 && back.live.current.map.targets.every((t) => t.x >= 0 && t.x < back.world.size && t.y >= 0 && t.y < back.world.size));
+  assert.equal(back.live.current.map.tiles, undefined);
   const old = JSON.parse(serialize(createNewState({ seed: 'old', now: T0 })));
   delete old.live; delete old.shards; delete old.notifications; delete old.admin;
   old.version = 4;
