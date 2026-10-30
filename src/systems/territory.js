@@ -113,6 +113,7 @@ export function outpostStatus(state, t, now = Date.now()) {
   if (t.unpaid) { eff = 0; reasons.push('Entretien impayé : production arrêtée'); }
   if (t.evacUntil > now) { eff = 0; reasons.push('Réserves évacuées : production suspendue'); }
   if (t.threatAt > now) reasons.push('⚠️ Une attaque est annoncée : renforcez la garnison');
+  if (t.lavaUntil > now) { eff *= 0.7; reasons.push('🌋 Coulées de lave aux abords : production −30 % (Colère du Volcan)'); }
   if (!t.spec) reasons.push('Aucune spécialisation choisie');
   // Stabilité de la province : prospère +10 %, mécontente −20 %, révolte −50 %, révolte ouverte : arrêt
   const se = stabilityEffect(t);

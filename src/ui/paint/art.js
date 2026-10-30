@@ -1071,6 +1071,136 @@ export const TARGETS = {
     if (ph === 'boss') { banner(p, 0.36, 0.86, 0, ['#5a0e0e', '#1a0c0a'], 40); banner(p, 0.7, 0.9, 0, ['#5a0e0e', '#1a0c0a'], 40); const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.42, 60); const gr = g.createRadialGradient(x, y, 0, x, y, 40 * s); gr.addColorStop(0, 'rgba(255,80,40,.35)'); gr.addColorStop(1, 'rgba(255,80,40,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, 40 * s, 0, 7); g.fill(); }
   },
 };
+// ───────── v25 « Le monde en fête et en guerre » : cibles d'événement sur la carte du monde ─────────
+// Un camp ne ressemble pas à un autre : yourtes des Steppes, huttes de glace des Géants, campement de prospecteurs,
+// tentes d'obsidienne du volcan, bivouac des Anciens… La bannière porte la couleur de l'événement ; le palier (1 à 4)
+// ajoute tentes, palissade et tours de guet comme pour les camps du monde. Les phases « vaincu » et « levé » ont leur
+// propre dessin (campement brûlé) ; les transitions animées (flammes, bannière qui tombe) sont peintes par la carte.
+function yurt(p, u, v, r = 0.11, h = 22, c = '#e8dcc0', band = '#a8402a') {
+  const g = p.g, s = p.s, [x, y] = p.P(u, v), R = r * 92 * s;
+  roundShadow(p, u, v, r, 40);
+  g.fillStyle = c; g.beginPath(); g.ellipse(x, y, R, R * 0.5, 0, 0, Math.PI); g.lineTo(x - R, y - h * 0.55 * s); g.ellipse(x, y - h * 0.55 * s, R, R * 0.5, 0, Math.PI, 0, true); g.closePath(); g.fill(); strokeInk(p, 0.9);
+  g.fillStyle = lit(c, 0.12); g.beginPath(); g.ellipse(x, y - h * 0.55 * s, R, R * 0.5, 0, Math.PI, 0); g.quadraticCurveTo(x, y - h * 1.35 * s, x - R, y - h * 0.55 * s); g.closePath(); g.fill(); strokeInk(p, 0.9);
+  g.strokeStyle = band; g.lineWidth = 2.4 * s; g.beginPath(); g.ellipse(x, y - h * 0.3 * s, R, R * 0.5, 0, 0.1, Math.PI - 0.1); g.stroke();
+  g.fillStyle = '#3a2614'; g.beginPath(); g.ellipse(x - R * 0.2, y + R * 0.38, 3.2 * s, 6 * s, 0, 0, 7); g.fill();
+}
+function iceHut(p, u, v, sz = 0.13, h = 20) {
+  const m = mat(p, 'stone', '#9aa8b8');
+  box(p, u - sz, v - sz, u + sz, v + sz, 0, h, { G: m, D: m, top: '#eef4fa' });
+  gable(p, u - sz - 0.01, v - sz - 0.01, u + sz + 0.01, v + sz + 0.01, h, 16, { axis: 'u', color: '#e8f0f8', kind: 'thatch' });
+}
+function snowGround(p, r = 0.5) {
+  const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.5);
+  g.fillStyle = 'rgba(240,246,252,.75)'; g.beginPath(); g.ellipse(x, y, r * 96 * s, r * 48 * s, 0, 0, 7); g.fill();
+}
+function sluice(p, u, v) {
+  const g = p.g, s = p.s;
+  box(p, u, v, u + 0.24, v + 0.05, 6, 10, { G: mat(p, 'planks', '#9a6a3c'), D: mat(p, 'planks', '#9a6a3c'), top: '#c9965a' });
+  post(p, u + 0.02, v + 0.05, 6); post(p, u + 0.22, v + 0.05, 6);
+  const [x, y] = p.P(u + 0.12, v + 0.02, 10); g.fillStyle = 'rgba(120,180,230,.8)'; g.fillRect(x - 12 * s, y - 1 * s, 24 * s, 2 * s);
+  g.fillStyle = '#f1d36a'; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(x - 8 * s + i * 5 * s, y - 2 * s, 1.2 * s, 0, 7); g.fill(); }
+}
+function pillar(p, u, v, h = 30, broken = false) {
+  box(p, u - 0.03, v - 0.03, u + 0.03, v + 0.03, 0, broken ? h * 0.6 : h, { G: mat(p, 'stone', '#c8bca0'), D: mat(p, 'stone', '#b8ac90'), top: '#ddd2b6' });
+}
+function lavaPool(p, u, v, r = 0.18) {
+  const g = p.g, s = p.s, [x, y] = p.P(u, v);
+  const gr = g.createRadialGradient(x, y, 0, x, y, r * 96 * s); gr.addColorStop(0, '#ffd27a'); gr.addColorStop(0.5, '#ff6a20'); gr.addColorStop(1, 'rgba(120,20,0,.2)');
+  g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 96 * s, r * 48 * s, 0, 0, 7); g.fill();
+}
+const EV_CAMP = {
+  steppes: { ground: '#9a8a5a', tent: 'yurt', cloth: '#e8dcc0' },
+  giants: { ground: '#c8d6e2', tent: 'ice', snow: true },
+  goldRush: { ground: '#9a7a4a', tent: 'tent', cloth: '#c9a46a', extra: 'sluice' },
+  volcano: { ground: '#4a3030', tent: 'tent', cloth: '#3a2a2a', extra: 'lava' },
+  dragonHunt: { ground: '#4a3a30', tent: 'tent', cloth: '#7a5a3a', extra: 'scorch' },
+  siege: { ground: '#8a7a5a', tent: 'tent', cloth: '#c8a050', extra: 'pillars' },
+  sevenMerchants: { ground: '#8a6a44', tent: 'tent', cloth: '#6b5a3a' },
+  kingdomWar: { ground: '#7a6a4a', tent: 'tent', cloth: '#8a7a6a' },
+  corsairs: { ground: '#8a7a5a', tent: 'tent', cloth: '#2a3a4a' },
+  ruins: { ground: '#8a7a6a', tent: 'tent', cloth: '#6a5a4a', extra: 'pillars' },
+  deadNight: { ground: '#4a4a3a', tent: 'tent', cloth: '#3a3a3a' },
+};
+function eventCamp(p, t, v, o) {
+  const st = EV_CAMP[o.style] || EV_CAMP.sevenMerchants, col = o.color || '#a8402a';
+  siteGround(p, st.ground, 0.48, 0.55); if (st.snow) snowGround(p, 0.46); approach(p);
+  if (st.extra === 'scorch') { const g = p.g, s = p.s, [x, y] = p.P(0.3, 0.3); g.fillStyle = 'rgba(30,20,15,.45)'; g.beginPath(); g.ellipse(x, y, 30 * s, 14 * s, 0.3, 0, 7); g.fill(); }
+  if (st.extra === 'lava') lavaPool(p, 0.78, 0.3, 0.14);
+  if (t >= 2) palisadeRing(p, 0.45, t >= 4 ? 26 : 18, t >= 4 ? 17 : 13);
+  const spots = pick(v, [[[0.35, 0.33], [0.66, 0.38], [0.7, 0.68], [0.4, 0.7]], [[0.32, 0.4], [0.62, 0.3], [0.72, 0.6], [0.48, 0.72]], [[0.4, 0.3], [0.7, 0.45], [0.3, 0.6], [0.62, 0.72]], [[0.3, 0.32], [0.58, 0.28], [0.74, 0.56], [0.36, 0.66]]]);
+  const n = Math.min(4, 1 + t);
+  for (let i = 0; i < n; i++) {
+    const [u, vv] = spots[i], big = i === 0 && t >= 3;
+    if (st.tent === 'yurt') yurt(p, u, vv, big ? 0.14 : 0.1, big ? 26 : 20, st.cloth, col);
+    else if (st.tent === 'ice') iceHut(p, u, vv, big ? 0.12 : 0.09, big ? 22 : 16);
+    else tent(p, u, vv, big ? 0.15 : 0.11, big ? 32 : 24, i % 2 ? st.cloth : col, '#d8c8a0', i === 0 ? ['#2a1a10', col] : null);
+  }
+  campfire(p, 0.54, 0.54, t >= 3);
+  if (st.extra === 'sluice') sluice(p, 0.14, 0.78);
+  if (st.extra === 'pillars') { pillar(p, 0.18, 0.3, 34, true); pillar(p, 0.86, 0.7, 30); }
+  if (st.tent === 'yurt') { const g = p.g, s = p.s; for (const [u, vv] of [[0.18, 0.8], [0.26, 0.86]]) { const [x, y] = p.P(u, vv); g.fillStyle = '#7a5a3a'; g.beginPath(); g.ellipse(x, y - 8 * s, 7 * s, 4 * s, 0, 0, 7); g.fill(); g.fillRect(x - 6 * s, y - 8 * s, 2 * s, 8 * s); g.fillRect(x + 4 * s, y - 8 * s, 2 * s, 8 * s); g.beginPath(); g.ellipse(x + 8 * s, y - 12 * s, 3 * s, 2.4 * s, 0, 0, 7); g.fill(); } }
+  else { barrel(p, 0.22, 0.56, '#9a6a3c'); crate(p, 0.78, 0.84, 0.06); }
+  if (t >= 2) weaponRack(p, 0.6, 0.84);
+  if (t >= 3) watchPost(p, 0.82, 0.24, 40, ['#2a1a10', col]);
+  if (t >= 4) watchPost(p, 0.16, 0.22, 44, ['#2a1a10', col]);
+}
+function boat(p, u, v, sail = '#f6efe0', flag = '#1a1a1a', sz = 1) {
+  const g = p.g, s = p.s * sz, [x, y] = p.P(u, v);
+  g.fillStyle = 'rgba(90,150,200,.45)'; g.beginPath(); g.ellipse(x, y + 2 * s, 30 * s, 8 * s, 0, 0, 7); g.fill();
+  g.fillStyle = '#6a3e20'; g.beginPath(); g.moveTo(x - 24 * s, y - 6 * s); g.quadraticCurveTo(x, y + 8 * s, x + 26 * s, y - 4 * s); g.lineTo(x + 22 * s, y - 12 * s); g.lineTo(x - 20 * s, y - 14 * s); g.closePath(); g.fill(); strokeInk(p, 1);
+  g.strokeStyle = INK; g.lineWidth = 2.2 * s; g.beginPath(); g.moveTo(x, y - 12 * s); g.lineTo(x, y - 50 * s); g.stroke();
+  g.fillStyle = sail; g.beginPath(); g.moveTo(x + 1 * s, y - 48 * s); g.quadraticCurveTo(x + 20 * s, y - 32 * s, x + 2 * s, y - 16 * s); g.closePath(); g.fill(); strokeInk(p, 0.9);
+  g.beginPath(); g.moveTo(x - 1 * s, y - 44 * s); g.quadraticCurveTo(x - 14 * s, y - 32 * s, x - 1 * s, y - 20 * s); g.closePath(); g.fill(); strokeInk(p, 0.9);
+  g.fillStyle = flag; g.fillRect(x, y - 56 * s, 10 * s, 6 * s);
+  g.fillStyle = '#efe6cf'; g.beginPath(); g.arc(x + 5 * s, y - 53 * s, 1.6 * s, 0, 7); g.fill();
+}
+function chest(p, u, v, open = false) {
+  const g = p.g, s = p.s;
+  box(p, u - 0.07, v - 0.05, u + 0.07, v + 0.05, 0, 12, { G: mat(p, 'planks', '#8a5a30'), D: mat(p, 'planks', '#7a4a26'), top: '#a0703e' });
+  const [x, y] = p.P(u, v, 12);
+  g.fillStyle = '#e2b84a'; g.fillRect(x - 2 * s, y - 2 * s, 4 * s, 6 * s);
+  if (open) { const gr = g.createRadialGradient(x, y - 4 * s, 0, x, y - 4 * s, 18 * s); gr.addColorStop(0, 'rgba(255,230,120,.8)'); gr.addColorStop(1, 'rgba(255,230,120,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y - 4 * s, 18 * s, 0, 7); g.fill(); }
+}
+function skeleton(p, u, v, sz = 1) {
+  const g = p.g, s = p.s * sz, [x, y] = p.P(u, v);
+  g.strokeStyle = '#efe6cf'; g.lineWidth = 1.6 * s; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x, y - 6 * s); g.lineTo(x, y - 16 * s); g.moveTo(x - 4 * s, y); g.lineTo(x, y - 6 * s); g.lineTo(x + 4 * s, y); g.moveTo(x - 5 * s, y - 13 * s); g.lineTo(x + 5 * s, y - 11 * s); g.stroke();
+  g.fillStyle = '#efe6cf'; g.beginPath(); g.arc(x, y - 19 * s, 3.2 * s, 0, 7); g.fill(); strokeInk(p, 0.5);
+  g.strokeStyle = '#8a8a90'; g.lineWidth = 1.2 * s; g.beginPath(); g.moveTo(x + 5 * s, y - 11 * s); g.lineTo(x + 8 * s, y - 24 * s); g.stroke();
+}
+// Ruines d'un campement vaincu ou levé : sol noirci, tentes effondrées, braises, fumée
+function campRuins(p, v, col = '#6a625a') {
+  const g = p.g, s = p.s;
+  siteGround(p, '#3a3230', 0.48, 0.6);
+  for (const [u, vv] of pick(v, [[[0.36, 0.38], [0.66, 0.5], [0.42, 0.7]], [[0.3, 0.46], [0.62, 0.34], [0.6, 0.7]]])) { const [x, y] = p.P(u, vv); g.fillStyle = col; g.beginPath(); g.moveTo(x - 14 * s, y); g.lineTo(x - 2 * s, y - 8 * s); g.lineTo(x + 14 * s, y - 2 * s); g.lineTo(x + 6 * s, y + 3 * s); g.closePath(); g.fill(); strokeInk(p, 0.7); post(p, u + 0.04, vv - 0.02, 10, '#2a1a10'); }
+  for (let i = 0; i < 9; i++) { const a = i * 0.7 + v, [x, y] = p.P(0.5 + Math.cos(a) * 0.4, 0.5 + Math.sin(a) * 0.4); g.fillStyle = '#2a1a10'; g.fillRect(x - 1.5 * s, y - (4 + (i % 3) * 2) * s, 3 * s, (4 + (i % 3) * 2) * s); }
+  const [fx, fy] = p.P(0.52, 0.54); const gr = g.createRadialGradient(fx, fy, 0, fx, fy, 10 * s); gr.addColorStop(0, 'rgba(255,120,40,.7)'); gr.addColorStop(1, 'rgba(255,80,20,0)'); g.fillStyle = gr; g.beginPath(); g.arc(fx, fy, 10 * s, 0, 7); g.fill();
+  smoke(p, fx, fy - 12 * s, 3); bones(p, 0.7, 0.78, 2);
+}
+export const EVENT_TARGETS = {
+  camp: eventCamp,
+  pack: (p, t, v, o) => { if (o.style === 'giants') snowGround(p, 0.46); TARGETS.monsterLair(p, t, v, o); const g = p.g, s = p.s; for (const [u, vv] of [[0.24, 0.7], [0.8, 0.8]]) { const [x, y] = p.P(u, vv); g.fillStyle = '#9aa8b8'; g.beginPath(); g.ellipse(x, y - 6 * s, 9 * s, 5 * s, 0, 0, 7); g.fill(); g.beginPath(); g.moveTo(x + 7 * s, y - 9 * s); g.lineTo(x + 13 * s, y - 14 * s); g.lineTo(x + 12 * s, y - 6 * s); g.fill(); strokeInk(p, 0.6); } },
+  zone: (p, t, v, o) => { const col = o.color || '#a8402a'; siteGround(p, '#7a6a4a', 0.46, 0.5); palisadeRing(p, 0.42, 20, 14); watchPost(p, 0.5, 0.42, 40 + t * 4, [col, '#f1d36a']); tent(p, 0.3, 0.66, 0.1, 22, col, '#d8c8a0'); weaponRack(p, 0.64, 0.74); banner(p, 0.76, 0.3, 0, [col, '#f1d36a'], 34); },
+  port: (p, t, v, o) => { siteGround(p, '#8a7a5a', 0.46, 0.5); const g = p.g; poly(g, [p.P(0.08, 0.5), p.P(0.6, 0.5), p.P(0.6, 0.64), p.P(0.08, 0.64)]); g.fillStyle = '#8a5a30'; g.fill(); strokeInk(p, 1); for (let u = 0.1; u < 0.6; u += 0.1) post(p, u, 0.64, 7); tent(p, 0.3, 0.3, 0.12, 26, '#2a3a4a', '#d8c8a0', ['#1a1a1a', '#efe6cf']); barrel(p, 0.5, 0.36); barrel(p, 0.56, 0.42, '#7a4a26'); boat(p, 0.74, 0.74, t >= 3 ? '#3a3a3a' : '#e8dcc0', '#1a1a1a', 0.8 + t * 0.06); if (t >= 3) watchPost(p, 0.12, 0.26, 36, ['#1a1a1a', '#efe6cf']); },
+  ship: (p, t, v, o) => boat(p, 0.5, 0.62, '#e8dcc0', o.color || '#1a1a1a', 1.1),
+  caravan: (p, t, v, o) => { siteGround(p, '#9a8a5a', 0.36, 0.3); cart(p, 0.62, 0.52, '#c9a46a'); cart(p, 0.36, 0.7, o.style === 'sevenMerchants' ? '#c84a2e' : '#e3c25a'); const g = p.g, s = p.s; for (const [u, vv] of [[0.78, 0.36], [0.22, 0.56]]) { const [x, y] = p.P(u, vv); g.fillStyle = '#b08a5a'; g.beginPath(); g.ellipse(x, y - 9 * s, 9 * s, 5 * s, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(x - 1 * s, y - 15 * s, 4 * s, 3 * s, 0, 0, 7); g.fill(); g.fillRect(x - 6 * s, y - 9 * s, 2 * s, 9 * s); g.fillRect(x + 4 * s, y - 9 * s, 2 * s, 9 * s); g.beginPath(); g.ellipse(x + 9 * s, y - 15 * s, 3 * s, 2.4 * s, 0, 0, 7); g.fill(); strokeInk(p, 0.6); } banner(p, 0.62, 0.52, 22, [o.color || '#e2b84a', '#f6efe0'], 18); },
+  treasure: (p, t, v, o) => { siteGround(p, '#8a7a5a', 0.3, 0.35); const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.56); g.strokeStyle = '#a8322a'; g.lineWidth = 3 * s; g.beginPath(); g.moveTo(x - 10 * s, y - 5 * s); g.lineTo(x + 10 * s, y + 5 * s); g.moveTo(x + 10 * s, y - 5 * s); g.lineTo(x - 10 * s, y + 5 * s); g.stroke(); chest(p, 0.6, 0.4, true); post(p, 0.3, 0.4, 16); },
+  village: (p, t, v, o) => { siteGround(p, '#7a8a4a', 0.44, 0.35); for (const [u, vv] of [[0.34, 0.36], [0.66, 0.5]]) { box(p, u - 0.09, vv - 0.07, u + 0.09, vv + 0.07, 0, 16, { G: mat(p, 'plaster', '#e8dcc0'), D: mat(p, 'plaster', '#d8ccb0') }); gable(p, u - 0.1, vv - 0.08, u + 0.1, vv + 0.08, 16, 14, { axis: 'u', color: '#c9a04a', kind: 'thatch' }); } fence(p, 0.1, 0.8, 0.5, 0.92, 5); smoke(p, ...p.P(0.34, 0.36, 40), 2); },
+  hearth: (p, t, v, o) => { snowGround(p, 0.4); for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; rock(p, 0.5 + Math.cos(a) * 0.16, 0.52 + Math.sin(a) * 0.16, 0.22); } campfire(p, 0.5, 0.52, true); campfire(p, 0.5, 0.5, true); logs(p, 0.74, 0.74, 3); },
+  riddle: (p, t, v, o) => { siteGround(p, '#8a7a6a', 0.42, 0.4); pillar(p, 0.34, 0.42, 44); pillar(p, 0.66, 0.42, 44); box(p, 0.3, 0.38, 0.7, 0.46, 44, 52, { G: mat(p, 'stone', '#c8bca0'), D: mat(p, 'stone', '#b8ac90'), top: '#ddd2b6' }); const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.42, 22); g.fillStyle = '#1e1a20'; g.fillRect(x - 9 * s, y - 14 * s, 18 * s, 22 * s); g.strokeStyle = '#7ad0ff'; g.lineWidth = 1.4 * s; g.beginPath(); g.arc(x, y - 3 * s, 5 * s, 0, 7); g.moveTo(x, y - 8 * s); g.lineTo(x, y + 2 * s); g.stroke(); pillar(p, 0.16, 0.7, 20, true); },
+  vault: (p, t, v, o) => { siteGround(p, '#7a6a5a', 0.46, 0.45); pillar(p, 0.24, 0.3, 30, true); pillar(p, 0.78, 0.66, 26, true); box(p, 0.34, 0.32, 0.66, 0.6, 0, 22 + t * 4, { G: withDeco(mat(p, 'stone', '#b8ac90'), (gg, W) => door(gg, W * 0.4, 12 * p.s, 16 * p.s, p, { color: '#1e1a20' })), D: mat(p, 'stone', '#a89c80') }); gable(p, 0.33, 0.31, 0.67, 0.61, 22 + t * 4, 14, { axis: 'v', color: '#8a7a5a', kind: 'slate' }); if (t >= 3) bones(p, 0.7, 0.84, 2); },
+  trace: (p, t, v, o) => { const g = p.g, s = p.s; siteGround(p, '#3a2a20', 0.36, 0.4); for (let i = 0; i < 6; i++) { const [x, y] = p.P(0.2 + i * 0.12, 0.7 - i * 0.07); g.fillStyle = '#1e1410'; g.beginPath(); g.ellipse(x, y, 4 * s, 2.2 * s, -0.4, 0, 7); g.fill(); for (let k = -1; k <= 1; k++) { g.beginPath(); g.ellipse(x + 5 * s, y + k * 2.4 * s - 1 * s, 1.4 * s, 0.9 * s, 0, 0, 7); g.fill(); } } deadTree(p, 0.76, 0.3, 30); smoke(p, ...p.P(0.4, 0.4, 6), 2); },
+  lair: (p, t, v, o) => { TARGETS.monsterLair(p, 4, v, o); const g = p.g, s = p.s, [x, y] = p.P(0.56, 0.62); const gr = g.createRadialGradient(x, y - 10 * s, 0, x, y - 10 * s, 40 * s); gr.addColorStop(0, 'rgba(255,90,30,.45)'); gr.addColorStop(1, 'rgba(255,90,30,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y - 10 * s, 40 * s, 0, 7); g.fill(); g.fillStyle = '#ff5a1a'; for (const dx of [-5, 5]) { g.beginPath(); g.ellipse(x + dx * s, y - 14 * s, 2.6 * s, 1.4 * s, 0, 0, 7); g.fill(); } smoke(p, x, y - 34 * s, 4); },
+  vein: (p, t, v, o) => { TARGETS.rareVein(p, t, v, o); post(p, 0.22, 0.28, 18); banner(p, 0.22, 0.28, 18, [o.color || '#e2b84a', '#2a1a10'], 14); },
+  vent: (p, t, v, o) => { siteGround(p, '#2a1e1e', 0.42, 0.6); rock(p, 0.5, 0.42, 1.1); lavaPool(p, 0.5, 0.6, 0.12); crystals(p, 0.3, 0.74, ['#ff7a2a', '#8a2a10', '#ffb07a'], 3, 18); smoke(p, ...p.P(0.5, 0.5, 30), 4); },
+  crypt: (p, t, v, o) => TARGETS.crypt(p, t, v, o),
+  fortress: (p, t, v, o) => { siteGround(p, '#5a4a3a', 0.5, 0.6); fortress(p, FORT_STYLES[o.style === 'kingdomWar' ? 2 : o.style === 'giants' ? 2 : o.style === 'steppes' ? 0 : 4], 4, [o.color || '#5a0e0e', '#1a0c0a']); },
+  bastion: (p, t, v, o) => { siteGround(p, '#8a7a5a', 0.5, 0.55); fortress(p, FORT_STYLES[3], 3, [o.color || '#c8a050', '#f6efe0']); },
+  boss: (p, t, v, o) => TARGETS.boss(p, t, v, o),
+  horde: (p, t, v, o) => { const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.5); const gr = g.createRadialGradient(x, y, 0, x, y, 50 * s); gr.addColorStop(0, 'rgba(120,255,180,.25)'); gr.addColorStop(1, 'rgba(120,255,180,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, 50 * s, 0, 7); g.fill(); for (const [u, vv] of [[0.3, 0.4], [0.46, 0.34], [0.62, 0.42], [0.36, 0.58], [0.54, 0.56], [0.7, 0.6], [0.44, 0.74], [0.6, 0.76]].slice(0, 4 + Math.min(4, t))) skeleton(p, u, vv, 1.1); banner(p, 0.5, 0.5, 0, ['#1a1a1a', '#6aff9a'], 40); },
+  herald: (p, t, v, o) => TARGETS.eventSite(p, 3, v, { ...o, phase: 'upcoming' }),
+  ruins: (p, t, v, o) => campRuins(p, v, o.style === 'steppes' ? '#c8bca0' : '#6a625a'),
+};
 // Tas de minerai (fer, argent, charbon)
 function ore(p, u, v, c1, c2) {
   const g = p.g, s = p.s, [x, y] = p.P(u, v);

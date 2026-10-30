@@ -566,6 +566,7 @@ export class App {
         if (this.ui.phoneDrawer) { this.ui.phoneDrawer = null; this.renderHud(); return; }
         if (this.ui.win) { this.closeWin(); return; }
         if (this.ui.ringOpen) { this.ui.ringOpen = false; this.render(); return; }
+        if (this.ui.ring) { this.ui.ring = null; document.getElementById('act-ring')?.setAttribute('hidden', ''); return; } // v25 : anneau d'actions de la carte du monde
         if (this.ui.buildMode) { this.ui.buildMode = false; this.ui.placeType = null; this.ui.moveId = null; this.render(); }
         return;
       }

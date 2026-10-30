@@ -1,0 +1,37 @@
+/* v25 « Le monde en fête et en guerre » — anneau d'actions autour d'un lieu de la carte du monde, fiche d'une cible
+   d'événement (écusson de niveau, défenseurs, points, distances), liste des cibles par distance. */
+.act-ring { position: absolute; z-index: 6; width: 0; height: 0; pointer-events: none; --rr: 62px; }
+.act-ring[hidden] { display: none; }
+.act-ring .ring-btn {
+  position: absolute; left: 0; top: 0; pointer-events: auto;
+  transform: translate(calc(-50% + var(--rx) * var(--rr)), calc(-50% + var(--ry) * var(--rr)));
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  width: 58px; height: 58px; border-radius: 50%; padding: 0;
+  background: radial-gradient(circle at 35% 30%, #7a5530, #4a2f18 70%); color: #f6e7c2;
+  border: 2px solid #d9b25a; box-shadow: 0 3px 0 #2a1a0c, 0 6px 14px rgba(0, 0, 0, 0.45);
+  font: 700 10.5px/1.1 system-ui, sans-serif; text-shadow: 0 1px 0 #000; cursor: pointer;
+  animation: ring-in 0.18s ease-out both;
+}
+.act-ring .ring-btn .ring-ic { width: 22px; height: 22px; }
+.act-ring .ring-btn span { max-width: 54px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.act-ring .ring-btn.primary { background: radial-gradient(circle at 35% 30%, #c0503a, #7a2016 70%); border-color: #f1d36a; }
+.act-ring .ring-btn:hover, .act-ring .ring-btn:focus-visible { filter: brightness(1.18); outline: 2px solid #fff3c4; outline-offset: 1px; }
+@keyframes ring-in { from { opacity: 0; transform: translate(-50%, -50%) scale(0.4); } }
+.reduce-motion .act-ring .ring-btn { animation: none; }
+
+.ev-card { border-left: 4px solid var(--ev, #c9a24a); }
+.ev-card.is-boss { box-shadow: inset 0 0 0 1px rgba(200, 60, 40, 0.5); }
+.ev-card h5 { margin: 10px 0 4px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: #e9cf8a; }
+.ev-card-head { display: flex; gap: 10px; align-items: center; }
+.ev-card-head h4 { margin: 0; }
+.ev-lvl { display: inline-grid; place-items: center; min-width: 34px; height: 38px; padding: 0 4px; color: #fff8e6; font: 700 15px Georgia, serif;
+  background: var(--ev, #a8402a); border: 2px solid #f1d36a; clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); text-shadow: 0 1px 0 #000; }
+.ev-lvl.sm { min-width: 24px; height: 26px; font-size: 11px; vertical-align: middle; background: #8a3a24; }
+.ev-reward { margin: 8px 0; padding: 6px 10px; border-radius: 8px; background: rgba(241, 211, 106, 0.12); border: 1px solid rgba(241, 211, 106, 0.4); }
+.ev-dist { margin: 0; padding-left: 18px; }
+.ev-card .ev-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 6px; }
+.ev-onmap .ev-list td { vertical-align: middle; padding: 6px 8px; }
+.ev-onmap .ev-list tr.boss td { background: rgba(192, 57, 43, 0.12); }
+.ev-onmap .ev-list .row { flex-wrap: nowrap; }
+.ev-threats { display: grid; gap: 4px; margin: 6px 0; }
+@media (max-width: 640px) { .ev-onmap .ev-list td:nth-child(3) { display: none; } .act-ring .ring-btn { width: 52px; height: 52px; font-size: 10px; } }

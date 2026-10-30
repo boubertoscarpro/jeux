@@ -1,18 +1,17 @@
 import { speedupText } from '../../systems/speedups.js';
 import { LIVE_EVENTS } from '../../data/liveEvents.js';
-import { TERRAINS } from '../../data/world.js';
-import { ALL_UNITS, UNITS, FORMATIONS } from '../../data/units.js';
+import { ALL_UNITS } from '../../data/units.js';
 import { RESOURCES } from '../../data/resources.js';
 import { fmt, fmtTime } from '../../core/util.js';
 import {
-  liveState, ensureCalendar, actionsFor, ACTIONS, TARGET_INFO, targetName, isVisible, sendLive, recallLive, planLive, actionCost,
+  liveState, ensureCalendar, ACTIONS, TARGET_INFO, targetName, recallLive, liveTravel, eventMarches, eventTargetsByDistance, targetReward,
   objectives, claimObjective, passInfo, claimPass, leaderboard, lbRewardFor, guildInfo, claimGuild, coopProgress, claimCoop,
-  lightFires, liveMarchNext, maxLiveMarches, liveTarget, lavaNear, scaleEnemies, liveFoe,
-  bossPhase, setStance, dailyMissions, claimDaily, challengeInfo, claimChallenge,
+  lightFires, liveMarchNext, maxLiveMarches, liveTarget, setStance, dailyMissions, claimDaily, challengeInfo, claimChallenge,
 } from '../../systems/liveEvents.js';
 import { EVENT_STANCES } from '../../data/liveEvents.js';
-import { autoFillLive, autoFillNote, halfOfEach } from '../../systems/autofill.js';
+import { marchMods } from '../../systems/marches.js';
 import { dayKey } from '../../systems/shards.js';
+import { worldShowRing, eventMarchDialog } from './world.js';
 import { esc, countdown, progress, bar, resChips } from '../components.js';
 
 const giveText = (g, cur) => {
@@ -51,7 +50,7 @@ function header(app, cur, def) {
       <div class="ev-stat"><span class="muted small">Gagnées au total</span><b>${fmt(cur.earned)}</b></div>
       <div class="ev-stat"><span class="muted small">Classement</span><b>${lb.rank}<span class="muted small"> / ${lb.size}</span></b></div>
       <div class="ev-stat"><span class="muted small">Passe gratuite</span><b>niv. ${pass.level}/20</b>${bar(pass.progress, 1)}</div>
-      <div class="ev-stat"><span class="muted small">Troupes engagées</span><b>${liveState(app.state).marches.filter((m) => m.phase !== 'hold').length}/${maxLiveMarches(app.state)}</b></div>
+      <div class="ev-stat"><span class="muted small">Troupes engagées</span><b>${eventMarches(app.state).filter((m) => m.phase !== 'hold').length}/${maxLiveMarches(app.state)}</b></div>
     </div>
     <div class="small ev-special">✨ ${esc(def.special?.desc || '')}</div>
     <div class="small muted">À la fin : les ${esc(def.currency.name)} restantes sont converties (${def.currency.convert.per} → ${fmt(def.currency.convert.amount)} ${RESOURCES[def.currency.convert.res].icon}). Les objectifs et la passe non réclamés sont versés automatiquement.</div>
@@ -75,63 +74,33 @@ function specialPanel(app, cur, def) {
   return parts.length ? `<div class="ev-widgets">${parts.join('')}</div>` : '';
 }
 
-function mapView(app, cur) {
-  const m = cur.map;
-  const sel = app.ui.evSel || {};
-  const L = liveState(app.state);
-  const byCell = {};
-  for (const t of m.targets) if (isVisible(cur, t)) byCell[t.y * m.w + t.x] = t;
-  const troops = new Set(L.marches.map((x) => x.y * m.w + x.x));
-  const cells = [];
-  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) {
-    const i = y * m.w + x;
-    const fog = m.revealed && !m.revealed[i];
-    const lava = m.lava.includes(i);
-    const t = byCell[i];
-    const isBase = x === m.base.x && y === m.base.y;
-    const selected = (t && sel.targetId === t.id) || (!t && sel.x === x && sel.y === y);
-    const col = TERRAINS[m.tiles[i]]?.color || '#444';
-    cells.push(`<button class="ev-cell ${fog ? 'fog' : ''} ${lava ? 'lava' : ''} ${selected ? 'sel' : ''} ${t ? 'has-t' : ''}" style="--tc:${col}" data-action="ev-sel" data-x="${x}" data-y="${y}" ${t ? `data-id="${t.id}"` : ''} title="(${x}, ${y})${t ? ' — ' + esc(targetName(cur, t)) : ''}">${isBase ? '🏕️' : t ? `${t.type === 'zone' && t.owned ? '🚩' : TARGET_INFO[t.type]?.icon || '❔'}${t.tier && t.tier <= 7 && !['caravan', 'ship', 'treasure', 'vein', 'vent', 'hearth', 'riddle', 'trace', 'village'].includes(t.type) ? `<i>${t.tier}</i>` : ''}` : lava ? '🔥' : ''}${troops.has(i) ? '<span class="ev-troop">⚑</span>' : ''}</button>`);
-  }
-  return `<div class="ev-map" style="grid-template-columns:repeat(${m.w}, 1fr)">${cells.join('')}</div>
-    <div class="legend small muted">🏕️ votre camp de base · ⚑ vos troupes · chiffre = niveau du camp (I à VII)${m.revealed ? ' · cases sombres : brouillard (explorez-les)' : ''}${m.lava.length ? ' · 🔥 lave (se déplace chaque heure)' : ''}</div>`;
-}
-
-function enemyList(units) {
-  return Object.entries(units || {}).map(([u, n]) => `<span class="unit-chip">${ALL_UNITS[u]?.icon || ''} ${n} ${esc(ALL_UNITS[u]?.name || u)}</span>`).join('');
-}
-
-function selPanel(app, cur, def) {
-  const s = app.state;
-  const sel = app.ui.evSel;
-  if (!sel) return '<div class="card-sub"><p class="muted">Sélectionnez une cible sur la carte : camp, caravane, trésor, boss…</p></div>';
-  if (!sel.targetId) {
-    const m = cur.map;
-    const fog = m.revealed && !m.revealed[sel.y * m.w + sel.x];
-    return `<div class="card-sub"><h3>Case (${sel.x}, ${sel.y})</h3><p class="small muted">${esc(TERRAINS[m.tiles[sel.y * m.w + sel.x]]?.name || '')}</p>${fog ? `<button class="btn primary" data-action="ev-send" data-act="explore" data-x="${sel.x}" data-y="${sel.y}">🧭 Explorer (éclaireur requis)</button>` : '<p class="small muted">Rien d’intéressant ici.</p>'}</div>`;
-  }
-  const t = liveTarget(s, sel.targetId);
-  if (!t || !isVisible(cur, t)) return '<div class="card-sub"><p class="muted">Cette cible a disparu.</p></div>';
-  const acts = actionsFor(s, t);
-  const info = [];
-  if (t.enemies) info.push(`<h4>Défenseurs</h4><div class="chips">${enemyList(t.enemies)}</div>`);
-  if (t.type === 'caravan' || t.type === 'ship') info.push(t.spied ? `<div class="small">👁️ Cargaison : <b>${esc(t.cargo)}</b> · destination (${t.dest.x}, ${t.dest.y}) · gardes : ${enemyList(scaleEnemies(s, def, t.type, t.tier))}</div>` : `<div class="small muted">En mouvement vers l’est. Espionnez-la pour connaître sa cargaison (+50 % de butin).</div>`);
-  if (t.type === 'boss') { const b = def.bosses[0]; const tier = b.tiers[cur.bossIdx]; const ph = bossPhase(app.state, cur, def); if (tier) info.push(`<div class="small boss-phase phase-${ph.n}"><b>${esc(ph.name)}</b> — ${esc(ph.desc || '')}</div>`); if (tier) info.push(`<div class="small">PV : ${fmt(cur.bossHp)} / ${fmt(Math.round(tier.hp))}</div>${bar(cur.bossHp, tier.hp, 'bad')}<div class="small">Récompense du rang ${cur.bossIdx + 1} : ${giveText(tier.reward, cur)}</div><div class="small muted">Rangs : ${b.tiers.map((x, i) => `${i < cur.bossIdx ? '✔' : i === cur.bossIdx ? '▶' : '·'} ${['I', 'II', 'III', 'IV'][i]}`).join(' ')}</div>`); }
-  if (t.type === 'vein') info.push(`<div class="small">Poches restantes : ${t.amount}/${t.max}. Des prospecteurs rivaux revendiquent les filons libres.</div>`);
-  if (t.type === 'vent') info.push(`<div class="small">${lavaNear(cur.map, t.x, t.y) ? '<span class="bad">⚠️ La lave cerne cet évent : pertes probables.</span>' : 'Accès dégagé pour l’instant.'}${t.cooldown > Date.now() ? ` Se recharge : ${countdown(t.cooldown)}` : ''}</div>`);
-  if (t.type === 'riddle' && t.sealedUntil > Date.now()) info.push(`<div class="small bad">Salle scellée encore ${countdown(t.sealedUntil)}.</div>`);
-  if (t.type === 'hearth' && t.cooldown > Date.now()) info.push(`<div class="small">Le brasier brûle encore ${countdown(t.cooldown)}.</div>`);
-  if (t.type === 'zone' && t.owned) info.push(`<div class="small ok">Région tenue. Prochaine contre-attaque : ${countdown(t.nextCounter)}.</div>`);
-  const est = { camp: 1, port: 1, vault: 1, crypt: 1, pack: 1, zone: 1 }[t.type] ? `≈ ${fmt(50 * t.tier + 15 * t.tier * t.tier)} ${def.currency.icon}` : '';
-  return `<div class="card-sub ev-sel"><h3>${TARGET_INFO[t.type]?.icon || ''} ${esc(targetName(cur, t))}</h3><div class="small muted">(${t.x}, ${t.y}) · ${esc(TERRAINS[cur.map.tiles[t.y * cur.map.w + t.x]]?.name || '')} ${est ? '· ' + est : ''}</div>
-    ${info.join('')}
-    <div class="ev-actions">${acts.map((a) => { const c = actionCost(t, a); return `<button class="btn ${a === 'attack' ? 'primary' : ''}" data-action="ev-send" data-act="${a}" data-id="${t.id}" title="${esc(ACTIONS[a].hint || '')}">${ACTIONS[a].icon} ${esc(ACTIONS[a].label)}${c ? ' ' + resChips(c) : ''}</button>`; }).join('') || '<span class="muted small">Aucune action possible pour le moment.</span>'}</div></div>`;
+// v25 : plus de carte d'événement : les cibles sont sur la carte du monde. Liste triée par distance à votre base la
+// plus proche (capitale ou avant-poste), « Montre-moi » centre la carte du monde sur la cible et ouvre son anneau.
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+function targetsCard(app, cur, def) {
+  const s = app.state, now = Date.now();
+  const list = eventTargetsByDistance(s, now);
+  const mods = marchMods(s, null, null, now);
+  const f = app.ui.evListAll ? list : list.slice(0, 10);
+  const threats = (cur.map.threats || []).filter((t) => t.kind !== 'rival');
+  return `<div class="card ev-onmap"><div class="row between wrap"><h3>🗺️ Sur la carte du monde <span class="muted small">${list.length} cible(s) visibles</span></h3><button class="btn primary" data-action="ev-map">Voir sur la carte</button></div>
+    <p class="small muted">Faibles près de vos terres, plus fortes et plus rentables au loin ; forteresses et chefs au plus loin. Partez de la capitale ou de l’avant-poste le plus proche.</p>
+    ${threats.length ? `<div class="ev-threats">${threats.map((t) => `<div class="small bad">⚔️ ${esc(t.label)} — arrivée ${countdown(t.arrive)}</div>`).join('')}</div>` : ''}
+    <table class="table ev-list"><tbody>${f.map(({ t, name, base, d, actions }) => {
+      const rw = targetReward(s, t);
+      const a0 = actions[0];
+      return `<tr class="${t.type === 'boss' ? 'boss' : ''}"><td><span class="ev-lvl sm">${ROMAN[Math.min(9, t.tier)] || ''}</span> ${TARGET_INFO[t.type]?.icon || ''} <b>${esc(name)}</b></td>
+        <td class="small muted">${esc(base.key === 'capital' ? 'capitale' : base.name)} · ${d.toFixed(0)} cases · ${fmtTime(liveTravel(s, cur, base, t.x, t.y, { spearman: 1 }, mods))}</td>
+        <td class="small">${rw?.points != null ? `≈ ${fmt(rw.points)} ${def.currency.icon}` : ''}</td>
+        <td class="row gap end"><button class="mini ghost" data-action="ev-show" data-x="${t.x}" data-y="${t.y}">Montre-moi</button>${a0 ? `<button class="mini ${a0 === 'attack' ? 'primary' : ''}" data-action="ev-send" data-act="${a0}" data-id="${t.id}">${esc(ACTIONS[a0].label)}</button>` : ''}</td></tr>`;
+    }).join('') || '<tr><td class="muted">Aucune cible visible pour l’instant : elles réapparaissent au fil de l’événement (et les ruines cachées se découvrent en explorant).</td></tr>'}</tbody></table>
+    ${list.length > 10 ? `<button class="mini ghost" data-action="ev-list-all">${app.ui.evListAll ? 'Moins' : `Toutes (${list.length})`}</button>` : ''}</div>`;
 }
 
 function marchList(app, cur) {
-  const L = liveState(app.state);
-  if (!L.marches.length) return '';
-  return `<div class="card-sub"><h4>Vos troupes sur la carte</h4>${L.marches.map((m) => {
+  const ms = eventMarches(app.state);
+  if (!ms.length) return '';
+  return `<div class="card"><h4>Vos troupes d’événement</h4>${ms.map((m) => {
     const t = liveTarget(app.state, m.targetId);
     const end = liveMarchNext(m);
     const phase = { out: 'En route', work: 'Au travail', back: 'Retour', hold: 'En garnison', wait: 'Attend vos ordres' }[m.phase];
@@ -198,48 +167,6 @@ function noEvent(app) {
     <button class="btn" data-action="nav" data-view="calendar">📅 Voir le calendrier</button></div>`;
 }
 
-function openSend(app, opts) {
-  const s = app.state;
-  const cur = liveState(s).current;
-  const avail = Object.entries(s.army).filter(([u, n]) => n > 0 && UNITS[u]);
-  const t = opts.id ? liveTarget(s, opts.id) : null;
-  const title = t ? `${ACTIONS[opts.act].icon} ${ACTIONS[opts.act].label} — ${targetName(cur, t)}` : `🧭 Explorer (${opts.x}, ${opts.y})`;
-  const heroes = s.heroes.filter((h) => !h.marchId && !h.assignment);
-  const peaceful = ['trade', 'deliver', 'solve', 'spy', 'track', 'explore', 'dig', 'mine', 'harvest'].includes(opts.act);
-  const combat = t ? liveFoe(s, opts.act, t) : null;
-  const fill = (units, note) => {
-    document.querySelectorAll('#modal-root .qty').forEach((i) => { i.value = Math.min(+i.max || 0, units[i.dataset.u] || 0); });
-    const n = document.getElementById('ev-auto-note');
-    if (n) n.textContent = note;
-  };
-  app.modal(`<h2>${esc(title)}</h2>
-    ${t?.enemies && opts.act === 'attack' ? `<h4>Défenseurs</h4><div class="chips">${enemyList(t.enemies)}</div>` : ''}
-    <p class="small muted">${esc(ACTIONS[opts.act].hint || (peaceful ? 'Mission sans combat prévu.' : 'Combat : choisissez une armée adaptée (contre la cavalerie, des lanciers !).'))}</p>
-    <div class="ev-pick">${avail.map(([u, n]) => `<label class="pick">${UNITS[u].icon} ${esc(UNITS[u].name)} <span class="muted small">(${n})</span><input class="qty" type="number" min="0" max="${n}" value="0" data-u="${u}" id="evq-${u}"><button class="mini" data-action="ev-all" data-u="${u}" data-n="${n}">max</button></label>`).join('') || '<p class="muted">Aucune troupe en ville.</p>'}</div>
-    ${avail.length && !peaceful ? `<div class="row gap wrap mu-presets"><button class="mini" data-action="ev-half" title="La moitié de chaque type d’unité (éclaireurs et espions exclus)">½ Moitié de chaque unité</button>${combat ? `<button class="mini primary" data-action="ev-auto" title="${combat.kind === 'boss' ? 'Contre un boss : toutes les unités de combat (chaque soldat ajoute des dégâts)' : 'Le minimum pour gagner d’après l’estimation de combat, plus une marge de sécurité'}">⚖️ Remplissage auto</button>` : ''}<button class="mini ghost" data-action="ev-none">Vider</button></div><div class="small muted" id="ev-auto-note"></div>` : ''}
-    <div class="row gap wrap"><label>Héros <select id="ev-hero"><option value="">— Aucun —</option>${heroes.map((h) => `<option value="${h.id}">${esc(h.name)} (niv. ${h.level})</option>`).join('')}</select></label>
-      <label>Formation <select id="ev-form">${Object.entries(FORMATIONS).map(([k, f]) => `<option value="${k}">${esc(f.name)}</option>`).join('')}</select></label></div>
-    <div class="row gap"><button class="btn primary" data-action="ev-go">Envoyer</button><button class="btn ghost" data-action="close-modal">Annuler</button></div>`, {
-    'ev-all': (a, el) => { document.getElementById('evq-' + el.dataset.u).value = el.dataset.n; },
-    'ev-half': () => fill(halfOfEach(s), 'Moitié de chaque unité.'),
-    'ev-none': () => fill({}, ''),
-    'ev-auto': () => {
-      const r = autoFillLive(s, { action: opts.act, targetId: opts.id, heroId: document.getElementById('ev-hero').value || null, formation: document.getElementById('ev-form').value });
-      if (!r.ok) { const n = document.getElementById('ev-auto-note'); if (n) n.textContent = autoFillNote(s, r); return; }
-      fill(r.units, autoFillNote(s, r));
-    },
-    'ev-go': (a) => {
-      const units = {};
-      document.querySelectorAll('#modal-root .qty').forEach((i) => { const v = +i.value; if (v > 0) units[i.dataset.u] = v; });
-      const r = sendLive(s, { action: opts.act, targetId: opts.id, x: +opts.x, y: +opts.y, units, heroId: document.getElementById('ev-hero').value || null, formation: document.getElementById('ev-form').value }, Date.now());
-      if (!r.ok) return a.toast(r.reason, 'bad');
-      a.closeModal();
-      a.toast(`Troupes en route (${fmtTime(r.march.travel)})`, 'good');
-      a.render(); a.save();
-    },
-  }, 'wide');
-}
-
 export default {
   id: 'event', title: 'Événement', icon: '🎪',
   badge: (app) => {
@@ -253,19 +180,16 @@ export default {
     if (!cur) return noEvent(app);
     const def = LIVE_EVENTS[cur.key];
     return `${header(app, cur, def)}${specialPanel(app, cur, def)}
-      <div class="ev-layout"><div class="card">${mapView(app, cur)}</div><div class="ev-side">${selPanel(app, cur, def)}${marchList(app, cur)}</div></div>
+      ${targetsCard(app, cur, def)}${marchList(app, cur)}
       ${planCard(app, cur, def)}
       <div class="cols-2">${objectivesCard(app, cur)}${lbCard(app, cur)}</div>
       ${passCard(app, cur)}${logCard(cur)}`;
   },
   actions: {
-    'ev-sel': (app, el) => { app.ui.evSel = el.dataset.id ? { targetId: el.dataset.id } : { x: +el.dataset.x, y: +el.dataset.y }; app.render(); },
-    'ev-send': (app, el) => {
-      if (el.dataset.act === 'withdraw') return app.act(() => sendLive(app.state, { action: 'withdraw', targetId: el.dataset.id, units: {} }), 'Garnison rappelée');
-      const plan = planLive(app.state, { action: el.dataset.act, targetId: el.dataset.id, x: +el.dataset.x, y: +el.dataset.y, units: { _probe: 0 } });
-      if (!plan.ok && !/Sélectionnez|éclaireur/.test(plan.reason)) return app.toast(plan.reason, 'bad');
-      openSend(app, { act: el.dataset.act, id: el.dataset.id, x: el.dataset.x, y: el.dataset.y });
-    },
+    'ev-send': (app, el) => eventMarchDialog(app, el.dataset.act, el.dataset.id),
+    'ev-show': (app, el) => worldShowRing(app, +el.dataset.x, +el.dataset.y),
+    'ev-map': (app) => { const c = app.state.world.capital; worldShowRing(app, c.x, c.y); app.ui.ring = null; },
+    'ev-list-all': (app) => { app.ui.evListAll = !app.ui.evListAll; app.render(); },
     'ev-recall': (app, el) => app.act(() => recallLive(app.state, el.dataset.id), 'Troupes rappelées'),
     'ev-claim': (app, el) => app.act(() => claimObjective(app.state, el.dataset.id), (r) => `🎁 ${r.text}`),
     'ev-pass': (app, el) => app.act(() => claimPass(app.state, el.dataset.l), (r) => `🎫 ${r.text}`),

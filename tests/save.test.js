@@ -30,10 +30,10 @@ beforeEach(() => { globalThis.localStorage = fakeStorage(); });
 test('Import mal formé (tableaux remplacés par des objets) : réparé, la partie tourne', () => {
   const s = createNewState({ seed: 'bad', now: T0 });
   const bad = JSON.parse(serialize(s));
-  bad.pending = {}; bad.caravans = {}; bad.expeditions = {}; bad.workers = {}; bad.live.marches = {}; bad.queues.build = {};
+  bad.pending = {}; bad.caravans = {}; bad.expeditions = {}; bad.workers = {}; bad.live.marches = {}; bad.queues.build = {}; // v25 : anciennes marches d'événement (champ retiré à la migration)
   const st = deserialize(JSON.stringify(bad));
   for (const k of ['pending', 'caravans', 'expeditions', 'workers']) assert.ok(Array.isArray(st[k]), k);
-  assert.ok(Array.isArray(st.live.marches) && Array.isArray(st.queues.build));
+  assert.ok(st.live.marches === undefined && Array.isArray(st.queues.build));
   assert.ok(st.meta.repaired?.length);
   assert.doesNotThrow(() => advance(st, T0 + 2 * H));
 });

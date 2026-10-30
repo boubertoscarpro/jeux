@@ -16,17 +16,19 @@ import { computeMods } from './modifiers.js';
 import { gain, pay, canAfford, storageCap } from './economy.js';
 import { thLevel } from './city.js';
 import { simulateBattle, previewBattle } from './combat.js';
-import { marchMods } from './marches.js';
+import { marchMods, EVENT_MARCH } from './marches.js';
 import { giveXp } from './heroes.js';
 import { generateItem, createUniqueItem } from './items.js';
 import { grantSpeedups } from './speedups.js';
 import { bumpRep } from './reputation.js';
 import { shardState, addShards, rollShards, createSpecialHero, dayKey } from './shards.js';
 import { spawnBoss } from './events.js';
-import { findFreeTile, spawnPoi, reveal } from './world.js';
+import { findFreeTile, spawnPoi, reveal, key, poiAt, wTerrain } from './world.js';
+import { placeTarget, revealAt, eventBases, nearestBase, baseByKey, eventTravelMs, tileOk, hash32, EVENT_VISIBLE_MAX } from './eventWorld.js';
 import { chronicle } from './chronicle.js';
 import { log, toast } from './log.js';
 import { recordLoss } from './losses.js';
+import { flankShare } from './castle.js';
 
 const H = 3600000;
 const MIN = 60000;
@@ -37,7 +39,7 @@ export const eventDef = (key) => LIVE_EVENTS[key];
 
 // ───────────────────────── État ─────────────────────────
 export function liveState(state) {
-  return (state.live ||= { calendar: [], history: [], occ: {}, current: null, marches: [], reports: [], surprises: [], nextSurprise: 0, nextFair: 0, unseenReport: null, totals: {} });
+  return (state.live ||= { calendar: [], history: [], occ: {}, current: null, reports: [], surprises: [], nextSurprise: 0, nextFair: 0, unseenReport: null, totals: {} });
 }
 export function notifications(state) { return (state.notifications ||= []); }
 
@@ -93,6 +95,7 @@ function mkSlot(state, key, start) {
 // ───────────────────────── Démarrage d'un événement ─────────────────────────
 const thScale = (state) => 0.6 + thLevel(state) * 0.2;
 const CAMP_TYPES = ['camp', 'port', 'vault', 'crypt', 'pack', 'zone'];
+const FAR = ['fortress', 'boss', 'lair', 'bastion'];
 const RESPAWNING = ['camp', 'port', 'vault', 'crypt', 'pack', 'zone', 'caravan', 'ship', 'treasure', 'village'];
 
 export function startEvent(state, key, now = Date.now(), end = null) {
@@ -104,67 +107,168 @@ export function startEvent(state, key, now = Date.now(), end = null) {
   const cur = {
     key, start: now, end: end || now + (def.duration || 72) * c.durationMult * H, occ, seed,
     wallet: 0, earned: 0, autoEarned: {}, stats: {}, claimed: {}, passClaimed: {}, guildClaimed: false, coopClaimed: {},
-    map: generateMap(state, def, seed), bossIdx: 0, bossHp: 0, bossShown: false,
+    map: null, bossIdx: 0, bossHp: 0, bossShown: false,
     shop: buildShop(state, def, occ, seed), mystery: null, lbSeed: seed ^ 0x5eed, best: null, notified: {},
     warmth: 0, fires: false, nextWave: def.special?.waves ? now + (def.special.every || 6) * H : 0, wavesWeak: 0,
     nextAssault: def.special?.siege ? now + (def.special.every || 4) * H : 0, citadel: def.special?.siege ? 100 : 0,
     coop: def.coop ? { hp: Math.round(def.coop.hp * c.bossHpMult), maxHp: Math.round(def.coop.hp * c.bossHpMult), mine: 0 } : null,
-    trackStep: 0, lavaAt: now, nextHour: now + H, riddleUsed: [],
+    trackStep: 0, lavaAt: now, nextHour: now + H, riddleUsed: [], lastTick: now,
   };
   if (def.bosses?.length) cur.bossHp = Math.round(def.bosses[0].tiers[0].hp * c.bossHpMult);
   L.current = cur;
+  cur.map = placeEventWorld(state, cur, def, now);
   notify(state, def.icon, `L’événement « ${def.name} » commence ! Durée : ${fmtTime(cur.end - now)}.`, now);
   log(state, 'event', `${def.icon} ${def.name} : ${def.story}`, now);
   rollMystery(state, now);
   return cur;
 }
 
-// Carte d'événement : grille de terrain + cibles
-function generateMap(state, def, seed) {
-  const r = mulberry32(seed);
-  const { w, h } = def.map;
-  const terr = Object.entries(def.map.terrain);
-  const tiles = [];
-  for (let i = 0; i < w * h; i++) {
-    let x = r(), t = terr[0][0];
-    for (const [k, p] of terr) { if ((x -= p) < 0) { t = k; break; } }
-    tiles.push(t);
-  }
-  // Rivières en bandes pour la cohérence visuelle
-  const base = { x: 0, y: Math.floor(h / 2) };
-  tiles[base.y * w] = 'plain';
-  const map = { w, h, tiles, base, targets: [], revealed: null, lava: [] };
-  if (def.map.fog) {
-    map.revealed = Array(w * h).fill(0);
-    for (let y = 0; y < h; y++) for (let x = 0; x < 3; x++) map.revealed[y * w + x] = 1;
-  }
-  for (const spec of def.map.targets) for (let i = 0; i < spec.count; i++) addTarget(state, def, map, spec.type, spec.tiers, r);
-  if (def.special?.lava) shuffleLava(map, r);
+// v25 : les cibles sont posées sur la carte du monde (systems/eventWorld.js), plus de carte à part.
+// map : { targets, lava (cases du monde), frost (front de neige), volcano, burnt (cases brûlées), threats (menaces
+// visibles : harcèlement, hordes, assauts, prospecteurs rivaux), spawnN (tirages), respawns (réapparitions par type) }
+function placeEventWorld(state, cur, def, now) {
+  const map = { targets: [], lava: [], burnt: [], threats: [], frost: null, volcano: null, spawnN: 0, respawns: {} };
+  cur.map = map;
+  const W = def.world || {};
+  const r = mulberry32(hash32(cur.seed, 'world'));
+  const c = state.world.capital;
+  // Repères géographiques propres à l'événement (une région à 10-20 cases de la capitale)
+  const region = (allow) => { for (let k = 0; k < 200; k++) { const a = r() * Math.PI * 2, d = 10 + r() * 10; const x = Math.round(c.x + Math.cos(a) * d), y = Math.round(c.y + Math.sin(a) * d); if (x > 3 && y > 3 && x < state.world.size - 4 && y < state.world.size - 4 && (!allow || allow.includes(wTerrain(state.world, x, y)))) return { x, y }; } return { x: c.x + 12, y: c.y }; };
+  if (W.frost) { const p = region(); map.frost = { x: p.x, y: p.y, r: 3, max: 11 }; }
+  if (W.volcano) { const p = region(['mountain', 'hills']) ; map.volcano = { x: p.x, y: p.y }; shuffleLava(state, map); }
+  for (const spec of W.targets || []) for (let i = 0; i < spec.count; i++) addTarget(state, def, cur, spec.type, spec.tiers, { idx: i });
+  if (W.nomads) { const camps = map.targets.filter((t) => t.type === 'camp'); camps.forEach((t, i) => { if (i % Math.round(1 / W.nomads) === 0) { t.nomad = true; t.moveAt = now + (3 + (i % 3)) * H; } }); }
+  if (W.hordes) cur.nextWave = cur.nextWave || now + (def.special?.every || 6) * H;
   return map;
 }
 
-function freeCell(map, r, minX = 2) {
-  const used = new Set(map.targets.filter((t) => !t.gone).map((t) => t.y * map.w + t.x));
-  for (let k = 0; k < 200; k++) {
-    const x = minX + Math.floor(r() * (map.w - minX)), y = Math.floor(r() * map.h);
-    if (used.has(y * map.w + x) || map.lava.includes(y * map.w + x)) continue;
-    return { x, y };
-  }
-  return { x: map.w - 1, y: Math.floor(r() * map.h) };
+// Options de placement d'une cible selon l'événement (rivières, neige, frontières, volcan, routes, brouillard)
+function placeOpts(state, def, cur, type) {
+  const W = def.world || {}, map = cur.map, w = state.world;
+  const o = {};
+  const near = (ter, rad = 1) => (x, y) => { for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) if (wTerrain(w, x + dx, y + dy) === ter) return true; return false; };
+  if (W.riverside?.includes(type)) { if (type === 'ship') o.allow = ['river']; else o.need = near('river'); }
+  if (W.underFog?.includes(type)) o.hidden = true;
+  if (W.veinTerrain && type === 'vein') { o.allow = ['hills', 'mountain', 'plain', 'forest']; o.need = (x, y) => ['hills', 'mountain'].includes(wTerrain(w, x, y)) || near('river')(x, y); }
+  if (map.frost && ['camp', 'pack', 'hearth', 'fortress', 'boss'].includes(type)) { o.center = map.frost; o.ring = [0, map.frost.max]; o.allow = ['plain', 'forest', 'hills', 'snow', 'swamp', 'ruins', 'ash', 'mountain']; }
+  if (map.volcano && ['vent', 'boss'].includes(type)) { o.center = map.volcano; o.ring = type === 'boss' ? [1, 3] : [2, 6]; o.allow = ['plain', 'forest', 'hills', 'mountain', 'ash', 'snow', 'swamp', 'ruins']; }
+  if (W.borders && type === 'zone') { const b = borderPoint(state, cur); if (b) { o.center = b; o.ring = [0, 4]; } }
+  if (W.routes && (type === 'caravan' || type === 'camp')) { const rt = cityRoute(state, cur); if (rt) { if (type === 'caravan') { o.center = rt.a; o.ring = [0, 2]; o.route = rt; } else { const f = 0.25 + ((map.spawnN * 37) % 50) / 100; o.center = { x: Math.round(rt.a.x + (rt.b.x - rt.a.x) * f), y: Math.round(rt.a.y + (rt.b.y - rt.a.y) * f) }; o.ring = [1, 4]; } } }
+  if (W.assaultDir && type === 'bastion') { o.center = w.capital; o.ring = [3, 5]; }
+  return o;
 }
 
-function addTarget(state, def, map, type, tiers, r = rng.random) {
-  const pos = type === 'fortress' || type === 'boss' || type === 'bastion' ? freeCell(map, r, Math.floor(map.w * 0.6)) : freeCell(map, r);
-  const tier = type === 'fortress' ? 8 : type === 'boss' ? 9 : tiers ? tiers[0] + Math.floor(r() * (tiers[1] - tiers[0] + 1)) : 1 + Math.floor(r() * 4);
-  const t = { id: uid('lt'), type, x: pos.x, y: pos.y, tier, done: false };
+// Point de frontière disputé (Guerre des Royaumes) : entre mes terres et un royaume rival, pondéré par la rancune
+function borderPoint(state, cur) {
+  const ks = Object.values(state.world.pois).filter((p) => p.type === 'kingdom');
+  if (!ks.length) return null;
+  const mine = eventBases(state);
+  const r = mulberry32(hash32(cur.seed, 'border', cur.map.spawnN));
+  const weight = (p) => { const f = state.factions?.[p.rival]; const rel = f?.relation ?? 0; return Math.max(0.2, 1 - rel / 100) * (1 + (p.anger || 0) * 0.2); };
+  let tot = ks.reduce((a, p) => a + weight(p), 0), v = r() * tot, k = ks[0];
+  for (const p of ks) { if ((v -= weight(p)) <= 0) { k = p; break; } }
+  let b = mine[0], bd = Infinity;
+  for (const m of mine) { const d = Math.hypot(m.x - k.x, m.y - k.y); if (d < bd) { bd = d; b = m; } }
+  const f = Math.min(0.75, Math.max(0.35, 14 / Math.max(14, bd)));
+  return { x: Math.round(b.x + (k.x - b.x) * f), y: Math.round(b.y + (k.y - b.y) * f), rival: k.rival, kingdom: k.name };
+}
+
+// Route commerciale entre deux cités libres proches de chez soi (Convoi des Sept Marchands)
+function cityRoute(state, cur) {
+  const c = state.world.capital;
+  const towns = Object.values(state.world.pois).filter((p) => p.type === 'town').map((p) => ({ p, d: Math.hypot(p.x - c.x, p.y - c.y) })).sort((a, b) => a.d - b.d).slice(0, 6).map((x) => x.p);
+  if (towns.length < 2) return null;
+  const n = cur.map.routeN = (cur.map.routeN || 0) + 1;
+  const a = towns[n % towns.length], b = towns[(n * 3 + 1) % towns.length] === a ? towns[(n + 1) % towns.length] : towns[(n * 3 + 1) % towns.length];
+  return { a: { x: a.x, y: a.y, name: a.name }, b: { x: b.x, y: b.y, name: b.name } };
+}
+
+// Migration v24 → v25 (sauvegarde v10 → v11) : les marches de l'ancienne carte d'événement rentrent immédiatement
+// (troupes, butin déjà ramassé, coûts d'une action jamais réalisée, héros libérés) ; les cibles restantes d'un
+// événement en cours sont transposées sur le monde en gardant leur état (palier, vaincue, réapparition, armée,
+// filon restant, trésor révélé, région tenue…). La colonne d'une cible sur l'ancienne carte (0 = près de la base)
+// choisit son anneau quand son type n'a pas de palier.
+export function ensureEventWorld(state, now = Date.now()) {
+  const L = state.live;
+  if (!L || typeof L !== 'object') return null;
+  const out = { marches: 0, targets: 0 };
+  if (Array.isArray(L.marches)) {
+    for (const m of L.marches) {
+      if (!m) continue;
+      for (const [u, n] of Object.entries(m.units || {})) state.army[u] = (state.army[u] || 0) + n;
+      for (const [r, v] of Object.entries(m.loot || {})) if (state.resources[r] !== undefined) state.resources[r] += v;
+      if (m.paid && m.phase === 'out') for (const [r, v] of Object.entries(m.paid)) state.resources[r] = (state.resources[r] || 0) + v;
+      for (const it of m.items || []) state.inventory?.items?.push(it);
+      const h = (state.heroes || []).find((z) => z.id === m.heroId); if (h) h.marchId = null;
+      state.pending = (state.pending || []).filter((p) => p.marchId !== m.id);
+      out.marches++;
+    }
+    delete L.marches;
+  } else if (L.marches !== undefined) delete L.marches; // champ abîmé (import modifié à la main)
+  const cur = L.current;
+  const def = cur && LIVE_EVENTS[cur.key];
+  if (cur && def && cur.map && Array.isArray(cur.map.tiles)) {
+    const old = cur.map;
+    cur.map = { targets: [], lava: [], burnt: [], threats: [], frost: null, volcano: null, spawnN: 0, respawns: {} };
+    const W = def.world || {};
+    const r = mulberry32(hash32(cur.seed, 'world'));
+    const c = state.world.capital;
+    if (W.frost) { const a = r() * Math.PI * 2, d = 10 + r() * 10; cur.map.frost = { x: Math.round(c.x + Math.cos(a) * d), y: Math.round(c.y + Math.sin(a) * d), r: 3, max: 11 }; }
+    if (W.volcano) { const a = r() * Math.PI * 2, d = 10 + r() * 10; cur.map.volcano = { x: Math.round(c.x + Math.cos(a) * d), y: Math.round(c.y + Math.sin(a) * d) }; }
+    for (const t of old.targets || []) {
+      if (!t || t.gone) continue;
+      const col = Math.max(0, Math.min(1, (t.x || 0) / Math.max(1, (old.w || 16) - 1)));
+      const o = placeOpts(state, def, cur, t.type);
+      if (!o.ring && !t.tier) o.ring = [4 + Math.round(col * 14), 8 + Math.round(col * 14)];
+      if (o.hidden && t.mapped) delete o.hidden;
+      const pos = placeTarget(state, cur, t.type, t.tier || 1, o);
+      if (!pos) continue;
+      const nt = { ...t, x: pos.x, y: pos.y, fx: undefined, fy: undefined, born: cur.start };
+      delete nt.fx; delete nt.fy;
+      if (o.hidden) nt.fog = true; else revealAt(state.world, pos.x, pos.y, 1);
+      if (nt.type === 'caravan' || nt.type === 'ship') { const a = r() * Math.PI * 2, d = 10 + r() * 10; nt.dest = { x: Math.max(1, Math.min(state.world.size - 2, Math.round(pos.x + Math.cos(a) * d))), y: Math.max(1, Math.min(state.world.size - 2, Math.round(pos.y + Math.sin(a) * d))) }; nt.from = { x: pos.x, y: pos.y }; }
+      if (nt.type === 'zone') nt.owned = false; // la garnison qui la tenait vient de rentrer
+      cur.map.targets.push(nt);
+      out.targets++;
+    }
+    if (W.volcano) shuffleLava(state, cur.map);
+  }
+  if (out.marches || out.targets) log(state, 'info', `🎪 Les événements se jouent désormais sur la carte du monde : ${out.targets} cible(s) transposée(s), ${out.marches} troupe(s) d’événement rentrée(s) avec tout ce qu’elles portaient.`, now);
+  return out;
+}
+
+// Ajoute une cible sur le monde ; renvoie null si aucune case ne convient (la cible est alors simplement omise)
+function addTarget(state, def, cur, type, tiers, opt = {}) {
+  const r = mulberry32(hash32(cur.seed, type, cur.map.spawnN, opt.idx ?? 0));
+  const map = cur.map;
+  let tier = type === 'fortress' ? 8 : type === 'boss' ? 9 : tiers ? tiers[0] + Math.floor(r() * (tiers[1] - tiers[0] + 1)) : 1 + Math.floor(r() * 4);
+  if (opt.tier) tier = opt.tier;
+  // Paliers répartis : le n-ième camp d'une série monte de palier régulièrement (beaucoup de petits près de chez soi)
+  if (tiers && opt.idx != null && !opt.tier) tier = Math.min(tiers[1], tiers[0] + Math.floor((opt.idx / Math.max(1, (def.world.targets.find((s) => s.type === type)?.count || 1) - 1)) * (tiers[1] - tiers[0]) + 0.0001));
+  const o = { ...placeOpts(state, def, cur, type), ...(opt.place || {}) };
+  const pos = placeTarget(state, cur, type, tier, o);
+  if (!pos) return null;
+  // Placement imposé par la géographie (frontière, front de neige, volcan, route) : le palier suit la distance à la
+  // base la plus proche, pour garder « faible près de chez soi, fort au loin »
+  if (o.center && tiers && !opt.tier && !FAR.includes(type)) {
+    const b = nearestBase(state, pos.x, pos.y), d = Math.hypot(b.x - pos.x, b.y - pos.y);
+    tier = Math.max(tiers[0], Math.min(tiers[1], 1 + Math.round((d - 4) / 3)));
+  }
+  const t = { id: uid('lt'), type, x: pos.x, y: pos.y, tier, done: false, born: opt.now || cur.start };
+  if (o.hidden) t.fog = true; else revealAt(state.world, pos.x, pos.y, 1);
   if (type === 'caravan' || type === 'ship') {
-    const dest = { x: map.w - 1, y: Math.floor(r() * map.h) };
-    Object.assign(t, { x: 1 + Math.floor(r() * 3), dest, spied: false, cargo: rng.pick(['soie', 'chevaux', 'épices', 'armes', 'or']) });
+    const rt = o.route || null;
+    let dest;
+    if (rt) dest = { x: rt.b.x, y: rt.b.y, name: rt.b.name };
+    else { const a = r() * Math.PI * 2, d = 10 + r() * 10; dest = { x: Math.round(pos.x + Math.cos(a) * d), y: Math.round(pos.y + Math.sin(a) * d) }; }
+    dest.x = Math.max(1, Math.min(state.world.size - 2, dest.x)); dest.y = Math.max(1, Math.min(state.world.size - 2, dest.y));
+    Object.assign(t, { dest, from: rt ? { x: rt.a.x, y: rt.a.y, name: rt.a.name } : { x: pos.x, y: pos.y }, spied: false, cargo: ['soie', 'chevaux', 'épices', 'armes', 'or'][Math.floor(r() * 5)] });
   }
   if (type === 'vein') { t.amount = 4 + Math.floor(r() * 5); t.max = t.amount; }
-  if (type === 'trace') t.step = 1;
+  if (type === 'trace') t.step = (cur.trackStep || 0) + 1;
   if (type === 'riddle') t.riddle = Math.floor(r() * RIDDLES.length);
   if (type === 'boss') t.hidden = true; // apparaît après quelques heures
+  if (type === 'zone' && o.center?.kingdom) t.border = o.center.kingdom;
   if (CAMP_TYPES.includes(type) || type === 'fortress') t.enemies = scaleEnemies(state, def, type, tier);
   map.targets.push(t);
   return t;
@@ -301,7 +405,10 @@ export function grantGive(state, g, now = Date.now(), source = '') {
       case 'buff': state.buffs.push({ name: v.name, mods: v.mods, until: now + v.h * H }); parts.push(`bonus « ${v.name} » ${v.h} h`); break;
       case 'consumable': for (const [c, n] of Object.entries(v)) state.inventory.consumables[c] = (state.inventory.consumables[c] || 0) + n; parts.push('consommables'); break;
       case 'research': { const q = state.queues.research[0]; if (q) { q.end -= v * 1000; q.start -= v * 1000; parts.push('recherche accélérée'); } else { gain(state, { gold: 600 }, mods); parts.push('600 🪙 (aucune recherche en cours)'); } break; }
-      case 'treasureMap': { const t = cur?.map.targets.find((x) => x.type === 'treasure' && !x.done && !x.gone); if (t) { t.mapped = true; revealAround(cur.map, t.x, t.y, 1); parts.push(`trésor révélé en (${t.x}, ${t.y})`); } else parts.push('carte vierge'); break; }
+      case 'treasureMap': { // v25 : de vraies coordonnées sur la carte du monde (de préférence un trésor encore caché)
+        const ts = (cur?.map.targets || []).filter((x) => x.type === 'treasure' && !x.done && !x.gone);
+        const t = ts.find((x) => x.fog && !x.mapped) || ts[0];
+        if (t) { t.mapped = true; revealAt(state.world, t.x, t.y, 1); parts.push(`trésor révélé en (${t.x}, ${t.y})`); } else parts.push('carte vierge'); break; }
       case 'exclusiveFromShop': {
         const ex = def?.shop.fixed.filter((i) => i.exclusive && (i.give.deco || i.give.unique) && !(i.give.deco && state.meta.owned[i.give.deco]) && !(i.give.unique && s.owned[i.give.unique]));
         if (ex?.length) parts.push(grantGive(state, ex[0].give, now, source)); else { s.legendaryFragments += 10; parts.push('10 fragments légendaires'); }
@@ -327,7 +434,6 @@ export const ACTIONS = {
   deliver: { label: 'Livrer', icon: '📦' },
   solve: { label: 'Résoudre l’énigme', icon: '❓' },
   track: { label: 'Suivre la piste', icon: '🐾', hint: 'Éclaireur requis' },
-  explore: { label: 'Explorer', icon: '🧭', hint: 'Éclaireur requis : révèle les environs' },
   garrison: { label: 'Tenir garnison', icon: '🏰' },
   withdraw: { label: 'Rappeler la garnison', icon: '↩️' },
   mine: { label: 'Exploiter le filon', icon: '⛏️', hint: '1 h de travail ; plus de récolteurs = plus de pépites' },
@@ -340,7 +446,7 @@ export const TARGET_INFO = {
   fortress: { name: 'Forteresse', icon: '🏯' }, boss: { name: 'Boss', icon: '👑' }, caravan: { name: 'Caravane', icon: '🐫' },
   ship: { name: 'Navire', icon: '⛵' }, treasure: { name: 'Trésor', icon: '💰' }, village: { name: 'Village', icon: '🏘️' },
   hearth: { name: 'Brasier', icon: '🔥' }, riddle: { name: 'Salle à énigme', icon: '❓' }, trace: { name: 'Piste du dragon', icon: '🐾' },
-  lair: { name: 'Antre du dragon', icon: '🐉' }, vein: { name: 'Filon', icon: '🪙' }, vent: { name: 'Évent d’obsidienne', icon: '🌋' },
+  lair: { name: 'Antre du dragon', icon: '🐉' }, horde: { name: 'Horde des morts', icon: '💀' }, vein: { name: 'Filon', icon: '🪙' }, vent: { name: 'Évent d’obsidienne', icon: '🌋' },
   bastion: { name: 'Citadelle des Anciens', icon: '🏰' },
 };
 
@@ -359,17 +465,18 @@ export function targetName(cur, t) {
   return `${TARGET_INFO[t.type]?.name || t.type}${CAMP_TYPES.includes(t.type) ? ' ' + roman : ''}`;
 }
 
-export function isVisible(cur, t) {
+// Cible visible et utilisable. Les ruines cachées (Ruines Anciennes) restent sous le vrai brouillard du monde tant que
+// la case n'est pas révélée (éclaireurs, exploration, carte au trésor).
+export function isVisible(cur, t, world = null) {
   if (t.done || t.gone || t.hidden) return false;
-  const m = cur.map;
-  if (m.revealed && !m.revealed[t.y * m.w + t.x] && !t.mapped) return false;
+  if (t.fog && !t.mapped && world && !world.revealed[t.y * world.size + t.x]) return false;
   return true;
 }
 
 export function actionsFor(state, t, now = Date.now()) {
   const cur = liveState(state).current;
   const def = LIVE_EVENTS[cur.key];
-  const held = liveState(state).marches.some((m) => m.targetId === t.id && m.phase === 'hold');
+  const held = eventMarches(state).some((m) => m.targetId === t.id && m.phase === 'hold');
   switch (t.type) {
     case 'caravan': return ['attack', 'escort', 'trade', 'spy'];
     case 'ship': return ['attack', 'spy'];
@@ -383,19 +490,28 @@ export function actionsFor(state, t, now = Date.now()) {
     case 'bastion': return held ? ['garrison', 'withdraw'] : ['garrison'];
     case 'vein': return ['mine'];
     case 'vent': return t.cooldown > now ? [] : ['harvest'];
-    default: return ['attack'];
+    case 'horde': case 'boss': case 'lair': return ['attack'];
+    // v25 : camps et forteresses s'espionnent (défenseurs exacts au lieu d'une estimation), comme sur la carte du monde
+    default: return t.spied ? ['attack'] : ['attack', 'spy'];
   }
 }
 
+// v25 : les marches d'événement sont des marches du monde (state.marches, type « event ») : même tracé sur la carte,
+// mêmes accélérateurs, même rappel. Elles gardent leur propre plafond (bonus de marches pendant l'événement).
 export const maxLiveMarches = (state) => liveCfg(state).maxMarches + Math.floor(thLevel(state) / 4);
+export const eventMarches = (state) => (state.marches || []).filter((m) => m.type === 'event');
+const dropMarch = (state, m) => { state.marches = state.marches.filter((z) => z.id !== m.id); };
 const unitCount = (u) => Object.values(u || {}).reduce((s, v) => s + v, 0);
 
-export function liveTravel(state, cur, x, y, units, mods) {
-  const d = Math.hypot(x - cur.map.base.x, y - cur.map.base.y);
+// Point de départ d'une marche : la base demandée (capitale ou avant-poste), sinon la plus proche de la cible
+export function marchOrigin(state, x, y, fromKey = null) {
+  return (fromKey && baseByKey(state, fromKey)) || nearestBase(state, x, y);
+}
+export function liveTravel(state, cur, from, x, y, units, mods) {
   let speed = Infinity;
   for (const [u, n] of Object.entries(units)) if (n > 0 && UNITS[u]) speed = Math.min(speed, UNITS[u].speed);
   if (speed === Infinity) speed = 1;
-  return Math.max(MIN, (d * 2.5 * MIN) / (speed * (1 + (mods['march.speed'] || 0))));
+  return Math.max(MIN, eventTravelMs(cur, from, x, y, speed * (1 + (mods['march.speed'] || 0)), liveCfg(state).travelMult));
 }
 
 export function planLive(state, opts, now = Date.now()) {
@@ -405,30 +521,25 @@ export function planLive(state, opts, now = Date.now()) {
   if (!cur || now >= cur.end) return fail('Aucun événement en cours');
   const units = Object.fromEntries(Object.entries(opts.units || {}).filter(([, n]) => n > 0).map(([k, n]) => [k, Math.floor(n)]));
   const { action } = opts;
-  let t = null, x = opts.x, y = opts.y;
-  if (action !== 'explore') {
-    t = cur.map.targets.find((z) => z.id === opts.targetId);
-    if (!t || t.done || t.gone || t.hidden) return fail('Cible introuvable');
-    if (!actionsFor(state, t, now).includes(action)) return fail('Action impossible ici');
-    x = t.x; y = t.y;
-  } else {
-    if (!cur.map.revealed) return fail('Carte déjà révélée');
-    if (!units.scout) return fail('Il faut au moins un éclaireur');
-  }
+  const t = cur.map.targets.find((z) => z.id === opts.targetId);
+  if (!t || !isVisible(cur, t, state.world)) return fail('Cible introuvable');
+  if (!actionsFor(state, t, now).includes(action)) return fail('Action impossible ici');
+  const x = t.x, y = t.y;
   if (action === 'withdraw') return { ok: true, units: {}, t, travel: 0 };
-  if (L.marches.filter((m) => m.phase !== 'hold').length >= maxLiveMarches(state)) return fail(`Maximum ${maxLiveMarches(state)} troupes d’événement en route`);
+  if (eventMarches(state).filter((m) => m.phase !== 'hold').length >= maxLiveMarches(state)) return fail(`Maximum ${maxLiveMarches(state)} troupes d’événement en route`);
   for (const [u, n] of Object.entries(units)) if ((state.army[u] || 0) < n) return fail(`Pas assez de ${ALL_UNITS[u]?.name || u}`);
   if (!unitCount(units)) return fail('Sélectionnez des unités');
   if ((action === 'track' || action === 'spy') && !units.scout) return fail('Il faut au moins un éclaireur');
-  if (t && ['mine', 'harvest', 'dig', 'escort', 'deliver', 'trade', 'solve'].includes(action) && L.marches.some((m) => m.targetId === t.id && m.phase !== 'back')) return fail('Une de vos troupes est déjà sur place');
-  const cost = t && actionCost(t, action);
+  if (['mine', 'harvest', 'dig', 'escort', 'deliver', 'trade', 'solve'].includes(action) && eventMarches(state).some((m) => m.targetId === t.id && m.phase !== 'back')) return fail('Une de vos troupes est déjà sur place');
+  const cost = actionCost(t, action);
   if (cost && !canAfford(state, cost)) return fail(`Il faut ${Object.entries(cost).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ')}`);
   if (opts.heroId) {
     const h = state.heroes.find((z) => z.id === opts.heroId);
     if (!h || h.marchId || h.assignment) return fail('Héros indisponible');
   }
   const mods = marchMods(state, opts.heroId, null, now);
-  return { ok: true, units, t, x, y, cost, travel: liveTravel(state, cur, x, y, units, mods), mods };
+  const from = marchOrigin(state, x, y, opts.from);
+  return { ok: true, units, t, x, y, cost, from, travel: liveTravel(state, cur, from, x, y, units, mods), mods };
 }
 
 export function sendLive(state, opts, now = Date.now()) {
@@ -436,7 +547,7 @@ export function sendLive(state, opts, now = Date.now()) {
   const plan = planLive(state, opts, now);
   if (!plan.ok) return plan;
   if (opts.action === 'withdraw') {
-    const m = L.marches.find((z) => z.targetId === plan.t.id && z.phase === 'hold');
+    const m = eventMarches(state).find((z) => z.targetId === plan.t.id && z.phase === 'hold');
     if (!m) return { ok: false, reason: 'Aucune garnison' };
     m.phase = 'back'; m.returnAt = now + m.travel;
     if (plan.t.type === 'zone') { plan.t.owned = false; plan.t.enemies = scaleEnemies(state, LIVE_EVENTS[L.current.key], 'zone', plan.t.tier); }
@@ -445,18 +556,20 @@ export function sendLive(state, opts, now = Date.now()) {
   for (const [u, n] of Object.entries(plan.units)) state.army[u] -= n;
   if (plan.cost) pay(state, plan.cost);
   const m = {
-    id: uid('lm'), action: opts.action, targetId: plan.t?.id || null, x: plan.x, y: plan.y, units: plan.units,
+    id: uid('lm'), type: 'event', event: L.current.key, action: opts.action, targetId: plan.t.id, x: plan.x, y: plan.y, units: plan.units,
+    from: { key: plan.from.key, name: plan.from.name, x: plan.from.x, y: plan.from.y },
     heroId: opts.heroId || null, formation: opts.formation || 'balanced', phase: 'out', start: now, arrive: now + plan.travel,
     travel: plan.travel, loot: {}, items: [], workEnd: 0, returnAt: 0, paid: plan.cost || null,
   };
   if (m.heroId) state.heroes.find((h) => h.id === m.heroId).marchId = m.id;
-  L.marches.push(m);
+  state.marches.push(m);
   return { ok: true, march: m };
 }
 
 export function recallLive(state, mid, now = Date.now()) {
-  const m = liveState(state).marches.find((z) => z.id === mid);
+  const m = eventMarches(state).find((z) => z.id === mid);
   if (!m || m.phase === 'back') return { ok: false };
+  if (m.phase === 'wait') state.pending = state.pending.filter((p) => p.marchId !== m.id);
   if (m.phase === 'out') { m.phase = 'back'; m.returnAt = now + (now - m.start); m.refund = true; } // rappelée avant d'agir : ce qui a été payé revient
   else { m.phase = 'back'; m.returnAt = now + m.travel; }
   const t = liveTarget(state, m.targetId);
@@ -472,23 +585,91 @@ export function liveMarchNext(m) {
   if (m.phase === 'back') return m.returnAt;
   return Infinity;
 }
-export function liveNextTime(state) {
-  let t = Infinity;
-  for (const m of state.live?.marches || []) t = Math.min(t, liveMarchNext(m));
-  return t;
+// Échéance d'une marche d'événement (appelée par processMarch de systems/marches.js)
+export function processEventMarch(state, m, now) {
+  if (liveMarchNext(m) > now) return false;
+  if (m.phase === 'out') arriveLive(state, m, m.arrive);
+  else if (m.phase === 'work') finishLiveWork(state, m, m.workEnd);
+  else if (m.phase === 'back') homeLive(state, m, m.returnAt);
+  if (m.phase !== 'back') syncEventPois(state, Math.min(now, m.workEnd || now, m.arrive || now));
+  return true;
 }
 
-export function processLiveMarches(state, now) {
-  let changed = false;
-  for (const m of [...liveState(state).marches]) {
-    if (liveMarchNext(m) > now) continue;
-    changed = true;
-    if (m.phase === 'out') arriveLive(state, m, m.arrive);
-    else if (m.phase === 'work') finishLiveWork(state, m, m.workEnd);
-    else if (m.phase === 'back') homeLive(state, m, m.returnAt);
-  }
-  return changed;
+// ───────────────────────── Projection sur la carte du monde ─────────────────────────
+// Chaque cible visible devient un lieu du monde (type « evt ») le temps de l'événement : dessin, niveau, bannière de
+// l'événement, sélection, étiquette, filtre « Événement ». La vérité reste dans cur.map.targets ; la projection est
+// refaite à chaque pas du monde et après chaque action. Phases : upcoming (annoncé, 24 h avant), active, boss,
+// cleared (vaincu : campement en feu puis ruines jusqu'à la réapparition), ended (fin : la bannière tombe, 20 min).
+export const UPCOMING_WINDOW = 24 * H;
+export const CLEARED_SHOW = 30 * MIN;
+export function eventPhaseOf(cur, t, now) {
+  if (t.done) return 'cleared';
+  if (t.type === 'boss' || t.type === 'lair' || t.type === 'fortress') return 'boss';
+  void cur; void now;
+  return 'active';
 }
+function heraldSpot(state, k, occ) {
+  const w = state.world, c = w.capital, S = w.size;
+  const h = hash32(k, occ);
+  for (let tries = 0; tries < 160; tries++) {
+    const a = ((h + tries * 2654435761) % 3600) / 3600 * Math.PI * 2, d = 5 + ((h >> 8) + tries) % 5;
+    const x = Math.round(c.x + Math.cos(a) * d), y = Math.round(c.y + Math.sin(a) * d);
+    if (x < 1 || y < 1 || x >= S - 1 || y >= S - 1 || w.pois[key(x, y)] || state.territories?.[key(x, y)]) continue;
+    if (['river', 'mountain'].includes(wTerrain(w, x, y))) continue;
+    return { x, y };
+  }
+  return null;
+}
+export function syncEventPois(state, now = Date.now()) {
+  const w = state.world;
+  if (!w?.pois || !w.capital) return [];
+  for (const [k, p] of Object.entries(w.pois)) if (p.type === 'evt' || p.type === 'eventSite') delete w.pois[k];
+  const L = liveState(state);
+  const out = [];
+  const put = (t, extra) => {
+    const k = key(t.x, t.y);
+    if (w.pois[k] || state.territories?.[k]) return;
+    const p = { id: 'evt_' + (t.id || extra.kind), type: 'evt', x: t.x, y: t.y, danger: 0, ...extra };
+    w.pois[k] = p; out.push(p);
+  };
+  const cur = L.current;
+  if (cur && now < cur.end) {
+    const def = LIVE_EVENTS[cur.key];
+    const bases = eventBases(state);
+    const dist = (t) => Math.min(...bases.map((b) => Math.hypot(b.x - t.x, b.y - t.y)));
+    const live = cur.map.targets.filter((t) => isVisible(cur, t, w)).sort((a, b) => (b.type === 'boss') - (a.type === 'boss') || dist(a) - dist(b)).slice(0, EVENT_VISIBLE_MAX);
+    for (const t of cur.map.targets) if (t.done && !t.doneAt) t.doneAt = now;
+    const cleared = cur.map.targets.filter((t) => t.done && !t.gone && !t.fog && (RESPAWNING.includes(t.type) || now - (t.doneAt || now) < CLEARED_SHOW)).slice(0, 10);
+    for (const t of [...live, ...cleared]) {
+      put(t, { evId: t.id, eventKey: cur.key, kind: t.type, tier: t.tier, phase: eventPhaseOf(cur, t, now), color: def.color, name: targetName(cur, t), enemies: t.enemies || null, scouted: !!t.spied, doneAt: t.doneAt || 0, respawnAt: t.done ? t.respawnAt || 0 : 0, movedAt: t.movedAt || 0, prev: t.prev || null, nomad: !!t.nomad });
+    }
+  } else if (L.fading && now < L.fading.until) {
+    for (const t of L.fading.items) put(t, { evId: t.id, eventKey: L.fading.eventKey, kind: t.kind, tier: t.tier, phase: 'ended', color: L.fading.color, name: `${TARGET_INFO[t.kind]?.name || 'Camp'} levé`, endAt: L.fading.until - 20 * MIN });
+  }
+  const next = L.calendar?.[0];
+  if (!cur && next && next.start > now && next.start - now <= UPCOMING_WINDOW) {
+    const def = LIVE_EVENTS[next.key];
+    const at = heraldSpot(state, next.key, (L.occ[next.key] || 0) + 1);
+    if (at) {
+      put({ ...at, id: `herald_${next.key}` }, { kind: 'herald', eventKey: next.key, tier: 1, phase: 'upcoming', color: def.color, name: def.name, until: next.start });
+      revealAt(w, at.x, at.y, 1);
+    }
+  }
+  return out;
+}
+// Lieu projeté → cible de l'événement (ou null)
+export const eventTargetOfPoi = (state, poi) => (poi?.type === 'evt' && poi.evId ? liveTarget(state, poi.evId) : null);
+// Cibles visibles triées par distance à la base la plus proche (écran de l'événement : « Montre-moi »)
+export function eventTargetsByDistance(state, now = Date.now()) {
+  const cur = liveState(state).current;
+  if (!cur || now >= cur.end) return [];
+  return cur.map.targets.filter((t) => isVisible(cur, t, state.world)).map((t) => {
+    const b = nearestBase(state, t.x, t.y);
+    return { t, name: targetName(cur, t), base: b, d: Math.hypot(b.x - t.x, b.y - t.y), actions: actionsFor(state, t, now) };
+  }).sort((a, b) => a.d - b.d);
+}
+EVENT_MARCH.process = processEventMarch;
+EVENT_MARCH.recall = (state, mid, now) => recallLive(state, mid, now);
 
 function goBack(m, t) { m.phase = 'back'; m.returnAt = t + m.travel; }
 function addLiveReport(state, text, t, win = true) {
@@ -503,9 +684,10 @@ function liveSides(state, m, enemies, t, opts = {}) {
   const cur = liveState(state).current;
   const mods = { ...marchMods(state, m.heroId, null, t) };
   if (opts.bonusAtk) mods['combat.atk'] = (mods['combat.atk'] || 0) + opts.bonusAtk;
+  if (opts.bonusDef) mods['combat.def'] = (mods['combat.def'] || 0) + opts.bonusDef;
   const stance = EVENT_STANCES[cur.stance || 'balanced'];
   if (stance?.losses) mods['combat.losses'] = (mods['combat.losses'] || 0) + stance.losses;
-  const terrain = cur.map.tiles[m.y * cur.map.w + m.x];
+  const terrain = wTerrain(state.world, m.x, m.y) || 'plain';
   const tier = opts.tier || 1;
   return [
     { units: m.units, mods, formation: m.formation, label: 'Vous' },
@@ -564,19 +746,37 @@ export function livePreview(state, opts, now = Date.now()) {
 }
 
 const campReward = (tier) => 50 * tier + 15 * tier * tier;
+// Récompense attendue d'une cible (fiche de la carte) : points d'événement et butin indicatif, sans hasard
+export function targetReward(state, t) {
+  const cur = liveState(state).current;
+  const def = cur && LIVE_EVENTS[cur.key];
+  if (!def) return null;
+  const pts = (v) => Math.round(v * liveCfg(state).currencyMult);
+  switch (t.type) {
+    case 'fortress': return { points: pts(2500), loot: 'objet épique garanti' };
+    case 'caravan': return { points: pts((300 + 150 * t.tier) * (t.spied ? 1.5 : 1)), loot: `${fmt(400 * t.tier)} or et marchandises` };
+    case 'ship': return { points: pts((400 + 100 * t.tier) * (t.spied ? 1.5 : 1)), loot: `${fmt(600 * t.tier)} or` };
+    case 'horde': { const n = (cur.stats.waves || 0) + (cur.stats.wavesLost || 0); return { points: pts(300 + n * 60 + campReward(t.tier)), loot: 'la vague de cette nuit est annulée' }; }
+    case 'treasure': return { points: pts(325), loot: 'or, gemmes, parfois un objet rare' };
+    case 'riddle': return { points: pts(500), loot: 'parfois un fragment de relique' };
+    case 'vein': return { points: pts(110), loot: `par poche (reste ${t.amount}/${t.max}) + 250 or` };
+    case 'vent': return { points: pts(145), loot: 'cristaux, minerai rare' };
+    case 'village': return { points: pts(250), loot: '' };
+    case 'hearth': return { points: pts(120), loot: '+10 chaleur' };
+    case 'trace': return { points: pts(300), loot: 'mène à l’antre' };
+    case 'boss': return { points: null, loot: 'récompense de rang (voir la fiche)' };
+    case 'lair': return { points: null, loot: 'points selon les dégâts infligés' };
+    case 'bastion': return { points: null, loot: 'points à chaque assaut repoussé' };
+    case 'zone': return { points: pts(campReward(t.tier)), loot: `puis ${fmt(40 * t.tier)} par heure tenue` };
+    default: return { points: pts(campReward(t.tier)), loot: t.tier >= 5 ? 'chance d’objet rare' : 'chance d’objet' };
+  }
+}
 
 function arriveLive(state, m, t) {
   const L = liveState(state);
   const cur = L.current;
   if (!cur) return goBack(m, t);
   const def = LIVE_EVENTS[cur.key];
-  if (m.action === 'explore') {
-    const n = revealAround(cur.map, m.x, m.y, 2);
-    bump(cur, 'explored', n);
-    if (rng.chance(0.15)) earn(state, 60, t, 'exploration', 'peace');
-    addLiveReport(state, `🧭 Exploration en (${m.x}, ${m.y}) : ${n} case(s) révélée(s).`, t);
-    return goBack(m, t);
-  }
   const tg = liveTarget(state, m.targetId);
   if (!tg || tg.done || tg.gone) { m.refund = true; addLiveReport(state, '↩️ La cible a disparu avant votre arrivée : ce qui avait été payé est rapporté.', t, false); return goBack(m, t); }
   const name = targetName(cur, tg);
@@ -584,7 +784,7 @@ function arriveLive(state, m, t) {
     case 'attack': return attackTarget(state, m, tg, t, def, name);
     case 'spy': {
       tg.spied = true;
-      addLiveReport(state, `👁️ ${name} espionnée : cargaison de ${tg.cargo}, destination (${tg.dest.x}, ${tg.dest.y}), ${unitCount(tg.enemies || def.enemies[tg.type] || {})} gardes.`, t);
+      addLiveReport(state, tg.dest ? `👁️ ${name} espionnée : cargaison de ${tg.cargo}, destination (${tg.dest.x}, ${tg.dest.y}), ${unitCount(tg.enemies || def.enemies[tg.type] || {})} gardes.` : `👁️ ${name} espionné : ${unitCount(tg.enemies || {})} défenseurs, composition exacte connue.`, t);
       earn(state, 40, t, 'espionnage', 'peace');
       return goBack(m, t);
     }
@@ -622,8 +822,8 @@ function arriveLive(state, m, t) {
       return;
     }
     case 'garrison': {
-      const same = L.marches.find((z) => z.targetId === tg.id && z.phase === 'hold' && z.id !== m.id);
-      if (same) { for (const [u, n] of Object.entries(m.units)) same.units[u] = (same.units[u] || 0) + n; L.marches = L.marches.filter((z) => z.id !== m.id); if (m.heroId) { const h = state.heroes.find((x) => x.id === m.heroId); if (h) h.marchId = null; } }
+      const same = eventMarches(state).find((z) => z.targetId === tg.id && z.phase === 'hold' && z.id !== m.id);
+      if (same) { for (const [u, n] of Object.entries(m.units)) same.units[u] = (same.units[u] || 0) + n; dropMarch(state, m); if (m.heroId) { const h = state.heroes.find((x) => x.id === m.heroId); if (h) h.marchId = null; } }
       else m.phase = 'hold';
       addLiveReport(state, `🏰 Renforts arrivés à ${name}.`, t);
       return;
@@ -655,6 +855,7 @@ function attackTarget(state, m, tg, t, def, name) {
   if (tg.type === 'fortress') { v = 2500; bump(cur, 'fortress'); m.items.push(generateItem({ ilvl: 6 + thLevel(state) * 2, boost: 1.2, min: 'epic' })); }
   else if (tg.type === 'caravan') { v = (300 + 150 * tg.tier) * (tg.spied ? 1.5 : 1); bump(cur, 'caravans'); loot.gold = 400 * tg.tier; loot[tg.cargo === 'armes' ? 'weapons' : tg.cargo === 'chevaux' ? 'leather' : 'cloth'] = 120 * tg.tier; }
   else if (tg.type === 'ship') { v = (400 + 100 * tg.tier) * (tg.spied ? 1.5 : 1); bump(cur, 'ships'); loot.gold = 600 * tg.tier; }
+  else if (tg.type === 'horde') { const n = (cur.stats.waves || 0) + (cur.stats.wavesLost || 0); v = 300 + n * 60 + campReward(tg.tier); bump(cur, 'hordes'); bump(cur, 'waves'); }
   else { v = campReward(tg.tier); if (tg.type !== 'pack') bump(cur, 'camps'); else bump(cur, 'packs'); if (tg.tier >= 7) bump(cur, 'tier7'); }
   if (tg.type === 'crypt') cur.wavesWeak = Math.min(0.6, cur.wavesWeak + 0.04);
   const got = earn(state, v, t, name, 'combat');
@@ -748,14 +949,15 @@ function finishLiveWork(state, m, t) {
     earn(state, 300, t, 'traque', 'peace');
     tg.done = true; tg.gone = true;
     if (cur.trackStep >= 3) {
-      const r = mulberry32(cur.seed ^ 0x1a1);
-      const lair = addTarget(state, def, cur.map, 'lair', null, r);
-      lair.tier = 9;
-      notify(state, '🐉', `L’antre de ${def.coop?.name || 'la bête'} est localisé en (${lair.x}, ${lair.y}) ! Tous à l’assaut.`, t);
-      addLiveReport(state, `🐾 Dernière piste : l’antre est trouvé !`, t);
+      const lair = addTarget(state, def, cur, 'lair', null, { tier: 9, now: t, place: { center: tg, ring: [5, 9] } }) || addTarget(state, def, cur, 'lair', null, { tier: 9, now: t });
+      if (lair) {
+        burnTrail(state, cur, tg, lair);
+        notify(state, '🐉', `L’antre de ${def.coop?.name || 'la bête'} est localisé en (${lair.x}, ${lair.y}) ! Tous à l’assaut.`, t);
+        addLiveReport(state, `🐾 Dernière piste : l’antre est trouvé !`, t);
+      }
     } else {
-      const nt = addTarget(state, def, cur.map, 'trace', null);
-      addLiveReport(state, `🐾 Piste ${cur.trackStep}/3 suivie : de nouvelles traces mènent en (${nt.x}, ${nt.y}).`, t);
+      const nt = addTarget(state, def, cur, 'trace', null, { now: t, place: { center: tg, ring: [4, 8] } }) || addTarget(state, def, cur, 'trace', null, { now: t });
+      if (nt) { burnTrail(state, cur, tg, nt); addLiveReport(state, `🐾 Piste ${cur.trackStep}/3 suivie : de nouvelles traces mènent en (${nt.x}, ${nt.y}).`, t); }
     }
   } else if (m.action === 'mine') {
     const gatherers = Object.entries(m.units).reduce((s, [u, n]) => s + (UNITS[u]?.gather || 0) * n, 0);
@@ -768,7 +970,7 @@ function finishLiveWork(state, m, t) {
     addLiveReport(state, `⛏️ ${name} : ${units} poche(s) exploitée(s), +${fmt(got)} ${def.currency.icon} (reste ${tg.amount}/${tg.max}).`, t);
     if (tg.amount <= 0) { tg.done = true; tg.gone = true; }
   } else if (m.action === 'harvest') {
-    const near = lavaNear(cur.map, tg.x, tg.y);
+    const near = lavaNear(state, cur.map, tg.x, tg.y);
     if (near) {
       let lost = 0;
       for (const u of Object.keys(m.units)) { const l = Math.floor(m.units[u] * 0.15); m.units[u] -= l; lost += l; }
@@ -786,6 +988,17 @@ function finishLiveWork(state, m, t) {
   goBack(m, t);
 }
 
+// Le dragon laisse des cases brûlées entre deux étapes de sa piste (couche visuelle de la carte du monde)
+function burnTrail(state, cur, a, b) {
+  if (!a || !b) return;
+  const S = state.world.size, burnt = (cur.map.burnt ||= []);
+  const n = 3 + (hash32(cur.seed, a.x, a.y) % 3);
+  for (let i = 1; i <= n; i++) {
+    const f = i / (n + 1), x = Math.round(a.x + (b.x - a.x) * f), y = Math.round(a.y + (b.y - a.y) * f);
+    if (x >= 0 && y >= 0 && x < S && y < S && !burnt.includes(y * S + x)) burnt.push(y * S + x);
+  }
+}
+
 function homeLive(state, m, t) {
   const L = liveState(state);
   for (const [u, n] of Object.entries(m.units)) state.army[u] = (state.army[u] || 0) + n;
@@ -796,7 +1009,7 @@ function homeLive(state, m, t) {
   for (const it of m.items) state.inventory.items.push(it);
   const hero = state.heroes.find((h) => h.id === m.heroId);
   if (hero) hero.marchId = null;
-  L.marches = L.marches.filter((z) => z.id !== m.id);
+  dropMarch(state, m);
   state.pending = state.pending.filter((p) => p.marchId !== m.id);
 }
 
@@ -810,7 +1023,7 @@ export function resolveRiddle(state, pid, idx, now = Date.now()) {
   if (!p) return { ok: false };
   state.pending = state.pending.filter((x) => x.id !== pid);
   const L = liveState(state);
-  const m = L.marches.find((z) => z.id === p.marchId);
+  const m = eventMarches(state).find((z) => z.id === p.marchId);
   const tg = liveTarget(state, p.targetId);
   const cur = L.current;
   const q = RIDDLES[p.riddle];
@@ -834,29 +1047,23 @@ export function resolveRiddle(state, pid, idx, now = Date.now()) {
 }
 
 // ───────────────────────── Lave, brouillard ─────────────────────────
-export function revealAround(map, cx, cy, r) {
-  if (!map.revealed) return 0;
-  let n = 0;
-  for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) {
-    if (x < 0 || y < 0 || x >= map.w || y >= map.h) continue;
-    if (!map.revealed[y * map.w + x]) { map.revealed[y * map.w + x] = 1; n++; }
+// Lave (Colère du Volcan) : ~35 % des cases du monde autour du volcan, redistribuées chaque heure, jamais sur une cible
+function shuffleLava(state, map, r = rng.random) {
+  const v = map.volcano, S = state.world.size;
+  if (!v) return;
+  const prot = new Set(map.targets.filter((t) => !t.gone).map((t) => t.y * S + t.x));
+  const lava = [];
+  for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) {
+    const x = v.x + dx, y = v.y + dy, d = Math.hypot(dx, dy);
+    if (d > 6 || x < 0 || y < 0 || x >= S || y >= S || prot.has(y * S + x)) continue;
+    if (d < 1.5 || r() < 0.35 * (1 - d / 8)) lava.push(y * S + x);
   }
-  return n;
+  map.lava = lava;
 }
-function shuffleLava(map, r = rng.random) {
-  const n = Math.round(map.w * map.h * 0.12);
-  const lava = new Set();
-  const protectedCells = new Set(map.targets.filter((t) => !t.gone).map((t) => t.y * map.w + t.x));
-  while (lava.size < n) {
-    const i = Math.floor(r() * map.w * map.h);
-    if (i % map.w < 2 || protectedCells.has(i)) continue;
-    lava.add(i);
-  }
-  map.lava = [...lava];
-}
-export function lavaNear(map, x, y) {
+export function lavaNear(state, map, x, y) {
+  const S = state.world.size;
   let n = 0;
-  for (const i of map.lava) { const lx = i % map.w, ly = Math.floor(i / map.w); if (Math.abs(lx - x) <= 1 && Math.abs(ly - y) <= 1) n++; }
+  for (const i of map.lava || []) { const lx = i % S, ly = Math.floor(i / S); if (Math.abs(lx - x) <= 1 && Math.abs(ly - y) <= 1) n++; }
   return n >= 2;
 }
 
@@ -874,6 +1081,8 @@ export function liveTick(state, now) {
   }
   const cur = L.current;
   if (cur) currentTick(state, cur, now);
+  if (L.fading && now >= L.fading.until) L.fading = null;
+  syncEventPois(state, now);
   if (L.pendingFair) { L.pendingFair = false; startSurprise(state, 'fair', now); }
   surpriseTick(state, now);
   // Décisions expirées : énigme non résolue, anomalie ignorée (aucun gain sans intervention)
@@ -896,35 +1105,32 @@ function currentTick(state, cur, now) {
   if (!cur.notified.ending && cur.end - now <= 6 * H) { cur.notified.ending = true; notify(state, '⏳', `« ${def.name} » se termine dans 6 h — dépensez vos ${def.currency.name} !`, now); }
   const boss = map.targets.find((t) => t.type === 'boss');
   if (boss?.hidden && now - cur.start >= 6 * H) { boss.hidden = false; notify(state, '👑', `${def.bosses[0].name} est apparu sur la carte de l’événement !`, now); }
-  // Réapparitions
+  // Réapparitions : même anneau, palier qui monte de 1 toutes les 3 réapparitions du type (plafonné), et jamais plus de
+  // EVENT_VISIBLE_MAX cibles en même temps (la carte reste lisible)
   for (const t of map.targets) {
-    if (t.done && !t.gone && t.respawnAt && t.respawnAt <= now && RESPAWNING.includes(t.type) || (t.type === 'fortress' && t.done && t.respawnAt <= now)) {
-      const spec = def.map.targets.find((s) => s.type === t.type);
-      const nt = addTarget(state, def, map, t.type, spec?.tiers);
-      t.gone = true;
-      void nt;
-    }
+    if (!(t.done && !t.gone && t.respawnAt && t.respawnAt <= now && (RESPAWNING.includes(t.type) || t.type === 'fortress'))) continue;
+    if (liveCount(cur) >= EVENT_VISIBLE_MAX) { t.respawnAt = now + 10 * MIN; continue; }
+    const spec = def.world.targets.find((z) => z.type === t.type);
+    const n = map.respawns[t.type] = (map.respawns[t.type] || 0) + 1;
+    const top = spec?.tiers ? spec.tiers[1] : 7;
+    const tier = t.type === 'fortress' ? 8 : Math.min(Math.max(top, t.tier), t.tier + (n % 3 === 0 ? 1 : 0));
+    t.gone = true;
+    addTarget(state, def, cur, t.type, spec?.tiers, { tier: spec?.tiers || t.type === 'fortress' ? tier : null, now });
   }
   map.targets = map.targets.filter((t) => !t.gone);
-  // Caravanes & navires se déplacent
-  for (const t of map.targets) {
-    if ((t.type === 'caravan' || t.type === 'ship') && !t.done) {
-      const dx = t.dest.x - t.x, dy = t.dest.y - t.y, d = Math.hypot(dx, dy);
-      const step = (t.type === 'ship' ? 2 : 1.4) * dtH;
-      if (d <= step) { t.done = true; t.respawnAt = now + 20 * MIN; }
-      else { t.fx = (t.fx ?? t.x) + (dx / d) * step; t.fy = (t.fy ?? t.y) + (dy / d) * step; t.x = Math.round(t.fx); t.y = Math.round(t.fy); }
-    }
-  }
+  moveTargets(state, cur, def, dtH, now);
+  threatsTick(state, cur, def, now);
+  if (map.frost) map.frost.r = Math.min(map.frost.max, 3 + ((now - cur.start) / (cur.end - cur.start)) * (map.frost.max - 3) * 1.4);
   // Boucle horaire
   if (now >= cur.nextHour) {
     cur.nextHour += H;
     hourly(state, cur, def, now);
   }
   // Vagues (Nuit des Morts)
-  if (cur.nextWave && now >= cur.nextWave) { cur.nextWave += (def.special.every || 6) * H; resolveWave(state, cur, def, now); }
+  if (cur.nextWave && now >= cur.nextWave) { cur.nextWave += (def.special.every || 6) * H; hordeArrives(state, cur, def, now); }
   if (cur.nextWave && !cur.notified['wave' + cur.nextWave] && cur.nextWave - now <= 30 * MIN) { cur.notified['wave' + cur.nextWave] = true; notify(state, '👻', 'Une vague de morts-vivants arrive dans 30 minutes !', now, 'bad'); }
   // Assauts (Siège)
-  if (cur.nextAssault && now >= cur.nextAssault) { cur.nextAssault += (def.special.every || 4) * H; resolveAssault(state, cur, def, now); }
+  if (cur.nextAssault && now >= cur.nextAssault) { const th = map.threats.find((x) => x.kind === 'assault'); cur.nextAssault += (def.special.every || 4) * H; resolveAssault(state, cur, def, now, th?.flank); map.threats = map.threats.filter((x) => x !== th); }
   // Boss coopératif : les seigneurs rivaux IA frappent aussi
   if (cur.coop && cur.coop.hp > 0) {
     cur.coop.hp = Math.max(0, cur.coop.hp - cur.coop.maxHp * def.coop.serverRate * dtH * rng.float(0.7, 1.3));
@@ -951,6 +1157,170 @@ function currentTick(state, cur, now) {
   if (def.special?.hearth) cur.warmth = Math.max(0, cur.warmth - 2 * dtH);
 }
 
+const liveCount = (cur) => cur.map.targets.filter((t) => !t.done && !t.gone).length;
+const ANY_GROUND = ['plain', 'forest', 'hills', 'river', 'swamp', 'ruins', 'snow', 'ash'];
+
+// Cibles mobiles : caravanes (sur la terre ferme), navires (le long des rivières), hordes (vers leur cible), camps
+// nomades (changent de place toutes les 4 h dans leur anneau)
+function moveTargets(state, cur, def, dtH, now) {
+  const map = cur.map;
+  for (const t of map.targets) {
+    if (t.done || t.gone) continue;
+    if (t.type === 'caravan') walkStep(state, cur, t, 1.4 * dtH, now, ANY_GROUND, 400);
+    else if (t.type === 'ship') walkStep(state, cur, t, 2 * dtH, now, ['river'], 18);
+    else if (t.type === 'horde') {
+      const f = Math.max(0, Math.min(1, (now - t.start) / Math.max(1, t.arrive - t.start)));
+      const goal = { x: Math.round(t.from.x + (t.dest.x - t.from.x) * f), y: Math.round(t.from.y + (t.dest.y - t.from.y) * f) };
+      // la horde suit sa ligne ; si la case visée est prise (lieu, autre cible), elle se pose sur la plus proche libre
+      const ok = (x, y) => tileOk(state, cur, x, y, { self: t.id, gap: 1, allow: [...ANY_GROUND, 'mountain'] });
+      if (goal.x !== t.x || goal.y !== t.y) {
+        let best = ok(goal.x, goal.y) ? goal : null, bd = Infinity;
+        for (let dy = -2; !best && dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const x = goal.x + dx, y = goal.y + dy, d = Math.hypot(dx, dy); if (d < bd && ok(x, y)) { bd = d; best = { x, y }; } }
+        if (best && (best.x !== t.x || best.y !== t.y)) { t.x = best.x; t.y = best.y; }
+      }
+    } else if (t.nomad && t.moveAt <= now) {
+      const p = placeTarget(state, cur, t.type, t.tier, { self: t.id });
+      if (p) { t.prev = { x: t.x, y: t.y }; t.x = p.x; t.y = p.y; t.movedAt = now; revealAt(state.world, p.x, p.y, 1); }
+      t.moveAt = now + 4 * H;
+    }
+  }
+}
+// Une cible mobile avance case par case vers sa destination (sans revenir sur ses pas) en contournant montagnes,
+// lieux et autres cibles : caravanes sur la terre ferme, navires le long des rivières. Arrivée (ou voyage trop long) :
+// elle quitte la carte et réapparaîtra plus tard.
+function walkStep(state, cur, t, step, now, allow, maxSteps) {
+  t.walk = (t.walk || 0) + step;
+  const trail = (t.trail ||= []);
+  while (t.walk >= 1) {
+    t.walk -= 1;
+    let best = null, bd = Infinity;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = t.x + dx, y = t.y + dy;
+      if ((!dx && !dy) || trail.includes(`${x},${y}`)) continue;
+      if (!tileOk(state, cur, x, y, { self: t.id, gap: 1, allow })) continue;
+      const d = Math.hypot(t.dest.x - x, t.dest.y - y);
+      if (d < bd) { bd = d; best = { x, y }; }
+    }
+    t.steps = (t.steps || 0) + 1;
+    const there = Math.hypot(t.dest.x - t.x, t.dest.y - t.y) <= 1.5;
+    if (!best || there || t.steps > maxSteps) { t.done = true; t.arrived = true; t.respawnAt = now + 20 * MIN; return; }
+    trail.push(`${t.x},${t.y}`); if (trail.length > 6) trail.shift();
+    t.x = best.x; t.y = best.y;
+  }
+}
+
+// Menaces visibles sur la carte du monde (traits rouges ou orange avec compte à rebours) : harcèlement d'avant-poste
+// par un camp nomade, horde des morts en marche, assaut des Anciens, convoi de prospecteurs rivaux. Interception des
+// caravanes du joueur par les repaires corsaires proches de leur route.
+function threatsTick(state, cur, def, now) {
+  const map = cur.map;
+  for (const th of [...map.threats]) {
+    if (th.arrive > now || th.kind === 'assault') continue;
+    map.threats = map.threats.filter((x) => x !== th);
+    if (th.kind === 'harass') harassOutpost(state, cur, def, th, now);
+    else if (th.kind === 'rival') {
+      const v = liveTarget(state, th.targetId);
+      if (!v || v.done || v.gone) continue;
+      const working = eventMarches(state).some((m) => m.targetId === v.id && (m.phase === 'work' || (m.phase === 'out' && m.arrive <= th.arrive)));
+      if (working) { addLiveReport(state, `🪙 ${th.label} trouvent vos mineurs déjà au travail en (${v.x}, ${v.y}) et repartent bredouilles.`, now); bump(cur, 'raceWon'); }
+      else { v.done = true; v.gone = true; addLiveReport(state, `🪙 ${th.label} ont revendiqué le filon en (${v.x}, ${v.y}) avant vous.`, now, false); }
+    }
+  }
+  const terr = state.territories || {};
+  // Camps nomades : un avant-poste à moins de 6 cases est harcelé (pillage limité, jamais de destruction)
+  if (def.world?.nomads) for (const t of map.targets) {
+    if (!t.nomad || t.done || (t.harassAt || 0) > now) continue;
+    for (const [k, o] of Object.entries(terr)) {
+      if (Math.hypot(o.x - t.x, o.y - t.y) > 6) continue;
+      if (map.threats.some((x) => x.kind === 'harass' && x.campId === t.id)) break;
+      map.threats.push({ id: uid('th'), kind: 'harass', campId: t.id, from: { x: t.x, y: t.y }, to: { x: o.x, y: o.y, key: k, name: o.name || 'avant-poste' }, start: now, arrive: now + H, label: `${targetName(cur, t)} harcèle ${o.name || 'votre avant-poste'}` });
+      notify(state, '🏹', `Des cavaliers nomades se dirigent vers ${o.name || 'votre avant-poste'} (arrivée dans 1 h). Renforcez sa garnison ou abattez le camp.`, now, 'bad');
+      t.harassAt = now + 8 * H;
+      break;
+    }
+  }
+  // Siège des Anciens : l'armée de l'assaut suivant approche, visible, depuis une direction qui donne le flanc visé
+  if (cur.nextAssault && !map.threats.some((x) => x.kind === 'assault')) {
+    const r = mulberry32(hash32(cur.seed, 'assault', cur.nextAssault));
+    const bastion = map.targets.find((t) => t.type === 'bastion') || state.world.capital;
+    const a = r() * Math.PI * 2, c = state.world.capital;
+    const dx = Math.cos(a), dy = Math.sin(a);
+    const flank = dx < -Math.abs(dy) * 0.5 ? 'left' : dx > Math.abs(dy) * 0.5 ? 'right' : 'front';
+    const S = state.world.size;
+    const from = { x: Math.max(1, Math.min(S - 2, Math.round(c.x + dx * 15))), y: Math.max(1, Math.min(S - 2, Math.round(c.y + dy * 15))) };
+    map.threats.push({ id: uid('th'), kind: 'assault', flank, from, to: { x: bastion.x, y: bastion.y }, start: Math.max(now, cur.nextAssault - 2 * H), arrive: cur.nextAssault, label: `Assaut des Anciens par le ${FLANK_NAME[flank]}` });
+  }
+  // Nuit des Morts : 3 h avant chaque vague, une horde sort d'une crypte et marche vers la capitale ou un avant-poste
+  if (def.world?.hordes && cur.nextWave && cur.nextWave - now <= 3 * H && cur.hordeFor !== cur.nextWave) {
+    cur.hordeFor = cur.nextWave;
+    const crypts = map.targets.filter((t) => t.type === 'crypt' && !t.gone);
+    const bases = eventBases(state);
+    const n = (cur.stats.waves || 0) + (cur.stats.wavesLost || 0) + (cur.stats.hordes || 0);
+    const dest = bases[n % bases.length];
+    const src = crypts.sort((a, b) => Math.hypot(a.x - dest.x, a.y - dest.y) - Math.hypot(b.x - dest.x, b.y - dest.y))[0];
+    if (src) {
+      const k = (1 + n * 0.25) * thScale(state) * (1 - cur.wavesWeak) * liveCfg(state).enemyMult;
+      const enemies = Object.fromEntries(Object.entries(def.enemies.wave).map(([u, v]) => [u, Math.max(1, Math.round(v * k))]));
+      const t = { id: uid('lt'), type: 'horde', x: src.x, y: src.y, tier: Math.min(7, 2 + n), done: false, from: { x: src.x, y: src.y }, dest: { x: dest.x, y: dest.y, key: dest.key, name: dest.name }, start: now, arrive: cur.nextWave, enemies, born: now };
+      const p = placeTarget(state, cur, 'horde', t.tier, { center: src, ring: [1, 2], allow: [...ANY_GROUND, 'mountain'] });
+      if (p) { t.x = p.x; t.y = p.y; t.from = { ...p }; }
+      map.targets.push(t);
+      notify(state, '💀', `Une horde quitte une crypte en (${t.x}, ${t.y}) et marche sur ${dest.name} : interceptez-la avant ${fmtTime(cur.nextWave - now)} !`, now, 'bad');
+    }
+  }
+  // Corsaires : un repaire à moins de 3 cases de la route d'une de vos caravanes la prend en chasse
+  if (def.world?.riverside) for (const cv of state.caravans || []) {
+    if (cv.corsair) continue;
+    const c = state.world.capital;
+    const port = map.targets.find((t) => t.type === 'port' && !t.done && segDist(c, cv, t) <= 3);
+    if (!port) continue;
+    cv.corsair = port.id; cv.risk = Math.max(cv.risk ?? 0.05, 0.6);
+    addLiveReport(state, `🏴‍☠️ ${targetName(cur, port)} guette votre caravane vers ${cv.town} : risque d’abordage élevé (escortez-la ou nettoyez le repaire).`, now, false);
+    notify(state, '🏴‍☠️', `Des corsaires guettent votre caravane vers ${cv.town}.`, now, 'bad');
+  }
+}
+const FLANK_NAME = { left: 'flanc gauche', front: 'front (porte)', right: 'flanc droit' };
+// Distance d'un point au segment a → b
+function segDist(a, b, p) {
+  const vx = b.x - a.x, vy = b.y - a.y, L2 = vx * vx + vy * vy || 1;
+  const f = Math.max(0, Math.min(1, ((p.x - a.x) * vx + (p.y - a.y) * vy) / L2));
+  return Math.hypot(a.x + vx * f - p.x, a.y + vy * f - p.y);
+}
+// Harcèlement : la garnison de l'avant-poste se bat ; en cas d'échec, un petit pillage (3 % or et nourriture)
+function harassOutpost(state, cur, def, th, now) {
+  const camp = liveTarget(state, th.campId);
+  const o = state.territories?.[th.to.key];
+  if (!o || !camp || camp.done) { addLiveReport(state, `🏹 Le harcèlement de ${th.to.name} n’a pas eu lieu : le camp a été dispersé.`, now); return; }
+  const raiders = Object.fromEntries(Object.entries(camp.enemies || {}).map(([u, n]) => [u, Math.max(1, Math.round(n * 0.5))]));
+  const gar = Object.fromEntries(Object.entries(o.garrison || {}).filter(([, n]) => n > 0));
+  let win = false;
+  if (Object.keys(gar).length) {
+    const res = simulateBattle({ units: raiders, mods: { 'combat.atk': 0.04 * camp.tier }, label: 'Cavaliers' }, { units: gar, mods: computeMods(state, now), fort: 0.2, label: 'Garnison' }, { terrain: wTerrain(state.world, o.x, o.y) || 'plain', weather: state.weather.type });
+    for (const [u, lost] of Object.entries(res.defLosses)) if (o.garrison[u]) o.garrison[u] = Math.max(0, o.garrison[u] - Math.ceil(lost / 2));
+    win = res.winner === 'defender';
+  }
+  if (win) { bump(cur, 'defended'); const got = earn(state, 80 + 30 * camp.tier, now, 'harcèlement repoussé', 'combat'); addLiveReport(state, `🛡️ La garnison de ${th.to.name} repousse les cavaliers (+${fmt(got)} ${def.currency.icon}).`, now); return; }
+  const lost = {};
+  for (const r of ['food', 'gold']) { const v = Math.floor((state.resources[r] || 0) * 0.03); if (v) { lost[r] = v; state.resources[r] -= v; } }
+  recordLoss(state, 'raid', lost, now);
+  addLiveReport(state, `🏹 Les cavaliers pillent les abords de ${th.to.name} : ${Object.entries(lost).map(([r, v]) => `${fmt(v)} ${RESOURCES[r].icon}`).join(' ') || 'rien à prendre'}.`, now, false);
+  notify(state, '🏹', `${th.to.name} a été harcelé par les nomades.`, now, 'bad');
+}
+// Arrivée de la horde (Nuit des Morts) : interceptée en chemin → rien ; sinon la vague frappe sa cible
+function hordeArrives(state, cur, def, now) {
+  const h = cur.map.targets.find((t) => t.type === 'horde' && !t.gone);
+  if (!h || h.done) {
+    if (h) h.gone = true;
+    addLiveReport(state, '💀 La horde a été taillée en pièces avant d’atteindre vos terres : aucune vague cette nuit.', now);
+    return;
+  }
+  h.gone = true;
+  if (!h.dest || h.dest.key === 'capital') return resolveWave(state, cur, def, now);
+  const o = state.territories?.[h.dest.key];
+  if (!o) return resolveWave(state, cur, def, now);
+  harassOutpost(state, cur, def, { campId: h.id, to: { key: h.dest.key, name: h.dest.name } }, now);
+}
+
 function hourly(state, cur, def, now) {
   const map = cur.map;
   if (def.special?.zones) {
@@ -958,7 +1328,7 @@ function hourly(state, cur, def, now) {
       earn(state, 40 * z.tier, now, 'régions tenues', 'combat');
       if (z.nextCounter && now >= z.nextCounter) {
         z.nextCounter = now + 2 * H;
-        const m = liveState(state).marches.find((x) => x.targetId === z.id && x.phase === 'hold');
+        const m = eventMarches(state).find((x) => x.targetId === z.id && x.phase === 'hold');
         if (!m) { z.owned = false; z.enemies = scaleEnemies(state, def, 'zone', z.tier); continue; }
         const res = liveBattle(state, m, scaleEnemies(state, def, 'zone', Math.max(1, z.tier - 1)), now, { tier: z.tier, label: 'Contre-attaque' });
         if (res.winner === 'attacker') { bump(cur, 'defended'); addLiveReport(state, `🛡️ Contre-attaque repoussée sur ${targetName(cur, z)}.`, now); }
@@ -968,11 +1338,29 @@ function hourly(state, cur, def, now) {
   }
   if (def.special?.veins) {
     // Les prospecteurs rivaux revendiquent un filon libre ; de nouveaux filons affleurent
-    const free = map.targets.filter((t) => t.type === 'vein' && !t.done && !liveState(state).marches.some((m) => m.targetId === t.id));
-    if (free.length && rng.chance(0.7)) { const v = rng.pick(free); v.done = true; v.gone = true; addLiveReport(state, `🪙 Des prospecteurs rivaux ont revendiqué un filon en (${v.x}, ${v.y}).`, now, false); }
-    if (map.targets.filter((t) => t.type === 'vein' && !t.gone).length < 10 && rng.chance(0.8)) addTarget(state, def, map, 'vein');
+    // v25 : une course visible — un convoi de prospecteurs rivaux part vers un filon libre ; s'il arrive avant vous (ou
+    // si personne n'y travaille à son arrivée), le filon est perdu
+    const chased = new Set(map.threats.filter((x) => x.kind === 'rival').map((x) => x.targetId));
+    const free = map.targets.filter((t) => t.type === 'vein' && !t.done && !chased.has(t.id) && !eventMarches(state).some((m) => m.targetId === t.id));
+    if (free.length && rng.chance(0.7)) {
+      const v = rng.pick(free);
+      const ks = Object.values(state.world.pois).filter((p) => p.type === 'kingdom' || p.type === 'town');
+      const src = ks.sort((a, b) => Math.hypot(a.x - v.x, a.y - v.y) - Math.hypot(b.x - v.x, b.y - v.y))[0] || { x: v.x + 12, y: v.y, name: 'des terres lointaines' };
+      map.threats.push({ id: uid('th'), kind: 'rival', targetId: v.id, from: { x: src.x, y: src.y, name: src.name }, to: { x: v.x, y: v.y }, start: now, arrive: now + rng.int(60, 120) * MIN, label: `Prospecteurs rivaux de ${src.name || 'l’ouest'}` });
+    }
+    if (map.targets.filter((t) => t.type === 'vein' && !t.gone).length < 10 && rng.chance(0.8)) addTarget(state, def, cur, 'vein', null, { now });
   }
-  if (def.special?.lava) shuffleLava(map);
+  if (def.special?.lava) {
+    shuffleLava(state, map);
+    // Avant-postes à moins de 4 cases d'une coulée : production −30 % pendant 2 h (jamais de destruction)
+    const S = state.world.size;
+    for (const o of Object.values(state.territories || {})) {
+      const hot = map.lava.some((i) => Math.max(Math.abs((i % S) - o.x), Math.abs(Math.floor(i / S) - o.y)) <= 4);
+      if (!hot) continue;
+      if (!(o.lavaUntil > now)) notify(state, '🌋', `La lave menace ${o.name || 'votre avant-poste'} : production réduite tant que les coulées sont proches.`, now, 'bad');
+      o.lavaUntil = now + 2 * H;
+    }
+  }
 }
 
 function resolveWave(state, cur, def, now) {
@@ -1016,14 +1404,17 @@ export function lightFires(state) {
   return { ok: true };
 }
 
-function resolveAssault(state, cur, def, now) {
-  const m = liveState(state).marches.find((x) => x.phase === 'hold' && liveTarget(state, x.targetId)?.type === 'bastion');
+function resolveAssault(state, cur, def, now, flank = null) {
+  const m = eventMarches(state).find((x) => x.phase === 'hold' && liveTarget(state, x.targetId)?.type === 'bastion');
   const n = cur.stats.assaultsSeen = (cur.stats.assaultsSeen || 0) + 1;
   let dmg = rng.int(2, 7);
   if (m) {
     const k = (0.4 + n * 0.08) * thScale(state) * liveCfg(state).enemyMult;
     const enemies = Object.fromEntries(Object.entries(def.enemies.assault).map(([u, v]) => [u, Math.max(1, Math.round(v * k))]));
-    const res = liveBattle(state, m, enemies, now, { tier: 3, label: 'Assaut' });
+    // v25 : l'assaut arrive par un flanc visible sur la carte ; un château qui y a massé ses défenseurs (siège v19)
+    // soutient la garnison de la Citadelle (+20 % de défense au plus, −10 % si ce flanc est dégarni)
+    const bonusDef = flank ? Math.max(-0.1, Math.min(0.2, (flankShare(state, flank) - 0.25) * 0.8)) : 0;
+    const res = liveBattle(state, m, enemies, now, { tier: 3, label: flank ? `Assaut (${FLANK_NAME[flank]})` : 'Assaut', bonusDef });
     const killed = Object.values(res.defLosses).reduce((a, b) => a + b, 0);
     bump(cur, 'assaults');
     const got = earn(state, 200 + killed * 4, now, 'défense de la Citadelle', 'combat');
@@ -1051,7 +1442,10 @@ export function claimObjective(state, id, now = Date.now()) {
   return { ok: true, text: grantGive(state, o.reward, now, o.label) };
 }
 
-export const passDef = (def) => def.pass || rewardsPass(def.currency.key);
+// v25 : points par palier de passe ajustés par événement (passScale) : sur les vrais trajets du monde, certains
+// événements rapportent moins par heure (vagues, assauts, régions tenues) ; mesuré par tools/eventSim.js pour qu'un
+// joueur moyen (une visite toutes les 2 h en journée) finisse la passe en 72 h. Les récompenses ne changent pas.
+export const passDef = (def) => { const p = def.pass || rewardsPass(def.currency.key); return def.passScale ? { ...p, per: Math.round(p.per * def.passScale) } : p; };
 export function passInfo(state) {
   const cur = liveState(state).current;
   if (!cur) return null;
@@ -1131,7 +1525,7 @@ export function endEvent(state, now = Date.now()) {
   const def = LIVE_EVENTS[cur.key];
   const rewards = [];
   // Rappel des troupes
-  for (const m of [...L.marches]) homeLive(state, m, now);
+  for (const m of eventMarches(state)) homeLive(state, m, now);
   state.pending = state.pending.filter((p) => p.kind !== 'riddle');
   // Récompenses non réclamées : objectifs et passe sont versés automatiquement
   for (const o of objectives(state)) if (o.done && !o.claimed) rewards.push(claimObjective(state, o.id, now).text);
@@ -1179,7 +1573,10 @@ export function endEvent(state, now = Date.now()) {
   T.bestRank = Math.min(T.bestRank || Infinity, lb.rank);
   T.bestScore = Math.max(T.bestScore || 0, report.earned);
   report.aftermath = applyAftermath(state, cur, def, now);
+  // v25 : les cibles restantes quittent la carte avec une courte animation (bannière qui tombe, campement levé)
+  L.fading = { until: now + 20 * MIN, eventKey: cur.key, color: def.color, items: cur.map.targets.filter((t) => !t.gone && !t.fog).slice(0, EVENT_VISIBLE_MAX).map((t) => ({ id: t.id, x: t.x, y: t.y, kind: t.type, tier: t.tier })) };
   L.current = null;
+  syncEventPois(state, now);
   chronicle(state, `Fin de « ${def.name} » : ${state.meta.kingdomName} termine ${lb.rank}e sur ${lb.size} avec ${fmt(report.earned)} ${def.currency.name}.`, now, 'event', `eventEnd:${cur.key}:${cur.start}`);
   notify(state, '📜', `« ${def.name} » est terminé : vous êtes ${lb.rank}e. ${left ? `${fmt(left)} ${def.currency.icon} convertis en ${report.converted}.` : ''}`, now);
   return report;
