@@ -1,6 +1,7 @@
 // Scénarios alternatifs (données : data/scenarios.js).
 // state.scenario = { id, started, done: { objectif: date }, completedAt, failed? }
 // Records (meilleur temps en heures) : state.meta.scenarioRecords, conservés d'une dynastie à l'autre.
+import { rng } from '../core/rng.js';
 import { SCENARIOS } from '../data/scenarios.js';
 import { POI_TYPES } from '../data/world.js';
 import { spawnPoi, findFreeTile, reveal } from './world.js';
@@ -26,7 +27,7 @@ export function applyScenario(state, id, now = Date.now(), applyStart = null) {
   if (def.setup === 'rareNodes') {
     for (const [type, n] of [['crystalNode', 2], ['silverNode', 2], ['gemNode', 1]]) {
       for (let i = 0; i < n; i++) {
-        const pos = findFreeTile(w, w.capital.x + Math.round((Math.random() - 0.5) * 10), w.capital.y + Math.round((Math.random() - 0.5) * 10), POI_TYPES[type].terrain, 4) || findFreeTile(w, w.capital.x + 3, w.capital.y + 3, null, 6);
+        const pos = findFreeTile(w, w.capital.x + Math.round((rng.random() - 0.5) * 10), w.capital.y + Math.round((rng.random() - 0.5) * 10), POI_TYPES[type].terrain, 4) || findFreeTile(w, w.capital.x + 3, w.capital.y + 3, null, 6);
         if (pos) { spawnPoi(w, type, pos.x, pos.y, { danger: 1 }); reveal(w, pos.x, pos.y, 1); }
       }
     }

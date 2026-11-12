@@ -92,6 +92,7 @@ function timerTag(ctx, x, y, text, bg = 'rgba(20,12,6,0.88)', fg = '#ffe9a8') {
   ctx.strokeStyle = 'rgba(241,211,106,0.8)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y);
   ctx.restore();
+  return { x: x - w / 2, y: y - 9, w, h: 17 };
 }
 // Bannière plantée qui tombe (angle 0 → 90°)
 function fallingBanner(ctx, x, y, h, color, angle) {
@@ -105,7 +106,10 @@ export function eventPoiAlpha(p, now) {
   if (p.phase === 'ended') return Math.max(0.15, 1 - (now - (p.endAt || now)) / FADE_MS);
   return 1;
 }
-export function drawEventOverlay(ctx, p, px, py, T, now, reduce) {
+// rects (facultatif) : reçoit les rectangles des écussons et des comptes à rebours, pour que les étiquettes les évitent
+// et que l'outil de mesure (npm run overlaps) les compte
+export function drawEventOverlay(ctx, p, px, py, T, now, reduce, rects = null) {
+  const keep = (x, y, w, h) => { if (rects) rects.push({ x, y, w, h }); };
   const col = p.color || '#e2b84a';
   const sz = Math.max(6, Math.min(12, T * 0.2));
   // Apparition : un cercle de poussière qui s'ouvre (60 s)
@@ -128,10 +132,10 @@ export function drawEventOverlay(ctx, p, px, py, T, now, reduce) {
     }
     const fall = reduce ? Math.PI / 2 : Math.min(Math.PI / 2, (Math.max(0, age) / 2500) * (Math.PI / 2));
     fallingBanner(ctx, px + T * 0.28, py + T * 0.1, Math.max(10, T * 0.5), col, fall);
-    if (p.phase === 'cleared' && p.respawnAt > now && T >= 18) timerTag(ctx, px, py - T * 0.75, `réapparaît ${fmtTime(p.respawnAt - now)}`, 'rgba(30,30,30,0.85)', '#e8e2d2');
+    if (p.phase === 'cleared' && p.respawnAt > now && T >= 18) { const r = timerTag(ctx, px, py - T * 0.75, `réapparaît ${fmtTime(p.respawnAt - now)}`, 'rgba(30,30,30,0.85)', '#e8e2d2'); keep(r.x, r.y, r.w, r.h); }
     return;
   }
-  if (p.phase === 'upcoming') { if (T >= 12) timerTag(ctx, px, py - T * 0.8, `${p.name} · ${fmtTime(Math.max(0, p.until - now))}`); return; }
+  if (p.phase === 'upcoming') { if (T >= 12) { const r = timerTag(ctx, px, py - T * 0.8, `${p.name} · ${fmtTime(Math.max(0, p.until - now))}`); keep(r.x, r.y, r.w, r.h); } return; }
   // Chef / forteresse : halo pulsé
   if (p.phase === 'boss') {
     const k = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(now / 320);
@@ -142,7 +146,7 @@ export function drawEventOverlay(ctx, p, px, py, T, now, reduce) {
     ctx.strokeStyle = hexA(col, 0.6); ctx.setLineDash([2, 5]); ctx.lineWidth = 2; ctx.beginPath();
     ctx.moveTo(px + (p.prev.x - p.x) * T, py + (p.prev.y - p.y) * T); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
   }
-  if (T >= 12 && p.tier) levelShield(ctx, px - T * 0.42, py - T * 0.42, sz, col, ROMAN[Math.min(9, p.tier)] || String(p.tier));
+  if (T >= 12 && p.tier) { levelShield(ctx, px - T * 0.42, py - T * 0.42, sz, col, ROMAN[Math.min(9, p.tier)] || String(p.tier)); keep(px - T * 0.42 - sz, py - T * 0.42 - sz, 2 * sz, 2.3 * sz); }
 }
 
 // ───────── Anneau d'actions (GGE : clic sur un lieu → boutons autour de lui) ─────────

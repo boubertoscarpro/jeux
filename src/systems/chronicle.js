@@ -41,6 +41,9 @@ export function chronicle(state, text, now = Date.now(), kind = 'story', key = n
   const c = calendar(state, now);
   hist.push({ t: now, year: c.year, season: c.season.key, text, kind, cat: chronicleCat(text, kind) });
   if (hist.length > 500) hist.splice(0, hist.length - 500);
+  // v26 : les clés anti-doublon ne gardent que les 2 000 faits les plus récents (elles grossissaient sans fin)
+  const kk = Object.keys(keys);
+  if (kk.length > 2400) for (const k of kk.sort((a, b) => keys[a] - keys[b]).slice(0, kk.length - 2000)) delete keys[k];
   log(state, 'story', `📜 ${text}`, now);
   return true;
 }

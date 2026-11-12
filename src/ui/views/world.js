@@ -169,7 +169,9 @@ export function drawMap(app) {
   const tokens = [];
   const mark = (x, y) => ({ x: ox + (x + 0.5) * T, y: oy + (y + 0.5) * T });
   for (const m of s.marches) {
-    const a = mark(m.from?.x ?? w.capital.x, m.from?.y ?? w.capital.y), b = mark(m.x, m.y);
+    // v26 : avant-poste de départ perdu pendant la marche → le trajet se rattache à la capitale
+    const fromOk = m.from && (m.from.key === 'capital' || s.territories[m.from.key]);
+    const a = mark(fromOk ? m.from.x : w.capital.x, fromOk ? m.from.y : w.capital.y), b = mark(m.x, m.y);
     const col = m.type === 'event' ? (m.action === 'attack' ? '#ff6b5a' : m.action === 'spy' || m.action === 'track' ? '#6cc3ff' : '#ffb347') : m.type === 'attack' || m.type === 'boss' || m.type === 'dungeon' ? '#ff6b5a' : m.type === 'explore' || m.type === 'scout' ? '#6cc3ff' : '#ffd166';
     let f = 1, end = null, toward = b, from = a;
     if (m.phase === 'out') { f = (now - m.start) / (m.arrive - m.start); end = m.arrive; }
@@ -229,6 +231,7 @@ export function drawMap(app) {
   drawWorldMarks(ctx, s, { ox, oy, T, x0, x1, y0, y1, now });
   const labels = [];
   const blocked = [];
+  const overlays = []; // v26 : écussons et comptes à rebours des cibles d'événement (évités par les étiquettes)
   const lsize = Math.round(Math.max(10, Math.min(16, T * 0.34)));
   for (const p of Object.values(w.pois)) {
     if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
@@ -269,7 +272,7 @@ export function drawMap(app) {
         if (def.kind === 'event' && p.phase !== 'upcoming' && p.phase !== 'cleared' && p.phase !== 'ended') { ctx.fillStyle = hexA(p.color || '#e2b84a', p.phase === 'boss' ? 0.38 : 0.24); ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.6, T * painter.w * 0.32, 0, 0, 7); ctx.fill(); }
         if (def.kind === 'capital' || def.kind === 'kingdom') { ctx.fillStyle = def.kind === 'capital' ? 'rgba(255,220,120,0.22)' : 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.55, T * painter.w * 0.3, 0, 0, 7); ctx.fill(); }
         drawPoiPainted(ctx, painter, px, py, T, def.kind === 'event' ? eventPoiAlpha(p, now) : cleared ? 0.45 : 1);
-        if (def.kind === 'event') drawEventOverlay(ctx, p, px, py, T, now, reduceMotion);
+        if (def.kind === 'event') drawEventOverlay(ctx, p, px, py, T, now, reduceMotion, overlays);
       } else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     }
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
@@ -352,7 +355,14 @@ export function drawMap(app) {
     const r = el.getBoundingClientRect();
     if (r.width) blocked.push({ x: r.left - cr.left - 4, y: r.top - cr.top - 4, w: r.width + 8, h: r.height + 8 });
   }
-  placeLabels(ctx, labels, W, H, blocked);
+  const placedLabels = placeLabels(ctx, labels, W, H, [...blocked, ...overlays]);
+  // v26 : mesure de lisibilité (npm run overlaps) : chevauchements étiquette/étiquette et étiquette/écusson,
+  // étiquettes importantes (capitale, chef d'événement, menace) qui n'ont pas trouvé de place
+  const hitR = (a, b) => a.x < b.x + b.w - 2 && a.x + a.w > b.x + 2 && a.y < b.y + b.h - 2 && a.y + a.h > b.y + 2;
+  let ov = 0;
+  for (let i = 0; i < placedLabels.length; i++) { const a = placedLabels[i].rect; for (let j = i + 1; j < placedLabels.length; j++) if (hitR(a, placedLabels[j].rect)) ov++; for (const o of overlays) if (hitR(a, o)) ov++; }
+  const inView = (l) => l.x >= 0 && l.y >= 0 && l.x <= W && l.y <= H;
+  app._worldMeasure = { labels: placedLabels.length, wanted: labels.filter(inView).length, overlays: overlays.length, overlaps: ov, droppedImportant: labels.filter((l) => l.prio >= 90 && inView(l) && !placedLabels.some((p) => p.text === l.text && p.x === l.x)).map((l) => l.text) };
   const sel = app.ui.worldSel;
   if (sel) {
     const pulse = 0.6 + 0.4 * Math.sin(now / 250);

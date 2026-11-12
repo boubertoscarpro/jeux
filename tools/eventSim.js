@@ -50,7 +50,8 @@ function session(s, now) {
     const c = s.world.capital, h = hidden.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
     planMarch(s, { type: 'explore', x: h.x, y: h.y, units: { scout: 1 } }, now).ok && sendMarch(s, { type: 'explore', x: h.x, y: h.y, units: { scout: 1 } }, now);
   }
-  const busy = new Set(marchesOf(s).map((m) => m.targetId));
+  // une garnison en place n'empêche pas de la renforcer (régions tenues, Citadelle)
+  const busy = new Set(marchesOf(s).filter((m) => m.phase !== 'hold').map((m) => m.targetId));
   for (const t of targets(s, now).slice(0, 10)) {
     if (marchesOf(s).filter((m) => m.phase !== 'hold').length >= LE.maxLiveMarches(s)) break;
     if (busy.has(t.id)) continue;

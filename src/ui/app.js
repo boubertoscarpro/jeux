@@ -40,7 +40,7 @@ import { ensureIconDefs, navIcon, gameIcon } from './icons.js';
 const SUBTAB_ICONS = { army: 's_atk', campaigns: 't_command', heroes: 'h_general', craft: 'b_craft', research: 't_lore', talents: 'b_magic' };
 import { ensureArtDefs } from './art.js';
 import { advance } from '../core/engine.js';
-import { saveGame } from '../core/save.js';
+import { saveGame, serialize } from '../core/save.js';
 import { fmtTime } from '../core/util.js';
 import { sideActions, adviceBox } from './hud.js';
 import { esc, resChips } from './components.js';
@@ -258,10 +258,16 @@ export class App {
       if (rec && Object.keys(rec).length) { const old = JSON.parse(localStorage.getItem('cendrelande_records') || '{}') || {}; for (const [k, v] of Object.entries(rec)) if (!(old[k] <= v)) old[k] = v; localStorage.setItem('cendrelande_records', JSON.stringify(old)); }
     } catch { /* stockage indisponible : les records restent dans la sauvegarde */ }
     if (!r.ok) {
-      // Message affiché une fois toutes les 5 minutes au plus (pas de spam toutes les 15 s)
-      if (manual || Date.now() - (this._saveErrAt || 0) > 300000) { this.toast(`💾 ${r.error}`, 'bad'); this._saveErrAt = Date.now(); }
+      // Message affiché une fois toutes les 5 minutes au plus (pas de spam toutes les 15 s). v26 : stockage plein →
+      // une fenêtre explique et propose de télécharger la partie tout de suite ; la partie en mémoire continue
+      if (manual || Date.now() - (this._saveErrAt || 0) > 300000) {
+        this._saveErrAt = Date.now();
+        if (/plein/i.test(r.error || '') && !document.getElementById('modal-root')?.classList.contains('open')) this.modal(`<h2>💾 Le stockage du navigateur est plein</h2><p>Votre partie continue normalement, mais elle ne peut plus être enregistrée dans ce navigateur.</p><p><b>Téléchargez-la maintenant</b> pour ne rien perdre, puis libérez de la place (autres sites, données de navigation) ou rechargez-la depuis le fichier.</p><div class="row gap end"><button class="btn ghost" data-action="close-modal">Plus tard</button><button class="btn primary" data-action="save-download">Télécharger la sauvegarde</button></div>`);
+        else this.toast(`💾 ${r.error}`, 'bad');
+      }
       return false;
     }
+    if (r.warning && !this._saveWarned) { this._saveWarned = true; this.toast(`💾 ${r.warning}`, 'warn'); }
     if (manual) this.toast('💾 Partie sauvegardée', 'good');
     return true;
   }
@@ -596,6 +602,13 @@ export class App {
   }
 
   globalActions = {
+    // v26 : téléchargement de la sauvegarde (proposé quand le stockage du navigateur est plein)
+    'save-download': (app) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([serialize(app.state)], { type: 'application/json' }));
+      a.download = `cendrelande-${(app.state.meta.kingdomName || 'partie').replace(/[^\w-]+/g, '_')}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click(); app.closeModal(); app.toast('Fichier de sauvegarde téléchargé', 'good');
+    },
     nav: (app, el) => app.go(el.dataset.view),
     'close-modal': (app) => app.closeModal(),
     advisor: (app) => openAdvisor(app),

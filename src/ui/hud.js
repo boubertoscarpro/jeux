@@ -38,7 +38,7 @@ import { upgradeCount } from './upgrades.js';
 import { missionList, missionState, claimDynMission, missionsUnlocked } from '../systems/missions.js';
 import { rewardText as rwText } from '../systems/rewards.js';
 import { upIcon } from './art.js';
-import { speedupButton, speedupActions } from './speedups.js';
+import { speedupButton, speedupActions, marchSpeedupButton } from './speedups.js';
 import { castleName } from '../systems/identity.js';
 import { activePolicy, policyState } from '../systems/policy.js';
 import { POLICIES } from '../data/policies.js';
@@ -134,14 +134,14 @@ export function renderSide(app, { queuesOnly = false } = {}) {
     </section>`);
   }
 
-  parts.push(`<section class="side-box"><h3>🐎 Marches <span class="muted">${s.marches.length}/${maxMarches(mods)}</span></h3>
+  parts.push(`<section class="side-box"><h3>🐎 Marches <span class="muted">${s.marches.filter((m) => m.type !== 'event').length}/${maxMarches(mods)}</span></h3>
     ${s.marches.map((m) => {
       const poi = s.world.pois[`${m.x},${m.y}`];
       const target = poi ? (poi.name || POI_TYPES[poi.type]?.name) : `(${m.x},${m.y})`;
-      const phase = { out: 'Aller', work: 'Récolte', wait: 'En attente', back: 'Retour' }[m.phase];
+      const phase = { out: 'Aller', work: m.type === 'event' ? 'Au travail' : 'Récolte', wait: 'En attente', back: 'Retour', hold: 'En garnison' }[m.phase];
       const end = m.phase === 'out' ? m.arrive : m.phase === 'work' ? m.workEnd : m.phase === 'back' ? m.returnAt : null;
       const start = m.phase === 'out' ? m.start : m.phase === 'work' ? m.workStart : m.phase === 'back' ? m.returnAt - m.travel : null;
-      return `<div class="q-row"><div class="q-top"><span>${MARCH_TYPES[m.type].icon} ${esc(target)}</span>${end ? countdown(end) : '⏸'}${m.phase !== 'back' ? `<button class="mini ghost" data-action="recall" data-id="${m.id}" title="Rappeler">↩</button>` : ''}</div>
+      return `<div class="q-row"><div class="q-top"><span>${MARCH_TYPES[m.type].icon} ${esc(target)}</span>${end ? countdown(end) : '⏸'}${marchSpeedupButton(s, m)}${m.phase !== 'back' ? `<button class="mini ghost" data-action="recall" data-id="${m.id}" title="Rappeler">↩</button>` : ''}</div>
         <div class="muted small">${phase} · ${Object.values(m.units).reduce((a, b) => a + b, 0)} unités${Object.keys(m.loot).length ? ' · ' + resChips(m.loot) : ''}</div>${end ? progress(start, end) : ''}</div>`;
     }).join('') || '<div class="muted small">Aucune marche. Explorez ou récoltez depuis la Carte.</div>'}
     ${s.caravans.map((c) => `<div class="q-row"><div class="q-top"><span>🐪 ${esc(c.town)}${c.repeat ? ' 🔁' : ''}</span>${countdown(c.end)}</div>${progress(c.start, c.end)}</div>`).join('')}

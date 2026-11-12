@@ -20,7 +20,8 @@ export const SPEEDUPS = {
 };
 export const SPEEDUP_ORDER = ['speed5', 'speed15', 'speed60', 'speed480'];
 export const RECRUIT_ORDER = ['rspeed5', 'rspeed15', 'rspeed60', 'rspeed480'];
-export const ORDER_OF = { build: SPEEDUP_ORDER, train: RECRUIT_ORDER };
+// v26 : les ordres militaires (recrutement) servent aussi à presser une marche, à l'aller comme au retour
+export const ORDER_OF = { build: SPEEDUP_ORDER, train: RECRUIT_ORDER, march: RECRUIT_ORDER };
 // Équivalent de recrutement d'un passe-temps de construction (et inversement)
 export const RECRUIT_OF = { speed5: 'rspeed5', speed15: 'rspeed15', speed60: 'rspeed60', speed480: 'rspeed480' };
 export const isSpeedup = (k) => !!SPEEDUPS[k];

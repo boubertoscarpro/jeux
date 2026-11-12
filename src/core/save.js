@@ -1,3 +1,4 @@
+import { compress, decompress } from './lz.js';
 import { ensureRealm21 } from '../systems/realm21.js';
 import { ensureEventWorld } from '../systems/liveEvents.js';
 import { ensureSiege } from '../systems/siege.js';
@@ -25,7 +26,16 @@ function storage() {
   try { return globalThis.localStorage || null; } catch { return null; }
 }
 
-export function serialize(state) { return JSON.stringify(state); }
+// v26 : sauvegarde compacte. Les champs par défaut des lieux du monde (non espionné, non infesté) ne sont pas
+// écrits : le jeu les lit comme « faux » quand ils manquent. Les nombres restent exacts (une partie rechargée
+// continue exactement comme celle qui n'a pas été rechargée) ; la place est gagnée par la compression (lz.js).
+const POI_DEFAULTS = { scouted: false, infested: 0 };
+export function serialize(state) {
+  return JSON.stringify(state, function (k, v) {
+    if (k in POI_DEFAULTS && v === POI_DEFAULTS[k] && this && typeof this.type === 'string' && 'x' in this && 'y' in this) return undefined;
+    return v;
+  });
+}
 
 // ───────── Migrations versionnées ─────────
 // Chaque entrée transforme une sauvegarde de la version N vers N+1. Le remplissage des champs
@@ -239,7 +249,7 @@ export function saveGame(state, now = Date.now()) {
     const rotate = state.meta.bootOk && now - (state.meta.lastBackup || 0) > BACKUP_EVERY;
     state.meta.lastSave = now;
     if (rotate) state.meta.lastBackup = now;
-    const json = serialize(state);
+    const json = compress(serialize(state)); // v26 : compressée dans le navigateur (≈ 5 fois plus petite)
     try {
       if (rotate) s.setItem(BACKUP_KEY, json);
       s.setItem(SAVE_KEY, json);
@@ -260,13 +270,14 @@ export function saveGame(state, now = Date.now()) {
 export function loadGame() {
   const s = storage();
   if (!s) return null;
-  const raw = s.getItem(SAVE_KEY);
-  if (!raw) return null;
-  try { return { state: deserialize(raw) }; } catch (e) {
-    try { s.setItem(CORRUPT_KEY, raw); } catch { /* stockage plein : la sauvegarde d'origine reste en place */ }
+  const stored = s.getItem(SAVE_KEY);
+  if (!stored) return null;
+  let raw = stored;
+  try { raw = decompress(stored); return { state: deserialize(raw) }; } catch (e) {
+    try { s.setItem(CORRUPT_KEY, stored); } catch { /* stockage plein : la sauvegarde d'origine reste en place */ }
     let backup = null;
     const b = s.getItem(BACKUP_KEY);
-    if (b) { try { backup = deserialize(b); } catch { backup = null; } }
+    if (b) { try { backup = deserialize(decompress(b)); } catch { backup = null; } }
     return { error: e.message, raw, backup };
   }
 }

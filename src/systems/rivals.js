@@ -109,7 +109,7 @@ export function rivalTick(state, now) {
   // remparts vus lors des raids précédents de ce seigneur
   const flank = pickRaidFlank(state, () => rng.random());
   const sg = raidEngines(state, p, army, now, flank);
-  state.raids.push({ id: uid('raid'), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army: sg.army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0, flank: sg.mainFlank || flank, flankSeen: flankRevealed(state), plan: sg.plan, engines: sg.engines, style: sg.style, styleText: sg.styleText, adapt: sg.adapt, mainFlank: sg.mainFlank });
+  state.raids.push({ id: uid('raid'), seed: rng.int(1, 2e9), rival: p.rival, name: p.name, from: { x: p.x, y: p.y }, army: sg.army, start: now, arrive: now + warn, seen: levelOf(state, 'watchtower') >= 3 || (mods['raid.reveal'] || 0) > 0, flank: sg.mainFlank || flank, flankSeen: flankRevealed(state), plan: sg.plan, engines: sg.engines, style: sg.style, styleText: sg.styleText, adapt: sg.adapt, mainFlank: sg.mainFlank });
   if (p.anger) p.anger--;
   // v21 : un voisin en bons termes peut proposer une garnison (décision en attente, refusable)
   offerGarrison(state, state.raids[state.raids.length - 1], now);

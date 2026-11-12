@@ -136,7 +136,7 @@ export function sendMarch(state, opts, now = Date.now()) {
   if (opts.supply) state.resources.bread -= breadNeeded(units);
   if (opts.potion) state.inventory.consumables[opts.potion]--;
   const m = {
-    id: uid('m'), type: opts.type, x: opts.x, y: opts.y, units, heroId: opts.heroId || null,
+    id: uid('m'), seed: rng.int(1, 2e9), type: opts.type, x: opts.x, y: opts.y, units, heroId: opts.heroId || null,
     formation: opts.formation || 'balanced', supply: !!opts.supply, potion: opts.potion || null,
     phase: 'out', start: now, arrive: now + travel, travel, loot: {}, items: [], log: [], retreat: opts.retreat ?? 0.5,
   };
@@ -219,7 +219,7 @@ function marchBattle(state, m, enemies, t, opts = {}) {
     const res = attackFortress(
       { units: m.units, mods, formation: m.formation, supply: m.supply, famine: state.famine, label: 'Vous' },
       enemies, opts.fort, poi,
-      { terrain: terrain === 'ash' ? 'ruins' : terrain, weather: state.weather.type, enemyMods: { 'combat.atk': 0.05 * danger, 'combat.def': 0.05 * danger, ...(opts.enemyMods || {}) }, enemyFormation: opts.enemyFormation, enemyLabel: opts.enemyLabel || 'Ennemi', seed: hashSeed(m.id + ':' + t) },
+      { terrain: terrain === 'ash' ? 'ruins' : terrain, weather: state.weather.type, enemyMods: { 'combat.atk': 0.05 * danger, 'combat.def': 0.05 * danger, ...(opts.enemyMods || {}) }, enemyFormation: opts.enemyFormation, enemyLabel: opts.enemyLabel || 'Ennemi', seed: hashSeed((m.seed ?? m.id) + ':' + t) },
       m.siegePlan || null,
     );
     // La place retient les engins de cet assaut et renforcera leurs contres (adaptation, visible au plan de siège)

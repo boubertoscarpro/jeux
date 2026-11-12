@@ -1,4 +1,4 @@
-import { mulberry32 } from '../core/rng.js';
+import { mulberry32, rng } from '../core/rng.js';
 import { WORLD_SIZE, TERRAINS, POI_TYPES, TOWN_NAMES, RIVALS, DANGER_RADIUS } from '../data/world.js';
 import { RESOURCES } from '../data/resources.js';
 
@@ -19,7 +19,7 @@ function noiseField(r, size, cell) {
 
 export const key = (x, y) => `${x},${y}`;
 
-export function makeEnemies(type, danger, r = Math.random) {
+export function makeEnemies(type, danger, r = rng.random) { // v26 : générateur de la partie (reproductible)
   const def = POI_TYPES[type];
   const out = {};
   const scale = 0.5 + 0.55 * danger;

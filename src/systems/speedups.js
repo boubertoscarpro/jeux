@@ -28,19 +28,28 @@ export const speedupStock = (state, kind = 'build') => ORDER_OF[kind].map((k) =>
 export const totalSpeedupMinutes = (state, kind = 'build') => ORDER_OF[kind].reduce((s, k) => s + speedupCount(state, k) * SPEEDUPS[k].min, 0);
 
 // Une accélération vise un chantier (file « build ») ou une formation militaire (file « train »)
+// v26 : une marche (du monde ou d'événement) en route vers sa cible ou sur le retour s'accélère aussi ; on la présente
+// comme une tâche { start, end } et les changements sont reportés sur la marche elle-même
+export function marchJob(m) {
+  const out = m.phase === 'out';
+  return { id: m.id, march: true, start: out ? m.start : m.returnAt - m.travel, end: out ? m.arrive : m.returnAt, sped: m.sped || 0, phase: m.phase, x: m.x, y: m.y };
+}
 export function findJob(state, qid) {
   for (const kind of ['build', 'train']) { const q = (state.queues[kind] || []).find((x) => x.id === qid); if (q) return { q, kind }; }
+  const m = (state.marches || []).find((x) => x.id === qid && (x.phase === 'out' || x.phase === 'back'));
+  if (m) return { q: marchJob(m), kind: 'march', m };
   return null;
 }
 export const findBuildJob = (state, qid) => state.queues.build.find((q) => q.id === qid) || null;
 export const jobLeft = (q, now) => Math.max(0, q.end - now);
 export function jobLabel(q) {
+  if (q.march) return q.phase === 'out' ? `Marche vers (${q.x}, ${q.y})` : 'Retour d’une marche';
   if (q.unit) return `Formation : ${q.count} × ${UNITS[q.unit]?.name || q.unit}`;
   if (q.kind === 'clear') return 'Déblaiement';
   const n = BUILDINGS[q.type]?.name || q.type;
   return q.level === 1 ? `${n} (construction)` : `${n} → niveau ${q.level}`;
 }
-const KIND_TEXT = { build: 'chantier', train: 'formation' };
+const KIND_TEXT = { build: 'chantier', train: 'formation', march: 'marche' };
 
 // Ce que ferait un passe-temps ou une accélération : { ok, reason, removed, left, after, cost?, wasted }
 export function previewSpeedup(state, qid, how, now = Date.now()) {
@@ -54,7 +63,7 @@ export function previewSpeedup(state, qid, how, now = Date.now()) {
   if (how.item) {
     const def = SPEEDUPS[how.item];
     if (!def) return { ok: false, reason: 'Passe-temps inconnu' };
-    if (def.target !== kind) return { ok: false, reason: kind === 'train' ? 'Ce passe-temps sert aux chantiers, pas aux formations militaires' : 'Ce passe-temps sert aux formations militaires, pas aux chantiers' };
+    if (def.target !== (kind === 'march' ? 'train' : kind)) return { ok: false, reason: kind === 'build' ? 'Ce passe-temps sert aux formations militaires et aux marches, pas aux chantiers' : 'Ce passe-temps sert aux chantiers ; les marches et les formations se pressent avec les ordres militaires' };
     if (left < SPEEDUP_MIN_LEFT_S * 1000) return { ok: false, reason: `La ${KIND_TEXT[kind]} se termine dans quelques secondes` };
     if (speedupCount(state, how.item) < 1) return { ok: false, reason: `Aucun ${def.name.toLowerCase()} en réserve` };
     const removed = Math.min(left, def.min * MIN);
@@ -74,10 +83,23 @@ export function previewSpeedup(state, qid, how, now = Date.now()) {
 export function applySpeedup(state, qid, how, now = Date.now()) {
   const p = previewSpeedup(state, qid, how, now);
   if (!p.ok) return p;
-  const { q, kind } = findJob(state, qid);
+  const { q, kind, m } = findJob(state, qid);
   // Paiement APRÈS toutes les vérifications : un échec ne consomme jamais rien
   if (how.item) state.inventory.consumables[how.item] = speedupCount(state, how.item) - 1;
   else if (!pay(state, { gems: p.cost })) return { ok: false, reason: 'Gemmes insuffisantes' };
+  if (kind === 'march') {
+    // La marche arrive (ou rentre) plus tôt ; le moteur la traite tout de suite si elle est arrivée
+    const f = m.phase === 'out' ? 'arrive' : 'returnAt';
+    m[f] = Math.max(now, m[f] - p.removed);
+    m.sped = (m.sped || 0) + p.removed;
+    const S = speedupState(state);
+    if (how.item) S.used[how.item] = (S.used[how.item] || 0) + 1; else S.gemsSpent += p.cost;
+    S.minutesSaved += Math.round(p.removed / MIN);
+    const done = m[f] <= now;
+    log(state, 'info', `⏳ ${how.item ? SPEEDUPS[how.item].name : `${p.cost} gemme${p.cost > 1 ? 's' : ''}`} : ${jobLabel(q)} ${done ? 'arrivée' : `avance de ${Math.round(p.removed / MIN)} min`}.`, now);
+    if (done) processDue(state, Math.max(now, state.meta.lastTick || now));
+    return { ...p, ok: true, done };
+  }
   const oldEnd = q.end;
   q.end = Math.max(now, q.end - p.removed);
   q.sped = (q.sped || 0) + p.removed;

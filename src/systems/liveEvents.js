@@ -96,6 +96,7 @@ function mkSlot(state, key, start) {
 const thScale = (state) => 0.6 + thLevel(state) * 0.2;
 const CAMP_TYPES = ['camp', 'port', 'vault', 'crypt', 'pack', 'zone'];
 const FAR = ['fortress', 'boss', 'lair', 'bastion'];
+const ACTIVE_HOLD = 6 * 3600000; // v26 : garnison « suivie » (renforcée ou reprise) depuis moins de 6 h
 const RESPAWNING = ['camp', 'port', 'vault', 'crypt', 'pack', 'zone', 'caravan', 'ship', 'treasure', 'village'];
 
 export function startEvent(state, key, now = Date.now(), end = null) {
@@ -486,7 +487,7 @@ export function actionsFor(state, t, now = Date.now()) {
     case 'hearth': return t.cooldown > now ? [] : ['deliver'];
     case 'riddle': return t.sealedUntil > now ? [] : ['solve'];
     case 'trace': return ['track'];
-    case 'zone': return held ? ['withdraw'] : t.owned ? ['garrison'] : ['attack'];
+    case 'zone': return held ? ['garrison', 'withdraw'] : t.owned ? ['garrison'] : ['attack']; // v26 : renforcer une région tenue
     case 'bastion': return held ? ['garrison', 'withdraw'] : ['garrison'];
     case 'vein': return ['mine'];
     case 'vent': return t.cooldown > now ? [] : ['harvest'];
@@ -825,6 +826,7 @@ function arriveLive(state, m, t) {
       const same = eventMarches(state).find((z) => z.targetId === tg.id && z.phase === 'hold' && z.id !== m.id);
       if (same) { for (const [u, n] of Object.entries(m.units)) same.units[u] = (same.units[u] || 0) + n; dropMarch(state, m); if (m.heroId) { const h = state.heroes.find((x) => x.id === m.heroId); if (h) h.marchId = null; } }
       else m.phase = 'hold';
+      tg.orderAt = t; // v26 : une place tenue rapporte pleinement tant qu'on s'en occupe (renforts récents)
       addLiveReport(state, `🏰 Renforts arrivés à ${name}.`, t);
       return;
     }
@@ -862,7 +864,7 @@ function attackTarget(state, m, tg, t, def, name) {
   Object.assign(m.loot, Object.fromEntries(Object.entries(loot).map(([r, n]) => [r, Math.round(n * thScale(state))])));
   if (rng.chance(0.04 * tg.tier)) m.items.push(generateItem({ ilvl: 3 + tg.tier + thLevel(state), boost: 0.2 * tg.tier, min: tg.tier >= 5 ? 'rare' : 'common' }));
   if (tg.type === 'zone') {
-    tg.owned = true; tg.nextCounter = t + 2 * H; tg.enemies = null;
+    tg.owned = true; tg.nextCounter = t + 2 * H; tg.enemies = null; tg.orderAt = t;
     m.phase = 'hold';
     bump(cur, 'held'); cur.stats.heldMax = Math.max(cur.stats.heldMax || 0, cur.map.targets.filter((z) => z.type === 'zone' && z.owned).length);
     addLiveReport(state, `🚩 ${name} conquise ! +${fmt(got)} ${def.currency.icon}. Vos survivants y tiennent garnison.`, t);
@@ -1076,7 +1078,10 @@ export function liveTick(state, now) {
   // Début du suivant
   if (!L.current && L.calendar.length && L.calendar[0].start <= now) {
     const slot = L.calendar.shift();
-    startEvent(state, slot.key, Math.max(slot.start, now - 12 * H), slot.end);
+    // v26 : un créneau lancé en retard (le précédent n'était pas fini) garde sa durée prévue, sans empiéter sur le suivant
+    const start = Math.max(slot.start, now - 12 * H), late = Math.max(0, start - slot.start);
+    const end = Math.min(slot.end + late, L.calendar[0]?.start ?? Infinity);
+    startEvent(state, slot.key, start, end > start ? end : slot.end);
     ensureCalendar(state, now);
   }
   const cur = L.current;
@@ -1325,7 +1330,8 @@ function hourly(state, cur, def, now) {
   const map = cur.map;
   if (def.special?.zones) {
     for (const z of map.targets.filter((t) => t.type === 'zone' && t.owned)) {
-      earn(state, 40 * z.tier, now, 'régions tenues', 'combat');
+      // v26 : une région laissée à elle-même (aucun ordre depuis 6 h) ne rapporte plus qu'un quart
+      earn(state, 40 * z.tier * (now - (z.orderAt || 0) <= ACTIVE_HOLD ? 1 : 0.25), now, 'régions tenues', 'combat');
       if (z.nextCounter && now >= z.nextCounter) {
         z.nextCounter = now + 2 * H;
         const m = eventMarches(state).find((x) => x.targetId === z.id && x.phase === 'hold');
@@ -1417,7 +1423,8 @@ function resolveAssault(state, cur, def, now, flank = null) {
     const res = liveBattle(state, m, enemies, now, { tier: 3, label: flank ? `Assaut (${FLANK_NAME[flank]})` : 'Assaut', bonusDef });
     const killed = Object.values(res.defLosses).reduce((a, b) => a + b, 0);
     bump(cur, 'assaults');
-    const got = earn(state, 200 + killed * 4, now, 'défense de la Citadelle', 'combat');
+    const cit = liveTarget(state, m.targetId);
+    const got = earn(state, (200 + killed * 4) * (now - (cit?.orderAt || 0) <= ACTIVE_HOLD ? 1 : 0.25), now, 'défense de la Citadelle', 'combat');
     if (res.winner === 'attacker') dmg = Math.max(0, dmg - 2);
     addLiveReport(state, `🏰 Assaut ${n} : votre garnison abat ${killed} assaillants (+${fmt(got)} ${def.currency.icon}).`, now, res.winner === 'attacker');
     if (!unitCount(m.units)) homeLive(state, m, now);

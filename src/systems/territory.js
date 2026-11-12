@@ -44,7 +44,10 @@ export function canClaim(state, x, y, now = Date.now()) {
     const kind = POI_TYPES[p.type].kind;
     if (['town', 'kingdom', 'boss'].includes(kind)) return { ok: false, reason: 'Case occupée' };
     if (kind === 'danger' && !(p.clearedUntil > now)) return { ok: false, reason: 'Nettoyez d’abord ce site' };
+    if (kind === 'event' && p.phase !== 'ended') return { ok: false, reason: 'Case occupée par une cible d’événement' };
   }
+  // v26 : une cible d'événement encore cachée (ruine sous le brouillard, mobile de passage) occupe aussi sa case
+  if ((state.live?.current?.map?.targets || []).some((t) => !t.gone && t.x === x && t.y === y)) return { ok: false, reason: 'Case occupée par une cible d’événement' };
   return { ok: true, cost: territoryCost(state) };
 }
 

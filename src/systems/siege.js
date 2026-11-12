@@ -680,7 +680,7 @@ export function defendCastle(state, raid, defenders, defMods, t, ctxExtra = {}) 
   const res = siegeBattle(
     { waves, mods: { 'combat.atk': 0.05 }, formation: 'assault', label: raid.name },
     { units: defenders, shares: defenseShares(state, prot.oneFlank), engines: S.posted, prot, mods: defMods, formation: 'shieldwall', label: 'Garnison', supply: ctxExtra.supply, famine: ctxExtra.famine },
-    { terrain: 'city', weather: state.weather?.type, seed: hashSeed(raid.id) },
+    { terrain: 'city', weather: state.weather?.type, seed: raid.seed ?? hashSeed(raid.id) }, // v26 : graine tirée du jeu (l'id contient l'heure réelle)
   );
   // Engins de défense consommés (retirés du stock et des flancs) ; mémoire des remparts pour le seigneur
   remember(state, raid.rival, S.posted);

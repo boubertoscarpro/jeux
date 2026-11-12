@@ -17,7 +17,7 @@ import { rollShards, addShards, shardState } from './shards.js';
 export function ensureDungeon(poi) {
   if (poi.dungeonData && !poi.dungeonData.done) return poi.dungeonData;
   const level = (poi.dungeonData?.level || poi.danger * 2) + (poi.dungeonData?.done ? 1 : 0);
-  const seed = Math.floor(Math.random() * 1e9);
+  const seed = rng.int(0, 1e9 - 1); // v26 : générateur de la partie (reproductible)
   const r = mulberry32(seed);
   const pick = (arr) => arr[Math.floor(r() * arr.length)];
   const theme = poi.type === 'lostCity' ? 'fortress' : pick(Object.keys(DUNGEON_THEMES));

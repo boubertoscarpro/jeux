@@ -1,5 +1,6 @@
 import { creationScreen } from './ui/creation.js';
 import { loadGame, saveGame, deserialize, CORRUPT_KEY, SAVE_KEY, BACKUP_KEY } from './core/save.js';
+import { decompress } from './core/lz.js';
 import { App } from './ui/app.js';
 import { esc } from './ui/components.js';
 
@@ -19,8 +20,8 @@ function boot() {
       clearInterval(app.timer); clearInterval(app.saveTimer);
       app.state = null;
       let backup = null;
-      try { const b = localStorage.getItem(BACKUP_KEY); if (b) backup = deserialize(b); } catch { backup = null; }
-      recovery({ error: `la partie ne démarre pas (${e.message})`, raw: localStorage.getItem(SAVE_KEY), backup }, start);
+      try { const b = localStorage.getItem(BACKUP_KEY); if (b) backup = deserialize(decompress(b)); } catch { backup = null; }
+      recovery({ error: `la partie ne démarre pas (${e.message})`, raw: (() => { const r = localStorage.getItem(SAVE_KEY); try { return decompress(r); } catch { return r; } })(), backup }, start);
     }
   };
   let res = null;
