@@ -1,4 +1,5 @@
 // Sauvegarde, migration, progression hors ligne : cas limites et données invalides.
+import { decompress } from '../src/core/lz.js';
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createNewState, SAVE_VERSION } from '../src/core/state.js';
@@ -95,7 +96,7 @@ test('Une partie qui n’a pas encore tourné ne remplace pas la copie de secour
   saveGame(good, T0);
   const imported = createNewState({ seed: 'i', now: T0, kingdomName: 'Importé' });
   saveGame(imported, T0 + 2 * H); // bootOk absent : pas de rotation
-  assert.equal(JSON.parse(localStorage.getItem(BACKUP_KEY)).meta.kingdomName, 'Sain');
+  assert.equal(JSON.parse(decompress(localStorage.getItem(BACKUP_KEY))).meta.kingdomName, 'Sain');
 });
 
 test('Stockage plein : la copie de secours est libérée pour que la sauvegarde principale passe', () => {

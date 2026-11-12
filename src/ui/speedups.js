@@ -2,7 +2,7 @@
 // après l'action, prix exact en gemmes), confirmation des dépenses en gemmes, résumé de l'inventaire.
 import { SPEEDUPS, SPEEDUP_ORDER, RECRUIT_ORDER, ORDER_OF, SPEEDUP_MIN_LEFT_S, COMBAT_SPEEDUPS } from '../data/speedups.js';
 import { UNITS } from '../data/units.js';
-import { speedupStock, previewSpeedup, applySpeedup, findJob, jobLabel, suggestSpeedup, speedupState, totalSpeedupMinutes, combatRoom, finishCombo, applyCombo } from '../systems/speedups.js';
+import { speedupStock, previewSpeedup, applySpeedup, findJob, marchJob, jobLabel, suggestSpeedup, speedupState, totalSpeedupMinutes, combatRoom, finishCombo, applyCombo } from '../systems/speedups.js';
 import { fmt, fmtTime } from '../core/util.js';
 import { esc, countdown, progress } from './components.js';
 import { gameIcon, resIcon, unitIcon } from './icons.js';
@@ -12,8 +12,9 @@ export const speedIcon = (k, size = 22) => gameIcon(k, size, '⏳');
 const KIND = {
   build: { one: 'chantier', title: 'Accélérer un chantier', done: 'Chantier terminé !', gone: 'Ce chantier est déjà terminé', icon: 'speed5' },
   train: { one: 'formation', title: 'Accélérer une formation', done: 'Formation terminée : les soldats rejoignent la garnison !', gone: 'Cette formation est déjà terminée', icon: 'rspeed5' },
+  march: { one: 'marche', title: 'Presser une marche', done: 'La marche est arrivée !', gone: 'Cette marche est déjà arrivée', icon: 'rspeed5' },
 };
-const kindOf = (q) => (q.unit ? 'train' : 'build');
+const kindOf = (q) => (q.march ? 'march' : q.unit ? 'train' : 'build');
 
 // Petit bouton « accélérer » sur une ligne de chantier ou de formation ; il brille quand un passe-temps du bon type
 // ou assez de gemmes permettent d'agir. Une formation en attente (derrière une autre) n'a pas de bouton.
@@ -22,8 +23,10 @@ export function speedupButton(s, q, now = Date.now()) {
   const kind = kindOf(q);
   const items = ORDER_OF[kind].some((k) => (s.inventory.consumables[k] || 0) > 0);
   const gems = previewSpeedup(s, q.id, { gems: 'hour' }, now).ok;
-  return `<button class="mini ${items || gems ? 'speed-ready' : 'ghost'}" data-action="speedup-open" data-id="${q.id}" title="Accélérer cette ${KIND[kind].one === 'chantier' ? 'construction' : 'formation'}${items ? ' (passe-temps disponibles)' : ''}" aria-label="Accélérer">${gameIcon(KIND[kind].icon, 14, '⏳')}</button>`;
+  return `<button class="mini ${items || gems ? 'speed-ready' : 'ghost'}" data-action="speedup-open" data-id="${q.id}" title="Accélérer cette ${KIND[kind].one === 'chantier' ? 'construction' : KIND[kind].one}${items ? ' (passe-temps disponibles)' : ''}" aria-label="Accélérer">${gameIcon(KIND[kind].icon, 14, '⏳')}</button>`;
 }
+// v26 : bouton « presser » sur une marche en route (aller ou retour)
+export const marchSpeedupButton = (s, m, now = Date.now()) => (m.phase === 'out' || m.phase === 'back' ? speedupButton(s, marchJob(m), now) : '');
 
 // Ligne « accélérer » d'une fiche de chantier (ville) : stock disponible et bouton
 export function speedupLine(s, q, now = Date.now()) {
@@ -45,7 +48,7 @@ function modalHtml(s, qid, now = Date.now()) {
       <div class="small muted">${Object.entries(combo.use).map(([k, n]) => `${n} × ${esc(SPEEDUPS[k].name)} (${SPEEDUPS[k].short})`).join(' + ')}${combo.waste > 1 ? ` · <span class="warn-text">${combo.waste} min perdues</span>` : ''}</div>
       <div class="small muted">Stock après : ${ORDER_OF[kind].map((k) => `${SPEEDUPS[k].short} × ${Math.max(0, (s.inventory.consumables[k] || 0) - (combo.use[k] || 0))}`).join(' · ')}</div></div>
       <button class="mini primary" data-action="speedup-combo" data-id="${q.id}">Terminer</button></div>` : '';
-  const head = kind === 'train'
+  const head = kind === 'train' && q.unit
     ? `<div class="row between"><b>${unitIcon(q.unit, 22, UNITS[q.unit]?.icon)} ${q.count} × ${esc(UNITS[q.unit]?.name || q.unit)}</b>${countdown(q.end)}</div>`
     : `<div class="row between"><b>${esc(jobLabel(q))}</b>${countdown(q.end)}</div>`;
   const rows = speedupStock(s, kind).map((it) => {
@@ -64,8 +67,8 @@ function modalHtml(s, qid, now = Date.now()) {
   return `<h2>${gameIcon(kind === 'train' ? 'rspeed15' : 'speed15', 22, '⏳')} ${KIND[kind].title}</h2>
     <div class="card-sub">${head}${progress(q.start, q.end)}
       <div class="small muted">Temps restant : ${fmtTime(left)}${q.sped ? ` · déjà accéléré de ${fmtTime(q.sped)}` : ''}</div></div>
-    <h3 class="small">${kind === 'train' ? 'Passe-temps de recrutement' : 'Passe-temps de construction'}</h3><div class="sp-list">${comboHtml}${rows}</div>
-    <p class="small muted">${kind === 'train' ? 'Seuls les passe-temps de recrutement servent ici ; ceux de construction restent réservés aux chantiers. Les soldats sont ajoutés par la fin normale de la formation, jamais en double.' : 'Seuls les passe-temps de construction servent ici ; ceux de recrutement restent réservés aux formations.'}</p>
+    <h3 class="small">${kind === 'build' ? 'Passe-temps de construction' : 'Ordres militaires (recrutement et marches)'}</h3><div class="sp-list">${comboHtml}${rows}</div>
+    <p class="small muted">${kind === 'march' ? 'Les ordres militaires pressent une marche, à l’aller comme au retour ; arrivée, elle est traitée aussitôt, comme si le trajet était fini.' : kind === 'train' ? 'Seuls les passe-temps de recrutement servent ici ; ceux de construction restent réservés aux chantiers. Les soldats sont ajoutés par la fin normale de la formation, jamais en double.' : 'Seuls les passe-temps de construction servent ici ; ceux de recrutement restent réservés aux formations.'}</p>
     <h3 class="small">Gemmes <span class="muted">(${fmt(Math.floor(s.resources.gems || 0))} en réserve)</span></h3>
     <div class="sp-list">${gem('hour', left > 3600000 ? 'Avancer d’une heure' : 'Terminer (moins d’une heure)')}${left > 3600000 ? gem('finish', 'Terminer maintenant') : ''}</div>
     <p class="small muted">Les gemmes coûtent 1 par tranche de 15 min pour la première heure, puis 1 par tranche de 30 min. Elles ne sont jamais obligatoires : les passe-temps se gagnent en jouant (voir le Trésor).</p>`;
@@ -79,7 +82,7 @@ export function openSpeedup(app, qid) {
 
 const after = (app, r, qid, kind = 'build') => {
   if (!r?.ok) { app.toast(r?.reason || 'Accélération impossible', 'bad'); app.render(); openSpeedup(app, qid); return; }
-  app.toast(r.done ? KIND[kind].done : `${kind === 'train' ? 'Formation' : 'Chantier'} avancé${kind === 'train' ? 'e' : ''} de ${fmtTime(r.removed)}`, 'good');
+  app.toast(r.done ? KIND[kind].done : `${kind === 'march' ? 'Marche pressée' : kind === 'train' ? 'Formation avancée' : 'Chantier avancé'} de ${fmtTime(r.removed)}`, 'good');
   app.render(); app.save();
   if (r.done) app.closeModal(); else openSpeedup(app, qid);
 };

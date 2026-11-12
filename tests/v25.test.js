@@ -21,6 +21,7 @@ import { ringActions } from '../src/ui/eventMap.js';
 
 const T0 = Date.UTC(2026, 9, 30, 9), H = 3600000, MIN = 60000;
 const fresh = (seed) => {
+  rng.setSource(mulberry32([...String(seed)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7))); // v26 : tests reproductibles
   const s = createNewState({ seed, now: T0 });
   s.army = { spearman: 400, swordsman: 300, archer: 300, knight: 60, scout: 20 };
   s.live.calendar = []; s.live.current = null;

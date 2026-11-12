@@ -21,6 +21,13 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v26 — Audit, finitions et nouvelles conquêtes** :
+> - **Audit** : 12 bugs trouvés et corrigés, chacun avec son test. Sauvegarde compressée (5 fois plus petite), fenêtre d'export si le stockage est plein, combats reproductibles, accélérateurs utilisables sur les marches.
+> - **Finitions** : bâtiments qui grandissent palier par palier, forteresses d'événement assiégées par flancs, guerres entre maisons et renforts visibles sur la carte, blasons et architecture de chaque maison, mer et falaises au bord du monde, terrains à bâtir discrets.
+> - **Conquêtes** : métropoles à assiéger puis piller, vassaliser ou libérer ; prisonniers et rançons ; fausses bannières ; saison de guerre (prestige seulement) ; Îles de Cendre ; calendrier de fidélité.
+>
+> Voir [`docs/V26.md`](docs/V26.md) et [`docs/AUDIT_V26.md`](docs/AUDIT_V26.md).
+
 > **v25 — Le monde en fête et en guerre (lot 1)** :
 > - **Les événements sur la carte du monde** : plus de carte à part. Camps, trésors, chefs, forteresses, convois et dangers apparaissent autour de vos terres : faibles près de chez vous, forts au loin.
 > - **Attaque directe** : on part de la capitale ou de l'avant-poste le plus proche, avec de vrais temps de marche.

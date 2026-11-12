@@ -56,12 +56,12 @@ export function drawEventLayers(ctx, s, view, now, reduce) {
   // Menaces en marche : harcèlement, assaut (rouge, comme une attaque entrante) ; prospecteurs rivaux (orange)
   for (const th of m.threats || []) {
     const a = mark(th.from.x, th.from.y), b = mark(th.to.x, th.to.y);
-    const hostile = th.kind !== 'rival';
-    ctx.strokeStyle = hostile ? 'rgba(230,40,40,0.9)' : 'rgba(255,160,40,0.9)';
+    const ally = th.kind === 'ally', hostile = th.kind !== 'rival' && !ally;
+    ctx.strokeStyle = ally ? 'rgba(70,190,100,0.9)' : hostile ? 'rgba(230,40,40,0.9)' : 'rgba(255,160,40,0.9)';
     ctx.lineWidth = Math.max(2, Math.min(4.5, T / 9)); ctx.setLineDash(hostile ? [10, 6] : [6, 6]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
     const f = Math.max(0, Math.min(1, (now - th.start) / Math.max(1, th.arrive - th.start)));
-    tokens.push({ army: hostile, raid: hostile, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: hostile ? '#d62828' : '#e08a2a', icon: hostile ? '⚔️' : '⛏', angle: Math.atan2(b.y - a.y, b.x - a.x), end: th.arrive, label: th.label });
+    tokens.push({ army: hostile || ally, raid: hostile, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: ally ? '#3fae5a' : hostile ? '#d62828' : '#e08a2a', icon: ally ? '🛡️' : hostile ? '⚔️' : '⛏', angle: Math.atan2(b.y - a.y, b.x - a.x), end: th.arrive, label: th.label });
   }
   // Hordes : trait vers leur cible
   for (const t of m.targets) {
@@ -69,6 +69,27 @@ export function drawEventLayers(ctx, s, view, now, reduce) {
     const a = mark(t.x, t.y), b = mark(t.dest.x, t.dest.y);
     ctx.strokeStyle = 'rgba(120,255,170,0.85)'; ctx.lineWidth = Math.max(2, Math.min(4, T / 10)); ctx.setLineDash([3, 6]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  return tokens;
+}
+
+// v26 : guerres entre factions rivales : front visible entre leurs places fortes (pointillé rouge sombre qui avance,
+// colonnes qui se croisent), comme les armées en guerre sur la carte du genre
+export function drawFactionWars(ctx, s, view, now, reduce) {
+  const { T, ox, oy } = view;
+  const tokens = [];
+  const kp = {};
+  for (const p of Object.values(s.world.pois)) if (p.type === 'kingdom') kp[p.rival] = p;
+  for (const f of s.factions || []) for (const e of f.wars || []) {
+    if (e < f.idx) continue;
+    const A = kp[f.idx], B = kp[e];
+    if (!A || !B) continue;
+    const a = { x: ox + (A.x + 0.5) * T, y: oy + (A.y + 0.5) * T }, b = { x: ox + (B.x + 0.5) * T, y: oy + (B.y + 0.5) * T };
+    ctx.strokeStyle = 'rgba(150,30,30,0.75)'; ctx.lineWidth = Math.max(1.5, Math.min(3.5, T / 12)); ctx.setLineDash([12, 8]);
+    ctx.lineDashOffset = reduce ? 0 : -((now / 60) % 20);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    const ph = reduce ? 0.5 : ((now / 40000) % 1);
+    for (const [from, to, col] of [[a, b, A.color], [b, a, B.color]]) tokens.push({ army: true, raid: true, x: from.x + (to.x - from.x) * ph * 0.5, y: from.y + (to.y - from.y) * ph * 0.5, col: col || '#a8322a', icon: '⚔️', angle: Math.atan2(to.y - from.y, to.x - from.x), end: null, label: `Guerre : ${A.name} contre ${B.name}` });
   }
   return tokens;
 }
@@ -92,6 +113,7 @@ function timerTag(ctx, x, y, text, bg = 'rgba(20,12,6,0.88)', fg = '#ffe9a8') {
   ctx.strokeStyle = 'rgba(241,211,106,0.8)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x, y);
   ctx.restore();
+  return { x: x - w / 2, y: y - 9, w, h: 17 };
 }
 // Bannière plantée qui tombe (angle 0 → 90°)
 function fallingBanner(ctx, x, y, h, color, angle) {
@@ -105,7 +127,10 @@ export function eventPoiAlpha(p, now) {
   if (p.phase === 'ended') return Math.max(0.15, 1 - (now - (p.endAt || now)) / FADE_MS);
   return 1;
 }
-export function drawEventOverlay(ctx, p, px, py, T, now, reduce) {
+// rects (facultatif) : reçoit les rectangles des écussons et des comptes à rebours, pour que les étiquettes les évitent
+// et que l'outil de mesure (npm run overlaps) les compte
+export function drawEventOverlay(ctx, p, px, py, T, now, reduce, rects = null) {
+  const keep = (x, y, w, h) => { if (rects) rects.push({ x, y, w, h }); };
   const col = p.color || '#e2b84a';
   const sz = Math.max(6, Math.min(12, T * 0.2));
   // Apparition : un cercle de poussière qui s'ouvre (60 s)
@@ -128,10 +153,10 @@ export function drawEventOverlay(ctx, p, px, py, T, now, reduce) {
     }
     const fall = reduce ? Math.PI / 2 : Math.min(Math.PI / 2, (Math.max(0, age) / 2500) * (Math.PI / 2));
     fallingBanner(ctx, px + T * 0.28, py + T * 0.1, Math.max(10, T * 0.5), col, fall);
-    if (p.phase === 'cleared' && p.respawnAt > now && T >= 18) timerTag(ctx, px, py - T * 0.75, `réapparaît ${fmtTime(p.respawnAt - now)}`, 'rgba(30,30,30,0.85)', '#e8e2d2');
+    if (p.phase === 'cleared' && p.respawnAt > now && T >= 18) { const r = timerTag(ctx, px, py - T * 0.75, `réapparaît ${fmtTime(p.respawnAt - now)}`, 'rgba(30,30,30,0.85)', '#e8e2d2'); keep(r.x, r.y, r.w, r.h); }
     return;
   }
-  if (p.phase === 'upcoming') { if (T >= 12) timerTag(ctx, px, py - T * 0.8, `${p.name} · ${fmtTime(Math.max(0, p.until - now))}`); return; }
+  if (p.phase === 'upcoming') { if (T >= 12) { const r = timerTag(ctx, px, py - T * 0.8, `${p.name} · ${fmtTime(Math.max(0, p.until - now))}`); keep(r.x, r.y, r.w, r.h); } return; }
   // Chef / forteresse : halo pulsé
   if (p.phase === 'boss') {
     const k = reduce ? 0.5 : 0.5 + 0.5 * Math.sin(now / 320);
@@ -142,7 +167,7 @@ export function drawEventOverlay(ctx, p, px, py, T, now, reduce) {
     ctx.strokeStyle = hexA(col, 0.6); ctx.setLineDash([2, 5]); ctx.lineWidth = 2; ctx.beginPath();
     ctx.moveTo(px + (p.prev.x - p.x) * T, py + (p.prev.y - p.y) * T); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
   }
-  if (T >= 12 && p.tier) levelShield(ctx, px - T * 0.42, py - T * 0.42, sz, col, ROMAN[Math.min(9, p.tier)] || String(p.tier));
+  if (T >= 12 && p.tier) { levelShield(ctx, px - T * 0.42, py - T * 0.42, sz, col, ROMAN[Math.min(9, p.tier)] || String(p.tier)); keep(px - T * 0.42 - sz, py - T * 0.42 - sz, 2 * sz, 2.3 * sz); }
 }
 
 // ───────── Anneau d'actions (GGE : clic sur un lieu → boutons autour de lui) ─────────
@@ -160,7 +185,7 @@ export function ringActions(state, poi, now = Date.now()) {
   const out = [];
   if (def.kind === 'danger' && !def.dungeon && !(poi.clearedUntil > now)) out.push({ act: 'attack', kind: 'march', type: 'attack' }, { act: 'scout', kind: 'march', type: 'scout' });
   if (def.dungeon) out.push({ act: 'dungeon', kind: 'march', type: 'dungeon' });
-  if (def.kind === 'kingdom') out.push({ act: 'attack', kind: 'march', type: 'attack' }, { act: 'scout', kind: 'march', type: 'scout' });
+  if (def.kind === 'kingdom' || (def.kind === 'town' && poi.metro && poi.metro.status !== 'vassal' && !(poi.metro.regrowAt > now))) out.push({ act: 'attack', kind: 'march', type: 'attack' }, { act: 'scout', kind: 'march', type: 'scout' });
   if (def.kind === 'gather' && poi.amount >= 1) { out.push({ act: 'gather', kind: 'march', type: 'gather' }); if (poi.danger) out.push({ act: 'scout', kind: 'march', type: 'scout' }); }
   if (def.kind === 'boss' && state.boss) out.push({ act: 'boss', kind: 'march', type: 'boss' });
   if (!out.length) return [];

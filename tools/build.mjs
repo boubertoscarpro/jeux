@@ -8,7 +8,7 @@ const result = await build({
   entryPoints: [root + 'src/main.js'],
   bundle: true,
   format: 'iife',
-  minify: true,
+  minify: !process.env.NOMIN,
   write: false,
   target: ['es2020'],
   legalComments: 'none',

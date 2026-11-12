@@ -29,6 +29,7 @@ import { chronicle } from './chronicle.js';
 import { log, toast } from './log.js';
 import { recordLoss } from './losses.js';
 import { flankShare } from './castle.js';
+import { attackFortress, hashSeed, siegeState, planEngines, validatePlan } from './siege.js';
 
 const H = 3600000;
 const MIN = 60000;
@@ -96,6 +97,7 @@ function mkSlot(state, key, start) {
 const thScale = (state) => 0.6 + thLevel(state) * 0.2;
 const CAMP_TYPES = ['camp', 'port', 'vault', 'crypt', 'pack', 'zone'];
 const FAR = ['fortress', 'boss', 'lair', 'bastion'];
+const ACTIVE_HOLD = 6 * 3600000; // v26 : garnison « suivie » (renforcée ou reprise) depuis moins de 6 h
 const RESPAWNING = ['camp', 'port', 'vault', 'crypt', 'pack', 'zone', 'caravan', 'ship', 'treasure', 'village'];
 
 export function startEvent(state, key, now = Date.now(), end = null) {
@@ -148,7 +150,12 @@ function placeOpts(state, def, cur, type) {
   const o = {};
   const near = (ter, rad = 1) => (x, y) => { for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) if (wTerrain(w, x + dx, y + dy) === ter) return true; return false; };
   if (W.riverside?.includes(type)) { if (type === 'ship') o.allow = ['river']; else o.need = near('river'); }
-  if (W.underFog?.includes(type)) o.hidden = true;
+  if (W.underFog?.includes(type)) {
+    o.hidden = true;
+    // v26 : une ruine sur trois est cachée dans une zone de fouilles de l'archéologie (mystère en cours)
+    const zones = (state.archaeo?.active?.sites || []).filter((z) => !z.located);
+    if (zones.length && (map.spawnN || 0) % 3 === 0) { const z = zones[(map.spawnN || 0) % zones.length]; o.center = { x: z.cx, y: z.cy }; o.ring = [0, z.r]; }
+  }
   if (W.veinTerrain && type === 'vein') { o.allow = ['hills', 'mountain', 'plain', 'forest']; o.need = (x, y) => ['hills', 'mountain'].includes(wTerrain(w, x, y)) || near('river')(x, y); }
   if (map.frost && ['camp', 'pack', 'hearth', 'fortress', 'boss'].includes(type)) { o.center = map.frost; o.ring = [0, map.frost.max]; o.allow = ['plain', 'forest', 'hills', 'snow', 'swamp', 'ruins', 'ash', 'mountain']; }
   if (map.volcano && ['vent', 'boss'].includes(type)) { o.center = map.volcano; o.ring = type === 'boss' ? [1, 3] : [2, 6]; o.allow = ['plain', 'forest', 'hills', 'mountain', 'ash', 'snow', 'swamp', 'ruins']; }
@@ -270,6 +277,7 @@ function addTarget(state, def, cur, type, tiers, opt = {}) {
   if (type === 'boss') t.hidden = true; // apparaît après quelques heures
   if (type === 'zone' && o.center?.kingdom) t.border = o.center.kingdom;
   if (CAMP_TYPES.includes(type) || type === 'fortress') t.enemies = scaleEnemies(state, def, type, tier);
+  if (type === 'fortress') t.wall = EVENT_FORT_WALL;
   map.targets.push(t);
   return t;
 }
@@ -486,7 +494,7 @@ export function actionsFor(state, t, now = Date.now()) {
     case 'hearth': return t.cooldown > now ? [] : ['deliver'];
     case 'riddle': return t.sealedUntil > now ? [] : ['solve'];
     case 'trace': return ['track'];
-    case 'zone': return held ? ['withdraw'] : t.owned ? ['garrison'] : ['attack'];
+    case 'zone': return held ? ['garrison', 'withdraw'] : t.owned ? ['garrison'] : ['attack']; // v26 : renforcer une région tenue
     case 'bastion': return held ? ['garrison', 'withdraw'] : ['garrison'];
     case 'vein': return ['mine'];
     case 'vent': return t.cooldown > now ? [] : ['harvest'];
@@ -537,6 +545,12 @@ export function planLive(state, opts, now = Date.now()) {
     const h = state.heroes.find((z) => z.id === opts.heroId);
     if (!h || h.marchId || h.assignment) return fail('Héros indisponible');
   }
+  // v26 : engins de siège seulement contre une forteresse (comme sur le monde : un camp n'a pas d'enceinte)
+  if (opts.siegePlan && Object.keys(planEngines(opts.siegePlan)).length) {
+    if (t.type !== 'fortress' || action !== 'attack') return fail('Les engins ne servent à rien contre un camp sans enceinte');
+    const v = validatePlan(state, opts.siegePlan, { oneFlank: false });
+    if (!v.ok) return fail(v.reason);
+  }
   const mods = marchMods(state, opts.heroId, null, now);
   const from = marchOrigin(state, x, y, opts.from);
   return { ok: true, units, t, x, y, cost, from, travel: liveTravel(state, cur, from, x, y, units, mods), mods };
@@ -562,6 +576,14 @@ export function sendLive(state, opts, now = Date.now()) {
     travel: plan.travel, loot: {}, items: [], workEnd: 0, returnAt: 0, paid: plan.cost || null,
   };
   if (m.heroId) state.heroes.find((h) => h.id === m.heroId).marchId = m.id;
+  if (opts.siegePlan && plan.t.type === 'fortress') {
+    const need = planEngines(opts.siegePlan);
+    const S = siegeState(state);
+    for (const [k, n] of Object.entries(need)) S.arsenal.attack[k] = Math.max(0, (S.arsenal.attack[k] || 0) - n);
+    if (Object.keys(need).length) m.engines = need;
+    if (opts.siegePlan.waves?.length) m.siegePlan = JSON.parse(JSON.stringify(opts.siegePlan));
+  }
+  m.seed = rng.int(1, 2e9);
   state.marches.push(m);
   return { ok: true, march: m };
 }
@@ -696,10 +718,17 @@ function liveSides(state, m, enemies, t, opts = {}) {
   ];
 }
 
+// v26 : une place fortifiée d'événement (forteresse) s'assiège comme sur le monde : flancs, vagues, engins, cour (v19)
+export const EVENT_FORT_WALL = 0.5;
 function liveBattle(state, m, enemies, t, opts = {}) {
   const [att, dfn, ctx] = liveSides(state, m, enemies, t, opts);
   const mods = att.mods;
-  const res = simulateBattle(att, dfn, ctx);
+  let res;
+  if (opts.fort > 0) {
+    res = attackFortress({ units: att.units, mods, formation: att.formation, label: 'Vous' }, enemies, opts.fort, { id: opts.poiId || m.targetId, x: m.x, y: m.y },
+      { terrain: ctx.terrain, weather: ctx.weather, enemyMods: dfn.mods, enemyLabel: opts.label || 'Ennemi', seed: hashSeed((m.seed ?? m.id) + ':' + t) }, m.siegePlan || null);
+    if (m.engines) { m.enginesBack = Object.fromEntries(Object.entries(res.engines?.attack?.recovered || {}).map(([k, n]) => [k, Math.floor(n)]).filter(([, n]) => n > 0)); m.engines = null; }
+  } else res = simulateBattle(att, dfn, ctx);
   m.units = Object.fromEntries(Object.entries(res.attRemaining).filter(([, n]) => n > 0));
   const killed = Object.values(res.defLosses).reduce((a, b) => a + b, 0);
   const hero = state.heroes.find((h) => h.id === m.heroId);
@@ -825,6 +854,7 @@ function arriveLive(state, m, t) {
       const same = eventMarches(state).find((z) => z.targetId === tg.id && z.phase === 'hold' && z.id !== m.id);
       if (same) { for (const [u, n] of Object.entries(m.units)) same.units[u] = (same.units[u] || 0) + n; dropMarch(state, m); if (m.heroId) { const h = state.heroes.find((x) => x.id === m.heroId); if (h) h.marchId = null; } }
       else m.phase = 'hold';
+      tg.orderAt = t; // v26 : une place tenue rapporte pleinement tant qu'on s'en occupe (renforts récents)
       addLiveReport(state, `🏰 Renforts arrivés à ${name}.`, t);
       return;
     }
@@ -842,7 +872,7 @@ function attackTarget(state, m, tg, t, def, name) {
   if (tg.type === 'lair') return attackLair(state, m, tg, t, def);
   const enemies = tg.enemies || scaleEnemies(state, def, tg.type === 'ship' || tg.type === 'caravan' ? tg.type : 'camp', tg.tier);
   const bonusAtk = tg.type === 'ship' && (state.city && Object.values(state.city.buildings).some((b) => b.type === 'port')) ? 0.3 : 0;
-  const res = liveBattle(state, m, enemies, t, { tier: tg.tier, label: name, bonusAtk });
+  const res = liveBattle(state, m, enemies, t, { tier: tg.tier, label: name, bonusAtk, fort: tg.type === 'fortress' ? tg.wall ?? EVENT_FORT_WALL : 0 });
   const win = res.winner === 'attacker';
   if (!win) {
     tg.enemies = { ...res.defRemaining };
@@ -858,11 +888,12 @@ function attackTarget(state, m, tg, t, def, name) {
   else if (tg.type === 'horde') { const n = (cur.stats.waves || 0) + (cur.stats.wavesLost || 0); v = 300 + n * 60 + campReward(tg.tier); bump(cur, 'hordes'); bump(cur, 'waves'); }
   else { v = campReward(tg.tier); if (tg.type !== 'pack') bump(cur, 'camps'); else bump(cur, 'packs'); if (tg.tier >= 7) bump(cur, 'tier7'); }
   if (tg.type === 'crypt') cur.wavesWeak = Math.min(0.6, cur.wavesWeak + 0.04);
+  if (tg.type === 'vault') archaeoLink(state, tg, t);
   const got = earn(state, v, t, name, 'combat');
   Object.assign(m.loot, Object.fromEntries(Object.entries(loot).map(([r, n]) => [r, Math.round(n * thScale(state))])));
   if (rng.chance(0.04 * tg.tier)) m.items.push(generateItem({ ilvl: 3 + tg.tier + thLevel(state), boost: 0.2 * tg.tier, min: tg.tier >= 5 ? 'rare' : 'common' }));
   if (tg.type === 'zone') {
-    tg.owned = true; tg.nextCounter = t + 2 * H; tg.enemies = null;
+    tg.owned = true; tg.nextCounter = t + 2 * H; tg.enemies = null; tg.orderAt = t;
     m.phase = 'hold';
     bump(cur, 'held'); cur.stats.heldMax = Math.max(cur.stats.heldMax || 0, cur.map.targets.filter((z) => z.type === 'zone' && z.owned).length);
     addLiveReport(state, `🚩 ${name} conquise ! +${fmt(got)} ${def.currency.icon}. Vos survivants y tiennent garnison.`, t);
@@ -942,6 +973,7 @@ function finishLiveWork(state, m, t) {
     for (const [r, v] of Object.entries(loot)) m.loot[r] = (m.loot[r] || 0) + Math.round(v * thScale(state));
     if (rng.chance(0.25)) m.items.push(generateItem({ ilvl: 4 + thLevel(state) * 2, boost: 0.8, min: 'rare' }));
     addLiveReport(state, `💰 Trésor déterré : +${fmt(got)} ${def.currency.icon}.`, t);
+    archaeoLink(state, tg, t);
     tg.done = true; tg.respawnAt = t + liveCfg(state).respawnMin * MIN;
   } else if (m.action === 'track') {
     bump(cur, 'traces');
@@ -999,6 +1031,17 @@ function burnTrail(state, cur, a, b) {
   }
 }
 
+// v26 : une ruine fouillée dans une zone de fouilles de l'archéologie localise le site du mystère en cours
+function archaeoLink(state, tg, t) {
+  const sites = state.archaeo?.active?.sites || [];
+  const z = sites.find((x) => !x.located && Math.hypot(tg.x - x.cx, tg.y - x.cy) <= (x.r || 5) + 1);
+  if (!z) return;
+  z.located = true;
+  reveal(state.world, z.x, z.y, 1);
+  addLiveReport(state, `🏺 En fouillant la ruine, vos érudits trouvent la trace du site du mystère : localisé en (${z.x}, ${z.y}).`, t);
+  notify(state, '🏺', `Un site de fouilles est localisé en (${z.x}, ${z.y}) grâce aux Ruines Anciennes.`, t, 'good');
+}
+
 function homeLive(state, m, t) {
   const L = liveState(state);
   for (const [u, n] of Object.entries(m.units)) state.army[u] = (state.army[u] || 0) + n;
@@ -1007,6 +1050,8 @@ function homeLive(state, m, t) {
   // Action jamais réalisée (rappel avant l'arrivée, cible disparue, fin de l'événement en chemin) : remboursement intégral
   if (m.paid && (m.refund || m.phase === 'out')) { for (const [r, v] of Object.entries(m.paid)) state.resources[r] = (state.resources[r] || 0) + v; m.paid = null; }
   for (const it of m.items) state.inventory.items.push(it);
+  // v26 : engins de siège rescapés (ou jamais engagés) rentrés à l'arsenal
+  if (m.engines || m.enginesBack) { const S = siegeState(state); for (const [k, n] of Object.entries({ ...(m.engines || {}), ...(m.enginesBack || {}) })) S.arsenal.attack[k] = (S.arsenal.attack[k] || 0) + n; m.engines = null; m.enginesBack = null; }
   const hero = state.heroes.find((h) => h.id === m.heroId);
   if (hero) hero.marchId = null;
   dropMarch(state, m);
@@ -1036,6 +1081,7 @@ export function resolveRiddle(state, pid, idx, now = Date.now()) {
     let extra = '';
     if (rng.chance(0.12)) { shardState(state).relicFragments++; extra = ' Un fragment de relique repose sur l’autel !'; }
     text = `✅ La porte s’ouvre : +${fmt(got)} ${def.currency.icon}.${extra}`;
+    archaeoLink(state, tg, now);
     addLiveReport(state, text, now);
   } else {
     if (tg) tg.sealedUntil = now + H;
@@ -1076,7 +1122,10 @@ export function liveTick(state, now) {
   // Début du suivant
   if (!L.current && L.calendar.length && L.calendar[0].start <= now) {
     const slot = L.calendar.shift();
-    startEvent(state, slot.key, Math.max(slot.start, now - 12 * H), slot.end);
+    // v26 : un créneau lancé en retard (le précédent n'était pas fini) garde sa durée prévue, sans empiéter sur le suivant
+    const start = Math.max(slot.start, now - 12 * H), late = Math.max(0, start - slot.start);
+    const end = Math.min(slot.end + late, L.calendar[0]?.start ?? Infinity);
+    startEvent(state, slot.key, start, end > start ? end : slot.end);
     ensureCalendar(state, now);
   }
   const cur = L.current;
@@ -1218,6 +1267,7 @@ function threatsTick(state, cur, def, now) {
     if (th.arrive > now || th.kind === 'assault') continue;
     map.threats = map.threats.filter((x) => x !== th);
     if (th.kind === 'harass') harassOutpost(state, cur, def, th, now);
+    else if (th.kind === 'ally') addLiveReport(state, `🛡️ ${th.label} : ils frappent aux côtés des seigneurs (leurs coups comptent dans les dégâts communs).`, now);
     else if (th.kind === 'rival') {
       const v = liveTarget(state, th.targetId);
       if (!v || v.done || v.gone) continue;
@@ -1268,13 +1318,35 @@ function threatsTick(state, cur, def, now) {
       notify(state, '💀', `Une horde quitte une crypte en (${t.x}, ${t.y}) et marche sur ${dest.name} : interceptez-la avant ${fmtTime(cur.nextWave - now)} !`, now, 'bad');
     }
   }
+  // v26 : renforts des cités libres et des alliés en vraies marches visibles (trait vert) vers l'antre du dragon ou la
+  // Citadelle, toutes les 3 h ; leurs coups restent comptés dans les dégâts communs (seigneurs IA)
+  const goal = map.targets.find((t) => (t.type === 'lair' && cur.coop?.hp > 0) || t.type === 'bastion');
+  if (goal && (cur.allyAt || 0) <= now) {
+    cur.allyAt = now + 3 * H;
+    const towns = Object.values(state.world.pois).filter((p) => p.type === 'town').sort((a, b) => Math.hypot(a.x - goal.x, a.y - goal.y) - Math.hypot(b.x - goal.x, b.y - goal.y));
+    const src = towns[(cur.allyN = (cur.allyN || 0) + 1) % Math.max(1, Math.min(3, towns.length))];
+    if (src) map.threats.push({ id: uid('th'), kind: 'ally', from: { x: src.x, y: src.y, name: src.name }, to: { x: goal.x, y: goal.y }, start: now, arrive: now + 90 * MIN, label: `Renforts de ${src.name}` });
+  }
+  // v26 : combat de route : à mi-chemin, une caravane guettée par les corsaires est abordée ; ses gardes se battent
+  for (const cv of state.caravans || []) {
+    if (!cv.corsair || cv.boarded || now < (cv.start + cv.end) / 2) continue;
+    cv.boarded = true;
+    const port = liveTarget(state, cv.corsair);
+    if (!port || port.done) { cv.risk = 0.05; continue; }
+    const pirates = Object.fromEntries(Object.entries(port.enemies || {}).map(([u, n]) => [u, Math.max(1, Math.round(n * 0.6))]));
+    const guards = Object.fromEntries(Object.entries(cv.guards || {}).filter(([, n]) => n > 0));
+    let win = false;
+    if (Object.keys(guards).length) { const res = simulateBattle({ units: guards, mods: computeMods(state, now), label: 'Gardes' }, { units: pirates, mods: { 'combat.atk': 0.04 * port.tier }, label: 'Corsaires' }, { terrain: 'river', weather: state.weather.type }); win = res.winner === 'attacker'; cv.guards = res.attRemaining; }
+    if (win) { cv.risk = 0.02; const got = earn(state, 60 + 30 * port.tier, now, 'abordage repoussé', 'combat'); addLiveReport(state, `⚓ Les gardes de la caravane vers ${cv.town} repoussent l’abordage (+${fmt(got)} ${def.currency.icon}).`, now); }
+    else { cv.gold = Math.round((cv.gold || 0) * 0.5); cv.risk = 0.05; addLiveReport(state, `🏴‍☠️ Abordage ! Les corsaires pillent la moitié de la cargaison de la caravane vers ${cv.town}.`, now, false); notify(state, '🏴‍☠️', `Votre caravane vers ${cv.town} a été abordée par les corsaires.`, now, 'bad'); }
+  }
   // Corsaires : un repaire à moins de 3 cases de la route d'une de vos caravanes la prend en chasse
   if (def.world?.riverside) for (const cv of state.caravans || []) {
     if (cv.corsair) continue;
     const c = state.world.capital;
     const port = map.targets.find((t) => t.type === 'port' && !t.done && segDist(c, cv, t) <= 3);
     if (!port) continue;
-    cv.corsair = port.id; cv.risk = Math.max(cv.risk ?? 0.05, 0.6);
+    cv.corsair = port.id; cv.risk = Math.max(cv.risk ?? 0.05, 0.6); // l'abordage a lieu à mi-chemin (combat de route)
     addLiveReport(state, `🏴‍☠️ ${targetName(cur, port)} guette votre caravane vers ${cv.town} : risque d’abordage élevé (escortez-la ou nettoyez le repaire).`, now, false);
     notify(state, '🏴‍☠️', `Des corsaires guettent votre caravane vers ${cv.town}.`, now, 'bad');
   }
@@ -1325,7 +1397,8 @@ function hourly(state, cur, def, now) {
   const map = cur.map;
   if (def.special?.zones) {
     for (const z of map.targets.filter((t) => t.type === 'zone' && t.owned)) {
-      earn(state, 40 * z.tier, now, 'régions tenues', 'combat');
+      // v26 : une région laissée à elle-même (aucun ordre depuis 6 h) ne rapporte plus qu'un quart
+      earn(state, 40 * z.tier * (now - (z.orderAt || 0) <= ACTIVE_HOLD ? 1 : 0.25), now, 'régions tenues', 'combat');
       if (z.nextCounter && now >= z.nextCounter) {
         z.nextCounter = now + 2 * H;
         const m = eventMarches(state).find((x) => x.targetId === z.id && x.phase === 'hold');
@@ -1417,7 +1490,8 @@ function resolveAssault(state, cur, def, now, flank = null) {
     const res = liveBattle(state, m, enemies, now, { tier: 3, label: flank ? `Assaut (${FLANK_NAME[flank]})` : 'Assaut', bonusDef });
     const killed = Object.values(res.defLosses).reduce((a, b) => a + b, 0);
     bump(cur, 'assaults');
-    const got = earn(state, 200 + killed * 4, now, 'défense de la Citadelle', 'combat');
+    const cit = liveTarget(state, m.targetId);
+    const got = earn(state, (200 + killed * 4) * (now - (cit?.orderAt || 0) <= ACTIVE_HOLD ? 1 : 0.25), now, 'défense de la Citadelle', 'combat');
     if (res.winner === 'attacker') dmg = Math.max(0, dmg - 2);
     addLiveReport(state, `🏰 Assaut ${n} : votre garnison abat ${killed} assaillants (+${fmt(got)} ${def.currency.icon}).`, now, res.winner === 'attacker');
     if (!unitCount(m.units)) homeLive(state, m, now);

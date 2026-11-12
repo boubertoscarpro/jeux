@@ -183,7 +183,7 @@ function bottomLeft(app) {
 function bottomCenter(app) {
   const s = app.state, mods = computeMods(s), now = Date.now();
   const bq = s.queues.build, slots = buildSlots(mods);
-  const ms = s.marches, mm = maxMarches(mods);
+  const ms = s.marches, mm = maxMarches(mods), mw = ms.filter((m) => m.type !== 'event').length; // v26 : les troupes d'événement ont leur propre plafond
   const b0 = bq[0], m0 = ms[0];
   const bname = (q) => (q.kind === 'clear' ? '🧹 Déblaiement' : `${BUILDINGS[q.type]?.icon || ''} ${BUILDINGS[q.type]?.name || ''} → ${q.level}`);
   const mEnd = (m) => (m.phase === 'out' ? m.arrive : m.phase === 'work' ? m.workEnd : m.phase === 'back' ? m.returnAt : null);
@@ -191,7 +191,7 @@ function bottomCenter(app) {
   return `<div class="hud-bc" role="region" aria-label="Files d'attente">
     <button class="hq ${b0 ? '' : 'free'}" data-action="${b0 ? 'queues' : 'build-mode'}" title="${b0 ? 'Voir les chantiers' : 'Chantier libre : construire'}"><span class="hq-l">🔨 Chantiers ${bq.length}/${slots}</span>${b0 ? `<span class="hq-n">${esc(bname(b0))}</span><span class="hq-t" data-end="${b0.end}">${fmtTime(b0.end - now)}</span>${progress(b0.start, b0.end)}` : '<span class="hq-n">Libre : construire</span>'}</button>
     ${b0 ? `<button class="hq-sp" data-action="speedup-open" data-id="${b0.id}" title="Accélérer le chantier" aria-label="Accélérer le chantier">⏳</button>` : ''}
-    <button class="hq ${m0 ? '' : 'free'}" data-action="${m0 ? 'queues' : 'nav'}" ${m0 ? '' : 'data-view="army"'} title="${m0 ? 'Voir les marches' : 'Marche libre : armée'}"><span class="hq-l">🐎 Marches ${ms.length}/${mm}</span>${m0 ? `<span class="hq-n">${esc({ out: 'Aller', work: 'Récolte', wait: 'En attente', back: 'Retour' }[m0.phase] || '')}</span>${mEnd(m0) ? `<span class="hq-t" data-end="${mEnd(m0)}">${fmtTime(mEnd(m0) - now)}</span>` : ''}` : '<span class="hq-n">Libre : armée</span>'}</button>
+    <button class="hq ${m0 ? '' : 'free'}" data-action="${m0 ? 'queues' : 'nav'}" ${m0 ? '' : 'data-view="army"'} title="${m0 ? 'Voir les marches' : 'Marche libre : armée'}"><span class="hq-l">🐎 Marches ${mw}/${mm}</span>${m0 ? `<span class="hq-n">${esc({ out: 'Aller', work: 'Récolte', wait: 'En attente', back: 'Retour' }[m0.phase] || '')}</span>${mEnd(m0) ? `<span class="hq-t" data-end="${mEnd(m0)}">${fmtTime(mEnd(m0) - now)}</span>` : ''}` : '<span class="hq-n">Libre : armée</span>'}</button>
     ${other ? `<button class="hq small-q" data-action="queues" title="Recherches, formations et artisanat en cours">⏳ ${other}</button>` : ''}
   </div>`;
 }

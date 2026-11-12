@@ -37,6 +37,7 @@ import { contractsTick } from '../systems/market.js';
 import { checkFeats, serverFeedTick } from '../systems/shards.js';
 import { netRates } from '../systems/economy.js';
 import { liveTick } from '../systems/liveEvents.js';
+import { conquestTick } from '../systems/conquest.js';
 import { territoryTick } from '../systems/territory.js';
 import { processPlanned } from '../systems/construction.js';
 import { seasonTick } from '../systems/quests.js';
@@ -112,6 +113,7 @@ export function processDue(state, t) {
     checkFeats(state, t);
     serverFeedTick(state, t);
     liveTick(state, t);
+    conquestTick(state, t); // v26 : métropoles, saison de guerre, Îles de Cendre
     territoryTick(state, dt, t);
     processPlanned(state, t);
     seasonTick(state, t);

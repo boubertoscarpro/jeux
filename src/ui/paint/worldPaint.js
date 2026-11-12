@@ -6,13 +6,24 @@
 import { sprite } from './scene.js';
 import { PAINT, hamletRuin, scenery, TARGETS, FORT_STYLES, EVENT_TARGETS } from './art.js';
 import { banner } from './paint.js';
+import { RIVALS } from '../../data/world.js';
 
 // Peintre d'un lieu (null : le médaillon reste)
 export function poiPainter(state, p, def, { th = 1, rivalColor = null } = {}) {
   const kind = def.kind;
   if (kind === 'capital') { const tier = th >= 20 ? 5 : th >= 10 ? 3 : 1; return { key: `cap${tier}`, w: 1.9, draw: (pp) => PAINT.townhall(pp, tier, 0, { active: true }) }; }
   // v24 : chaque royaume rival a son architecture (FORT_STYLES) ; sa forteresse grandit avec sa puissance
-  if (kind === 'kingdom') { const st = (p.rival ?? 0) % FORT_STYLES.length, t = Math.min(4, 2 + Math.floor((p.power || 1) / 1.2)); return { key: `kg${st}|${t}|${rivalColor}`, w: 1.8, draw: (pp) => TARGETS.kingdom(pp, t, st, { style: st, color: rivalColor }) }; }
+  if (kind === 'kingdom') {
+    // v26 : architecture et couleurs tirées de l'identité de la maison (data/world.js), plus du numéro de rival
+    const id = RIVALS[p.rival]?.identity;
+    const found = id ? FORT_STYLES.findIndex((f) => f.key === id.arch) : -1;
+    const st = found >= 0 ? found : (p.rival ?? 0) % FORT_STYLES.length, t = Math.min(4, 2 + Math.floor((p.power || 1) / 1.2));
+    const col = id?.colors?.[0] || rivalColor;
+    return { key: `kg${st}|${t}|${col}`, w: 1.8, draw: (pp) => TARGETS.kingdom(pp, t, st, { style: st, color: col }) };
+  }
+  // v26 : Île de Cendre et métropole (cité fortifiée : murailles de son protecteur ou de son nouveau maître)
+  if (p.type === 'ashIsle') return { key: `isle|${p.owner === 'me' ? 'me' : 'x'}`, w: 1.4, draw: (pp) => EVENT_TARGETS.isle(pp, 3, 0, { owner: p.owner }) };
+  if (kind === 'town' && p.metro) { const id = p.metro.status === 'vassal' ? null : RIVALS[p.metro.protector]?.identity; const st = Math.max(0, FORT_STYLES.findIndex((f) => f.key === (id?.arch || 'ardoise'))); const col = p.metro.status === 'vassal' ? '#2f5fb0' : id?.colors?.[0] || '#e2b84a'; return { key: `metro${st}|${col}`, w: 2, draw: (pp) => EVENT_TARGETS.metro(pp, 4, 0, { style: st, color: col }) }; }
   if (kind === 'town') { const r = Math.min(3, p.rank || 0); return { key: `town${r}`, w: 1.5 + r * 0.1, draw: (pp) => PAINT.market(pp, 1 + r, 2, { active: true }) }; }
   if (kind === 'village') return { key: 'vil', w: 1.2, draw: (pp) => hamletRuin(pp) };
   // v25 : cible d'événement : dessin propre à l'événement et à sa phase (vaincue, levée → campement brûlé)
@@ -55,8 +66,25 @@ export function drawPoiPainted(ctx, painter, px, py, T, alpha = 1) {
   ctx.save(); ctx.globalAlpha = alpha;
   if (sp.shadow) ctx.drawImage(sp.shadow, px - sp.sx * k, topY - sp.sy * k, sp.shadow.width * k, sp.shadow.height * k);
   ctx.drawImage(sp.art, px - sp.ax * k, topY - sp.ay * k, sp.art.width * k, sp.art.height * k);
+  // v26 : fumées des cheminées, feux de camp et forges (enregistrées à la cuisson, jamais dessinées sur le monde
+  // jusqu'ici) : volutes qui montent ; fixes si les animations sont réduites, absentes en vue d'ensemble
+  if (sp.fx?.length && T >= 18) worldSmoke(ctx, sp.fx, px, topY, k, s, alpha);
   ctx.restore();
   return (T * painter.w) / 2;
+}
+function worldSmoke(ctx, list, px, topY, k, s, alpha) {
+  const reduce = typeof document !== 'undefined' && document.documentElement.classList.contains('reduce-motion');
+  const now = typeof performance !== 'undefined' ? performance.now() : 0;
+  for (const e of list) {
+    const x0 = px + e.x * k, y0 = topY + e.y * k, sc = s * k;
+    for (let i = 0; i < Math.min(5, e.n + 1); i++) {
+      const ph = reduce ? i / 5 : ((now / 2600 + i / 5 + (e.x % 7) / 7) % 1);
+      const x = x0 + (ph * 14 + Math.sin(ph * 6 + i) * 2) * sc, y = y0 - ph * 34 * sc, rr = (3 + ph * 9) * sc;
+      const gr = ctx.createRadialGradient(x, y, 0, x, y, rr);
+      gr.addColorStop(0, `rgba(238,232,222,${(0.55 * (1 - ph)) * alpha})`); gr.addColorStop(1, 'rgba(238,232,222,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.fill();
+    }
+  }
 }
 // Avant-poste du joueur : tour de guet à sa bannière
 export const outpostPainter = (color) => ({ key: `op${color}`, w: 1.15, draw: (pp) => { PAINT.watchtower(pp, 1, 0, { active: true }); banner(pp, 0.5, 0.5, 96, [color, '#f1d36a'], 24); } });

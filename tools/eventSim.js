@@ -50,7 +50,8 @@ function session(s, now) {
     const c = s.world.capital, h = hidden.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
     planMarch(s, { type: 'explore', x: h.x, y: h.y, units: { scout: 1 } }, now).ok && sendMarch(s, { type: 'explore', x: h.x, y: h.y, units: { scout: 1 } }, now);
   }
-  const busy = new Set(marchesOf(s).map((m) => m.targetId));
+  // une garnison en place n'empêche pas de la renforcer (régions tenues, Citadelle)
+  const busy = new Set(marchesOf(s).filter((m) => m.phase !== 'hold').map((m) => m.targetId));
   for (const t of targets(s, now).slice(0, 10)) {
     if (marchesOf(s).filter((m) => m.phase !== 'hold').length >= LE.maxLiveMarches(s)) break;
     if (busy.has(t.id)) continue;
@@ -58,7 +59,11 @@ function session(s, now) {
     const act = acts.find((a) => PEACE.includes(a) && LE.planLive(s, { action: a, targetId: t.id, units: { _p: 0 } }, now).reason !== 'Il faut au moins un éclaireur') || (acts.includes('attack') ? 'attack' : acts.find((a) => a === 'garrison'));
     if (!act) continue;
     let units;
-    if (act === 'attack' || act === 'garrison' || act === 'escort') {
+    const holding = act === 'garrison' && marchesOf(s).some((m) => m.targetId === t.id && m.phase === 'hold');
+    if (holding) { // renfort d'une garnison déjà en place : un petit détachement suffit (pas de combat à l'arrivée)
+      const u = Object.entries(s.army).filter(([k, n]) => n > 0 && k !== 'scout' && k !== 'spy').sort((a, b) => b[1] - a[1])[0];
+      if (!u) continue; units = { [u[0]]: Math.min(u[1], 10) };
+    } else if (act === 'attack' || act === 'garrison' || act === 'escort') {
       const r = autoFillLive(s, { action: act, targetId: t.id }, now);
       if (!r.ok || (r.boss && (r.damage || 0) < 50)) continue;
       units = r.units;

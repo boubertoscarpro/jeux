@@ -12,6 +12,7 @@ import { EVENT_STANCES } from '../../data/liveEvents.js';
 import { marchMods } from '../../systems/marches.js';
 import { dayKey } from '../../systems/shards.js';
 import { worldShowRing, eventMarchDialog } from './world.js';
+import { marchSpeedupButton, speedupActions } from '../speedups.js';
 import { esc, countdown, progress, bar, resChips } from '../components.js';
 
 const giveText = (g, cur) => {
@@ -105,7 +106,7 @@ function marchList(app, cur) {
     const end = liveMarchNext(m);
     const phase = { out: 'En route', work: 'Au travail', back: 'Retour', hold: 'En garnison', wait: 'Attend vos ordres' }[m.phase];
     const start = m.phase === 'out' ? m.start : m.phase === 'work' ? m.workEnd - (m.workEnd - m.arrive) : m.returnAt - m.travel;
-    return `<div class="q-row"><div class="q-top"><span>${ACTIONS[m.action]?.icon || '🚶'} ${t ? esc(targetName(cur, t)) : `(${m.x}, ${m.y})`} · ${phase}</span>${end < Infinity ? countdown(end) : ''}${m.phase !== 'back' ? `<button class="mini ghost" data-action="ev-recall" data-id="${m.id}">↩</button>` : ''}</div>
+    return `<div class="q-row"><div class="q-top"><span>${ACTIONS[m.action]?.icon || '🚶'} ${t ? esc(targetName(cur, t)) : `(${m.x}, ${m.y})`} · ${phase}</span>${end < Infinity ? countdown(end) : ''}${marchSpeedupButton(app.state, m)}${m.phase !== 'back' ? `<button class="mini ghost" data-action="ev-recall" data-id="${m.id}">↩</button>` : ''}</div>
       <div class="muted small">${Object.values(m.units).reduce((a, b) => a + b, 0)} unités${Object.keys(m.loot).length ? ' · ' + resChips(m.loot) : ''}</div>${end < Infinity ? progress(start, end) : ''}</div>`;
   }).join('')}</div>`;
 }
@@ -189,6 +190,7 @@ export default {
     'ev-send': (app, el) => eventMarchDialog(app, el.dataset.act, el.dataset.id),
     'ev-show': (app, el) => worldShowRing(app, +el.dataset.x, +el.dataset.y),
     'ev-map': (app) => { const c = app.state.world.capital; worldShowRing(app, c.x, c.y); app.ui.ring = null; },
+    ...speedupActions,
     'ev-list-all': (app) => { app.ui.evListAll = !app.ui.evListAll; app.render(); },
     'ev-recall': (app, el) => app.act(() => recallLive(app.state, el.dataset.id), 'Troupes rappelées'),
     'ev-claim': (app, el) => app.act(() => claimObjective(app.state, el.dataset.id), (r) => `🎁 ${r.text}`),

@@ -34,7 +34,7 @@ Captures :
   - elles sont en anneaux autour de la capitale et des avant-postes : palier I à 4-8 cases, palier VII à 22-24 cases, forteresses et chefs au plus loin ;
   - le placement est déterministe ; jamais sur une rivière ou une montagne (sauf si l'événement l'exige), ni sur un lieu ou un territoire ; les cibles sont espacées ;
   - 24 cibles visibles au plus.
-- **Une seule liste de marches** : `state.marches`, avec le type `event`. Les marches d'événement ont les mêmes tracés, les mêmes accélérateurs et le même rappel que les autres, plus leur propre plafond.
+- **Une seule liste de marches** : `state.marches`, avec le type `event`. Les marches d'événement ont les mêmes tracés et le même rappel que les autres, plus leur propre plafond. *Correction v26 : cette version promettait aussi « les mêmes accélérateurs », ce qui était faux (aucune marche n'en profitait). C'est corrigé en v26 (bug A2).*
   - **Départ** : la capitale ou l'avant-poste le plus proche, au choix.
   - **Trajets** : vrais trajets du monde × 4.
 - **Les règles de chaque événement** utilisent le vrai monde :

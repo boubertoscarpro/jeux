@@ -75,6 +75,25 @@ async function measure(page) {
       await ctx.close();
     }
   }
+  // v26 : carte du monde pendant un événement (étiquettes, écussons de niveau, comptes à rebours), trois zooms
+  for (const [W, H, tag] of SIZES) {
+    const ctx = await browser.newContext({ viewport: { width: W, height: H } });
+    const page = await ctx.newPage();
+    await page.goto(URL); await page.waitForTimeout(400);
+    await page.click('[data-kt="merchants"]'); await page.click('#intro-review'); await page.click('#intro-start'); await page.waitForTimeout(400);
+    await page.evaluate(() => { const a = window.cendrelande, s = a.state; s.meta.tipsOff = true; s.live.current = null; s.live.calendar = [{ key: 'steppes', start: Date.now() - 1000, end: Date.now() + 72 * 3600e3 }]; s.meta.nextWorldTick = 1; a.closeModal(); });
+    await page.waitForTimeout(1200);
+    for (const z of [0.45, 1, 1.6]) {
+      await page.evaluate((z) => { const a = window.cendrelande; a.closeModal(); a.state.world.revealed.fill(1); a.ui.map = 'world'; a.go('world'); const c = a.ui.cam; c.x = a.state.world.capital.x + 0.5; c.y = a.state.world.capital.y + 0.5; c.zoom = z; }, z);
+      await page.waitForTimeout(700);
+      const m = await page.evaluate(() => { const a = window.cendrelande; a.views.world.render && document.getElementById('world-canvas') && a.render(); return null; });
+      void m;
+      await page.waitForTimeout(500);
+      const wm = await page.evaluate(() => window.cendrelande._worldMeasure || null);
+      out[`monde-evenement-${tag}-z${z}`] = wm ? { texts: wm.labels, marks: wm.labels + wm.overlays, overlaps: wm.overlaps + wm.droppedImportant.length, hidden: wm.wanted - wm.labels, useful: null, examples: wm.droppedImportant.slice(0, 4).map((t) => `étiquette importante masquée : ${t}`) } : { overlaps: 1, examples: ['mesure du monde absente'] };
+    }
+    await ctx.close();
+  }
   await browser.close();
   console.log(JSON.stringify(out, null, 1));
   const bad = Object.entries(out).filter(([, m]) => m.overlaps > 0);

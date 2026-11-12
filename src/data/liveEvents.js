@@ -347,7 +347,7 @@ export const LIVE_EVENTS = {
     faction: { name: 'Horde de cendre', icon: '🏗️', desc: 'Engins de siège et soldats anciens.' },
     currency: { key: 'citadelSeals', name: 'Sceaux de la Citadelle', icon: '🏯', convert: { res: 'stone', per: 100, amount: 300 } },
     enemies: { camp: { ancientSoldier: 10, banditArcher: 6 }, assault: { ancientSoldier: 30, royalArcher: 20, royalKnight: 10 } },
-    passScale: 0.2, // v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
+    passScale: 0.23, // v26 (était 0,2) — v25 : points par palier de passe (tools/eventSim.js, joueur moyen en 72 h)
     world: { assaultDir: true, targets: [{ type: 'bastion', count: 1 }, { type: 'camp', count: 8, tiers: [1, 7] }, { type: 'boss', count: 1 }] },
     objectives: [
       { id: 'a3', label: 'Participer à la défense de 3 assauts', stat: 'assaults', target: 3, reward: { citadelSeals: 600, chest: 'rare' } },
