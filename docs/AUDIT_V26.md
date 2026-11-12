@@ -49,11 +49,19 @@ Captures :
 - **Ressources ou armée négatives, NaN** : aucune, ni dans les 10 fixtures après 24 h, ni dans la partie longue (180 jours, 0 erreur console).
 
 ### Fuites (session de 2 h dans le navigateur)
-MESURE_FUITES
+Session automatique de **2 h**, **3 767 boucles** : 11 vues ouvertes et fermées, aller-retour château/monde. Version compilée en début de lot B.
+
+| Moment | Mémoire JS (après ramasse-miettes) | Nœuds DOM | Minuteurs | Écouteurs sur window et document |
+|---|---|---|---|---|
+| Démarrage | 21,3 Mo (chargement) | 1 596 | 2 | 9 |
+| Après 5 boucles | 10,7 Mo | 1 576 | 2 | 10 |
+| Fin (2 h) | 14,1 Mo | 1 587 | 2 | 10 |
+
+**Aucune fuite** : tout reste stable, et aucune erreur. Les écouteurs posés sans `removeEventListener` sont attachés à des éléments remplacés à chaque rendu, et disparaissent avec eux. Les caches de peinture sont bornés.
 
 ### Partie longue
 - `profileSim`, profil actif sur 180 jours (code du lot A) : 0 erreur console, aucune valeur invalide, aucune ressource négative.
-- 30 jours après les lots B et C : MESURE_30J
+- 30 jours après les lots B et C : profil actif, 0 erreur console, aucune valeur invalide ni ressource négative ; sauvegarde de 646 Ko avant compression.
 
 ## 2. Mesures
 
@@ -63,7 +71,7 @@ MESURE_FUITES
 | `npm run smoke` | 52 vues, 0 erreur | **53 vues, 491 actions, 0 erreur** |
 | `npm run layout` | 372 vérifications | **378 vérifications, aucun problème** |
 | `npm run overlaps` | 0 (ville seulement) | **0, ville et carte du monde pendant un événement** (3 tailles × 3 zooms ; aucune étiquette importante masquée) |
-| `npm run simulate` | sans erreur | MESURE_SIM |
+| `npm run simulate` | sans erreur | sans erreur (profils 7 jours × 2 graines, économie 90 jours × 40) |
 | Taille du jeu | 2 270 Ko | 2 310 Ko |
 | Sauvegarde dans le navigateur (fin de partie) | 480 Ko | **97 Ko** (compressée) |
 
