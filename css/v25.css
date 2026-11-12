@@ -38,3 +38,6 @@
 
 /* v26 : terrains à bâtir discrets hors mode Construire (le nom n'apparaît qu'en mode Construire ou une fois choisi) */
 .tile.lot.lot-quiet .lot-name { display: none; }
+.cq-list { display: grid; gap: 6px; margin: 6px 0; }
+.cq-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 236, 190, 0.06); border: 1px solid rgba(214, 178, 94, 0.22); }
+.cq-row > :first-child { flex: 1 1 140px; }

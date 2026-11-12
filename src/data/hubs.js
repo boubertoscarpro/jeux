@@ -14,7 +14,7 @@ export const HUBS = {
   ] },
   realm: { name: 'Royaume', sig: 'crown', icon: '👑', key: 'K', blurb: 'Gouvernement, diplomatie, fêtes et saison', sections: [
     { name: 'Gouvernement', screens: ['goals', 'policy', 'council', 'projects', 'order'] },
-    { name: 'Diplomatie et terres', screens: ['factions', 'guild', 'territories', 'farlands'] },
+    { name: 'Diplomatie et terres', screens: ['factions', 'conquest', 'guild', 'territories', 'farlands'] },
     { name: 'Fêtes et saison', screens: ['event', 'eventShop', 'calendar', 'kingdom', 'wheel', 'shards'] },
   ] },
   lore: { name: 'Savoir', sig: 'bookOpen', icon: '📖', key: 'J', blurb: 'Recherche, explorations et archives', sections: [

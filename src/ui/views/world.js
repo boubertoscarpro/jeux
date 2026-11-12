@@ -2,6 +2,7 @@ import { drawEventLayers, drawFactionWars, drawEventOverlay, eventPoiAlpha, ring
 import { liveState, eventTargetOfPoi, liveTarget, planLive, sendLive, livePreview, liveFoe, actionsFor, ACTIONS, targetName, actionCost, liveTravel, maxLiveMarches, eventMarches } from '../../systems/liveEvents.js';
 import { eventBases, nearestBase } from '../../systems/eventWorld.js';
 import { LIVE_EVENTS } from '../../data/liveEvents.js';
+import { metroAttackable, metroDefense, conquestState } from '../../systems/conquest.js';
 import { drawSigil, fillTextSigils } from '../sigils.js';
 import { campLevel, campScale } from '../../systems/realm21.js';
 import { armyPresets, presetUnits, saveArmyPreset } from '../../systems/comfort.js';
@@ -147,6 +148,19 @@ function drawWorldCoast(ctx, ox, oy, T, S) {
   ctx.strokeStyle = 'rgba(232,206,150,0.55)'; ctx.lineWidth = Math.max(1, k * 0.18); ctx.strokeRect(x0, y0, L, L); // lumière sur le rebord
   ctx.restore();
 }
+// v26 : métropole (grande cité libre fortifiée) : état, défenses, maison protectrice, assaut par siège
+const METRO_STATUS = { free: 'indépendante, fortifiée', vassal: 'votre vassale', pillaged: 'pillée, se relève', liberated: 'libérée, reconnaissante' };
+function metroPanel(app, poi, now) {
+  const s = app.state, M = poi.metro;
+  const house = M.protector != null ? RIVALS[M.protector] : null;
+  const canAtk = metroAttackable(poi, now);
+  const D = canAtk && poi.scouted ? metroDefense(s, poi) : null;
+  return `<div class="panel-sub metro-card"><h4>🏰 Métropole · ${esc(METRO_STATUS[M.status] || M.status)}</h4>
+    <div class="small">${house ? `Protégée par <b>${esc(house.name)}</b> : la prendre change votre relation et sa mémoire.` : 'Sans protecteur.'} Murs : ${Math.round(M.wall * 100)} %.</div>
+    ${D ? `<div class="chips">${Object.entries(D.enemies).map(([u, n]) => `<span class="unit-chip">${ALL_UNITS[u]?.icon || ''} ${n} ${esc(ALL_UNITS[u]?.name || u)}</span>`).join('')}</div>` : canAtk ? '<div class="small muted">Garnison inconnue : espionnez-la avant l’assaut.</div>' : ''}
+    ${M.regrowAt > now ? `<div class="small muted">Se relève encore ${countdown(M.regrowAt)}.</div>` : ''}
+    ${canAtk ? '<div class="row gap"><button class="btn primary" data-action="march" data-type="attack">⚔️ Assiéger</button><button class="btn" data-action="march" data-type="scout">👁️ Espionner</button></div><div class="small muted">Prise, la cité vous laisse choisir : la piller, la vassaliser (tribut, mais contre-attaque) ou la libérer.</div>' : ''}</div>`;
+}
 const EVT_ICON = { camp: '⛺', port: '⚓', vault: '🚪', crypt: '⚰️', pack: '🐺', zone: '🚩', fortress: '🏯', boss: '👑', caravan: '🐫', ship: '⛵', treasure: '💰', village: '🏘️', hearth: '🔥', riddle: '❓', trace: '🐾', lair: '🐉', vein: '🪙', vent: '🌋', bastion: '🏰', horde: '💀', herald: '🎪' };
 function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span class="ok">Sûr</span>'; }
 
@@ -167,7 +181,7 @@ export function drawMap(app) {
   clampWorldCam(c, W, H, w.size);
   const T = BASE_TILE * c.zoom;
   const ox = W / 2 - c.x * T, oy = H / 2 - c.y * T;
-  drawWorldSea(ctx, ox, oy, T, w.size, W, H, now, document.documentElement.classList.contains('reduce-motion')); // v26 : la mer au-delà du monde
+  drawWorldSea(ctx, ox, oy, T, w.size, W, H, Date.now(), document.documentElement.classList.contains('reduce-motion')); // v26 : la mer au-delà du monde
   const x0 = Math.max(0, Math.floor(-ox / T)), y0 = Math.max(0, Math.floor(-oy / T));
   const x1 = Math.min(w.size - 1, Math.ceil((W - ox) / T)), y1 = Math.min(w.size - 1, Math.ceil((H - oy) / T));
   const now = Date.now();
@@ -767,6 +781,7 @@ function tilePanel(app) {
         <div class="row gap"><button class="btn primary" data-action="march" data-type="attack">⚔️ Attaquer</button><button class="btn" data-action="march" data-type="scout">👁️ Espionner</button></div>`;
     }
     if (def.kind === 'town') {
+      if (poi.metro) html += metroPanel(app, poi, now);
       html += townPanel(app, poi, mods);
     }
     if (def.kind === 'npc') html += npcPanel(s, poi, now);
@@ -982,11 +997,13 @@ function updateMarchPreview(app) {
   let enemyMods = null, enemyFormation;
   if (poi && md.type === 'attack') { enemies = poi.type === 'kingdom' ? poi.garrison : poi.enemies; fort = poi.wall || 0; }
   if (poi?.breach && md.type === 'attack') { const D = breachDefense(s, poi); enemies = D.enemies; fort = D.fort; enemyMods = D.enemyMods; enemyFormation = D.formation; }
+  const metroD = poi?.metro && md.type === 'attack' && metroAttackable(poi, Date.now()) ? { ...metroDefense(s, poi), enemyMods: { 'combat.atk': 0.25, 'combat.def': 0.25 } } : null; // v26 : métropole
+  if (metroD) { enemies = metroD.enemies; fort = metroD.fort; enemyMods = metroD.enemyMods; }
   if (poi && md.type === 'gather' && poi.danger > 0) enemies = poi.enemies;
   if (md.type === 'boss' && s.boss) { enemies = { [BOSSES[s.boss.key].unit]: 1 }; bossHp = s.boss.hp; }
   // v19 : une place fortifiée s'assiège ; le conseil de guerre (sous la fenêtre) remplace l'aperçu simple
   const sp = document.getElementById('siege-plan');
-  const tg = md.type === 'attack' && poi ? siegeTarget(s, poi, poi.breach ? breachDefense(s, poi) : null) : null;
+  const tg = md.type === 'attack' && poi ? siegeTarget(s, poi, poi.breach ? breachDefense(s, poi) : metroD) : null;
   app.ui.siegeTarget = tg;
   if (sp) sp.innerHTML = tg ? siegePlanHtml(app, md, tg, { mods, poi, terrain: poi.type === 'kingdom' ? 'city' : wTerrain(s.world, md.x, md.y), enemyMods: enemyMods || { 'combat.atk': 0.05 * (poi.danger || 0), 'combat.def': 0.05 * (poi.danger || 0) } }) : POI_TYPES[poi?.type]?.kind === 'danger' ? campNoteHtml() : '';
   if (!tg && md.siegePlan) md.siegePlan = null;

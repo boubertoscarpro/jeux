@@ -55,7 +55,7 @@ test('Cadre isométrique : marges autour du losange (la lisière n’est jamais 
 // v25 : le « lieu d'événement » unique de la v24 est remplacé par les cibles de l'événement sur le monde (tests/v25.test.js)
 
 test('Cibles du monde : chaque catégorie de lieu a son dessin (plus de médaillon générique), royaumes à 5 styles', () => {
-  const special = new Set(['capital', 'town', 'village', 'ruinSite', 'lostCity', 'abandonedMine', 'breachFort', 'evt']); // peints ailleurs (evt : EVENT_TARGETS, v25)
+  const special = new Set(['capital', 'town', 'village', 'ruinSite', 'lostCity', 'abandonedMine', 'breachFort', 'evt', 'ashIsle']); // peints ailleurs (evt, ashIsle : EVENT_TARGETS, v25-v26)
   const missing = Object.keys(POI_TYPES).filter((k) => !special.has(k) && !k.startsWith('npc_') && !TARGETS[k]);
   assert.deepEqual(missing, []);
   assert.ok(TARGETS.npc, 'marchands itinérants');

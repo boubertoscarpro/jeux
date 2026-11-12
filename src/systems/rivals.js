@@ -7,6 +7,7 @@ import { raidPenalty } from './warcampaign.js';
 import { RIVALS, POI_TYPES } from '../data/world.js';
 import { BASE_RES, RESOURCES } from '../data/resources.js';
 import { rng } from '../core/rng.js';
+import { bannerMode, BANNER_MODES, bannerOnRaid, addSeasonPoints, maybeCapture } from './conquest.js';
 import { uid, fmt } from '../core/util.js';
 import { thLevel, levelOf, allBuildings } from './city.js';
 import { BUILDINGS } from '../data/buildings.js';
@@ -97,10 +98,14 @@ export function rivalTick(state, now) {
   const candidates = kingdoms(state).filter((p) => raidWillingness(state, p.rival) > 0 || (p.anger || 0) > 0);
   if (!candidates.length) return;
   const p = rng.pick(candidates);
-  const chance = raidWillingness(state, p.rival) + (p.anger || 0) * 0.06;
+  // v26 : fausses bannières : la garnison montrée aux espions change l'envie et la taille du raid (si la ruse tient)
+  const ruse = bannerMode(state, now) !== 'none' ? BANNER_MODES[bannerMode(state, now)] : null;
+  const chance = (raidWillingness(state, p.rival) + (p.anger || 0) * 0.06) * (ruse ? ruse.chance : 1);
   if (!rng.chance(chance)) return;
   const mods = computeMods(state, now);
-  const army = raidArmy(state, p, now);
+  const bo = ruse ? bannerOnRaid(state, p.rival, now) : { army: 1 };
+  const army0 = raidArmy(state, p, now);
+  const army = bo.army === 1 ? army0 : Object.fromEntries(Object.entries(army0).map(([u, n]) => [u, Math.max(1, Math.round(n * bo.army))]));
   const warn = raidWarning(state, mods);
   state.raidCooldown = now + warn + RAID_TRUCE_H * 3600 * 1000; // trêve après chaque raid
   feat('⚔️', `Raid en approche : ${p.name}`, 'Renforcez la garnison, montez les murailles ou évacuez les réserves.', 'bad');
@@ -154,6 +159,8 @@ export function resolveRaid(state, raid, t) {
   let text;
   if (win) {
     state.stats.raidsRepelled++;
+    addSeasonPoints(state, 100, `raid de ${raid.name} repoussé`, t); // v26 : saison de guerre
+    maybeCapture(state, 'kingdom', { name: `Capitaine de ${raid.name}`, house: raid.rival, rank: 1 }, t); // v26 : prisonnier
     state.raidLossStreak = 0;
     bumpRep(state, 'warrior', 5);
     changeRelation(state, raid.rival, 3);

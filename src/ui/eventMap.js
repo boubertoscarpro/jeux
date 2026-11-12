@@ -185,7 +185,7 @@ export function ringActions(state, poi, now = Date.now()) {
   const out = [];
   if (def.kind === 'danger' && !def.dungeon && !(poi.clearedUntil > now)) out.push({ act: 'attack', kind: 'march', type: 'attack' }, { act: 'scout', kind: 'march', type: 'scout' });
   if (def.dungeon) out.push({ act: 'dungeon', kind: 'march', type: 'dungeon' });
-  if (def.kind === 'kingdom') out.push({ act: 'attack', kind: 'march', type: 'attack' }, { act: 'scout', kind: 'march', type: 'scout' });
+  if (def.kind === 'kingdom' || (def.kind === 'town' && poi.metro && poi.metro.status !== 'vassal' && !(poi.metro.regrowAt > now))) out.push({ act: 'attack', kind: 'march', type: 'attack' }, { act: 'scout', kind: 'march', type: 'scout' });
   if (def.kind === 'gather' && poi.amount >= 1) { out.push({ act: 'gather', kind: 'march', type: 'gather' }); if (poi.danger) out.push({ act: 'scout', kind: 'march', type: 'scout' }); }
   if (def.kind === 'boss' && state.boss) out.push({ act: 'boss', kind: 'march', type: 'boss' });
   if (!out.length) return [];

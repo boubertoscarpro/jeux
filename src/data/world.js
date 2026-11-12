@@ -65,6 +65,8 @@ export const POI_TYPES = {
   // v25 : cible d'un événement projetée sur le monde (systems/liveEvents.js, syncEventPois) ; ses règles sont celles de
   // l'événement (anneau d'actions, fiche, envoi d'une marche d'événement)
   evt:         { name: 'Cible d’événement', icon: '🎪', kind: 'event', terrain: [] },
+  // v26 : Île de Cendre (archipel qui émerge au bord du monde une semaine sur trois ; systems/conquest.js)
+  ashIsle:     { name: 'Île de Cendre', icon: '🌋', kind: 'danger', terrain: [], danger: [3, 6], enemies: { magmaling: 6, banditArcher: 4, bandit: 6 } },
 };
 
 // Variante obtenue après avoir nettoyé une mine abandonnée

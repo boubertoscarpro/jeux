@@ -26,7 +26,7 @@ export const PLACES = {
   herald: { kind: 'building', type: 'herald', screens: ['event', 'eventShop', 'kingdom'] },
   lists: { kind: 'building', type: 'lists', screens: ['challenges'] },
   scriptorium: { kind: 'building', type: 'scriptorium', screens: ['journal', 'accomplish', 'history', 'stats'] },
-  world: { kind: 'map', name: 'Carte du monde', icon: '🌍', screens: ['world', 'territories', 'farlands'] },
+  world: { kind: 'map', name: 'Carte du monde', icon: '🌍', screens: ['world', 'territories', 'farlands', 'conquest'] },
   profile: { kind: 'hud', name: 'Profil du seigneur', icon: '🛡️', screens: ['profile'] },
   settings: { kind: 'hud', name: 'Réglages', icon: '⚙️', screens: ['settings', 'admin'] },
 };

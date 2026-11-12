@@ -1,10 +1,11 @@
 import { addWounded, campScale, onCampCleared, onAttackLaunched } from './realm21.js';
 import { attackFortress, hashSeed, siegeState, planEngines, validatePlan } from './siege.js';
+import { isMetroTarget, metroAttackable, metroDefense, onMetroTaken, maybeCapture, addSeasonPoints, onIsleTaken } from './conquest.js';
 import { payBounty, npcMeet } from './npcs.js';
 import { scar } from './worldmarks.js';
 import { remember } from './rivalry.js';
 import { UNITS } from '../data/units.js';
-import { POI_TYPES } from '../data/world.js';
+import { POI_TYPES, RIVALS } from '../data/world.js';
 import { RESOURCES } from '../data/resources.js';
 import { EXPLORE_EVENTS } from '../data/exploration.js';
 import { CONSUMABLES } from '../data/items.js';
@@ -100,17 +101,20 @@ export function planMarch(state, opts, now = Date.now()) {
     if (!units.scout) return fail('Il faut au moins un éclaireur');
   } else if (type === 'scout') {
     if (!units.scout) return fail('Il faut au moins un éclaireur');
-    if (!poi || !['danger', 'kingdom', 'gather', 'boss', 'breach'].includes(def.kind)) return fail('Rien à espionner ici');
+    if (!poi || (!['danger', 'kingdom', 'gather', 'boss', 'breach'].includes(def.kind) && !poi.metro)) return fail('Rien à espionner ici');
   } else if (type === 'gather') {
     if (!poi || def.kind !== 'gather') return fail('Pas de site de récolte');
     if (poi.amount < 1) return fail('Site épuisé');
     if (state.marches.some((m) => m.type === 'gather' && m.x === x && m.y === y)) return fail('Déjà une récolte en cours sur ce site');
     if (!gatherRate(units, mods, def.res)) return fail('Ces unités ne peuvent pas récolter');
   } else if (type === 'attack') {
-    if (!poi || !['danger', 'kingdom', 'breach'].includes(def.kind)) return fail('Rien à attaquer ici');
+    // v26 : une métropole (grande cité libre fortifiée) s'assiège aussi
+    const metro = isMetroTarget(poi);
+    if (metro && !metroAttackable(poi, now)) return fail(poi.metro.status === 'vassal' ? 'Cette métropole est déjà votre vassale' : 'La cité se relève : elle redevient attaquable plus tard');
+    if (!poi || (!metro && !['danger', 'kingdom', 'breach'].includes(def.kind))) return fail('Rien à attaquer ici');
     // v19 : plan de siège (engins de l'arsenal) contre une place fortifiée seulement
     if (opts.siegePlan && Object.keys(planEngines(opts.siegePlan)).length) {
-      if (def.kind === 'danger') return fail('Les engins ne servent à rien contre un camp sans enceinte');
+      if (def.kind === 'danger' && !metro) return fail('Les engins ne servent à rien contre un camp sans enceinte');
       const v = validatePlan(state, opts.siegePlan, { oneFlank: false });
       if (!v.ok) return fail(v.reason);
     }
@@ -380,6 +384,18 @@ function finishGather(state, m, frac, t) {
   guildProgress(state, def.res, amount);
 }
 
+// v26 : assaut d'une métropole (siège par flancs v19) ; victoire → décision sur le sort de la cité, gouverneur capturé
+function arriveMetro(state, m, t, poi) {
+  if (!metroAttackable(poi, t)) { log(state, 'info', `⚔️ ${poi.name} n’est plus attaquable : vos troupes rentrent.`, t); return goBack(m, t); }
+  const D = metroDefense(state, poi);
+  const res = marchBattle(state, m, D.enemies, t, { danger: 5, fort: D.fort, enemyLabel: `Garnison de ${poi.name}`, terrain: 'city' });
+  const win = res.winner === 'attacker';
+  if (win) { poi.metro.garrison = null; onMetroTaken(state, poi, t); bumpRep(state, 'warrior', 8); }
+  else { poi.metro.garrison = res.defRemaining; log(state, 'bad', `⚔️ L’assaut sur ${poi.name} échoue. Ses murs tiennent encore.`, t); }
+  addReport(state, { t, kind: 'battle', title: `Siège de ${poi.name}`, x: poi.x, y: poi.y, win, result: res });
+  if (!Object.values(m.units).some((n) => n > 0)) return homecoming(state, m, t);
+  goBack(m, t);
+}
 function arriveAttack(state, m, t, mods, poi) {
   const def = poi && POI_TYPES[poi.type];
   if (def?.kind === 'breach' && poi.breach) return arriveBreach(state, m, t, mods, poi);
@@ -390,6 +406,7 @@ function arriveAttack(state, m, t, mods, poi) {
   }
   let enemies = poi.enemies || {};
   let fort = 0;
+  if (isMetroTarget(poi)) return arriveMetro(state, m, t, poi);
   if (def.kind === 'kingdom') {
     const f = state.factions?.[poi.rival];
     if (f && f.stance !== 'war') { diplomacy(state, poi.rival, 'war', t); log(state, 'bad', `⚔️ Votre attaque contre ${poi.name} est un acte de guerre.`, t); }
@@ -439,6 +456,10 @@ function arriveAttack(state, m, t, mods, poi) {
     const { got, limited } = lootWithCarry(state, m, baseLoot, mods);
     bumpRep(state, 'warrior', def.kind === 'kingdom' ? 6 : 1 + Math.floor(poi.danger / 2));
     if (def.kind === 'kingdom') { scar(state, poi.x, poi.y, t, 48, 'sac'); bumpRep(state, 'tyrant', 3); changeRelation(state, poi.rival, -10); remember(state, poi.rival, 'sack', -18, 'Capitale pillée par vos armées', t); }
+    // v26 : seigneur capturé (prisonnier), points de saison de guerre, île conquise
+    if (def.kind === 'kingdom') { maybeCapture(state, 'kingdom', { name: RIVALS[poi.rival]?.lord || 'Un seigneur', house: poi.rival, rank: 2 }, t); addSeasonPoints(state, 150, `victoire sur ${poi.name}`, t); }
+    else addSeasonPoints(state, 10 + 5 * (poi.danger || 0), 'victoire', t);
+    if (poi.type === 'ashIsle') onIsleTaken(state, poi, t);
     recordMax(state, 'biggestLoot', Object.values(got).reduce((a, b) => a + b, 0), `${def.kind === 'kingdom' ? poi.name : def.name} (${Object.values(got).reduce((a, b) => a + b, 0)} ressources)`, t);
     recordMax(state, 'biggestVictory', Object.values(res.defLosses).reduce((a, b) => a + b, 0), `${Object.values(res.defLosses).reduce((a, b) => a + b, 0)} ennemis — ${def.kind === 'kingdom' ? poi.name : def.name}`, t);
     state.stats.enemiesKilled = (state.stats.enemiesKilled || 0) + Object.values(res.defLosses).reduce((a, b) => a + b, 0);
@@ -474,6 +495,8 @@ function arriveBreach(state, m, t, mods, poi) {
   const out = onBreachBattle(state, poi, res, { merit, units: sent, sentCount, lost, lostRatio: lost / Math.max(1, sentCount), formation: m.formation }, t);
   const parts = [];
   if (out.win) {
+    maybeCapture(state, 'breach', { name: poi.breach?.lord || 'Seigneur de la Brèche', house: null, rank: 2 }, t); // v26 : prisonnier
+    addSeasonPoints(state, 120, `forteresse de la Brèche`, t);
     const r = out.rewards;
     const { got, limited } = lootWithCarry(state, m, r.res, mods);
     parts.push(`Butin : ${Object.entries(got).map(([k, v]) => `${fmt(v)} ${RESOURCES[k].icon}`).join(' ') || 'rien'}${limited ? ' (limité par la capacité de transport)' : ''}`);

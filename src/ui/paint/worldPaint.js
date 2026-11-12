@@ -21,6 +21,9 @@ export function poiPainter(state, p, def, { th = 1, rivalColor = null } = {}) {
     const col = id?.colors?.[0] || rivalColor;
     return { key: `kg${st}|${t}|${col}`, w: 1.8, draw: (pp) => TARGETS.kingdom(pp, t, st, { style: st, color: col }) };
   }
+  // v26 : Île de Cendre et métropole (cité fortifiée : murailles de son protecteur ou de son nouveau maître)
+  if (p.type === 'ashIsle') return { key: `isle|${p.owner === 'me' ? 'me' : 'x'}`, w: 1.4, draw: (pp) => EVENT_TARGETS.isle(pp, 3, 0, { owner: p.owner }) };
+  if (kind === 'town' && p.metro) { const id = p.metro.status === 'vassal' ? null : RIVALS[p.metro.protector]?.identity; const st = Math.max(0, FORT_STYLES.findIndex((f) => f.key === (id?.arch || 'ardoise'))); const col = p.metro.status === 'vassal' ? '#2f5fb0' : id?.colors?.[0] || '#e2b84a'; return { key: `metro${st}|${col}`, w: 2, draw: (pp) => EVENT_TARGETS.metro(pp, 4, 0, { style: st, color: col }) }; }
   if (kind === 'town') { const r = Math.min(3, p.rank || 0); return { key: `town${r}`, w: 1.5 + r * 0.1, draw: (pp) => PAINT.market(pp, 1 + r, 2, { active: true }) }; }
   if (kind === 'village') return { key: 'vil', w: 1.2, draw: (pp) => hamletRuin(pp) };
   // v25 : cible d'événement : dessin propre à l'événement et à sa phase (vaincue, levée → campement brûlé)

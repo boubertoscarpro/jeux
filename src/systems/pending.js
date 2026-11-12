@@ -7,10 +7,13 @@ import { resolveDecision, decisionSource, fillDilemma } from './decisions.js';
 import { describeRiddle, resolveRiddle } from './liveEvents.js';
 import { describeSaga, resolveSaga } from './sagas.js';
 import { describeNpc, resolveNpc } from './npcs.js';
+import { describeMetro, resolveMetro, describePrisoner, resolvePrisoner } from './conquest.js';
 
 // Décrit une décision en attente, quelle que soit son origine
 export function describePending(state, p) {
   if (p.kind === 'riddle') return describeRiddle(p);
+  if (p.kind === 'metro') return describeMetro(state, p); // v26
+  if (p.kind === 'prisoner') return describePrisoner(state, p); // v26
   if (p.kind === 'saga') return describeSaga(p);
   if (p.kind === 'npc') return describeNpc(state, p);
   if (p.kind === 'ally') return describeAlly(state, p);
@@ -33,6 +36,8 @@ export function resolveAny(state, pid, idx, now = Date.now()) {
   if (!p) return { ok: false, reason: 'Décision introuvable' };
   if (p.kind === 'exp') return resolveExpeditionEvent(state, pid, idx, now);
   if (p.kind === 'riddle') return resolveRiddle(state, pid, idx, now);
+  if (p.kind === 'metro') return resolveMetro(state, pid, idx, now);
+  if (p.kind === 'prisoner') return resolvePrisoner(state, pid, idx, now);
   if (p.kind === 'saga') return resolveSaga(state, pid, idx, now);
   if (p.kind === 'npc') return resolveNpc(state, pid, idx, now);
   if (p.kind === 'ally') return resolveAlly(state, pid, idx, now);

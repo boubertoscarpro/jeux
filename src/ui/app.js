@@ -18,6 +18,7 @@ import defenseView from './views/defense.js';
 import omensView from './views/omens.js';
 import orderView from './views/order.js';
 import farlandsView from './views/farlands.js';
+import conquestView from './views/conquest.js';
 import choresView from './views/chores.js';
 import { profileView, settingsView } from './views/kingdom.js';
 import { bldgView } from './views/city.js';
@@ -100,7 +101,7 @@ import { missionsTick } from '../systems/missions.js';
 // Catégories de navigation → sous-onglets (débloqués progressivement)
 export const GROUPS = [
   { id: 'g-kingdom', title: 'Royaume', icon: '🏰', tabs: [cityView, goalsView, challengesView, policyView, councilView, projectsView, omensView, orderView] },
-  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, farlandsView, factionsView, archaeoView, legendView] },
+  { id: 'g-world', title: 'Monde', icon: '🗺️', tabs: [worldView, territoriesView, farlandsView, factionsView, conquestView, archaeoView, legendView] },
   { id: 'g-army', title: 'Armée', icon: '⚔️', tabs: [armyView, warView, defenseView, choresView] },
   { id: 'g-prod', title: 'Production', icon: '⛏️', tabs: [ecoReportView, stewardView, workersView, expeditionsView, chainsView] },
   { id: 'g-trade', title: 'Commerce', icon: '🚚', tabs: [marketView, convoysView, shopView, goldShopView] },

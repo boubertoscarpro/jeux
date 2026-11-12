@@ -1235,7 +1235,10 @@ export const EVENT_TARGETS = {
   boss: (p, t, v, o) => TARGETS.boss(p, t, v, o),
   horde: (p, t, v, o) => { const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.5); const gr = g.createRadialGradient(x, y, 0, x, y, 50 * s); gr.addColorStop(0, 'rgba(120,255,180,.25)'); gr.addColorStop(1, 'rgba(120,255,180,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, 50 * s, 0, 7); g.fill(); for (const [u, vv] of [[0.3, 0.4], [0.46, 0.34], [0.62, 0.42], [0.36, 0.58], [0.54, 0.56], [0.7, 0.6], [0.44, 0.74], [0.6, 0.76]].slice(0, 4 + Math.min(4, t))) skeleton(p, u, vv, 1.1); banner(p, 0.5, 0.5, 0, ['#1a1a1a', '#6aff9a'], 40); },
   herald: (p, t, v, o) => TARGETS.eventSite(p, 3, v, { ...o, phase: 'upcoming' }),
+  // v26 : Île de Cendre (îlot noir aux cristaux, au bord du monde) et métropole fortifiée
+  isle: (p, t, v, o) => { const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.55); g.fillStyle = 'rgba(90,150,200,.5)'; g.beginPath(); g.ellipse(x, y + 4 * s, 58 * s, 22 * s, 0, 0, 7); g.fill(); g.fillStyle = '#3a2e2a'; g.beginPath(); g.ellipse(x, y, 44 * s, 18 * s, 0, 0, 7); g.fill(); strokeInk(p, 1); rock(p, 0.44, 0.44, 1.1); crystals(p, 0.6, 0.58, ['#ff8a3a', '#a83a10', '#ffc07a'], 4, 26); if (o.owner === 'me') banner(p, 0.3, 0.6, 0, [o.color || '#2f5fb0', '#f1d36a'], 26); smoke(p, ...p.P(0.44, 0.4, 40), 3); },
   ruins: (p, t, v, o) => campRuins(p, v, o.style === 'steppes' ? '#c8bca0' : '#6a625a'),
+  metro: (p, t, v, o) => { siteGround(p, '#8a7a5a', 0.56, 0.6); fortress(p, FORT_STYLES[o.style ?? 2], 4, [o.color || '#e2b84a', '#1a120c']); PAINT.market(p, 3, v, { active: true }); },
 };
 // Tas de minerai (fer, argent, charbon)
 function ore(p, u, v, c1, c2) {
