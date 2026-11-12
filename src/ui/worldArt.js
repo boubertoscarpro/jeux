@@ -147,6 +147,8 @@ export function placeLabels(ctx, labels, W, H, blocked = []) {
       { x: l.x + off, y: l.y - h / 2 },
       { x: l.x - off - w, y: l.y - h / 2 },
     ];
+    // v26 : les étiquettes importantes (capitale, chef, menace) ont plus de places possibles, un peu plus loin
+    if (l.prio >= 90) for (const k of [1.8, 2.8]) cands.push({ x: l.x - w / 2, y: l.y + off * k }, { x: l.x - w / 2, y: l.y - off * k - h }, { x: l.x + off * k, y: l.y - h / 2 }, { x: l.x - off * k - w, y: l.y - h / 2 }, { x: l.x + off, y: l.y + off }, { x: l.x - off - w, y: l.y - off - h });
     const c = cands.find((r) => r.x >= 0 && r.y >= 0 && r.x + w <= W && r.y + h <= H && !hit({ ...r, w, h }));
     if (!c) continue;
     const rect = { ...c, w, h };
