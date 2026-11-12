@@ -76,11 +76,13 @@ POI_TYPES.ironNodeRich = { name: 'Mine reconquise', icon: '⚒️', kind: 'gathe
 export const TOWN_NAMES = ['Valbrume', 'Port-Ardoise', 'Sainte-Gemme', 'Hautegarde', 'Mirecourt', 'Bourg-aux-Saules', 'Ormeval', 'Brise-Lame', 'Saint-Arlan', 'Vieux-Gué', 'Marchebrune', 'Roche-Aigle'];
 // Royaumes rivaux (IA)
 export const RIVALS = [
-  { name: 'Baronnie de Corbeval', lord: 'Baron Mordain', style: 'raider', personality: 'aggressive', icon: '🦅', color: '#c0392b' },
-  { name: 'Comté d’Ombrelune', lord: 'Comtesse Isolde', style: 'defensive', personality: 'isolationist', icon: '🌙', color: '#5d6d9e' },
-  { name: 'Clan des Crocs-Gris', lord: 'Ragnulf le Gris', style: 'raider', personality: 'military', icon: '🐺', color: '#7f8c8d' },
-  { name: 'Principauté de Valdor', lord: 'Prince Aurèle', style: 'balanced', personality: 'commercial', icon: '🦁', color: '#d4a017' },
-  { name: 'Ordre de la Cendre', lord: 'Grand Maître Cassien', style: 'defensive', personality: 'technological', icon: '🔥', color: '#8e44ad' },
+  // v26 : identité de chaque maison écrite dans les données : architecture de ses places fortes (FORT_STYLES de
+  // ui/paint/art.js), couleurs de ses bannières, blason (champ, partition, meuble), appliqués sur la carte du monde
+  { name: 'Baronnie de Corbeval', lord: 'Baron Mordain', style: 'raider', personality: 'aggressive', icon: '🦅', color: '#c0392b', identity: { arch: 'bois', colors: ['#c0392b', '#1e1a18'], blazon: { field: '#c0392b', second: '#1e1a18', division: 'chef', charge: '🦅' } } },
+  { name: 'Comté d’Ombrelune', lord: 'Comtesse Isolde', style: 'defensive', personality: 'isolationist', icon: '🌙', color: '#5d6d9e', identity: { arch: 'ardoise', colors: ['#5d6d9e', '#e8e2d2'], blazon: { field: '#5d6d9e', second: '#e8e2d2', division: 'plain', charge: '🌙' } } },
+  { name: 'Clan des Crocs-Gris', lord: 'Ragnulf le Gris', style: 'raider', personality: 'military', icon: '🐺', color: '#7f8c8d', identity: { arch: 'fort', colors: ['#7f8c8d', '#2a2a2a'], blazon: { field: '#7f8c8d', second: '#2a2a2a', division: 'pale', charge: '🐺' } } },
+  { name: 'Principauté de Valdor', lord: 'Prince Aurèle', style: 'balanced', personality: 'commercial', icon: '🦁', color: '#d4a017', identity: { arch: 'gres', colors: ['#d4a017', '#7a1f1f'], blazon: { field: '#d4a017', second: '#7a1f1f', division: 'plain', charge: '🦁' } } },
+  { name: 'Ordre de la Cendre', lord: 'Grand Maître Cassien', style: 'defensive', personality: 'technological', icon: '🔥', color: '#8e44ad', identity: { arch: 'noir', colors: ['#8e44ad', '#1a1018'], blazon: { field: '#8e44ad', second: '#1a1018', division: 'bend', charge: '🔥' } } },
 ];
 
 // Personnalités des factions IA

@@ -59,7 +59,11 @@ function session(s, now) {
     const act = acts.find((a) => PEACE.includes(a) && LE.planLive(s, { action: a, targetId: t.id, units: { _p: 0 } }, now).reason !== 'Il faut au moins un éclaireur') || (acts.includes('attack') ? 'attack' : acts.find((a) => a === 'garrison'));
     if (!act) continue;
     let units;
-    if (act === 'attack' || act === 'garrison' || act === 'escort') {
+    const holding = act === 'garrison' && marchesOf(s).some((m) => m.targetId === t.id && m.phase === 'hold');
+    if (holding) { // renfort d'une garnison déjà en place : un petit détachement suffit (pas de combat à l'arrivée)
+      const u = Object.entries(s.army).filter(([k, n]) => n > 0 && k !== 'scout' && k !== 'spy').sort((a, b) => b[1] - a[1])[0];
+      if (!u) continue; units = { [u[0]]: Math.min(u[1], 10) };
+    } else if (act === 'attack' || act === 'garrison' || act === 'escort') {
       const r = autoFillLive(s, { action: act, targetId: t.id }, now);
       if (!r.ok || (r.boss && (r.damage || 0) < 50)) continue;
       units = r.units;

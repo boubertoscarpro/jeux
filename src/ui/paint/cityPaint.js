@@ -62,7 +62,9 @@ export function cityItems(app, ctx, { film = null, night = false, raid = null, r
     if (q) items.push({ x, y, depth: depth(x, y, LAYER.building) + 1, k: 'scaf70', sp: (r) => scaffoldSprite(70, r), noShadow: true });
   }
   // terrains vagues (bâtiments « menu » à bâtir)
-  if (!ctx.place && !film) for (const l of ctx.lots.values()) items.push({ x: l.x, y: l.y, depth: depth(l.x, l.y, LAYER.building), k: 'lot', sp: lotSprite });
+  // v26 : discrets hors mode Construire (sol et piquets), panneau en mode Construire
+  const showLots = !!(app.ui.buildMode || app.ui.placeType);
+  if (!ctx.place && !film) for (const l of ctx.lots.values()) items.push({ x: l.x, y: l.y, depth: depth(l.x, l.y, LAYER.building), k: showLots ? 'lot' : 'lotQ', sp: (r) => lotSprite(r, showLots) });
   // silhouettes : mode architecte, aperçu d'un plan
   for (const g of ghosts(s)) {
     if (ctx.at.has(g.x + ',' + g.y)) continue;

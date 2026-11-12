@@ -281,7 +281,16 @@ function post(p, u, v, z, c = '#5a3a20') { const g = p.g; g.strokeStyle = INK; g
 // Signature : (p, t, v, o) — t palier 0..5, v variante, o { active, river, season, level }
 const fam = (k, v) => roofTint(ROOF_OF[k] || PAL.red, v);
 export const PAINT = {
-  townhall: (p, t) => townhallSheet(p, t <= 1 ? 1 : t <= 3 ? 3 : 5),
+  // v26 : six états lisibles (paliers 0 à 5) : chaque palier ajoute un élément reconnaissable
+  townhall: (p, t, v = 0) => {
+    townhallSheet(p, t <= 1 ? 1 : t <= 3 ? 3 : 5);
+    if (p.onlyGround) return;
+    if (t === 1 || t === 3) { barrel(p, 0.08, 0.6, '#9a6a3c'); crate(p, 0.9, 0.82, 0.06); } // réserves au pied du bâtiment
+    if (t >= 3) { banner(p, 0.06, 0.1, 0, ['#2f5fb0', '#f1d36a'], 26); banner(p, 0.94, 0.1, 0, ['#2f5fb0', '#f1d36a'], 26); } // oriflammes
+    if (t >= 4) { const g = p.g, s = p.s, [x, y] = p.P(0.5, 0.97); g.fillStyle = '#9aa4b0'; g.beginPath(); g.ellipse(x, y, 13 * s, 5 * s, 0, 0, 7); g.fill(); strokeInk(p, 0.8); g.fillStyle = '#6ab0e0'; g.beginPath(); g.ellipse(x, y - 1 * s, 10 * s, 3.4 * s, 0, 0, 7); g.fill(); } // fontaine de la place
+    if (t >= 5) for (const [u, vv] of [[0.04, 0.5], [0.96, 0.5]]) tree(p, u, vv, { kind: 'cone', size: 0.7 }); // ifs taillés
+    void v;
+  },
   castle: (p, t, v, o) => {
     const k0 = 0.24, k1 = 0.76, H = 56 + t * 6;
     tower(p, 0.2, 0.2, 0.11, 0, H + 10, { roof: PAL.red, roofKind: 'tile', roofH: 30, windows: 1 });
@@ -319,6 +328,11 @@ export const PAINT = {
     const spots = [[0.66, 0.12], [0.62, 0.5], [0.3, 0.56], [0.12, 0.62], [0.66, 0.72]];
     for (let i = 0; i < n; i++) stall(p, spots[i][0], spots[i][1], stripes[(i + v) % 4]);
     barrel(p, 0.48, 0.92); crate(p, 0.88, 0.5, 0.06);
+    // v26 : caisses (1), puits de la place (3), charrette de marchand (4), guirlandes de fanions (5)
+    if (t >= 1) crate(p, 0.4, 0.84, 0.05, '#c9965a');
+    if (t >= 3) { const g = p.g, s = p.s, [x, y] = p.P(0.42, 0.7); g.fillStyle = '#9aa4b0'; g.beginPath(); g.ellipse(x, y, 7 * s, 3 * s, 0, 0, 7); g.fill(); strokeInk(p, 0.7); post(p, 0.38, 0.7, 14); post(p, 0.46, 0.7, 14); }
+    if (t >= 4) cart(p, 0.86, 0.86, '#e3c25a');
+    if (t >= 5) { const g = p.g, s = p.s; const a = p.P(0.06, 0.4, 26), b = p.P(0.62, 0.06, 30); g.strokeStyle = '#5a3a20'; g.lineWidth = 0.8 * s; g.beginPath(); g.moveTo(...a); g.quadraticCurveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 8 * s, ...b); g.stroke(); for (let i = 1; i < 8; i++) { const f = i / 8, x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f + Math.sin(f * Math.PI) * 4 * s; g.fillStyle = stripes[i % 4]; g.beginPath(); g.moveTo(x - 2 * s, y); g.lineTo(x + 2 * s, y); g.lineTo(x, y + 4 * s); g.closePath(); g.fill(); } }
   },
   tavern: (p, t, v, o) => {
     hall(p, t, v, { roof: fam('places', v), kind: 'tile', u0: 0.16, v0: 0.16, u1: 0.84, v1: 0.74, h1: 22, h2: 20, rh: 28, sym: 'mug', glow: 1, active: o.active });
@@ -376,6 +390,10 @@ export const PAINT = {
     shedRoof(p, 0.6, 0.53, 0.94, 0.92, 30, 22, fam('military', v));
     if (t >= 3) { const [x, y] = p.P(0.84, 0.8); figure(p, x, y, { tunic: '#5a3a20', skin: '#e8b88a' }); }
     if (t >= 4) logs(p, 0.2, 0.86, 3);
+    // v26 : réserve de charbon (1), râtelier de lames (2), seconde enclume et cheminée haute (5)
+    if (t >= 1) { const g = p.g, s = p.s, [x, y] = p.P(0.3, 0.62); g.fillStyle = '#2a2624'; g.beginPath(); g.ellipse(x, y - 3 * s, 8 * s, 5 * s, 0, Math.PI, 0); g.lineTo(x + 8 * s, y); g.lineTo(x - 8 * s, y); g.closePath(); g.fill(); strokeInk(p, 0.6); }
+    if (t >= 2) weaponRack(p, 0.08, 0.6);
+    if (t >= 5) { box(p, 0.5, 0.14, 0.58, 0.22, 22, 70, { G: mat(p, 'stone'), D: mat(p, 'stone'), top: '#5a5450' }); smoke(p, ...p.P(0.54, 0.18, 74), 4); }
   },
   armory: (p, t, v, o) => {
     hall(p, t, v, { low: 'stone', high: 'stone', roof: fam('military', v), kind: 'tile', u0: 0.14, v0: 0.18, u1: 0.86, v1: 0.8, h1: 26, h2: 20, rh: 26, sym: 'sword', chim: false,
@@ -419,6 +437,12 @@ export const PAINT = {
   },
   barracks: (p, t, v) => {
     barracksSheet(p);
+    if (p.onlyGround) return;
+    // v26 : paliers lisibles : mannequins d'entraînement (1), râtelier (2), palissade (3), tours (3 et 4), drapeau (5)
+    if (t >= 1) { post(p, 0.3, 0.74, 18); post(p, 0.5, 0.8, 18); }
+    if (t >= 2) weaponRack(p, 0.66, 0.66);
+    if (t >= 3) fence(p, 0.04, 0.98, 0.6, 0.98, 7);
+    if (t >= 4) tower(p, 0.06, 0.1, 0.08, 0, 58, { roof: fam('military', v), roofKind: 'tile', roofH: 22, windows: 1 });
     if (t >= 3) tower(p, 0.94, 0.1, 0.09, 0, 64, { roof: fam('military', v), roofKind: 'tile', roofH: 24, windows: 1, flag: t >= 5 ? ['#a83a2a', '#f1d36a'] : null });
   },
   stable: (p, t, v, o) => {
@@ -496,6 +520,10 @@ export const PAINT = {
     farmSheet(p);
     if (p.onlyGround) return;
     if (t >= 3) { box(p, 0.06, 0.52, 0.2, 0.66, 0, 20, { G: mat(p, 'planks', '#a8402a'), D: mat(p, 'planks', '#a8402a') }); gable(p, 0.05, 0.51, 0.21, 0.67, 20, 12, { axis: 'v', color: PAL.brown, kind: 'shingle', o: 0.02 }); }
+    // v26 : épouvantail (1), meules de foin (2), grange (3), charrette (4), bannière (5)
+    if (t >= 1) { post(p, 0.86, 0.3, 22); const g = p.g, s = p.s, [x, y] = p.P(0.86, 0.3, 18); g.strokeStyle = '#6b4a2a'; g.lineWidth = 2 * s; g.beginPath(); g.moveTo(x - 7 * s, y); g.lineTo(x + 7 * s, y); g.stroke(); g.fillStyle = '#c9a04a'; g.beginPath(); g.arc(x, y - 5 * s, 3 * s, 0, 7); g.fill(); strokeInk(p, 0.6); }
+    if (t >= 2) for (const [u, vv] of [[0.88, 0.62], [0.92, 0.78]]) { const g = p.g, s = p.s, [x, y] = p.P(u, vv); g.fillStyle = '#d8b04a'; g.beginPath(); g.ellipse(x, y - 5 * s, 7 * s, 7 * s, 0, Math.PI, 0); g.lineTo(x + 7 * s, y); g.lineTo(x - 7 * s, y); g.closePath(); g.fill(); strokeInk(p, 0.7); }
+    if (t >= 4) cart(p, 0.3, 0.92, '#d8b04a');
     if (t >= 5) banner(p, 0.46, 0.08, 0, ['#2f5fb0', '#f1d36a'], 16);
   },
   pasture: (p, t, v, o) => {
@@ -646,9 +674,17 @@ export function road(p) {
   for (let y = -34; y < 34; y += 5) for (let x = -62 + (y % 10 ? 3 : 0); x < 62; x += 7) { g.fillStyle = lit('#c4b494', r.range(-0.12, 0.12)); g.beginPath(); g.ellipse(cx + x * s, cy + y * s, 3.1 * s, 1.9 * s, 0, 0, 7); g.fill(); }
   g.restore(); poly(g, pts); g.strokeStyle = rgba('#5a4a30', 0.5); g.lineWidth = 1 * s; g.stroke();
 }
-export function lot(p) {
+// v26 : terrain à bâtir discret hors mode Construire (sol tassé, piquets bas, quelques pavés) ; le panneau n'apparaît
+// qu'en mode Construire (show)
+export function lot(p, show = true) {
   const g = p.g, s = p.s;
   const pts = [p.P(0.1, 0.1), p.P(0.9, 0.1), p.P(0.9, 0.9), p.P(0.1, 0.9)];
+  if (!show) {
+    poly(g, pts); g.fillStyle = 'rgba(176,140,90,.22)'; g.fill(); g.setLineDash([3 * s, 5 * s]); g.strokeStyle = 'rgba(107,74,38,.55)'; g.lineWidth = 1 * s; g.stroke(); g.setLineDash([]);
+    for (const [u, v] of [[0.36, 0.42], [0.52, 0.56], [0.62, 0.38]]) { const [x, y] = p.P(u, v); g.fillStyle = '#b8a78a'; g.beginPath(); g.ellipse(x, y, 5 * s, 2.4 * s, 0, 0, 7); g.fill(); strokeInk(p, 0.5); }
+    for (const [u, v] of [[0.1, 0.1], [0.9, 0.1], [0.9, 0.9], [0.1, 0.9]]) { const [x, y] = p.P(u, v); g.fillStyle = '#c9a36a'; g.fillRect(x - 1 * s, y - 4 * s, 2 * s, 4 * s); }
+    return;
+  }
   poly(g, pts); g.fillStyle = 'rgba(201,163,106,.45)'; g.fill(); g.setLineDash([5 * s, 4 * s]); g.strokeStyle = '#6b4a26'; g.lineWidth = 1.4 * s; g.stroke(); g.setLineDash([]);
   const [x, y] = p.P(0.5, 0.55);
   g.strokeStyle = INK; g.lineWidth = 3.4 * s; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 32 * s); g.stroke(); g.strokeStyle = '#7a4a26'; g.lineWidth = 2 * s; g.stroke();

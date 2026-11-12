@@ -58,7 +58,7 @@ export function buildingSprite(type, tier, v, o, s) {
 }
 export const scenerySprite = (ter, v, season, s) => sprite(`s|${ter}|${v % 6}|${season}`, s, (p) => scenery(p, ter, v % 6, season));
 export const roadSprite = (s) => sprite('road', s, (p) => road(p));
-export const lotSprite = (s) => sprite('lot', s, (p) => lot(p));
+export const lotSprite = (s, show = true) => sprite(show ? 'lot' : 'lotQ', s, (p) => lot(p, show));
 export const scaffoldSprite = (h, s) => sprite(`scaf|${h}`, s, (p) => scaffold(p, h));
 export const decoSprite = (icon, season, s) => sprite(`d|${icon}|${season}`, s, (p) => deco(p, icon, season));
 export const trophySprite = (shape, color, s) => sprite(`t|${shape}|${color}`, s, (p) => trophy(p, shape, color));

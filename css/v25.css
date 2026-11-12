@@ -35,3 +35,6 @@
 .ev-onmap .ev-list .row { flex-wrap: nowrap; }
 .ev-threats { display: grid; gap: 4px; margin: 6px 0; }
 @media (max-width: 640px) { .ev-onmap .ev-list td:nth-child(3) { display: none; } .act-ring .ring-btn { width: 52px; height: 52px; font-size: 10px; } }
+
+/* v26 : terrains à bâtir discrets hors mode Construire (le nom n'apparaît qu'en mode Construire ou une fois choisi) */
+.tile.lot.lot-quiet .lot-name { display: none; }

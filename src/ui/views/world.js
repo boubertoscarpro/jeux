@@ -1,4 +1,4 @@
-import { drawEventLayers, drawEventOverlay, eventPoiAlpha, ringHtml, ringActions, eventCardHtml, EVENT_PHASE_LABEL, hexA } from '../eventMap.js';
+import { drawEventLayers, drawFactionWars, drawEventOverlay, eventPoiAlpha, ringHtml, ringActions, eventCardHtml, EVENT_PHASE_LABEL, hexA } from '../eventMap.js';
 import { liveState, eventTargetOfPoi, liveTarget, planLive, sendLive, livePreview, liveFoe, actionsFor, ACTIONS, targetName, actionCost, liveTravel, maxLiveMarches, eventMarches } from '../../systems/liveEvents.js';
 import { eventBases, nearestBase } from '../../systems/eventWorld.js';
 import { LIVE_EVENTS } from '../../data/liveEvents.js';
@@ -101,6 +101,52 @@ const filters = (app) => { const f = (app.ui.mapF ||= { gather: true, danger: tr
 let rafPending = false;
 const redraw = (app) => { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; drawMap(app); }); };
 
+// v26 : écu héraldique (champ, partition chef / pal / bande, meuble en sceau dessiné)
+function drawBlazon(ctx, x, y, sz, b) {
+  ctx.save();
+  const shape = () => { ctx.beginPath(); ctx.moveTo(x - sz, y - sz); ctx.lineTo(x + sz, y - sz); ctx.lineTo(x + sz, y + sz * 0.15); ctx.quadraticCurveTo(x + sz, y + sz * 0.95, x, y + sz * 1.35); ctx.quadraticCurveTo(x - sz, y + sz * 0.95, x - sz, y + sz * 0.15); ctx.closePath(); };
+  shape(); ctx.fillStyle = b.field; ctx.fill();
+  ctx.save(); shape(); ctx.clip(); ctx.fillStyle = b.second;
+  if (b.division === 'chef') ctx.fillRect(x - sz, y - sz, 2 * sz, sz * 0.7);
+  else if (b.division === 'pale') ctx.fillRect(x, y - sz, sz, 2.4 * sz);
+  else if (b.division === 'bend') { ctx.beginPath(); ctx.moveTo(x - sz, y - sz); ctx.lineTo(x - sz * 0.4, y - sz); ctx.lineTo(x + sz, y + sz * 0.9); ctx.lineTo(x + sz, y + sz * 1.4); ctx.closePath(); ctx.fill(); }
+  ctx.restore();
+  shape(); ctx.lineWidth = Math.max(1.2, sz * 0.14); ctx.strokeStyle = '#f1d36a'; ctx.stroke();
+  drawSigil(ctx, b.charge, x, y + sz * 0.1, sz * 1.15, '#fff6e0');
+  ctx.restore();
+  return { x: x - sz, y: y - sz, w: 2 * sz, h: 2.4 * sz };
+}
+// v26 : bord du monde : une mer qui s'assombrit vers le large, des vagues lentes, une brume au loin ; sur le pourtour,
+// une falaise de terre et une ligne d'écume (au dézoom maximal, le monde est une île posée sur la mer)
+function drawWorldSea(ctx, ox, oy, T, S, W, H, now, reduce) {
+  const cx = ox + (S * T) / 2, cy = oy + (S * T) / 2, R = Math.max(W, H, S * T);
+  const gr = ctx.createRadialGradient(cx, cy, (S * T) / 2, cx, cy, R);
+  gr.addColorStop(0, '#2f6c8c'); gr.addColorStop(0.5, '#1d4a66'); gr.addColorStop(1, '#0f2638');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  // vagues : arcs clairs qui dérivent lentement
+  ctx.strokeStyle = 'rgba(200,230,245,0.18)'; ctx.lineWidth = 1.2;
+  const step = Math.max(26, T * 1.4), t = reduce ? 0 : (now / 4000) % 1;
+  for (let y = -step; y < H + step; y += step) for (let x = -step; x < W + step; x += step * 1.6) {
+    const px = x + ((y / step) % 2) * step * 0.8 + t * step * 0.6, py = y + Math.sin((x + y) * 0.01) * 4;
+    if (px > ox - 2 && px < ox + S * T + 2 && py > oy - 2 && py < oy + S * T + 2) continue;
+    ctx.beginPath(); ctx.arc(px, py, step * 0.22, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+  }
+  // brume au large
+  const mist = ctx.createRadialGradient(cx, cy, (S * T) * 0.62, cx, cy, R * 1.05);
+  mist.addColorStop(0, 'rgba(220,230,236,0)'); mist.addColorStop(1, 'rgba(220,230,236,0.35)');
+  ctx.fillStyle = mist; ctx.fillRect(0, 0, W, H);
+}
+function drawWorldCoast(ctx, ox, oy, T, S) {
+  const x0 = ox, y0 = oy, L = S * T, k = Math.max(3, Math.min(14, T * 0.35));
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(240,250,255,0.75)'; ctx.lineWidth = Math.max(1.5, k * 0.35); ctx.setLineDash([k * 1.2, k * 0.6]);
+  ctx.strokeRect(x0 - k * 0.9, y0 - k * 0.9, L + k * 1.8, L + k * 1.8); ctx.setLineDash([]); // écume
+  ctx.strokeStyle = '#6b4f34'; ctx.lineWidth = k; ctx.strokeRect(x0 - k / 2, y0 - k / 2, L + k, L + k); // falaise
+  ctx.strokeStyle = 'rgba(30,20,12,0.55)'; ctx.lineWidth = Math.max(1, k * 0.2); ctx.strokeRect(x0 - k, y0 - k, L + 2 * k, L + 2 * k);
+  ctx.strokeStyle = 'rgba(232,206,150,0.55)'; ctx.lineWidth = Math.max(1, k * 0.18); ctx.strokeRect(x0, y0, L, L); // lumière sur le rebord
+  ctx.restore();
+}
 const EVT_ICON = { camp: '⛺', port: '⚓', vault: '🚪', crypt: '⚰️', pack: '🐺', zone: '🚩', fortress: '🏯', boss: '👑', caravan: '🐫', ship: '⛵', treasure: '💰', village: '🏘️', hearth: '🔥', riddle: '❓', trace: '🐾', lair: '🐉', vein: '🪙', vent: '🌋', bastion: '🏰', horde: '💀', herald: '🎪' };
 function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span class="ok">Sûr</span>'; }
 
@@ -121,7 +167,7 @@ export function drawMap(app) {
   clampWorldCam(c, W, H, w.size);
   const T = BASE_TILE * c.zoom;
   const ox = W / 2 - c.x * T, oy = H / 2 - c.y * T;
-  ctx.fillStyle = '#0d0f14'; ctx.fillRect(0, 0, W, H);
+  drawWorldSea(ctx, ox, oy, T, w.size, W, H, now, document.documentElement.classList.contains('reduce-motion')); // v26 : la mer au-delà du monde
   const x0 = Math.max(0, Math.floor(-ox / T)), y0 = Math.max(0, Math.floor(-oy / T));
   const x1 = Math.min(w.size - 1, Math.ceil((W - ox) / T)), y1 = Math.min(w.size - 1, Math.ceil((H - oy) / T));
   const now = Date.now();
@@ -159,6 +205,7 @@ export function drawMap(app) {
   ctx.lineDashOffset = 0;
   // Brouillard à l'encre (opaque sur l'inconnu, bords irréguliers)
   drawFog(ctx, w, view, revealedCount(w), quality);
+  drawWorldCoast(ctx, ox, oy, T, w.size); // v26 : falaises et écume sur le pourtour du monde
   // Portée des territoires
   const mods = computeMods(s, now);
   const cpx = ox + (w.capital.x + 0.5) * T, cpy = oy + (w.capital.y + 0.5) * T;
@@ -214,6 +261,7 @@ export function drawMap(app) {
   }
   // v25 : couches des événements (neige, lave, cases brûlées) et menaces en marche vers vos terres
   tokens.push(...drawEventLayers(ctx, s, { T, ox, oy }, now, reduceMotion));
+  tokens.push(...drawFactionWars(ctx, s, { T, ox, oy }, now, reduceMotion)); // v26 : guerres entre factions rivales
   // Réseau logistique : routes des avant-postes vers leur relais (couleur selon le niveau, rouge si dangereuse)
   const net = logisticsNetwork(s, now);
   for (const [k, r] of Object.entries(net)) {
@@ -273,6 +321,8 @@ export function drawMap(app) {
         if (def.kind === 'capital' || def.kind === 'kingdom') { ctx.fillStyle = def.kind === 'capital' ? 'rgba(255,220,120,0.22)' : 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(px, py + T * 0.1, T * painter.w * 0.55, T * painter.w * 0.3, 0, 0, 7); ctx.fill(); }
         drawPoiPainted(ctx, painter, px, py, T, def.kind === 'event' ? eventPoiAlpha(p, now) : cleared ? 0.45 : 1);
         if (def.kind === 'event') drawEventOverlay(ctx, p, px, py, T, now, reduceMotion, overlays);
+        // v26 : blason de la maison rivale au-dessus de sa place forte (identité écrite dans les données)
+        if (def.kind === 'kingdom' && T >= 16 && RIVALS[p.rival]?.identity) { const r = drawBlazon(ctx, px + T * 0.62, py - T * 0.7, Math.max(8, Math.min(16, T * 0.24)), RIVALS[p.rival].identity.blazon); overlays.push(r); }
       } else drawMedallion(ctx, px, py, r, ring, icon, { alpha: cleared ? 0.4 : 1, glow });
     }
     if (major) blocked.push({ x: px - r, y: py - r, w: 2 * r, h: 2 * r });
@@ -867,6 +917,7 @@ function eventMarchDialog(app, act, id) {
       </div>
       <div id="march-preview"></div>
     </div>
+    ${t.type === 'fortress' && act === 'attack' ? '<div id="siege-plan"></div>' : ''}
     <div class="row gap end"><button class="btn ghost" data-action="close-modal">Annuler</button><button class="btn primary" data-action="send-march">Envoyer</button></div>`, marchActions, 'wide');
   updateMarchPreview(app);
 }
@@ -893,6 +944,15 @@ function updateEventPreview(app, el) {
     }
   }
   html += `<div class="small muted">Troupes d’événement en route : ${eventMarches(s).filter((m) => m.phase !== 'hold').length}/${maxLiveMarches(s)} (en plus de vos marches habituelles)</div>`;
+  // v26 : une forteresse d'événement s'assiège par flancs, vagues et engins (conseil de guerre de la v19)
+  const sp = document.getElementById('siege-plan');
+  if (sp) {
+    const pseudo = { id: t.id, x: t.x, y: t.y, wall: t.wall ?? 0.5, garrison: t.enemies, scouted: !!t.spied, danger: Math.min(6, t.tier || 6) };
+    const tg = siegeTarget(s, pseudo, null);
+    app.ui.siegeTarget = tg;
+    sp.innerHTML = tg ? siegePlanHtml(app, md, tg, { mods, poi: pseudo, terrain: wTerrain(s.world, t.x, t.y), enemyMods: { 'combat.atk': 0.04 * (t.tier || 8), 'combat.def': 0.04 * (t.tier || 8) } }) : '';
+    if (tg) html += '<div class="small">Place fortifiée : voyez le <b>conseil de guerre</b> sous le plan de siège.</div>';
+  }
   el.innerHTML = html;
 }
 

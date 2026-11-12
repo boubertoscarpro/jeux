@@ -56,12 +56,12 @@ export function drawEventLayers(ctx, s, view, now, reduce) {
   // Menaces en marche : harcèlement, assaut (rouge, comme une attaque entrante) ; prospecteurs rivaux (orange)
   for (const th of m.threats || []) {
     const a = mark(th.from.x, th.from.y), b = mark(th.to.x, th.to.y);
-    const hostile = th.kind !== 'rival';
-    ctx.strokeStyle = hostile ? 'rgba(230,40,40,0.9)' : 'rgba(255,160,40,0.9)';
+    const ally = th.kind === 'ally', hostile = th.kind !== 'rival' && !ally;
+    ctx.strokeStyle = ally ? 'rgba(70,190,100,0.9)' : hostile ? 'rgba(230,40,40,0.9)' : 'rgba(255,160,40,0.9)';
     ctx.lineWidth = Math.max(2, Math.min(4.5, T / 9)); ctx.setLineDash(hostile ? [10, 6] : [6, 6]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
     const f = Math.max(0, Math.min(1, (now - th.start) / Math.max(1, th.arrive - th.start)));
-    tokens.push({ army: hostile, raid: hostile, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: hostile ? '#d62828' : '#e08a2a', icon: hostile ? '⚔️' : '⛏', angle: Math.atan2(b.y - a.y, b.x - a.x), end: th.arrive, label: th.label });
+    tokens.push({ army: hostile || ally, raid: hostile, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f, col: ally ? '#3fae5a' : hostile ? '#d62828' : '#e08a2a', icon: ally ? '🛡️' : hostile ? '⚔️' : '⛏', angle: Math.atan2(b.y - a.y, b.x - a.x), end: th.arrive, label: th.label });
   }
   // Hordes : trait vers leur cible
   for (const t of m.targets) {
@@ -69,6 +69,27 @@ export function drawEventLayers(ctx, s, view, now, reduce) {
     const a = mark(t.x, t.y), b = mark(t.dest.x, t.dest.y);
     ctx.strokeStyle = 'rgba(120,255,170,0.85)'; ctx.lineWidth = Math.max(2, Math.min(4, T / 10)); ctx.setLineDash([3, 6]);
     ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  return tokens;
+}
+
+// v26 : guerres entre factions rivales : front visible entre leurs places fortes (pointillé rouge sombre qui avance,
+// colonnes qui se croisent), comme les armées en guerre sur la carte du genre
+export function drawFactionWars(ctx, s, view, now, reduce) {
+  const { T, ox, oy } = view;
+  const tokens = [];
+  const kp = {};
+  for (const p of Object.values(s.world.pois)) if (p.type === 'kingdom') kp[p.rival] = p;
+  for (const f of s.factions || []) for (const e of f.wars || []) {
+    if (e < f.idx) continue;
+    const A = kp[f.idx], B = kp[e];
+    if (!A || !B) continue;
+    const a = { x: ox + (A.x + 0.5) * T, y: oy + (A.y + 0.5) * T }, b = { x: ox + (B.x + 0.5) * T, y: oy + (B.y + 0.5) * T };
+    ctx.strokeStyle = 'rgba(150,30,30,0.75)'; ctx.lineWidth = Math.max(1.5, Math.min(3.5, T / 12)); ctx.setLineDash([12, 8]);
+    ctx.lineDashOffset = reduce ? 0 : -((now / 60) % 20);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    const ph = reduce ? 0.5 : ((now / 40000) % 1);
+    for (const [from, to, col] of [[a, b, A.color], [b, a, B.color]]) tokens.push({ army: true, raid: true, x: from.x + (to.x - from.x) * ph * 0.5, y: from.y + (to.y - from.y) * ph * 0.5, col: col || '#a8322a', icon: '⚔️', angle: Math.atan2(to.y - from.y, to.x - from.x), end: null, label: `Guerre : ${A.name} contre ${B.name}` });
   }
   return tokens;
 }

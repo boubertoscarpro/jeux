@@ -199,7 +199,8 @@ function objHtml(app, b, ctx) {
 function lotHtml(app, lot, ctx) {
   const d = BUILDINGS[lot.type];
   const sel = ctx.sel && ctx.sel.x === lot.x && ctx.sel.y === lot.y;
-  return `<button class="tile iso-b lot ${sel ? 'sel' : ''}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};--top:108px" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}"><span class="t-hit" style="${hitClip(60)}"></span><span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
+  const show = app.ui.buildMode || app.ui.placeType || sel; // v26 : nom visible en mode Construire ou une fois choisi
+  return `<button class="tile iso-b lot ${sel ? 'sel' : ''} ${show ? '' : 'lot-quiet'}" data-action="tile" data-x="${lot.x}" data-y="${lot.y}" style="${placeStyle(ctx.f, lot.x, lot.y, LAYER.building)};--top:108px" tabindex="${ctx.rove === lot.x + ',' + lot.y ? '0" data-roving="1' : '-1'}" aria-label="${esc(`Terrain vague : ${d.name} à bâtir (${lot.x}, ${lot.y}, intra-muros)`)}"><span class="t-hit" style="${hitClip(60)}"></span><span class="t-name lot-name">${esc(d.name)} · à bâtir</span></button>`;
 }
 // Mode Construire : cases où le bâtiment choisi peut aller (bonus de placement), cases interdites marquées d'une croix
 function placeHints(app, ctx) {
