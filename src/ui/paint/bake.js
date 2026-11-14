@@ -11,14 +11,15 @@ const mk = (w, h) => {
   const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
 };
 
-export function bake(w, h, draw, { outline = 1.6, light = 0.3, shade = 0.22, saturate = 1.12, s = 2 } = {}) {
+export function bake(w, h, draw, { outline = 1.6, light = 0.3, shade = 0.22, saturate = 1.12, s = 2, grad = null } = {}) {
   const art = mk(w, h), g = art.getContext('2d');
   draw(g);
   // 1. lumière d'ambiance, uniquement sur les pixels déjà peints
   if (light || shade) {
     g.save();
     g.globalCompositeOperation = 'source-atop';
-    const lg = g.createLinearGradient(0, 0, w, h);
+    const G = grad || [0, 0, w, h]; // v27 : dessin cuit dans un cadre rogné → dégradé dans le repère du cadre entier
+    const lg = g.createLinearGradient(G[0], G[1], G[2], G[3]);
     lg.addColorStop(0, `rgba(255,214,140,${light})`); lg.addColorStop(0.45, 'rgba(255,214,140,0)');
     lg.addColorStop(0.62, 'rgba(40,30,90,0)'); lg.addColorStop(1, `rgba(40,30,90,${shade})`);
     g.fillStyle = lg; g.fillRect(0, 0, w, h);

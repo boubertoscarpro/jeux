@@ -21,6 +21,14 @@ votre absence (12 h simulées au maximum) et un rapport vous attend à votre ret
 
 ## Ce qu'on y fait
 
+> **v27 — Netteté et vie (lot 1 : netteté)** :
+> - **Plus de flou au zoom** : la carte du monde et le château sont peints en tuiles, à la finesse réelle de l'écran (jusqu'au DPR 3). Aucune image n'est étirée plus de 1,25× (mesure automatique), sauf le terrain du monde en DPR 3 au zoom maximum (1,6×, choix du plan).
+> - **Zoom fluide** : le niveau en cours reste affiché pendant que le plus fin se peint en arrière-plan, puis apparaît en fondu.
+> - **Carte d'ensemble du monde** : massifs forestiers, relief, rivières, frontières et brouillard tracés en vectoriel et lissés.
+> - **Mémoire** : cache borné en mégaoctets. Les images du château passent d'environ 200 Mo à 60 à 130 Mo.
+>
+> Voir [`docs/V27.md`](docs/V27.md) et [`docs/AUDIT_V27.md`](docs/AUDIT_V27.md).
+
 > **v26 — Audit, finitions et nouvelles conquêtes** :
 > - **Audit** : 12 bugs trouvés et corrigés, chacun avec son test. Sauvegarde compressée (5 fois plus petite), fenêtre d'export si le stockage est plein, combats reproductibles, accélérateurs utilisables sur les marches.
 > - **Finitions** : bâtiments qui grandissent palier par palier, forteresses d'événement assiégées par flancs, guerres entre maisons et renforts visibles sur la carte, blasons et architecture de chaque maison, mer et falaises au bord du monde, terrains à bâtir discrets.

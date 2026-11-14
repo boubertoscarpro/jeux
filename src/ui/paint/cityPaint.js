@@ -1,8 +1,9 @@
 // v21 « Couleurs du Royaume » — Branche la scène peinte sur la carte du royaume : liste des dessins à poser (d'après
 // l'état, en lecture seule), canvas du sol et de la scène gardés d'un rendu à l'autre, redessinés seulement si le
 // contenu change. Les boutons HTML de views/city.js restent posés par-dessus (zones cliquables invisibles).
-import { groundCanvas, wallItems, drawScene, buildingSprite, scenerySprite, roadSprite, lotSprite, scaffoldSprite, decoSprite, trophySprite, paintStats } from './scene.js';
-import { depth, LAYER } from '../../systems/iso.js';
+import { setSpriteBudget, spriteStats, groundCanvas, groundKeyOf, paintGroundInto, sortScene, wallItems, drawScene, buildingSprite, scenerySprite, roadSprite, lotSprite, scaffoldSprite, decoSprite, trophySprite, paintStats } from './scene.js';
+import { depth, LAYER, toScreen } from '../../systems/iso.js';
+import { defineLayer, dropLayer, drawLayer, pickLevel, setTileBudget, sharp, tileDebug, boxTouchesTile, TILE_PX } from '../tiles.js';
 import { rectOf, gateOf, alleeTiles, wallStyle, fortLevel } from '../../systems/castle.js';
 import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { sizeTier, variantOf } from '../../systems/mapSignals.js';
@@ -10,15 +11,6 @@ import { decoDef } from '../../systems/trophies.js';
 import { ghosts } from '../../systems/architect.js';
 import { WALLP } from './art.js';
 import { terrainAt } from '../../systems/city.js';
-
-// Qualité graphique : pixels de canvas par pixel du monde (borné pour les très grands domaines)
-const RES = { high: 1.5, medium: 1.25, low: 1 };
-// v22b : selon le zoom et la densité de l'écran, par paliers de 0,5 (la scène est repeinte quand le zoom se pose)
-export function paintRes(f, gfx, z = 1) {
-  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
-  const want = Math.max(1, Math.round((RES[gfx] || RES.high) * dpr * Math.max(0.7, Math.min(2.2, z)) * 2) / 2);
-  return Math.max(0.75, Math.min(want, 8192 / f.width, Math.sqrt(24e6 / (f.width * f.height))));
-}
 
 // Dessins de la ville : { x, y, depth, k (clé), sp(s), alpha?, filter? }
 export function cityItems(app, ctx, { film = null, night = false, raid = null, rank = 0 } = {}) {
@@ -89,32 +81,144 @@ export function groundOpts(app, ctx, film) {
   return { rect: r, moat: fortLevel(s, 'moat'), season: ctx.scene.season, allee: film ? [] : alleeTiles(s, r).map((a) => a.x + ',' + a.y), gate: gateOf(s, r) };
 }
 
-// Canvas persistants (sol, scène) : rattachés à la place vide du rendu, redessinés si la clé change
-const keep = { ground: null, scene: null, sceneKey: '', fx: [] };
+// ───────── v27 : sol et scène en tuiles, à la finesse de l'écran ─────────
+// Le domaine n'est plus peint dans deux canvas géants (bornés en mémoire, donc étirés au zoom) : sol et scène sont
+// découpés en tuiles de 512 px source, peintes à la finesse R (px source par px du monde) choisie selon le zoom et la
+// densité de l'écran, jamais étirées plus de 1,25×. Deux canvas de la taille de la fenêtre, posés dans le plan du château
+// (sous les boutons, au même endroit qu'avant), recopient les tuiles visibles à chaque mouvement de caméra.
+export const CITY_LEVELS = { high: [0.5, 1, 2, 3, 4, 6], medium: [0.5, 1, 2, 3, 4], low: [0.5, 1, 2] };
+export const pixelRatio = () => Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+// Finesse voulue pour un zoom (cuisson des dessins de la fin de chantier, mesures)
+export function paintRes(f, gfx, z = 1) { return pickLevel(CITY_LEVELS[gfx] || CITY_LEVELS.high, z * pixelRatio()); }
+
+const keep = { ground: null, scene: null, fx: [], vp: null, getCam: null, items: null, model: null, state: null, f: null, gopts: null, gkey: '', gfx: 'high', R: 1 };
 const mkCanvas = (cls) => { const c = document.createElement('canvas'); c.className = cls; c.setAttribute('aria-hidden', 'true'); return c; };
-export function attachPaint(gslot, slot, state, f, R, items, gopts) {
+const PAD = 3;
+// Modèle de la scène pour une liste de dessins : placement et ordre calculés une fois, à la finesse 1 (les rectangles
+// sont proportionnels à la finesse), puis tuiles → dessins qui les touchent
+function sceneModel(items, f) {
+  if (keep.model && keep.model.items === items && keep.model.f === f) return keep.model;
+  const placed = items.map((it) => { const q = toScreen(f, it.x, it.y); const sp = it.sp(1); return { it, X: q.sx, Y: q.sy, sp }; });
+  const fx = [];
+  for (const p of placed) if (p.it.smoke !== false && p.sp.art) for (const e of p.sp.fx) fx.push({ x: p.X + e.x, y: p.Y + e.y, n: e.n });
+  const order = sortScene(placed.slice());
+  // rectangle occupé (dessin et ombre) en px du monde
+  for (const p of order) {
+    const sp = p.sp; let a = [p.X, p.Y, p.X, p.Y];
+    if (sp.art) a = [p.X - sp.ax, p.Y - sp.ay, p.X - sp.ax + sp.art.width, p.Y - sp.ay + sp.art.height];
+    if (sp.shadow) a = [Math.min(a[0], p.X - sp.sx), Math.min(a[1], p.Y - sp.sy), Math.max(a[2], p.X - sp.sx + sp.shadow.width), Math.max(a[3], p.Y - sp.sy + sp.shadow.height)];
+    p.box = [a[0] - PAD, a[1] - PAD, a[2] + PAD, a[3] + PAD];
+    p.key0 = `${p.it.k}@${p.it.x},${p.it.y}${p.it.alpha ?? ''}${p.it.filter || ''}${p.it.depth}`;
+  }
+  keep.model = { items, f, order, fx, lists: new Map() };
+  return keep.model;
+}
+function tileList(M, R, tx, ty) {
+  const k = R + '|' + tx + '|' + ty;
+  let l = M.lists.get(k);
+  if (!l) {
+    l = M.order.filter((p) => boxTouchesTile(p.box, R, tx, ty));
+    M.lists.set(k, l);
+  }
+  return l;
+}
+const itemKey = (p) => p.key0 + (p.it.prog ? '~' + Math.floor(p.it.prog() * 12) : '');
+function paintSceneTile(cv, R, tx, ty) {
+  const t0 = performance.now();
+  const M = keep.model, g = cv.getContext('2d');
+  if (!g || !M) return true;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
+  g.translate(-tx * TILE_PX, -ty * TILE_PX);
+  const list = tileList(M, R, tx, ty);
+  for (const p of list) {
+    if (p.it.noShadow) continue;
+    const sp = p.it.sp(R);
+    if (!sp.shadow) continue;
+    g.globalAlpha = p.it.alpha ?? 1; g.drawImage(sp.shadow, p.X * R - sp.sx, p.Y * R - sp.sy);
+  }
+  for (const p of list) {
+    const it = p.it, sp = it.sp(R), X = p.X * R, Y = p.Y * R;
+    if (!sp.art) continue;
+    g.globalAlpha = it.alpha ?? 1;
+    g.filter = it.filter || 'none';
+    if (it.prog) {
+      const h = sp.art.height, k = it.prog();
+      g.save(); g.beginPath(); g.rect(X - sp.ax, Y - sp.ay + h * (1 - k), sp.art.width, h * k + 1); g.clip();
+      g.drawImage(sp.art, X - sp.ax, Y - sp.ay); g.restore();
+    } else g.drawImage(sp.art, X - sp.ax, Y - sp.ay);
+    g.filter = 'none';
+  }
+  g.globalAlpha = 1;
+  paintStats.sceneMs = performance.now() - t0; paintStats.items = M.order.length;
+  return true;
+}
+function paintGroundTile(cv, R, tx, ty) {
+  const t0 = performance.now();
+  const g = cv.getContext('2d');
+  if (!g) return true;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const X0 = tx * TILE_PX, Y0 = ty * TILE_PX;
+  g.translate(-X0, -Y0);
+  paintGroundInto(g, keep.state, keep.f, R, keep.gopts, [X0, Y0, X0 + cv.width, Y0 + cv.height]);
+  paintStats.groundMs = performance.now() - t0;
+  return true;
+}
+function defineCityLayers() {
+  const levels = CITY_LEVELS[keep.gfx] || CITY_LEVELS.high;
+  const bounds = () => [0, 0, keep.f.width, keep.f.height];
+  const onReady = () => redrawCity();
+  defineLayer({ id: 'cg', levels, bounds, key: (R) => keep.gkey + '|' + R, paint: (cv, R, tx, ty) => paintGroundTile(cv, R, tx, ty), onReady, sync: true, syncBudget: 350, syncStale: true, fade: true });
+  defineLayer({ id: 'cs', levels, bounds, key: (R, tx, ty) => { const M = keep.model; return M ? tileList(M, R, tx, ty).map(itemKey).join(';') : ''; }, paint: (cv, R, tx, ty) => paintSceneTile(cv, R, tx, ty), onReady, sync: true, syncBudget: 350, syncStale: true, fade: true });
+}
+let redrawRaf = 0;
+function redrawCity() { if (redrawRaf) return; redrawRaf = requestAnimationFrame(() => { redrawRaf = 0; if (keep.getCam) drawCity(keep.getCam()); }); }
+
+export function attachPaint(gslot, slot, state, f, R, items, gopts, vp = null, getCam = null, gfx = 'high') {
   if (!slot || !gslot) return;
   keep.ground ||= mkCanvas('paint-ground');
   keep.scene ||= mkCanvas('paint-scene');
-  const W = Math.ceil(f.width * R), H = Math.ceil(f.height * R);
-  for (const c of [keep.ground, keep.scene]) {
-    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; if (c === keep.scene) keep.sceneKey = ''; }
-    c.style.width = Math.round(f.width) + 'px'; c.style.height = Math.round(f.height) + 'px';
-    const into = c === keep.ground ? gslot : slot;
-    if (c.parentElement !== into) into.appendChild(c);
+  if (keep.ground.parentElement !== gslot) gslot.appendChild(keep.ground);
+  if (keep.scene.parentElement !== slot) slot.appendChild(keep.scene);
+  const gkey = groundKeyOf(state, gopts);
+  const relevel = keep.gfx !== gfx || keep.f?.width !== f.width || keep.f?.height !== f.height;
+  Object.assign(keep, { state, f, gopts, gkey, items, gfx, vp: vp || keep.vp, getCam: getCam || keep.getCam });
+  sceneModel(items, f);
+  keep.fx = keep.model.fx;
+  if (relevel) { dropLayer('cg'); dropLayer('cs'); }
+  defineCityLayers();
+  setTileBudget(gfx); setSpriteBudget(gfx);
+  if (keep.getCam && keep.getCam().init !== false) drawCity(keep.getCam());
+}
+// Recopie les tuiles visibles dans les deux canvas de la fenêtre. cam = { x, y, z } (caméra CSS du château)
+export function drawCity(cam) {
+  const vp = keep.vp;
+  if (!vp || !vp.isConnected || !keep.f) return;
+  const t0 = performance.now();
+  const dpr = pixelRatio(), vw = vp.clientWidth, vh = vp.clientHeight;
+  const W = Math.max(1, Math.round(vw * dpr)), H = Math.max(1, Math.round(vh * dpr));
+  for (const [c, id] of [[keep.ground, 'cg'], [keep.scene, 'cs']]) {
+    if (!c) continue;
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    c.style.left = (-cam.x / cam.z) + 'px'; c.style.top = (-cam.y / cam.z) + 'px';
+    c.style.width = (vw / cam.z) + 'px'; c.style.height = (vh / cam.z) + 'px';
+    const g = c.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
+    drawLayer(g, id, { k: cam.z * dpr, ox: cam.x * dpr, oy: cam.y * dpr, vw: W, vh: H });
   }
-  // sol : le canvas peint en cache est recopié (même taille)
-  const gcv = groundCanvas(state, f, R, gopts);
-  if (keep.ground._src !== gcv) { const g = keep.ground.getContext('2d'); g.clearRect(0, 0, W, H); g.drawImage(gcv, 0, 0); keep.ground._src = gcv; }
-  const key = R + '|' + W + 'x' + H + '|' + items.map((it) => `${it.k}@${it.x},${it.y}${it.alpha ?? ''}${it.filter || ''}${it.depth}${it.prog ? '~' + Math.floor(it.prog() * 12) : ''}`).join(';');
-  if (key !== keep.sceneKey) {
-    const { fx } = drawScene(keep.scene, items, f, R);
-    // fumées : animées (ou figées) par la couche de vie, en coordonnées du monde
-    keep.fx = fx.map((e) => ({ x: e.x / R, y: e.y / R, n: e.n }));
-    keep.sceneKey = key;
-  }
+  keep.R = sharp.cs?.lv || keep.R;
+  const dt = performance.now() - t0; paintStats.drawMs = dt; paintStats.draws = (paintStats.draws || 0) + 1; paintStats.drawTot = (paintStats.drawTot || 0) + dt;
 }
 export const paintFx = () => keep.fx;
+// v27 : agrandissement réel du sol et de la scène à la dernière image (tools/sharpness.cjs)
+export const citySharp = () => ({ view: 'city', z: keep.getCam?.().z, dpr: pixelRatio(), ground: sharp.cg, scene: sharp.cs, life: sharp.life, tiles: tileDebug(), sprites: spriteStats() });
+// Sol et scène entiers à la finesse k (mode photo)
+export function fullCanvases(k) {
+  if (!keep.state) return { ground: null, scene: null };
+  const ground = groundCanvas(keep.state, keep.f, k, keep.gopts);
+  const scene = document.createElement('canvas'); scene.width = Math.ceil(keep.f.width * k); scene.height = Math.ceil(keep.f.height * k);
+  drawScene(scene, keep.items, keep.f, k);
+  return { ground, scene };
+}
 export const sceneCanvases = () => ({ ground: keep.ground, scene: keep.scene });
 export { paintStats };
 export { wildColor } from './scene.js';
@@ -159,5 +263,5 @@ export function lifeData(app, ctx, film, density) {
 export function spriteAt(app, x, y) {
   const p = app._paint;
   const it = p?.items.find((i) => i.x === x && i.y === y && i.k?.startsWith('b'));
-  return it ? { sprite: it.sp(p.R), R: p.R } : null;
+  return it ? { sprite: it.sp(keep.R), R: keep.R } : null;
 }

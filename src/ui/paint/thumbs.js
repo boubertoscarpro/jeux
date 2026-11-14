@@ -8,7 +8,7 @@ export function paintedThumb(type, level = 1, size = 44, fallback = '') {
   if (typeof document === 'undefined') return fallback;
   const tier = sizeTier(Math.max(1, level));
   // v22b : dessin cuit assez grand pour la taille affichée et la densité de l'écran (plus de miniature pixelisée)
-  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const dpr = Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
   const r = Math.min(2.5, Math.max(0.75, Math.ceil((size * dpr) / 64) * 0.5));
   const k = `${type}|${tier}|${r}`;
   let url = cache.get(k);

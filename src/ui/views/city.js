@@ -34,7 +34,7 @@ import { readyHarvests, collectHarvest } from '../../systems/harvest.js';
 import { heraldryOf, colorOf } from '../../systems/heraldry.js';
 import { undoReorganize, enlargeCastle, enlargePreview, nextEncStage } from '../../systems/castle.js';
 import { TROPHIES } from '../../data/trophies.js';
-import { cityItems, groundOpts, attachPaint, paintRes, lifeData, paintFx, paintStats, wildColor } from '../paint/cityPaint.js';
+import { cityItems, groundOpts, attachPaint, drawCity, citySharp, paintRes, lifeData, paintFx, paintStats, wildColor } from '../paint/cityPaint.js';
 import { mountLife, lifeRedraw } from '../paint/life.js';
 import { flyGains } from '../juice.js';
 import { lifeDensity } from '../../systems/life.js';
@@ -442,10 +442,9 @@ function onCityCam(vp, cam, app = null) {
   if (!vp.classList.contains('moving')) vp.classList.add('moving');
   clearTimeout(vp._mv); vp._mv = setTimeout(() => {
     vp.classList.remove('moving'); declutter(vp);
-    // v22b : zoom posé → scène repeinte à la finesse voulue (plus de pixels flous en gros plan)
-    const p = app?._paint;
-    if (p && vp.isConnected) { const R2 = paintRes(p.f, gfxOf(app.state), cam.z); if (R2 !== p.R) { p.R = R2; attachGround(app); } }
   }, 280);
+  // v27 : les tuiles visibles sont recopiées à chaque mouvement ; le niveau plus fin se peint en arrière-plan
+  drawCity(cam);
   vp.querySelector('#city-tip')?.classList.remove('on');
   placeRing(vp, cam);
   lifeRedraw();
@@ -572,8 +571,9 @@ function bindCityTip(app, vp) {
 function attachGround(app) {
   const vp = document.getElementById('city-vp'), p = app._paint;
   if (!vp || !p) return;
-  attachPaint(vp.querySelector('.paint-slot.pg'), vp.querySelector('.paint-slot.ps'), p.state, p.f, p.R, p.items, p.gopts);
+  attachPaint(vp.querySelector('.paint-slot.pg'), vp.querySelector('.paint-slot.ps'), p.state, p.f, p.R, p.items, p.gopts, vp, () => cityCam(app), gfxOf(app.state));
   app.paintStats = paintStats; // mesures (outils de perf et de composition)
+  app._citySharp = citySharp;
   if (app._life) mountLife(vp, app, { ...app._life, fx: paintFx() });
 }
 

@@ -5,8 +5,11 @@
 //    les vues rapprochées, générés au plus quelques-uns par image (budget) ; brouillard à l'encre ; mini-carte.
 // Les transitions entre terrains viennent d'un échantillonnage déformé par du bruit : chaque case garde son terrain en
 // son centre (lisibilité du jeu), mais ses bords deviennent organiques.
-import { TERRAINS } from '../data/world.js';
+import { TERRAINS, CHAR_TO_TERRAIN } from '../data/world.js';
 import { wTerrain, isRevealed } from '../systems/world.js';
+import { makeTerrainKit, terrainWorkerSource } from './terrainKit.js';
+import { defineLayer, dropLayer, drawLayer, drawCached, prefetchLevel, resumeJob, setTileBudget, sharp, tileStats, TILE_PX } from './tiles.js';
+const KIT = makeTerrainKit();
 
 // ───────── Bruit ─────────
 const hash = (x, y, s = 0) => {
@@ -45,69 +48,13 @@ function palette(season, dry = 0) {
   }
   return p;
 }
-const WATER = new Set(['river']);
 
 /**
- * Peint une zone de cases dans un ImageData.
- * get(x, y) → terrain ; tiles x0..x0+tw, y0..y0+th ; res pixels par case ; pal palette ; seed.
+ * Peint une zone de cases dans un ImageData (le calcul est dans terrainKit.js, partagé avec le worker du monde).
  * dryPatch : 0–1, part des prairies tachées de sécheresse (signes de présage).
  */
-export function paintTerrain(img, x0, y0, tw, th, res, get, pal, { seed = 1, jitter = 0.38, dryPatch = 0 } = {}) {
-  const W = tw * res, H = th * res, d = img.data;
-  // Pré-calcul : cases voisines de l'eau (on n'échantillonne les berges que là)
-  const near = new Uint8Array((tw + 2) * (th + 2));
-  for (let y = -1; y <= th; y++) for (let x = -1; x <= tw; x++) {
-    let w = 0, l = 0;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = get(x0 + x + dx, y0 + y + dy); if (!t) continue; if (WATER.has(t)) w = 1; else l = 1; }
-    near[(y + 1) * (tw + 2) + (x + 1)] = w && l ? 1 : 0;
-  }
-  // Champs de bruit basse fréquence calculés sur une grille grossière (G points par case), puis interpolés :
-  // déformation des bords (jx, jy), variation de teinte (v), taches sèches (dp). Coût par pixel : quelques multiplications.
-  const G = 4, gw = tw * G + 2, gh = th * G + 2;
-  const JX = new Float32Array(gw * gh), JY = new Float32Array(gw * gh), V = new Float32Array(gw * gh), DP = dryPatch ? new Float32Array(gw * gh) : null;
-  for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
-    const fx = x0 + i / G, fy = y0 + j / G, k = j * gw + i;
-    JX[k] = (fbm(fx * 1.25, fy * 1.25, seed + 11) - 0.5) * 2 * jitter;
-    JY[k] = (fbm(fx * 1.25 + 40, fy * 1.25, seed + 23) - 0.5) * 2 * jitter;
-    V[k] = fbm(fx * 0.33, fy * 0.33, seed + 5);
-    if (DP) DP[k] = fbm(fx * 0.9, fy * 0.9, seed + 31);
-  }
-  const lerp2 = (A, gxF, gyF) => {
-    const i = Math.min(gw - 2, gxF | 0), j = Math.min(gh - 2, gyF | 0), u = gxF - i, v = gyF - j, k = j * gw + i;
-    return A[k] + (A[k + 1] - A[k]) * u + (A[k + gw] - A[k]) * v + (A[k] - A[k + 1] - A[k + gw] + A[k + gw + 1]) * u * v;
-  };
-  const dryPal = dryPatch ? hex(DROUGHT.plain) : null;
-  // Cache des terrains de la zone (+ marge de 1 case pour la déformation)
-  const cw = tw + 2, chh = th + 2, terr = new Array(cw * chh);
-  for (let y = -1; y <= th; y++) for (let x = -1; x <= tw; x++) terr[(y + 1) * cw + (x + 1)] = get(x0 + x, y0 + y);
-  const T = (tx, ty) => { const ix = tx - x0 + 1, iy = ty - y0 + 1; return ix >= 0 && iy >= 0 && ix < cw && iy < chh ? terr[iy * cw + ix] : get(tx, ty); };
-  for (let py = 0; py < H; py++) {
-    const ly = (py + 0.5) / res, fy = y0 + ly, gyF = ly * G;
-    for (let px = 0; px < W; px++) {
-      const lx = (px + 0.5) / res, fx = x0 + lx, gxF = lx * G;
-      const jx = lerp2(JX, gxF, gyF), jy = lerp2(JY, gxF, gyF);
-      const ter = T(Math.floor(fx + jx), Math.floor(fy + jy)) || T(Math.floor(fx), Math.floor(fy)) || 'plain';
-      const c = pal[ter] || pal.plain;
-      let k = 0.86 + lerp2(V, gxF, gyF) * 0.26;
-      let r = c[0], g = c[1], b = c[2];
-      // Taches sèches (signes de sécheresse) dans les prairies
-      if (dryPal && ter === 'plain' && lerp2(DP, gxF, gyF) < dryPatch) { r = dryPal[0]; g = dryPal[1]; b = dryPal[2]; }
-      // Berges : l'eau s'éclaircit en approchant du bord, la terre s'assombrit (rive humide)
-      const ix = Math.floor(fx) - x0 + 1, iy = Math.floor(fy) - y0 + 1;
-      if (ix >= 0 && iy >= 0 && ix < tw + 2 && iy < th + 2 && near[iy * (tw + 2) + ix]) {
-        const o = 0.2, ex = fx + jx, ey = fy + jy;
-        const wet = (WATER.has(T(Math.floor(ex + o), Math.floor(ey)) || '') ? 1 : 0) + (WATER.has(T(Math.floor(ex - o), Math.floor(ey)) || '') ? 1 : 0)
-          + (WATER.has(T(Math.floor(ex), Math.floor(ey + o)) || '') ? 1 : 0) + (WATER.has(T(Math.floor(ex), Math.floor(ey - o)) || '') ? 1 : 0);
-        if (WATER.has(ter)) { if (wet < 4) { k *= 1.12; r += 12; g += 14; b += 6; } }
-        else if (wet > 0) { k *= 0.8; r -= 6; b += 4; }
-      }
-      // Eau : reflets lents
-      if (WATER.has(ter)) k *= 0.94 + vnoise(fx * 3, fy * 0.8, seed + 3) * 0.14;
-      const grain = (hash(px + x0 * res, py + y0 * res, seed) - 0.5) * 10;
-      const i = (py * W + px) * 4;
-      d[i] = r * k + grain; d[i + 1] = g * k + grain; d[i + 2] = b * k + grain; d[i + 3] = 255;
-    }
-  }
+export function paintTerrain(img, x0, y0, tw, th, res, get, pal, opts = {}) {
+  KIT.paintTerrain(img, x0, y0, tw, th, res, get, pal, { ...opts, dryPal: hex(DROUGHT.plain) });
 }
 
 // Adoucit les transitions (effet aquarelle) : un léger flou de la couche de couleur, avant le décor
@@ -241,196 +188,241 @@ export function paintCityGround(state, scene, key, quality) {
   cityGround = { key, canvas: cv, ms: Math.round(performance.now() - t0) };
   return cv;
 }
-export const cityGroundStats = () => ({ ms: cityGround.ms, key: cityGround.key, isoMs: isoGround.ms });
+export const cityGroundStats = () => ({ ms: cityGround.ms, key: cityGround.key });
 
-// v20 « Ma forteresse » : sol du royaume pour la vue isométrique. Le canvas reste orthogonal (une case = res px) ;
-// une matrice CSS le projette sur le losange. Pas de décor vu du dessus (arbres, rochers et montagnes sont dessinés
-// debout) ; la cour est pavée, l'allée de la porte dallée, l'anneau des douves en eau (fossé sec sans douves).
-let isoGround = { key: '', canvas: null, ms: 0 };
-export function paintIsoGround(state, scene, key, quality, fort) {
-  if (isoGround.key === key && isoGround.canvas) return isoGround.canvas;
-  const t0 = performance.now();
-  const q = GFX[quality] || GFX.medium;
-  const w = state.city.w, h = state.city.h, res = q.city;
-  const cv = isoGround.canvas || document.createElement('canvas');
-  cv.width = w * res; cv.height = h * res;
-  const c = cv.getContext('2d');
-  const img = c.createImageData(cv.width, cv.height);
-  // Les montagnes et forêts gardent leur sol (roc, sous-bois) ; les arbres et les sommets sont des dessins debout
-  const get = (x, y) => (x < 0 || y < 0 || x >= w || y >= h ? null : state.city.terrain[y * w + x]);
-  const dry = scene.drought ? 2 : scene.signs.some((x) => x.key === 'drought') ? 1 : 0;
-  paintTerrain(img, 0, 0, w, h, res, get, palette(scene.season, dry), { seed: 3, jitter: 0.3, dryPatch: dry === 1 ? 0.32 : 0 });
-  c.putImageData(img, 0, 0);
-  softenEdges(c, cv);
-  if (fort) {
-    const r = fort.rect, R = res;
-    // Douves (ou fossé) : l'anneau d'une case autour de la cour
-    c.fillStyle = fort.moat > 0 ? (scene.season === 'winter' ? '#9cc3dc' : '#3f78a6') : '#8a7a5a';
-    c.fillRect((r.x0 - 1) * R, (r.y0 - 1) * R, (r.x1 - r.x0 + 3) * R, (r.y1 - r.y0 + 3) * R);
-    c.fillStyle = 'rgba(255,255,255,.12)';
-    for (let i = 0; i < (r.x1 - r.x0 + 3) * 2; i++) c.fillRect((r.x0 - 1) * R + i * R * 0.5 + R * 0.1, (r.y0 - 1) * R + R * 0.3, R * 0.25, 2);
-    // Glacis : bord de terre entre l'eau et le pied du mur
-    c.fillStyle = '#7d6b4a';
-    c.fillRect((r.x0 - 0.18) * R, (r.y0 - 0.18) * R, (r.x1 - r.x0 + 1.36) * R, (r.y1 - r.y0 + 1.36) * R);
-    // Cour pavée : dalles irrégulières
-    c.fillStyle = '#b9b2a4';
-    c.fillRect(r.x0 * R, r.y0 * R, (r.x1 - r.x0 + 1) * R, (r.y1 - r.y0 + 1) * R);
-    const step = Math.max(4, R / 4);
-    for (let y = r.y0 * R; y < (r.y1 + 1) * R; y += step) for (let x = r.x0 * R; x < (r.x1 + 1) * R; x += step) {
-      const k = tileRand(Math.floor(x / step), Math.floor(y / step), 5);
-      c.fillStyle = k < 0.33 ? '#aea798' : k < 0.66 ? '#c3bcae' : '#b5ae9f';
-      c.fillRect(x + 0.5, y + 0.5, step - 1, step - 1);
-    }
-    // Allée de la porte (dalles claires) et pont devant la porte
-    c.fillStyle = '#d8cfba';
-    for (const a of fort.allee) c.fillRect(a.x * R + R * 0.22, a.y * R, R * 0.56, R);
-    c.fillStyle = '#8a5a33';
-    c.fillRect(fort.gate.x * R + R * 0.2, (r.y1 + 1) * R, R * 0.6, R);
-    c.fillStyle = 'rgba(40,25,10,.35)';
-    for (let i = 1; i < 4; i++) c.fillRect(fort.gate.x * R + R * 0.2, (r.y1 + 1) * R + (i * R) / 4, R * 0.6, 1.5);
-  }
-  isoGround = { key, canvas: cv, ms: Math.round(performance.now() - t0) };
-  return cv;
-}
-
-// ───────── Monde : niveau global + blocs ─────────
-export const CHUNK = 8;
-const worldCache = { sig: '', lodA: null, chunks: new Map(), fog: null, fogSig: '', terrain: '', stats: { lodAms: 0, chunkMs: 0, chunks: 0 } };
+// ───────── Monde : pyramide de tuiles (v27) ─────────
+// Niveaux de 16 à 256 px par case selon la qualité. Le niveau 16 est la carte d'ensemble (massifs forestiers, relief,
+// pas d'arbres un par un) ; il est épinglé (jamais évincé) et sert de repli et de mini-carte. Les pixels du terrain sont
+// peints par un worker quand c'est possible, sinon par tranches de lignes ; le décor (arbres, sommets) est peint ensuite
+// sur le fil principal, avec une marge d'une case pour qu'un arbre à cheval sur deux tuiles soit identique des deux côtés.
+export const WORLD_LEVELS = { high: [16, 32, 64, 128, 256], medium: [16, 32, 64, 128, 256], low: [16, 32, 64] };
+const OVERVIEW = 16;
 export function worldSig(w, season, quality) { return `${w.size}:${season}:${quality}`; }
-function resetWorldCache(sig, terrain) { worldCache.sig = sig; worldCache.terrain = terrain; worldCache.lodA = null; worldCache.chunks.clear(); }
+const WL = { sig: '', terrain: '', w: null, season: 'spring', quality: 'high', flat: null, onReady: null, stats: { lodAms: 0 } };
+// Plusieurs workers (jusqu'à 3, selon les cœurs) : les tuiles visibles se peignent en parallèle
+let workers = [], workerOk = typeof Worker !== 'undefined' && typeof Blob !== 'undefined', workerWorld = '', jobId = 0, worldMsg = null;
+const jobs = new Map();
+function getWorker() {
+  if (!workerOk) return null;
+  if (!workers.length) {
+    try {
+      const url = URL.createObjectURL(new Blob([terrainWorkerSource()], { type: 'text/javascript' }));
+      const n = Math.max(1, Math.min(3, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 2) - 1));
+      for (let i = 0; i < n; i++) {
+        const wk = new Worker(url);
+        wk.busy = 0;
+        wk.onmessage = (e) => { wk.busy--; const j = jobs.get(e.data.id); jobs.delete(e.data.id); tileStats.workerMs = (tileStats.workerMs || 0) + (e.data.ms || 0); if (!j) return; j.state.buf = e.data; resumeJob(j); };
+        wk.onerror = () => { workerOk = false; workers = []; for (const j of jobs.values()) { j.state = null; resumeJob(j); } jobs.clear(); };
+        if (worldMsg) wk.postMessage(worldMsg);
+        workers.push(wk);
+      }
+    } catch { workerOk = false; workers = []; }
+  }
+  return workers.length ? workers.reduce((a, b) => (b.busy < a.busy ? b : a)) : null;
+}
+// Un travail à la fois par worker : les priorités (centre de la vue d'abord) jouent au moment de l'envoi
+const workerFree = () => !workerOk || !getWorker() || workers.some((w) => w.busy === 0);
+export const worldWorkerOn = () => workers.length > 0 && workerOk;
+const terrOf = (w) => (typeof w.terrain === 'string' ? w.terrain : Array.isArray(w.terrain) ? w.terrain.join('') : String(w.terrain));
 
-// Niveau global : un fond plat instantané (1 px par case), puis la peinture complète par bandes de lignes, au plus
-// ~6 ms par image (aucun à-coup à l'ouverture de la carte)
-function ensureLodA(w, season, quality) {
-  const terr = typeof w.terrain === 'string' ? w.terrain : Array.isArray(w.terrain) ? w.terrain.join('') : String(w.terrain);
-  const sig = worldSig(w, season, quality);
-  if (worldCache.sig !== sig || worldCache.terrain !== terr) resetWorldCache(sig, terr);
-  if (worldCache.lodA) return worldCache.lodA;
-  const q = GFX[quality] || GFX.medium, res = q.lodA, S = w.size;
+function ensureWorldLayer(w, season, quality) {
+  const terr = terrOf(w), sig = worldSig(w, season, quality);
+  if (WL.sig === sig && WL.terrain === terr && WL.w === w) return;
+  const changed = WL.sig !== sig || WL.terrain !== terr;
+  Object.assign(WL, { sig, terrain: terr, w, season, quality });
+  if (!changed) return;
+  dropLayer('wt');
+  setTileBudget(quality);
+  // fond plat instantané (1 px par case) en attendant les tuiles
+  const S = w.size, pal = palette(season);
   const flat = document.createElement('canvas'); flat.width = S; flat.height = S;
-  const fc = flat.getContext('2d'), fimg = fc.createImageData(S, S), pal = palette(season);
+  const fc = flat.getContext('2d'), fimg = fc.createImageData(S, S);
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const c = pal[wTerrain(w, x, y)] || pal.plain, i = (y * S + x) * 4; fimg.data[i] = c[0]; fimg.data[i + 1] = c[1]; fimg.data[i + 2] = c[2]; fimg.data[i + 3] = 255; }
   fc.putImageData(fimg, 0, 0);
-  const cv = document.createElement('canvas'); cv.width = S * res; cv.height = S * res;
-  worldCache.lodA = cv; worldCache.flat = flat; worldCache.lodRow = 0; worldCache.lodMs = 0;
-  return cv;
-}
-function progressLodA(w, season, quality, msBudget = 6) {
-  if (worldCache.lodRow >= w.size) return false;
-  const t0 = performance.now();
-  const q = GFX[quality] || GFX.medium, res = q.lodA, S = w.size, cv = worldCache.lodA, c = cv.getContext('2d'), pal = palette(season);
-  const get = (x, y) => wTerrain(w, x, y);
-  while (worldCache.lodRow < S && performance.now() - t0 < msBudget) {
-    const y0 = worldCache.lodRow, n = Math.min(4, S - y0);
-    const img = c.createImageData(S * res, n * res);
-    paintTerrain(img, 0, y0, S, n, res, get, pal, { seed: 7, jitter: 0.42 });
-    c.putImageData(img, 0, y0 * res);
-    // Petits signes du relief à cette échelle : points d'arbres, crêtes
-    for (let y = y0; y < y0 + n; y++) for (let x = 0; x < S; x++) {
-      const t = get(x, y);
-      if (t === 'forest') { c.fillStyle = 'rgba(30,50,25,0.45)'; c.fillRect(x * res + res * 0.25, y * res + res * 0.3, res * 0.3, res * 0.3); }
-      else if (t === 'mountain') { c.fillStyle = 'rgba(245,245,245,0.55)'; c.fillRect(x * res + res * 0.4, y * res + res * 0.2, res * 0.2, res * 0.2); c.fillStyle = 'rgba(40,30,20,0.35)'; c.fillRect(x * res + res * 0.55, y * res + res * 0.45, res * 0.3, res * 0.3); }
-    }
-    worldCache.lodRow += n;
-  }
-  worldCache.lodMs += performance.now() - t0;
-  if (worldCache.lodRow >= S) worldCache.stats.lodAms = Math.round(worldCache.lodMs);
-  return worldCache.lodRow < S;
+  WL.flat = flat; WL.rivers = null;
+  worldMsg = { world: { size: S, terrain: terr, map: CHAR_TO_TERRAIN } };
+  if (getWorker() && workerWorld !== sig + terr) { for (const wk of workers) wk.postMessage(worldMsg); workerWorld = sig + terr; }
+  const levels = WORLD_LEVELS[quality] || WORLD_LEVELS.medium;
+  defineLayer({
+    id: 'wt', levels, bounds: () => [0, 0, S, S], key: () => sig, pin: (lv) => lv === OVERVIEW, fade: true, derive: true, canStart: workerFree,
+    onReady: () => WL.onReady?.(),
+    paint: (cv, lv, tx, ty, job) => paintWorldTile(cv, lv, tx, ty, job),
+  });
+  prefetchLevel('wt', OVERVIEW);
 }
 
-function paintChunk(w, cx, cy, season, quality) {
-  const t0 = performance.now();
-  const q = GFX[quality] || GFX.medium, res = q.chunk, S = w.size;
-  const tw = Math.min(CHUNK, S - cx * CHUNK), th = Math.min(CHUNK, S - cy * CHUNK);
-  const cv = document.createElement('canvas'); cv.width = tw * res; cv.height = th * res;
+function paintWorldTile(cv, lv, tx, ty, job) {
+  const w = WL.w, S = w.size, span = TILE_PX / lv, x0 = tx * span, y0 = ty * span;
+  const tw = Math.min(span, S - x0), th = Math.min(span, S - y0), W = tw * lv, H = th * lv;
+  const pal = palette(WL.season), seed = 7, jitter = 0.42;
   const c = cv.getContext('2d');
-  const img = c.createImageData(cv.width, cv.height);
+  if (!c) return true;
   const get = (x, y) => wTerrain(w, x, y);
-  paintTerrain(img, cx * CHUNK, cy * CHUNK, tw, th, res, get, palette(season), { seed: 7, jitter: 0.42 });
-  c.putImageData(img, 0, 0);
-  if (quality === 'high') softenEdges(c, cv); // le flou coûte ~3 ms par bloc : qualité élevée seulement
-  if (q.decor) for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
-    const X = cx * CHUNK + x, Y = cy * CHUNK + y;
-    decorTile(c, get(X, Y), X, Y, x * res, y * res, res, season, { decorPlain: false });
+  // 1) pixels : worker, sinon tranches de 48 lignes
+  if (!job.state) {
+    const wk = !job.sync && getWorker();
+    if (wk) {
+      const id = ++jobId; jobs.set(id, job); job.state = { worker: true }; job.wait = true;
+      wk.busy++; wk.postMessage({ id, x0, y0, tw, th, res: lv, pal, seed, jitter }); tileStatsWorker();
+      return false;
+    }
+    job.state = { P: KIT.prepare(x0, y0, tw, th, lv, get, pal, { seed, jitter }), row: 0, img: c.createImageData(W, H) };
   }
-  worldCache.stats.chunkMs += performance.now() - t0; worldCache.stats.chunks++;
-  return cv;
+  const st = job.state;
+  if (st.worker && !st.buf) { job.wait = true; return false; }
+  if (st.buf) { c.putImageData(new ImageData(new Uint8ClampedArray(st.buf.buf), st.buf.w, st.buf.h), 0, 0); st.done = true; }
+  else if (!st.done) {
+    const step = job.sync ? H : Math.max(8, Math.floor(48 * 512 / W));
+    const r1 = Math.min(H, st.row + step);
+    KIT.rows(st.P, st.img.data.subarray(st.row * W * 4, r1 * W * 4), st.row, r1);
+    st.row = r1;
+    if (st.row < H) return false;
+    c.putImageData(st.img, 0, 0); st.done = true;
+  }
+  // 2) adoucissement (aquarelle) aux niveaux bas, puis décor avec une case de marge
+  if (lv <= 32 && WL.quality === 'high') softenEdges(c, cv);
+  const q = GFX[WL.quality] || GFX.medium;
+  if (lv === OVERVIEW) overviewDecor(c, x0, y0, tw, th, lv, get, WL.season, pal);
+  else if (q.decor) for (let y = y0 - 1; y <= y0 + th; y++) for (let x = x0 - 1; x <= x0 + tw; x++) {
+    const ter = get(x, y);
+    if (ter) decorTile(c, ter, x, y, (x - x0) * lv, (y - y0) * lv, lv, WL.season, { decorPlain: false });
+  }
+  return true;
+}
+const tileStatsWorker = () => { tileStats.workerJobs++; };
+
+// Carte d'ensemble : forêts regroupées en massifs, montagnes et collines en relief, sans détail à l'unité
+function overviewDecor(c, x0, y0, tw, th, S, get, season, pal) {
+  const fol = FOLIAGE[season] || FOLIAGE.spring, dark = fol[0], light = fol[fol.length - 1];
+  const shade = (col, k) => `rgb(${col.map((v) => Math.max(0, Math.min(255, Math.round(v * k)))).join(',')})`;
+  // ombre des massifs, puis frondaisons, puis lumières : les cases voisines se fondent en une seule masse
+  for (const pass of [0, 1, 2]) for (let y = y0 - 1; y <= y0 + th; y++) for (let x = x0 - 1; x <= x0 + tw; x++) {
+    if (get(x, y) !== 'forest') continue;
+    const px = (x - x0 + 0.5) * S, py = (y - y0 + 0.5) * S;
+    for (let i = 0; i < 3; i++) {
+      const ax = px + (tileRand(x, y, i) - 0.5) * S * 0.7, ay = py + (tileRand(x, y, i + 9) - 0.5) * S * 0.7, r = S * (0.36 + tileRand(x, y, i + 5) * 0.16);
+      if (pass === 0) { c.fillStyle = 'rgba(20,30,14,0.35)'; c.beginPath(); c.arc(ax + r * 0.25, ay + r * 0.3, r, 0, 7); c.fill(); }
+      else if (pass === 1) { c.fillStyle = i === 1 ? dark : shade(pal.forest, 0.92); c.beginPath(); c.arc(ax, ay, r, 0, 7); c.fill(); }
+      else { c.fillStyle = light; c.globalAlpha = 0.55; c.beginPath(); c.arc(ax - r * 0.3, ay - r * 0.3, r * 0.42, 0, 7); c.fill(); c.globalAlpha = 1; }
+    }
+  }
+  for (let y = y0 - 1; y <= y0 + th; y++) for (let x = x0 - 1; x <= x0 + tw; x++) {
+    const ter = get(x, y);
+    if (ter === 'mountain' || ter === 'hills') decorTile(c, ter, x, y, (x - x0) * S, (y - y0) * S, S, season, {});
+  }
 }
 
 /**
- * Dessine le terrain visible du monde. T : taille d'une case à l'écran ; ox, oy : origine ; x0..x1, y0..y1 : cases
- * visibles. budget : nombre de blocs à générer au plus pendant cette image (les autres utilisent le niveau global).
- * Renvoie le nombre de blocs encore à générer (l'appelant redessine alors à l'image suivante).
+ * Dessine le terrain visible du monde. view : { T (px CSS par case), ox, oy, x0..x1, y0..y1 } ; ctx en px CSS
+ * (transformation = densité de l'écran). onReady : rappelé quand une tuile est prête (redessiner la carte).
+ * Renvoie le nombre de tuiles encore à peindre.
  */
-export function drawWorldTerrain(ctx, w, view, season, quality, budget = 4) {
+export function drawWorldTerrain(ctx, w, view, season, quality, onReady = null) {
+  ensureWorldLayer(w, season, quality);
+  WL.onReady = onReady;
   const { T, ox, oy, x0, x1, y0, y1 } = view;
-  const lodA = ensureLodA(w, season, quality);
-  const q = GFX[quality] || GFX.medium;
-  const resA = q.lodA;
   ctx.imageSmoothingEnabled = true;
-  let pending = 0;
-  // Niveau global (toujours dessiné : il sert de fond pendant la génération des blocs) ; tant qu'il se peint par
-  // bandes, le fond plat (1 px par case) le complète
-  if (worldCache.lodRow < w.size) {
-    ctx.drawImage(worldCache.flat, x0, y0, x1 - x0 + 1, y1 - y0 + 1, ox + x0 * T, oy + y0 * T, (x1 - x0 + 1) * T, (y1 - y0 + 1) * T);
-    if (progressLodA(w, season, quality, budget > 1 ? 6 : 3)) pending++;
-  }
-  ctx.drawImage(lodA, x0 * resA, y0 * resA, (x1 - x0 + 1) * resA, (y1 - y0 + 1) * resA, ox + x0 * T, oy + y0 * T, (x1 - x0 + 1) * T, (y1 - y0 + 1) * T);
-  if (T < 26) return pending;
-  for (let cy = Math.floor(y0 / CHUNK); cy <= Math.floor(y1 / CHUNK); cy++) for (let cx = Math.floor(x0 / CHUNK); cx <= Math.floor(x1 / CHUNK); cx++) {
-    const k = cx + ',' + cy;
-    let ch = worldCache.chunks.get(k);
-    if (!ch) {
-      if (budget <= 0) { pending++; continue; }
-      ch = paintChunk(w, cx, cy, season, quality); budget--;
-      worldCache.chunks.set(k, ch);
-      if (worldCache.chunks.size > 220) worldCache.chunks.delete(worldCache.chunks.keys().next().value); // mémoire bornée
-    }
-    ctx.drawImage(ch, ox + cx * CHUNK * T, oy + cy * CHUNK * T, (ch.width / q.chunk) * T, (ch.height / q.chunk) * T);
-  }
-  return pending;
+  ctx.drawImage(WL.flat, x0, y0, x1 - x0 + 1, y1 - y0 + 1, ox + x0 * T, oy + y0 * T, (x1 - x0 + 1) * T, (y1 - y0 + 1) * T);
+  const m = ctx.getTransform(), dpr = m.a || 1;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const missing = drawLayer(ctx, 'wt', { k: T * dpr, ox: ox * dpr + m.e, oy: oy * dpr + m.f, vw: ctx.canvas.width, vh: ctx.canvas.height });
+  ctx.restore();
+  return missing;
 }
 
-// ───────── Brouillard à l'encre : opaque sur l'inconnu, bords déchiquetés qui mordent sur le connu ─────────
-export function fogCanvas(w, revealedN, quality) {
-  const q = GFX[quality] || GFX.medium, res = q.fog, S = w.size;
-  const sig = `${S}:${revealedN}:${quality}`;
-  if (worldCache.fog && worldCache.fogSig === sig) return worldCache.fog;
-  const cv = worldCache.fog || document.createElement('canvas');
-  cv.width = S * res; cv.height = S * res;
-  const c = cv.getContext('2d');
-  const img = c.createImageData(cv.width, cv.height), d = img.data;
-  // Champ « connu » lissé (interpolation bilinéaire entre centres de cases) puis déformé par un bruit à basse
-  // fréquence : les zones inconnues deviennent des taches d'encre aux bords organiques au lieu de rectangles.
-  const known = new Uint8Array(S * S);
-  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) known[y * S + x] = isRevealed(w, x, y) ? 1 : 0;
-  const K = (x, y) => (x < 0 || y < 0 || x >= S || y >= S ? 0 : known[y * S + x]);
-  for (let py = 0; py < cv.height; py++) {
-    const fy = (py + 0.5) / res;
-    for (let px = 0; px < cv.width; px++) {
-      const fx = (px + 0.5) / res;
-      const n = fbm(fx * 0.8, fy * 0.8, 91);
-      const wx = fx + (vnoise(fx * 0.45, fy * 0.45, 31) - 0.5) * 1.3 - 0.5, wy = fy + (vnoise(fx * 0.45, fy * 0.45, 57) - 0.5) * 1.3 - 0.5;
-      const xi = Math.floor(wx), yi = Math.floor(wy), u = wx - xi, v = wy - yi;
-      const k = K(xi, yi) * (1 - u) * (1 - v) + K(xi + 1, yi) * u * (1 - v) + K(xi, yi + 1) * (1 - u) * v + K(xi + 1, yi + 1) * u * v;
-      // Seuil bruité puis transition courte : encre dense dans l'inconnu, voile qui s'éclaircit vers le connu
-      const t = Math.max(0, Math.min(1, (k - 0.32 - (n - 0.5) * 0.3) / 0.36));
-      const a = (1 - t * t * (3 - 2 * t)) * (0.9 + n * 0.08);
-      const i = (py * cv.width + px) * 4;
-      const tone = 0.85 + n * 0.3;
-      d[i] = 34 * tone; d[i + 1] = 27 * tone; d[i + 2] = 20 * tone; d[i + 3] = Math.round(a * 255);
+// ───────── Lignes vectorielles : rivières, frontières, brouillard (v27) ─────────
+export { regionLoops, chaikin, tracePath } from './contours.js';
+import { regionLoops, chaikin, tracePath } from './contours.js';
+
+// Rivières : chaînes de cases d'eau (4-voisins) reliant leurs centres, lissées
+function riverChains(w) {
+  if (WL.rivers && WL.riversFor === WL.terrain) return WL.rivers;
+  const S = w.size, isR = (x, y) => wTerrain(w, x, y) === 'river';
+  const nb = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dy]) => isR(x + dx, y + dy)).map(([dx, dy]) => [x + dx, y + dy]);
+  const used = new Set(), ek = (a, b) => (a[0] * S + a[1] < b[0] * S + b[1] ? `${a}|${b}` : `${b}|${a}`);
+  const chains = [];
+  const cells = [];
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (isR(x, y)) cells.push([x, y]);
+  // départs : extrémités et carrefours (degré ≠ 2), puis ce qui reste (boucles)
+  const order = cells.filter(([x, y]) => nb(x, y).length !== 2).concat(cells);
+  for (const s of order) for (const n of nb(...s)) {
+    if (used.has(ek(s, n))) continue;
+    const ch = [s];
+    let a = s, b = n;
+    for (;;) {
+      used.add(ek(a, b)); ch.push(b);
+      const nn = nb(...b).filter((c) => !used.has(ek(b, c)));
+      if (nb(...b).length !== 2 || !nn.length) break;
+      a = b; b = nn[0];
     }
+    chains.push(chaikin(ch.map(([x, y]) => [x + 0.5, y + 0.5]), 3, false));
   }
-  c.putImageData(img, 0, 0);
-  worldCache.fog = cv; worldCache.fogSig = sig;
-  return cv;
+  for (const [x, y] of cells) if (!nb(x, y).length) chains.push([[x + 0.3, y + 0.5], [x + 0.7, y + 0.5]]);
+  WL.rivers = chains; WL.riversFor = WL.terrain;
+  return chains;
 }
-export function drawFog(ctx, w, view, revealedN, quality) {
-  const { T, ox, oy, x0, x1, y0, y1 } = view;
-  const fog = fogCanvas(w, revealedN, quality);
-  const res = (GFX[quality] || GFX.medium).fog;
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(fog, x0 * res, y0 * res, (x1 - x0 + 1) * res, (y1 - y0 + 1) * res, ox + x0 * T, oy + y0 * T, (x1 - x0 + 1) * T, (y1 - y0 + 1) * T);
+export function drawRivers(ctx, w, T, ox, oy, season) {
+  if (T < 6) return;
+  const ch = riverChains(w);
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const water = season === 'winter' ? '#a9c8dc' : '#4f86b2';
+  for (const [col, k] of [['rgba(52,70,48,0.35)', 0.78], [water, 0.6], ['rgba(225,242,255,0.28)', 0.16]]) {
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, T * k);
+    ctx.beginPath(); tracePath(ctx, ch, T, ox, oy, false); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Brouillard vectoriel : contour lissé et frangé de la zone connue ; encre dense dehors, bord adouci par des traits
+// larges et transparents ; grain d'encre au pixel réel (motif aligné sur l'écran, jamais étiré)
+let fogLoops = { sig: '', loops: [] }, inkPat = null;
+function fogShape(w, revealedN) {
+  const sig = w.size + ':' + revealedN;
+  if (fogLoops.sig === sig) return fogLoops.loops;
+  const raw = regionLoops(w.size, (x, y) => isRevealed(w, x, y));
+  const loops = raw.map((l) => {
+    const p = chaikin(l, 2, true);
+    // franges : déplacement par un bruit fixé au monde
+    return chaikin(p.map(([x, y]) => [x + (fbm(x * 0.9, y * 0.9, 31) - 0.5) * 0.9, y + (fbm(x * 0.9, y * 0.9, 57) - 0.5) * 0.9]), 1, true);
+  });
+  fogLoops = { sig, loops };
+  return loops;
+}
+function inkPattern(ctx) {
+  if (!inkPat) {
+    const N = 192, cv = document.createElement('canvas'); cv.width = N; cv.height = N;
+    const c = cv.getContext('2d'), img = c.createImageData(N, N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      // bruit périodique (tuile sans raccord)
+      const a = (x / N) * Math.PI * 2, b = (y / N) * Math.PI * 2;
+      const n = fbm(3 + Math.cos(a) * 2, 3 + Math.sin(b) * 2 + Math.sin(a), 91) * 0.7 + hash(x, y, 4) * 0.3;
+      const tone = 0.85 + n * 0.3, i = (y * N + x) * 4;
+      img.data[i] = 34 * tone; img.data[i + 1] = 27 * tone; img.data[i + 2] = 20 * tone; img.data[i + 3] = 255;
+    }
+    c.putImageData(img, 0, 0);
+    inkPat = cv;
+  }
+  const p = ctx.createPattern(inkPat, 'repeat');
+  const m = ctx.getTransform();
+  if (p.setTransform && typeof DOMMatrix !== 'undefined') p.setTransform(new DOMMatrix([1 / (m.a || 1), 0, 0, 1 / (m.d || 1), 0, 0]));
+  return p;
+}
+export function drawFog(ctx, w, view, revealedN, main = true) {
+  const { T, ox, oy } = view, S = w.size;
+  const loops = fogShape(w, revealedN);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(ox, oy, S * T, S * T); tracePath(ctx, loops, T, ox, oy, true);
+  ctx.clip('evenodd');
+  ctx.globalAlpha = 0.93; ctx.fillStyle = inkPattern(ctx); ctx.fillRect(ox, oy, S * T, S * T);
+  ctx.restore();
+  // bord adouci (des deux côtés du contour)
+  ctx.save(); ctx.lineJoin = 'round';
+  for (const [k, a] of [[0.95, 0.14], [0.55, 0.2], [0.22, 0.3]]) {
+    ctx.strokeStyle = `rgba(34,27,20,${a})`; ctx.lineWidth = Math.max(1.5, T * k);
+    ctx.beginPath(); tracePath(ctx, loops, T, ox, oy, true); ctx.stroke();
+  }
+  ctx.restore();
+  if (main) sharp.fog = { mag: 1, lv: 'vecteur', need: +(T * (ctx.getTransform().a || 1)).toFixed(2), missing: 0 };
 }
 
 // ───────── Mini-carte : cadrée sur la zone connue (au moins 32 cases), lisible ─────────
@@ -445,13 +437,16 @@ export function miniFrame(w) {
   return { x, y, side };
 }
 export function paintMini(c, w, size, frame, season, quality, revealedN) {
-  const lodA = ensureLodA(w, season, quality), res = (GFX[quality] || GFX.medium).lodA;
-  if (worldCache.lodRow < w.size) c.drawImage(worldCache.flat, frame.x, frame.y, frame.side, frame.side, 0, 0, size, size);
+  ensureWorldLayer(w, season, quality);
+  const T = size / frame.side, ox = -frame.x * T, oy = -frame.y * T;
   c.imageSmoothingEnabled = true;
-  c.drawImage(lodA, frame.x * res, frame.y * res, frame.side * res, frame.side * res, 0, 0, size, size);
-  const fog = fogCanvas(w, revealedN, quality), fr = (GFX[quality] || GFX.medium).fog;
-  c.drawImage(fog, frame.x * fr, frame.y * fr, frame.side * fr, frame.side * fr, 0, 0, size, size);
+  c.drawImage(WL.flat, frame.x, frame.y, frame.side, frame.side, 0, 0, size, size);
+  const m = c.getTransform(), dpr = m.a || 1;
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0);
+  drawCached(c, 'wt', OVERVIEW, { k: T * dpr, ox: ox * dpr, oy: oy * dpr, vw: c.canvas.width, vh: c.canvas.height });
+  c.restore();
+  drawFog(c, w, { T, ox, oy }, revealedN, false);
 }
 
-export const atlasStats = () => ({ ...worldCache.stats, chunksCached: worldCache.chunks.size, cityGroundMs: cityGround.ms });
+export const atlasStats = () => ({ ...WL.stats, worker: worldWorkerOn(), cityGroundMs: cityGround.ms });
 void TERRAINS;
