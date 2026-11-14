@@ -5,13 +5,17 @@
 // systems/life.js (état réel du royaume).
 import { toScreen } from '../../systems/iso.js';
 import { INK, rng } from './paint.js';
+import { sharp } from '../tiles.js';
 
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 // ───────── Personnages cuits (2 pas de marche) ─────────
 const FIG = new Map();
-const K = 3; // résolution des petits dessins
+// v27 : résolution des petits dessins choisie selon le zoom et la densité de l'écran (jamais étirés plus de 1,25×)
+const KLEV = [2, 3, 4, 6, 8];
+let K = 3;
+function setK(need) { K = KLEV[KLEV.length - 1]; for (const k of KLEV) if (k * 1.25 >= need) { K = k; break; } sharp.life = { mag: +(need / K).toFixed(3), lv: K, need: +need.toFixed(2), missing: 0 }; }
 function figSprite(kind, step) {
-  const key = kind + step;
+  const key = kind + step + '@' + K;
   if (FIG.has(key)) return FIG.get(key);
   const c = mk(20 * K, 34 * K), g = c.getContext('2d');
   g.scale(K, K); g.translate(10, 30);
@@ -36,7 +40,7 @@ function figSprite(kind, step) {
   return c;
 }
 function cartSprite(dir) {
-  const key = 'cart' + dir;
+  const key = 'cart' + dir + '@' + K;
   if (FIG.has(key)) return FIG.get(key);
   const c = mk(56 * K, 40 * K), g = c.getContext('2d');
   g.scale(K, K); g.translate(28, 32);
@@ -86,7 +90,7 @@ export function lifeBurst(x, y, sprite = null, R = 1) {
 }
 export function lifeRedraw() { if (L.cv?.isConnected) { resize(); draw(L.still ? 1.7 : (performance.now() - L.t0) / 1000); } }
 function resize() {
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
   const w = Math.max(1, Math.round(L.vp.clientWidth * dpr)), h = Math.max(1, Math.round(L.vp.clientHeight * dpr));
   if (L.cv.width !== w || L.cv.height !== h) { L.cv.width = w; L.cv.height = h; }
   L.dpr = dpr;
@@ -160,6 +164,7 @@ function draw(t) {
   const cv = L.cv, g = cv.getContext('2d'), cam = L.app.ui.cityCam || { x: 0, y: 0, z: 1 };
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
   const z = cam.z * L.dpr;
+  setK(z);
   g.setTransform(z, 0, 0, z, cam.x * L.dpr, cam.y * L.dpr);
   // fenêtre visible (coordonnées du monde) pour ne dessiner que l'utile
   const vx0 = -cam.x / cam.z - 60, vy0 = -cam.y / cam.z - 80;

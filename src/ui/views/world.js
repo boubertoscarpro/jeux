@@ -44,10 +44,28 @@ import { npcList, npcOf, npcOffers, npcState } from '../../systems/npcs.js';
 import { autoFillAttack, autoFillLive, autoFillNote, halfOfEach } from '../../systems/autofill.js';
 import { RAID, RAID_COUNTS, raidTargetOk, raidStatus, raidCycle, startRaidOrder, raidResText } from '../../systems/raidOrders.js';
 import { SURVEYS, surveyState, surveyStatus, startSurvey, recallSurvey } from '../../systems/survey.js';
-import { poiPainter, drawPoiPainted, outpostPainter, drawColumn } from '../paint/worldPaint.js';
+import { poiPainter, drawPoiPainted, outpostPainter, drawColumn, poiMag } from '../paint/worldPaint.js';
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
-import { drawWorldTerrain, drawFog, gfxOf, paintMini, miniFrame } from '../atlas.js';
+import { drawWorldTerrain, drawFog, gfxOf, paintMini, miniFrame, drawRivers, regionLoops, chaikin, tracePath } from '../atlas.js';
+import { sharp, tileDebug } from '../tiles.js';
+import { spriteStats } from '../paint/scene.js';
+// v27 : contours lissés des territoires, mis en cache par propriétaire et par ensemble de cases
+const terrCache = new Map();
+function territoryLoops(S, id, keys) {
+  const sig = keys.length + ':' + keys.join(';');
+  const c = terrCache.get(id);
+  if (c && c.sig === sig) return c.loops;
+  const set = new Set(keys);
+  const loops = regionLoops(S, (x, y) => set.has(key(x, y))).map((l) => chaikin(l, 2, true));
+  terrCache.set(id, { sig, loops });
+  return loops;
+}
+function loopsBox(loops) {
+  let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+  for (const l of loops) for (const [x, y] of l) { if (x < a) a = x; if (y < b) b = y; if (x > c) c = x; if (y > d) d = y; }
+  return [a, b, c, d];
+}
 import { calendar } from '../../systems/chronicle.js';
 import { sceneState } from '../../systems/scene.js';
 import { sceneLayersHtml, sceneClasses, updateSceneFx, localHour } from '../sceneFx.js';
@@ -169,6 +187,7 @@ export function drawMap(app) {
   const canvas = document.getElementById('world-canvas');
   if (!canvas) return;
   const perfT0 = performance.now();
+  poiMag.mag = 0;
   const s = app.state, w = s.world, c = cam(app);
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -194,27 +213,34 @@ export function drawMap(app) {
   const quality = gfxOf(s);
   const season = calendar(s, now).season.key;
   const view = { T, ox, oy, x0, x1, y0, y1 };
-  const pending = drawWorldTerrain(ctx, w, view, season, quality, s.meta.saver ? 1 : 2);
-  // Territoires : teinte et frontières selon la relation (ennemi, allié, neutre) ; les vôtres en couleur de bannière
-  const owner = (x, y) => { const k = key(x, y); if (s.territories[k]) return 'me'; const f = factionTiles.get(k); return f ? f : null; };
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    if (!isRevealed(w, x, y)) continue;
-    const o = owner(x, y);
-    if (!o) continue;
-    const px = ox + x * T, py = oy + y * T;
+  const pending = drawWorldTerrain(ctx, w, view, season, quality, () => redraw(app));
+  drawRivers(ctx, w, T, ox, oy, season); // v27 : rivières vectorielles lissées (nettes à tous les zooms)
+  // Territoires : teinte et frontières selon la relation (ennemi, allié, neutre) ; les vôtres en couleur de bannière.
+  // v27 : contours lissés (Chaikin) tracés en vectoriel, épaisseur constante à l'écran
+  const groups = [['me', Object.keys(s.territories)], ...(s.factions || []).map((f) => [f, f.territory])];
+  for (const [o, keys] of groups) {
+    if (!keys.length) continue;
+    const loops = territoryLoops(w.size, o === 'me' ? 'me' : 'f' + o.idx, keys);
+    if (!loops.length) continue;
     const col = o === 'me' ? banner : RIVALS[o.idx].color;
-    ctx.fillStyle = col + (o === 'me' ? '38' : '33'); ctx.fillRect(px, py, T + 0.5, T + 0.5);
     const st = o === 'me' ? { color: banner, width: 2.5, dash: [] } : relationOf(o);
-    ctx.strokeStyle = st.color || col; ctx.lineWidth = Math.max(1, Math.min(st.width, T / 8)); ctx.setLineDash(T > 10 ? st.dash : []);
-    // v15 : frontière en guerre : le tracé « vacille » (décalage du pointillé à chaque seconde), et hachures sur la case
-    if (o !== 'me' && o.stance === 'war') { ctx.lineDashOffset = reduceMotion ? 0 : (Math.floor(now / 1000) % 2) * 5; if (T > 12) { ctx.save(); ctx.beginPath(); ctx.rect(px, py, T, T); ctx.clip(); ctx.strokeStyle = 'rgba(204,90,76,0.35)'; ctx.lineWidth = 1; ctx.setLineDash([]); for (let k = -T; k < T; k += Math.max(5, T / 5)) { ctx.beginPath(); ctx.moveTo(px + k, py + T); ctx.lineTo(px + k + T, py); ctx.stroke(); } ctx.restore(); ctx.strokeStyle = st.color || col; ctx.setLineDash(T > 10 ? st.dash : []); } }
-    else ctx.lineDashOffset = 0;
-    ctx.beginPath();
-    for (const [dx, dy, ax, ay, bx, by] of [[0, -1, 0, 0, 1, 0], [1, 0, 1, 0, 1, 1], [0, 1, 0, 1, 1, 1], [-1, 0, 0, 0, 0, 1]]) {
-      if (owner(x + dx, y + dy) === o) continue;
-      ctx.moveTo(px + ax * T, py + ay * T); ctx.lineTo(px + bx * T, py + by * T);
+    ctx.save();
+    ctx.beginPath(); tracePath(ctx, loops, T, ox, oy, true);
+    ctx.fillStyle = col + (o === 'me' ? '38' : '33'); ctx.fill('evenodd');
+    // v15 : frontière en guerre : le tracé « vacille » (décalage du pointillé à chaque seconde), et hachures dans la région
+    if (o !== 'me' && o.stance === 'war' && T > 12) {
+      ctx.save(); ctx.clip('evenodd');
+      const bb = loopsBox(loops);
+      ctx.strokeStyle = 'rgba(204,90,76,0.35)'; ctx.lineWidth = 1; ctx.beginPath();
+      const X0 = ox + bb[0] * T, Y0 = oy + bb[1] * T, X1 = ox + bb[2] * T, Y1 = oy + bb[3] * T, step = Math.max(5, T / 5);
+      for (let k = X0 - (Y1 - Y0); k < X1; k += step) { ctx.moveTo(k, Y1); ctx.lineTo(k + (Y1 - Y0), Y0); }
+      ctx.stroke(); ctx.restore();
+      ctx.lineDashOffset = reduceMotion ? 0 : (Math.floor(now / 1000) % 2) * 5;
     }
-    ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = st.color || col; ctx.lineWidth = T < 12 ? Math.max(1, st.width * 0.6) : st.width; ctx.lineJoin = 'round';
+    ctx.setLineDash(T > 10 ? st.dash : []);
+    ctx.stroke(); ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    ctx.restore();
   }
   ctx.lineDashOffset = 0;
   // Brouillard à l'encre (opaque sur l'inconnu, bords irréguliers)
@@ -435,8 +461,10 @@ export function drawMap(app) {
   }
   placeRing(app, ox, oy, T, W, H);
   drawMini(app, W, H);
-  if (pending) redraw(app); // blocs de terrain encore à peindre : on continue à l'image suivante
+  void pending; // v27 : les tuiles prêtes redemandent elles-mêmes une image (onReady)
   // Mesure du coût de rendu (outil de performance, tools/v15perf.cjs) : 120 dernières images
+  // v27 : agrandissement réel par couche (outil tools/sharpness.cjs)
+  app._sharp = { view: 'world', zoom: c.zoom, dpr, terrain: sharp.wt, fog: sharp.fog, lieux: { mag: +poiMag.mag.toFixed(3), need: +poiMag.need.toFixed(2), s: poiMag.s }, tiles: tileDebug(), sprites: spriteStats() };
   const pw = (app.perfWorld ||= []); pw.push(performance.now() - perfT0); if (pw.length > 120) pw.shift();
 }
 

@@ -1,7 +1,7 @@
 // v20 « Ma forteresse » — Mode photo : l'affichage disparaît, le joueur choisit l'heure et la saison, puis enregistre
 // une image PNG composée dans le navigateur. v21 : la scène étant peinte en canvas, l'image recopie le sol, la scène et
 // une image de la vie (passants, gardes, fumées), puis la teinte de l'heure. Rien d'externe : le fichier est téléchargé.
-import { sceneCanvases } from './paint/cityPaint.js';
+import { fullCanvases } from './paint/cityPaint.js';
 import { lifeInto } from './paint/life.js';
 
 export const PHOTO_HOURS = { 8: 'Matin', 13: 'Midi', 19: 'Soir', 23: 'Nuit' };
@@ -17,7 +17,7 @@ export function sceneCanvas(world, light = null, kMax = 1.5) {
   c.width = Math.round(W * k); c.height = Math.round(H * k);
   const g = c.getContext('2d');
   g.fillStyle = '#4f7a2c'; g.fillRect(0, 0, c.width, c.height);
-  const { ground, scene } = sceneCanvases();
+  const { ground, scene } = fullCanvases(k); // v27 : peints à la finesse de la photo (les canvas affichés ne couvrent que la fenêtre)
   if (ground) g.drawImage(ground, 0, 0, c.width, c.height);
   if (scene) g.drawImage(scene, 0, 0, c.width, c.height);
   g.save(); g.scale(k, k); lifeInto(g); g.restore();

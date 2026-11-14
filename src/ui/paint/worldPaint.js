@@ -52,9 +52,16 @@ export function poiPainter(state, p, def, { th = 1, rivalColor = null } = {}) {
 const variantAt = (p) => (((p.x * 7 + p.y * 13) % 4) + 4) % 4;
 // Résolution de cuisson selon la taille réelle du dessin à l'écran (densité de l'écran comprise), par paliers de 0,25 :
 // net en gros plan (v24), léger en vue d'ensemble ; plafonnée pour la mémoire du cache
+// v27 : cuisson au DPR réel (plafonné à 3) par paliers fixes, jamais étirée plus de 1,25× ; paliers jusqu’à 6 (gros plan)
+export const BAKE_LEVELS = [0.35, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6];
+export const pixelRatio = () => Math.min(3, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+export const poiMag = { mag: 0, need: 0, s: 0 };
 const bakeScale = (T, w = 1.25) => {
-  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
-  return Math.max(0.35, Math.min(1.5, Math.ceil(((T * w) / 128) * dpr * 4) / 4));
+  const need = ((T * w) / 128) * pixelRatio();
+  let s = BAKE_LEVELS[BAKE_LEVELS.length - 1];
+  for (const l of BAKE_LEVELS) if (l * 1.25 >= need) { s = l; break; }
+  if (need / s > poiMag.mag) { poiMag.mag = need / s; poiMag.need = need; poiMag.s = s; }
+  return s;
 };
 // Dessine un lieu peint centré sur (px, py) ; renvoie la demi-largeur occupée (pour les étiquettes)
 export function drawPoiPainted(ctx, painter, px, py, T, alpha = 1) {

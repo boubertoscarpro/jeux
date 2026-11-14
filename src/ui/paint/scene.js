@@ -28,27 +28,49 @@ function trim(cv) {
   return { cv: out, x: x0, y: y0 };
 }
 // Dessin cuit d'une case : { art, ax, ay (position du sommet haut de la case dans l'image), shadow, sx, sy, fx (fumées) }
+// v27 : cache borné en mégaoctets (et non plus en nombre) ; au-dessus de la finesse 1, le dessin est cuit directement
+// dans son cadre utile (celui de la version 1, agrandi) : ni grand canvas vide ni lecture des pixels pour le rogner
+const SPRITE_BUDGET = { high: 48e6, medium: 32e6, low: 16e6 };
+let spriteBudget = SPRITE_BUDGET.high, spriteBytes = 0;
+export function setSpriteBudget(q) { spriteBudget = SPRITE_BUDGET[q] || SPRITE_BUDGET.high; }
+export const spriteStats = () => ({ bytes: spriteBytes, count: cache.size, budget: spriteBudget });
+const bytesOf = (sp) => (sp.art ? sp.art.width * sp.art.height * 4 : 0) + (sp.shadow ? sp.shadow.width * sp.shadow.height * 4 : 0);
 export function sprite(key, s, draw) {
   const k = key + '@' + s;
   const hit = cache.get(k);
   if (hit) { cache.delete(k); cache.set(k, hit); return hit; } // le plus récemment utilisé passe en fin de liste
+  let ref = null;
+  if (s > 1.01) { ref = sprite(key, 1, draw); if (!ref.box) return ref; }
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-  const W = Math.ceil((128 + 2 * SIDE) * s), H = Math.ceil((TOP + 64 + BOT) * s);
-  const ox = (64 + SIDE) * s, oy = TOP * s;
+  const FW = Math.ceil((128 + 2 * SIDE) * s), FH = Math.ceil((TOP + 64 + BOT) * s);
+  let W = FW, H = FH, ox = (64 + SIDE) * s, oy = TOP * s, cx = 0, cy = 0;
+  if (ref) {
+    const m = 4 * s;
+    cx = Math.max(0, Math.floor(ref.box[0] * s - m)); cy = Math.max(0, Math.floor(ref.box[1] * s - m));
+    W = Math.min(FW, Math.ceil(ref.box[2] * s + m)) - cx; H = Math.min(FH, Math.ceil(ref.box[3] * s + m)) - cy;
+    ox -= cx; oy -= cy;
+  }
   const sh = mk(W, H), shg = sh.getContext('2d'), fx = [];
-  const art = bake(W, H, (g) => { const p = pen(g, ox, oy, s, key); p.noGround = true; p.sg = shg; p.fx = fx; draw(p); }, { s });
-  const a = trim(art), b = trim(sh);
+  const art = bake(W, H, (g) => { const p = pen(g, ox, oy, s, key); p.noGround = true; p.sg = shg; p.fx = fx; draw(p); }, { s, grad: [-cx, -cy, FW - cx, FH - cy] });
+  const a = ref ? { cv: art, x: 0, y: 0 } : trim(art), b = ref ? (ref.shadow ? { cv: sh, x: 0, y: 0 } : null) : trim(sh);
   const sp = {
     art: a?.cv || null, ax: a ? ox - a.x : 0, ay: a ? oy - a.y : 0,
     shadow: b?.cv || null, sx: b ? ox - b.x : 0, sy: b ? oy - b.y : 0,
     fx: fx.map((e) => ({ x: e.x - ox, y: e.y - oy, n: e.n })),
   };
-  cache.set(k, sp);
-  if (cache.size > 700) { let n = 0; for (const kk of cache.keys()) { cache.delete(kk); if (++n >= 100) break; } }
+  // cadre utile (dessin et ombre) dans le repère du cadre entier, à la finesse 1
+  if (!ref && (a || b)) {
+    const xs = [], ys = [], xe = [], ye = [];
+    for (const q of [a, b]) if (q) { xs.push(q.x); ys.push(q.y); xe.push(q.x + q.cv.width); ye.push(q.y + q.cv.height); }
+    sp.box = [Math.min(...xs) / s, Math.min(...ys) / s, Math.max(...xe) / s, Math.max(...ye) / s];
+  }
+  sp.bytes = bytesOf(sp);
+  cache.set(k, sp); spriteBytes += sp.bytes;
+  if (spriteBytes > spriteBudget) for (const [kk, v] of cache) { if (spriteBytes <= spriteBudget * 0.85 || kk === k) break; cache.delete(kk); spriteBytes -= v.bytes || 0; }
   paintStats.baked++; paintStats.bakeMs += (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
   return sp;
 }
-export const clearPaintCache = () => cache.clear();
+export const clearPaintCache = () => { cache.clear(); spriteBytes = 0; };
 
 // Clés et peintres des dessins de la ville
 export const SEASONAL = new Set(['farm', 'orchard', 'hunter']);
@@ -77,7 +99,7 @@ function edgeBand(g, f, R, W, Hh, season) {
   poly(g, [P(0, 0), P(W, 0), P(W, Hh), P(0, Hh)].map((q) => grow(q, 1.035))); g.fillStyle = rgba(lit(GRASS[season] || GRASS.summer, -0.12), 0.75); g.fill();
   g.restore(); g.filter = 'none';
 }
-function edgeGrove(g, f, R, W, Hh, season, wild, r) {
+function edgeGrove(g, f, R, W, Hh, season, wild, r, skip = () => false) {
   const P = (x, y) => { const q = toScreen(f, x, y); return [q.sx * R, q.sy * R]; };
   const leaf = season === 'winter' ? '#8fa79a' : season === 'autumn' ? '#a8742c' : '#3f7a2e', leafD = lit(leaf, -0.3), leafL = lit(leaf, 0.22);
   // bosquets : arrière (bords nord-ouest et nord-est), buissons : avant (bords sud)
@@ -89,6 +111,7 @@ function edgeGrove(g, f, R, W, Hh, season, wild, r) {
       const t = (i + r() * 0.6) / n, out = back ? 0.35 + r() * 0.9 : 0.25 + r() * 0.5;
       const [x, y] = P(ax + (bx - ax) * t + nx * out, ay + (by - ay) * t + ny * out);
       const rad = (back ? 13 + r() * 12 : 7 + r() * 6) * R;
+      if (skip(x - rad * 1.5, y - rad * 2.5, x + rad * 1.5, y + rad)) continue;
       g.fillStyle = 'rgba(16,28,10,0.28)'; g.beginPath(); g.ellipse(x + rad * 0.3, y + rad * 0.15, rad * 1.05, rad * 0.5, 0, 0, 7); g.fill();
       if (back) { g.fillStyle = '#5a3a20'; g.fillRect(x - 1.6 * R, y - rad * 0.6, 3.2 * R, rad * 0.65); }
       const cy = back ? y - rad * 1.05 : y - rad * 0.45;
@@ -102,18 +125,35 @@ function edgeGrove(g, f, R, W, Hh, season, wild, r) {
 }
 let groundCache = { key: '', cv: null };
 const GRASS = { spring: '#86c24e', summer: '#78b844', autumn: '#a0a844', winter: '#e8eef2' };
-export function groundCanvas(state, f, R, o) {
+// v27 : clé du sol (tout ce qui change sa peinture), commune au canvas entier (photo) et aux tuiles du château
+export function groundKeyOf(state, o) {
   const W = state.city.w, Hh = state.city.h, T = state.city.terrain;
-  const key = [W, Hh, R, typeof T === 'string' ? T : T.join(''), JSON.stringify(o.rect), o.moat, o.season, o.allee.join(';'), o.gate ? o.gate.x + ',' + o.gate.y : '', o.zoneOf ? 'z' : ''].join('|');
+  return [W, Hh, typeof T === 'string' ? T : T.join(''), JSON.stringify(o.rect), o.moat, o.season, o.allee.join(';'), o.gate ? o.gate.x + ',' + o.gate.y : '', o.zoneOf ? 'z' : ''].join('|');
+}
+// Sol entier dans un canvas (mode photo, tests)
+export function groundCanvas(state, f, R, o) {
+  const key = R + '|' + groundKeyOf(state, o);
   if (groundCache.key === key) return groundCache.cv;
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
   const cv = mk(Math.ceil(f.width * R), Math.ceil(f.height * R)), g = cv.getContext('2d');
+  paintGroundInto(g, state, f, R, o, null);
+  groundCache = { key, cv };
+  paintStats.groundMs = (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
+  return cv;
+}
+// Peint le sol du domaine dans g, en pixels du monde × R. clip = [x0, y0, x1, y1] (mêmes unités) : seule cette zone est
+// utile (tuile) ; les tirages au hasard sont faits quand même, pour que chaque tuile voie exactement le même sol.
+export function paintGroundInto(g, state, f, R, o, clip) {
+  const W = state.city.w, Hh = state.city.h, T = state.city.terrain;
+  const WW = Math.ceil(f.width * R), HH = Math.ceil(f.height * R);
+  const C = clip || [0, 0, WW, HH];
+  const out = (x0, y0, x1, y1) => x1 < C[0] || y1 < C[1] || x0 > C[2] || y0 > C[3];
   const r = rng(W * 31 + Hh);
   const base = GRASS[o.season] || GRASS.summer;
   // v24 : hors du domaine, les terres sauvages, de la couleur exacte du fond de la vue (wildColor) : le bord du canvas
   // ne se voit plus au dézoom. La lisière (bande adoucie, bosquets) est dessinée plus bas, autour du losange.
   const wild = wildColor(o.season);
-  g.fillStyle = wild; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = wild; g.fillRect(C[0], C[1], C[2] - C[0], C[3] - C[1]);
   edgeBand(g, f, R, W, Hh, o.season);
   const tileAt = (x, y) => T[y * W + x];
   const inRect = (x, y) => x >= o.rect.x0 && x <= o.rect.x1 && y >= o.rect.y0 && y <= o.rect.y1;
@@ -129,18 +169,21 @@ export function groundCanvas(state, f, R, o) {
   // diamant de la prairie entière
   const corners = [toScreen(f, 0, 0), toScreen(f, W, 0), toScreen(f, W, Hh), toScreen(f, 0, Hh)].map((q) => [q.sx * R, q.sy * R]);
   g.save(); poly(g, corners); g.clip();
-  const gr = g.createLinearGradient(0, 0, cv.width, cv.height); gr.addColorStop(0, lit(base, 0.12)); gr.addColorStop(1, lit(base, -0.08));
-  g.fillStyle = gr; g.fillRect(0, 0, cv.width, cv.height);
+  const gr = g.createLinearGradient(0, 0, WW, HH); gr.addColorStop(0, lit(base, 0.12)); gr.addColorStop(1, lit(base, -0.08));
+  g.fillStyle = gr; g.fillRect(C[0], C[1], C[2] - C[0], C[3] - C[1]);
   for (let i = 0; i < W * Hh * 0.6; i++) {
-    const x = r() * cv.width, y = r() * cv.height, rr = r.range(30, 90) * R;
+    const x = r() * WW, y = r() * HH, rr = r.range(30, 90) * R;
+    const pick = r() < 0.5;
+    if (out(x - rr, y - rr, x + rr, y + rr)) continue;
     const blob = g.createRadialGradient(x, y, 0, x, y, rr);
-    blob.addColorStop(0, rgba(r() < 0.5 ? lit(base, 0.18) : lit(base, -0.16), 0.35)); blob.addColorStop(1, rgba(base, 0));
+    blob.addColorStop(0, rgba(pick ? lit(base, 0.18) : lit(base, -0.16), 0.35)); blob.addColorStop(1, rgba(base, 0));
     g.fillStyle = blob; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
   }
   g.restore();
   // cases
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
     const k = kindOf(x, y), q = toScreen(f, x, y);
+    if (out(q.sx * R - 96 * R, q.sy * R - 96 * R, q.sx * R + 96 * R, q.sy * R + 96 * R)) continue;
     const p = pen(g, q.sx * R, q.sy * R, R, x * 977 + y);
     const pts = [p.P(0, 0), p.P(1, 0), p.P(1, 1), p.P(0, 1)];
     if (k === 'grass' || k === 'forest') {
@@ -161,7 +204,7 @@ export function groundCanvas(state, f, R, o) {
       poly(g, pts); g.fillStyle = '#8a6a3c'; g.fill(); poly(g, [p.P(0.15, 0.15), p.P(0.85, 0.15), p.P(0.85, 0.85), p.P(0.15, 0.85)]); g.fillStyle = '#6b5030'; g.fill();
     } else if (k === 'water') {
       poly(g, pts);
-      const wg = g.createLinearGradient(0, 0, 0, cv.height); wg.addColorStop(0, '#3a9cc4'); wg.addColorStop(1, '#2a78a4');
+      const wg = g.createLinearGradient(0, 0, 0, HH); wg.addColorStop(0, '#3a9cc4'); wg.addColorStop(1, '#2a78a4');
       g.fillStyle = wg; g.fill();
       const pr = p.r;
       for (let i = 0; i < 6; i++) { const [bx, by] = p.P(pr.range(0.1, 0.9), pr.range(0.1, 0.9)); const w = pr.range(5, 11) * R; g.strokeStyle = rgba('#e4f8ff', pr.range(0.35, 0.7)); g.lineWidth = 1 * R; g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx + w / 2, by - 2 * R, bx + w, by); g.stroke(); }
@@ -182,10 +225,7 @@ export function groundCanvas(state, f, R, o) {
   g.save(); poly(g, corners); g.clip();
   g.filter = `blur(${Math.round(10 * R)}px)`; poly(g, corners); g.strokeStyle = rgba(lit(wild, -0.25), 0.55); g.lineWidth = 22 * R; g.stroke();
   g.restore(); g.filter = 'none';
-  edgeGrove(g, f, R, W, Hh, o.season, wild, r);
-  groundCache = { key, cv };
-  paintStats.groundMs = (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
-  return cv;
+  edgeGrove(g, f, R, W, Hh, o.season, wild, r, out);
 }
 
 // ───────── Muraille : pièces, tours, porte ─────────
