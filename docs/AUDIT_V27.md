@@ -76,11 +76,11 @@ Les fichiers sont nommés `avant-` ou `apres-`, puis `monde-` ou `chateau-`, pui
 
 | Contrôle | Résultat |
 |---|---|
-| `npm test` | voir § 7 |
-| `npm run smoke` | voir § 7 |
-| `npm run layout` | voir § 7 |
-| `npm run overlaps` | voir § 7 |
-| `npm run simulate` | voir § 7 |
+| `npm test` | **499 réussis, 0 échec** (dont 7 tests v27) |
+| `npm run smoke` | 53 vues, 491 actions, **aucune erreur** |
+| `npm run layout` | 378 vérifications, **aucun problème** |
+| `npm run overlaps` | **0 chevauchement**, ville et monde (aucune étiquette importante masquée) |
+| `npm run simulate` | sans erreur (profils 7 jours × 2 graines, économie 90 jours × 40) |
 | `npm run build` | 2 327 Ko (v26 : 2 310 Ko) |
 | `node tools/sharpness.cjs` | aucune couche au-delà de 1,25 (hors cas accepté) |
 
@@ -105,5 +105,3 @@ Les fichiers sont nommés `avant-` ou `apres-`, puis `monde-` ou `chateau-`, pui
 - **Côtes** : le pourtour du monde était déjà vectoriel (v26). Les rivières le deviennent. Les bords des terrains (forêt, plaine…) restent peints au pixel, mais au niveau de l'écran, donc nets.
 - **Mémoire sur téléphone** : budgets fixés par la qualité graphique. Aucun essai sur un vrai appareil (environnement sans téléphone).
 - **Lots 2 et 3** : pas commencés. La planche de style `tools/artsheet.html` vient d'abord, pour ta validation.
-
-## 7. Résultats de validation
