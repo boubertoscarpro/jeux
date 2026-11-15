@@ -3,7 +3,8 @@
 // avec leur niveau. Même peinture cuite que la ville (contour, lumière), dessinée en petit au-dessus du terrain.
 // Les colonnes en marche (soldats, bannière) remplacent les pions ronds ; le trajet pointillé et le compte à rebours
 // restent dessinés par views/world.js.
-import { sprite } from './scene.js';
+import { sprite, spriteSoon } from './scene.js';
+import { gestureActive as lightFrame } from '../tiles.js';
 import { PAINT, hamletRuin, scenery, TARGETS, FORT_STYLES, EVENT_TARGETS } from './art.js';
 import { banner } from './paint.js';
 import { RIVALS } from '../../data/world.js';
@@ -65,9 +66,9 @@ const bakeScale = (T, w = 1.25) => {
 };
 // Dessine un lieu peint centré sur (px, py) ; renvoie la demi-largeur occupée (pour les étiquettes)
 export function drawPoiPainted(ctx, painter, px, py, T, alpha = 1) {
-  const s = bakeScale(T, painter.w);
-  const sp = sprite('w|' + painter.key, s, painter.draw);
-  if (!sp.art) return 0;
+  const sp = spriteSoon('w|' + painter.key, bakeScale(T, painter.w), painter.draw); // v27.1 : cuisson bornée par image
+  if (!sp?.art) return 0;
+  const s = sp.s;
   const k = (T * painter.w) / (128 * s);
   const topY = py - 32 * s * k; // sommet haut du losange de la case
   ctx.save(); ctx.globalAlpha = alpha;
@@ -75,7 +76,7 @@ export function drawPoiPainted(ctx, painter, px, py, T, alpha = 1) {
   ctx.drawImage(sp.art, px - sp.ax * k, topY - sp.ay * k, sp.art.width * k, sp.art.height * k);
   // v26 : fumées des cheminées, feux de camp et forges (enregistrées à la cuisson, jamais dessinées sur le monde
   // jusqu'ici) : volutes qui montent ; fixes si les animations sont réduites, absentes en vue d'ensemble
-  if (sp.fx?.length && T >= 18) worldSmoke(ctx, sp.fx, px, topY, k, s, alpha);
+  if (sp.fx?.length && T >= 18 && !lightFrame()) worldSmoke(ctx, sp.fx, px, topY, k, s, alpha); // v27.1 : pas de fumées pendant un geste
   ctx.restore();
   return (T * painter.w) / 2;
 }

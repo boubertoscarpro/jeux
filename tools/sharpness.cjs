@@ -14,10 +14,12 @@ const LIMIT = 1.25;
 const GFX = process.env.GFX || 'high';
 
 async function settle(p, read) {
-  for (let i = 0; i < 80; i++) {
+  // v27.1 : jusqu'à 60 s (la mesure porte sur l'état final ; en DPR 3 sans carte graphique, la finesse 3 à 6 du château
+  // met plusieurs dizaines de secondes à se peindre entièrement)
+  for (let i = 0; i < 240; i++) {
     await p.waitForTimeout(250);
     const r = await p.evaluate(read);
-    if (r && r.tiles && r.tiles.queue === 0 && Object.values(r).every((v) => !v || typeof v !== 'object' || !('missing' in v) || v.missing === 0)) return r;
+    if (r && r.tiles && Object.values(r).every((v) => !v || typeof v !== 'object' || !('missing' in v) || v.missing === 0)) return r;
   }
   return p.evaluate(read);
 }

@@ -4,6 +4,8 @@
 //
 // cam = { x, y, z } : translation (px) du contenu dans la fenêtre et facteur d'échelle.
 
+import { markGesture } from './tiles.js';
+
 export const DRAG_THRESHOLD = 5; // px : en dessous, c'est un clic (sélection d'une case), pas un déplacement
 
 // Garde le contenu dans la fenêtre : s'il est plus petit, il est centré ; sinon aucun bord vide n'apparaît.
@@ -34,6 +36,7 @@ export function bindPanZoom(vp, opts) {
   const content = () => vp.querySelector('.mapvp-inner');
   const size = () => { const c = content(); return { cw: c.offsetWidth, ch: c.offsetHeight, vw: vp.clientWidth, vh: vp.clientHeight }; };
   const apply = () => {
+    markGesture();
     const cam = opts.getCam(), sz = size();
     clampCam(cam, sz.vw, sz.vh, sz.cw, sz.ch);
     content().style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`;

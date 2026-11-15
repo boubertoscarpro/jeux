@@ -19,7 +19,13 @@ L'écran de démarrage contient un encart **facultatif** pour soutenir le dével
 La partie est sauvegardée automatiquement dans le navigateur ; le royaume continue de vivre pendant
 votre absence (12 h simulées au maximum) et un rapport vous attend à votre retour.
 
+## Règle permanente : la performance
+
+**Chaque version doit passer `npm run perf`** (garde-fou `tools/perfgate.cjs`, seuils dans `docs/PLAN_V27_1.md` § 4), en plus de `npm test`, `smoke`, `layout`, `overlaps`, `simulate` et de la mesure de netteté (`npm run sharpness`, agrandissement ≤ 1,25). Une version qui dépasse un seuil n'est pas livrée : on corrige d'abord. L'indicateur de performances (touche **F3**) montre en jeu les images par seconde, les tâches longues et leur cause, et la mémoire des caches.
+
 ## Ce qu'on y fait
+
+> **v27.1 — Fluidité** : le jeu redevient fluide. Pendant un zoom au château en fin de partie, on passe de 25 à 45 images par seconde, et de 58 à 12 tâches longues (mesures sans carte graphique). L'affichage fixe ne se reconstruit plus entièrement chaque seconde. Les dessins sont cuits par petites tranches. La sauvegarde est compressée hors du fil principal. Une seule boucle d'animation se met en pause sous les fenêtres. La qualité graphique est choisie d'après la machine. Nouveaux : l'indicateur F3 et le garde-fou `npm run perf`. Voir [`docs/V27_1.md`](docs/V27_1.md) et [`docs/AUDIT_V27_1.md`](docs/AUDIT_V27_1.md).
 
 > **v27 — Netteté et vie (lot 1 : netteté)** :
 > - **Plus de flou au zoom** : la carte du monde et le château sont peints en tuiles, à la finesse réelle de l'écran (jusqu'au DPR 3). Aucune image n'est étirée plus de 1,25× (mesure automatique), sauf le terrain du monde en DPR 3 au zoom maximum (1,6×, choix du plan).

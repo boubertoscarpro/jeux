@@ -6,6 +6,7 @@
 import { toScreen } from '../../systems/iso.js';
 import { INK, rng } from './paint.js';
 import { sharp } from '../tiles.js';
+import { addFrameJob, wake } from '../frame.js';
 
 const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 // ───────── Personnages cuits (2 pas de marche) ─────────
@@ -78,8 +79,8 @@ export function mountLife(vp, app, data) {
   const html = document.documentElement;
   L.still = html.classList.contains('reduce-motion') || html.classList.contains('saver') || html.classList.contains('gfx-low') || matchMedia('(prefers-reduced-motion: reduce)').matches || !!app.ui.photo;
   resize();
-  if (L.still) { cancelAnimationFrame(L.raf); L.raf = 0; draw(1.7); }
-  else if (!L.raf) { L.t0 = performance.now(); L.raf = requestAnimationFrame(loop); }
+  if (L.still) draw(1.7);
+  else { if (!L.raf) { L.t0 = performance.now(); L.raf = 1; } wake(); }
 }
 // Fin de chantier (juice) : poussière au sol, rebond du bâtiment, étincelles d'or qui montent. sprite : dessin cuit
 // du bâtiment ({ art, ax, ay }) et sa résolution R, pour le rebond ; rien en mouvement réduit.
@@ -89,16 +90,27 @@ export function lifeBurst(x, y, sprite = null, R = 1) {
   if (L.bursts.length > 6) L.bursts.shift();
 }
 export function lifeRedraw() { if (L.cv?.isConnected) { resize(); draw(L.still ? 1.7 : (performance.now() - L.t0) / 1000); } }
+// v27.1 : la taille de la fenêtre est suivie par un ResizeObserver ; la relire (clientWidth) à chaque seconde forçait
+// un recalcul complet de la mise en page juste après les mises à jour de l'affichage fixe
+let ro = null, roFor = null;
+function vpSize() {
+  if (roFor !== L.vp && typeof ResizeObserver !== 'undefined') {
+    ro?.disconnect(); roFor = L.vp; L.vw = L.vp.clientWidth; L.vh = L.vp.clientHeight;
+    ro = new ResizeObserver((es) => { for (const e of es) { L.vw = e.contentRect.width; L.vh = e.contentRect.height; } });
+    ro.observe(L.vp);
+  }
+  return roFor === L.vp ? [L.vw, L.vh] : [L.vp.clientWidth, L.vp.clientHeight];
+}
 function resize() {
   const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const w = Math.max(1, Math.round(L.vp.clientWidth * dpr)), h = Math.max(1, Math.round(L.vp.clientHeight * dpr));
+  const [vw, vh] = vpSize();
+  const w = Math.max(1, Math.round(vw * dpr)), h = Math.max(1, Math.round(vh * dpr));
   if (L.cv.width !== w || L.cv.height !== h) { L.cv.width = w; L.cv.height = h; }
   L.dpr = dpr;
 }
+// v27.1 : une tâche de la boucle centrale (src/ui/frame.js), ~30 images/s, en pause quand une fenêtre couvre la carte
+addFrameJob('vie', (now) => loop(now), { every: 32, map: true, active: () => { const on = !!L.cv?.isConnected && !L.still; if (!on) L.raf = 0; return on; } });
 function loop(now) {
-  if (!L.cv?.isConnected) { L.raf = 0; return; }
-  L.raf = requestAnimationFrame(loop);
-  if (document.hidden || now - L.last < 32) return;
   const dt = Math.min(0.1, (now - (L.last || now)) / 1000);
   L.last = now;
   step(dt);

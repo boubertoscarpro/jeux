@@ -15,7 +15,7 @@ export const FADE_MS = 150;
 
 const cache = new Map(); // clé → entrée
 let bytes = 0, frame = 0;
-const BUDGET = { high: 160e6, medium: 96e6, low: 48e6 };
+const BUDGET = { high: 96e6, medium: 64e6, low: 32e6 }; // v27.1 : budgets réduits (portable moyen)
 let budget = BUDGET.high;
 export const tileStats = { painted: 0, paintMs: 0, evicted: 0, syncPainted: 0, peakBytes: 0, workerJobs: 0 };
 export const sharp = {}; // agrandissement maximum réel par couche à la dernière image : { id: { mag, lv, need } }
@@ -23,6 +23,17 @@ const layers = new Map();
 const queue = []; // travaux en attente : { layer, lv, tx, ty, ck, prio, state }
 let pumping = 0;
 
+// v27.1 : geste en cours (zoom, glisser) : pas de fondu ni de peinture d'arrière-plan sur le fil principal pendant le
+// geste ; elles reprennent 200 ms après le dernier mouvement
+let gestureUntil = 0, gestureTimer = 0;
+export const gestureActive = () => (typeof performance !== 'undefined' ? performance.now() : 0) < gestureUntil;
+const afterGesture = new Set();
+export function onGestureEnd(fn) { afterGesture.add(fn); }
+export function markGesture() {
+  gestureUntil = performance.now() + 200;
+  clearTimeout(gestureTimer);
+  gestureTimer = setTimeout(() => { for (const fn of afterGesture) fn(); for (const L of layers.values()) L.onReady?.(); pump(); }, 220);
+}
 export function setTileBudget(quality, bytesOverride = 0) { budget = bytesOverride || BUDGET[quality] || BUDGET.high; evict(); }
 // Une boîte [u0, v0, u1, v1] (unités) touche-t-elle la tuile (lv, tx, ty) ?
 export function boxTouchesTile(box, lv, tx, ty) {
@@ -79,8 +90,9 @@ export function evict(force = 0) {
   const now = typeof performance !== 'undefined' ? performance.now() : 0;
   const scored = [];
   for (const [k, e] of cache) {
-    if (e.used === frame || e.pin) continue;
     const L = layers.get(e.id);
+    // jamais les tuiles dessinées à la dernière image de LEUR couche (le sol et la scène se dessinent l'un après l'autre)
+    if (e.used === frame || e.pin || (L && e.used >= L.drawFrame)) continue;
     let s = 0;
     if (!L || now - L.lastDraw > 2000) s += 1e9 + (now - (L?.lastDraw || 0));
     else {
@@ -129,6 +141,7 @@ export function drawLayer(ctx, id, cam) {
   const L = layers.get(id);
   if (!L) return 0;
   frame++;
+  L.drawFrame = frame;
   const now = typeof performance !== 'undefined' ? performance.now() : 0;
   L.lastDraw = now;
   const need = cam.k;
@@ -151,7 +164,7 @@ export function drawLayer(ctx, id, cam) {
     if (e && e.ck !== ck) e.stale = true;
     if (!e || e.stale) {
       // aucun repli possible et couche « synchrone » : on peint tout de suite (première ouverture du château)
-      if (L.sync && syncLeft > 0 && (e ? L.syncStale : !hasFallback(L, lv, tx, ty))) {
+      if (L.sync && syncLeft > 0 && !gestureActive() && (e ? (typeof L.syncStale === 'function' ? L.syncStale() : L.syncStale) : !hasFallback(L, lv, tx, ty))) {
         const t0 = performance.now();
         const ne = paintNow(L, lv, tx, ty, ck, 0);
         syncLeft -= performance.now() - t0;
@@ -173,14 +186,14 @@ export function drawLayer(ctx, id, cam) {
   for (const [, , e] of todo) {
     if (!e || e.stale) continue;
     e.used = frame;
-    const a = L.fade === false || reduceMotion() ? 1 : Math.min(1, (now - e.born) / FADE_MS);
+    const a = L.fade === false || reduceMotion() || gestureActive() ? 1 : Math.min(1, (now - e.born) / FADE_MS);
     if (a < 1) fading = true;
     blit(ctx, e, cam, a);
     maxMag = Math.max(maxMag, need / lv);
   }
   sharp[id] = { mag: +maxMag.toFixed(3), lv, need: +need.toFixed(2), missing };
   if (queue.length) { kick(); pump(); }
-  if (fading) L.onReady?.();
+  if (fading && !gestureActive()) L.onReady?.();
   return missing;
 }
 const reduceMotion = () => typeof document !== 'undefined' && document.documentElement.classList.contains('reduce-motion');
@@ -262,8 +275,11 @@ export function pump() {
   pumping = 1;
   idle((dl) => {
     pumping = 0;
+    tileStats.pumps = (tileStats.pumps || 0) + 1;
+    if (gestureActive()) { tileStats.pumpGesture = (tileStats.pumpGesture || 0) + 1; return; } // reprise à la fin du geste (markGesture)
     const t0 = performance.now();
-    const budgetMs = Math.max(8, Math.min(14, dl.timeRemaining ? dl.timeRemaining() : 8));
+    // v27.1 : tranches de 12 à 24 ms hors geste (sous le seuil des tâches longues de 50 ms), pour que la peinture avance
+    const budgetMs = Math.max(12, Math.min(24, dl.timeRemaining && !dl.didTimeout ? dl.timeRemaining() : 24));
     const touched = new Set();
     while (queue.length && performance.now() - t0 < budgetMs) {
       // travaux trop vieux (la vue est partie ailleurs) : abandonnés
