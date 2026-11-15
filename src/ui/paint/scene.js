@@ -76,6 +76,9 @@ export function spriteSoon(key, s, draw) {
     later.set(k, [key, s, draw]); bakeLater();
     return cache.get(key + '@' + best);
   }
+  // aucune version encore : cuite tout de suite si le budget de l'image le permet, sinon à la prochaine (le lieu apparaît
+  // une ou deux images plus tard, au lieu d'une ouverture de carte qui fige 400 ms)
+  if (frameBake > 12) { later.set(k, [key, s, draw]); bakeLater(); return null; }
   const t0 = now;
   const sp = sprite(key, s, draw);
   frameBake += (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
@@ -190,7 +193,9 @@ export function groundCanvas(state, f, R, o) {
 }
 // Peint le sol du domaine dans g, en pixels du monde × R. clip = [x0, y0, x1, y1] (mêmes unités) : seule cette zone est
 // utile (tuile) ; les tirages au hasard sont faits quand même, pour que chaque tuile voie exactement le même sol.
-export function paintGroundInto(g, state, f, R, o, clip) {
+export function paintGroundInto(g, state, f, R, o, clip) { for (const _ of paintGroundSteps(g, state, f, R, o, clip)) void _; }
+// v27.1 : la même peinture découpée en étapes (générateur) : une tuile du sol avance par tranches de quelques ms
+export function* paintGroundSteps(g, state, f, R, o, clip) {
   const W = state.city.w, Hh = state.city.h, T = state.city.terrain;
   const WW = Math.ceil(f.width * R), HH = Math.ceil(f.height * R);
   const C = clip || [0, 0, WW, HH];
@@ -227,8 +232,10 @@ export function paintGroundInto(g, state, f, R, o, clip) {
     g.fillStyle = blob; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
   }
   g.restore();
-  // cases
+  yield;
+  // cases (une étape toutes les 4 rangées)
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    if (x === 0 && y % 4 === 3) yield;
     const k = kindOf(x, y), q = toScreen(f, x, y);
     if (out(q.sx * R - 96 * R, q.sy * R - 96 * R, q.sx * R + 96 * R, q.sy * R + 96 * R)) continue;
     const p = pen(g, q.sx * R, q.sy * R, R, x * 977 + y);
@@ -266,12 +273,14 @@ export function paintGroundInto(g, state, f, R, o, clip) {
     }
     if (o.season === 'winter' && k !== 'water') { poly(g, pts); g.fillStyle = 'rgba(250,252,255,.55)'; g.fill(); }
   }
+  yield;
   // pont-levis devant la porte, au-dessus des douves
   if (o.gate && o.moat > 0) { const q = toScreen(f, o.gate.x, o.gate.y); drawbridge(pen(g, q.sx * R, q.sy * R, R), 1, true); }
   // v24 : bord du domaine — ombre douce vers l'intérieur au lieu d'un trait sombre
   g.save(); poly(g, corners); g.clip();
   g.filter = `blur(${Math.round(10 * R)}px)`; poly(g, corners); g.strokeStyle = rgba(lit(wild, -0.25), 0.55); g.lineWidth = 22 * R; g.stroke();
   g.restore(); g.filter = 'none';
+  yield;
   edgeGrove(g, f, R, W, Hh, o.season, wild, r, out);
 }
 

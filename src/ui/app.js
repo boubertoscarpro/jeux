@@ -362,9 +362,9 @@ export class App {
     showTip(this);
     // v27.1 : un changement venu du moteur (ressource, file, quête) ne reconstruit plus toute la carte à chaque seconde.
     // Si ce que la carte montre de structurel n'a pas changé (sig de la vue), seul l'affichage fixe et les compteurs sont
-    // rafraîchis ; la carte est quand même reconstruite au plus toutes les 5 s (flèches d'amélioration, bulles).
+    // rafraîchis ; la carte est quand même reconstruite au plus toutes les 30 s (signaux secondaires des bâtiments).
     const map = this.views[this.ui.map];
-    if (this.dirty && !this.ui.win && !this.mapDirty && map?.sig && now - (this._mapAt || 0) < 5000 && map.sig(this) === this._mapSig) this.dirty = false;
+    if (this.dirty && !this.ui.win && !this.mapDirty && map?.sig && now - (this._mapAt || 0) < 30000 && map.sig(this) === this._mapSig) this.dirty = false;
     // une fenêtre ouverte n'est reconstruite par le moteur qu'au plus toutes les 3 s (ses compteurs bougent chaque seconde)
     if (this.dirty && this.ui.win && !this.mapDirty && now - (this._winAt || 0) < 3000) this.dirty = false;
     if (this.dirty) this.render();
@@ -440,9 +440,13 @@ export class App {
     // chaque seconde) ; même HTML qu'avant → aucun travail
     const html = renderHud(this);
     if (html !== this._hudHtml) {
+      // (comparaison fine par partie ci-dessous)
       const tpl = document.createElement('template'); tpl.innerHTML = html;
       const next = [...tpl.content.children], cur = [...hud.children];
-      const srcs = next.map((e) => e.outerHTML);
+      // les comptes à rebours et les barres de progression bougent chaque seconde : updateTimers les met à jour en place,
+      // ils ne justifient pas de remplacer une partie (ce qui relançait style et mise en page de toute la page)
+      const norm = (h) => h.replace(/(data-end="\d+"[^>]*>)[^<]*/g, '$1').replace(/(data-pend="\d+"[^>]*?)style="width:[\d.]+%"/g, '$1');
+      const srcs = next.map((e) => norm(e.outerHTML));
       if (!this._hudHtml || cur.length !== next.length || cur.some((c) => c._src === undefined)) {
         this.preserveInputs(hud, () => { hud.replaceChildren(...next); });
         next.forEach((e, i) => { e._src = srcs[i]; });
@@ -472,8 +476,11 @@ export class App {
     const main = this.$('#view');
     this.root.classList.add('mapmode');
     this.root.classList.toggle('win-open', !!this.ui.win);
-    // v17 : l'affichage fixe d'abord, pour que le cadrage de la carte connaisse sa zone de sécurité
-    this.renderHud();
+    // v17 : l'affichage fixe d'abord, pour que le cadrage de la carte connaisse sa zone de sécurité. v27.1 : sous une
+    // fenêtre (la carte n'est pas recadrée), il est mis à jour à l'image suivante : l'ouverture d'un écran ne fait plus
+    // qu'une seule tâche courte
+    if (this.ui.win && main.dataset.screen === map.id && !this.mapDirty) { cancelAnimationFrame(this._hudRaf); this._hudRaf = requestAnimationFrame(() => this.renderHud()); }
+    else this.renderHud();
     // Sans fenêtre : la carte est redessinée comme avant. Avec une fenêtre : seulement si on l'a demandé (changement de
     // carte, action sur la carte) ; ouvrir un écran par-dessus une carte à jour ne la redessine pas.
     if (!this.ui.win || this.mapDirty || main.dataset.screen !== map.id) {

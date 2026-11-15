@@ -90,9 +90,21 @@ export function lifeBurst(x, y, sprite = null, R = 1) {
   if (L.bursts.length > 6) L.bursts.shift();
 }
 export function lifeRedraw() { if (L.cv?.isConnected) { resize(); draw(L.still ? 1.7 : (performance.now() - L.t0) / 1000); } }
+// v27.1 : la taille de la fenêtre est suivie par un ResizeObserver ; la relire (clientWidth) à chaque seconde forçait
+// un recalcul complet de la mise en page juste après les mises à jour de l'affichage fixe
+let ro = null, roFor = null;
+function vpSize() {
+  if (roFor !== L.vp && typeof ResizeObserver !== 'undefined') {
+    ro?.disconnect(); roFor = L.vp; L.vw = L.vp.clientWidth; L.vh = L.vp.clientHeight;
+    ro = new ResizeObserver((es) => { for (const e of es) { L.vw = e.contentRect.width; L.vh = e.contentRect.height; } });
+    ro.observe(L.vp);
+  }
+  return roFor === L.vp ? [L.vw, L.vh] : [L.vp.clientWidth, L.vp.clientHeight];
+}
 function resize() {
   const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const w = Math.max(1, Math.round(L.vp.clientWidth * dpr)), h = Math.max(1, Math.round(L.vp.clientHeight * dpr));
+  const [vw, vh] = vpSize();
+  const w = Math.max(1, Math.round(vw * dpr)), h = Math.max(1, Math.round(vh * dpr));
   if (L.cv.width !== w || L.cv.height !== h) { L.cv.width = w; L.cv.height = h; }
   L.dpr = dpr;
 }

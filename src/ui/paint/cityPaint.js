@@ -1,7 +1,7 @@
 // v21 « Couleurs du Royaume » — Branche la scène peinte sur la carte du royaume : liste des dessins à poser (d'après
 // l'état, en lecture seule), canvas du sol et de la scène gardés d'un rendu à l'autre, redessinés seulement si le
 // contenu change. Les boutons HTML de views/city.js restent posés par-dessus (zones cliquables invisibles).
-import { setSpriteBudget, spriteStats, groundCanvas, groundKeyOf, paintGroundInto, sortScene, wallItems, drawScene, buildingSprite, scenerySprite, roadSprite, lotSprite, scaffoldSprite, decoSprite, trophySprite, paintStats } from './scene.js';
+import { setSpriteBudget, spriteStats, groundCanvas, groundKeyOf, paintGroundSteps, sortScene, wallItems, drawScene, buildingSprite, scenerySprite, roadSprite, lotSprite, scaffoldSprite, decoSprite, trophySprite, paintStats } from './scene.js';
 import { depth, LAYER, toScreen } from '../../systems/iso.js';
 import { defineLayer, dropLayer, drawLayer, pickLevel, setTileBudget, sharp, tileDebug, boxTouchesTile, TILE_PX } from '../tiles.js';
 import { rectOf, gateOf, alleeTiles, wallStyle, fortLevel } from '../../systems/castle.js';
@@ -110,7 +110,7 @@ function sceneModel(items, f) {
     p.box = [a[0] - PAD, a[1] - PAD, a[2] + PAD, a[3] + PAD];
     p.key0 = `${p.it.k}@${p.it.x},${p.it.y}${p.it.alpha ?? ''}${p.it.filter || ''}${p.it.depth}`;
   }
-  keep.model = { items, f, order, fx, lists: new Map() };
+  keep.model = { items, f, order, fx, lists: new Map(), hasProg: items.some((it) => it.prog) };
   return keep.model;
 }
 function tileList(M, R, tx, ty) {
@@ -159,23 +159,30 @@ function paintSceneTile(cv, R, tx, ty, job) {
   paintStats.sceneMs = performance.now() - t0; paintStats.items = M.order.length;
   return true;
 }
-function paintGroundTile(cv, R, tx, ty) {
+function paintGroundTile(cv, R, tx, ty, job) {
   const t0 = performance.now();
   const g = cv.getContext('2d');
   if (!g) return true;
-  g.setTransform(1, 0, 0, 1, 0, 0);
-  const X0 = tx * TILE_PX, Y0 = ty * TILE_PX;
-  g.translate(-X0, -Y0);
-  paintGroundInto(g, keep.state, keep.f, R, keep.gopts, [X0, Y0, X0 + cv.width, Y0 + cv.height]);
-  paintStats.groundMs = performance.now() - t0;
-  return true;
+  if (!job?.gen) {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const X0 = tx * TILE_PX, Y0 = ty * TILE_PX;
+    g.translate(-X0, -Y0);
+    const gen = paintGroundSteps(g, keep.state, keep.f, R, keep.gopts, [X0, Y0, X0 + cv.width, Y0 + cv.height]);
+    if (!job || job.sync) { for (const _ of gen) void _; paintStats.groundMs = performance.now() - t0; return true; }
+    job.gen = gen;
+  }
+  // v27.1 : en arrière-plan, par étapes de ~8 ms
+  for (;;) {
+    if (job.gen.next().done) { paintStats.groundMs = performance.now() - t0; return true; }
+    if (performance.now() - t0 > 8) return false;
+  }
 }
 function defineCityLayers() {
   const levels = CITY_LEVELS[keep.gfx] || CITY_LEVELS.high;
   const bounds = () => [0, 0, keep.f.width, keep.f.height];
   const onReady = () => redrawCity();
-  defineLayer({ id: 'cg', levels, bounds, key: (R) => keep.gkey + '|' + R, paint: (cv, R, tx, ty) => paintGroundTile(cv, R, tx, ty), onReady, sync: true, syncBudget: 350, syncStale: true, fade: true });
-  defineLayer({ id: 'cs', levels, bounds, key: (R, tx, ty) => { const M = keep.model; return M ? tileList(M, R, tx, ty).map(itemKey).join(';') : ''; }, paint: (cv, R, tx, ty, job) => paintSceneTile(cv, R, tx, ty, job), onReady, sync: true, syncBudget: 350, syncStale: true, fade: true });
+  defineLayer({ id: 'cg', levels, bounds, key: (R) => keep.gkey + '|' + R, paint: (cv, R, tx, ty, job) => paintGroundTile(cv, R, tx, ty, job), onReady, sync: true, syncBudget: 350, syncStale: () => keep.urgent, fade: true });
+  defineLayer({ id: 'cs', levels, bounds, key: (R, tx, ty) => { const M = keep.model; return M ? tileList(M, R, tx, ty).map(itemKey).join(';') : ''; }, paint: (cv, R, tx, ty, job) => paintSceneTile(cv, R, tx, ty, job), onReady, sync: true, syncBudget: 350, syncStale: () => keep.urgent, fade: true });
 }
 let redrawRaf = 0;
 function redrawCity() { if (redrawRaf) return; redrawRaf = requestAnimationFrame(() => { redrawRaf = 0; if (keep.getCam) drawCity(keep.getCam()); }); }
@@ -188,20 +195,28 @@ export function attachPaint(gslot, slot, state, f, R, items, gopts, vp = null, g
   if (keep.scene.parentElement !== slot) slot.appendChild(keep.scene);
   const gkey = groundKeyOf(state, gopts);
   const relevel = keep.gfx !== gfx || keep.f?.width !== f.width || keep.f?.height !== f.height;
+  // v27.1 : la seconde suivante sans changement (mêmes dessins, même sol, pas de chantier qui avance) ne redessine rien
+  const same = keep.items === items && keep.gkey === gkey && !relevel && keep.ground?.isConnected && !keep.model?.hasProg;
+  // v27.1 : une nouvelle liste de dessins (action du joueur, nouveau rendu) → les tuiles changées sont repeintes tout de
+  // suite ; l'avancement d'un chantier (même liste) → en arrière-plan
+  keep.urgent = keep.items !== items || keep.gkey !== gkey;
   Object.assign(keep, { state, f, gopts, gkey, items, gfx, vp: vp || keep.vp, getCam: getCam || keep.getCam });
   sceneModel(items, f);
   keep.fx = keep.model.fx;
   if (relevel) { dropLayer('cg'); dropLayer('cs'); }
   defineCityLayers();
   setTileBudget(gfx); setSpriteBudget(gfx);
-  if (keep.getCam && keep.getCam().init !== false) drawCity(keep.getCam());
+  if (!same && keep.getCam && keep.getCam().init !== false) drawCity(keep.getCam());
 }
 // Recopie les tuiles visibles dans les deux canvas de la fenêtre. cam = { x, y, z } (caméra CSS du château)
 export function drawCity(cam) {
   const vp = keep.vp;
   if (!vp || !vp.isConnected || !keep.f) return;
   const t0 = performance.now();
-  const dpr = pixelRatio(), vw = vp.clientWidth, vh = vp.clientHeight;
+  const dpr = pixelRatio();
+  // v27.1 : taille suivie par un ResizeObserver (pas de relecture qui forcerait la mise en page)
+  if (keep.roFor !== vp && typeof ResizeObserver !== 'undefined') { keep.ro?.disconnect(); keep.roFor = vp; keep.vw = vp.clientWidth; keep.vh = vp.clientHeight; keep.ro = new ResizeObserver((es) => { for (const e of es) { keep.vw = e.contentRect.width; keep.vh = e.contentRect.height; } redrawCity(); }); keep.ro.observe(vp); }
+  const vw = keep.roFor === vp ? keep.vw : vp.clientWidth, vh = keep.roFor === vp ? keep.vh : vp.clientHeight;
   const W = Math.max(1, Math.round(vw * dpr)), H = Math.max(1, Math.round(vh * dpr));
   for (const [c, id] of [[keep.ground, 'cg'], [keep.scene, 'cs']]) {
     if (!c) continue;
@@ -213,6 +228,7 @@ export function drawCity(cam) {
     drawLayer(g, id, { k: cam.z * dpr, ox: cam.x * dpr, oy: cam.y * dpr, vw: W, vh: H });
   }
   keep.R = sharp.cs?.lv || keep.R;
+  keep.urgent = false;
   const dt = performance.now() - t0; paintStats.drawMs = dt; paintStats.draws = (paintStats.draws || 0) + 1; paintStats.drawTot = (paintStats.drawTot || 0) + dt;
 }
 export const paintFx = () => keep.fx;

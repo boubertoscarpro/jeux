@@ -574,7 +574,8 @@ function attachGround(app) {
   attachPaint(vp.querySelector('.paint-slot.pg'), vp.querySelector('.paint-slot.ps'), p.state, p.f, p.R, p.items, p.gopts, vp, () => cityCam(app), gfxOf(app.state));
   app.paintStats = paintStats; // mesures (outils de perf et de composition)
   app._citySharp = citySharp;
-  if (app._life) mountLife(vp, app, { ...app._life, fx: paintFx() });
+  // v27.1 : les villageois ne sont remontés que si leurs données ont changé (nouveau rendu), pas à chaque seconde
+  if (app._life && (app._lifeMounted !== app._life || !vp.querySelector('.paint-life'))) { app._lifeMounted = app._life; mountLife(vp, app, { ...app._life, fx: paintFx() }); }
 }
 
 
@@ -655,7 +656,10 @@ const cityView = {
     const s = app.state;
     return Object.values(s.city.buildings).map((b) => `${b.id}:${b.type}:${b.level}:${b.x},${b.y}:${b.damaged || ''}:${b.disabled ? 1 : ''}`).join(';')
       + '|' + (s.queues?.build || []).map((q) => `${q.bid || q.kind}:${q.x ?? ''},${q.y ?? ''}`).join(';')
-      + '|' + (s.raids || []).length + '|' + s.pending.length + '|' + (s.crises?.active || []).length + '|' + (s.city.w) + 'x' + s.city.h;
+      + '|' + (s.raids || []).length + '|' + s.pending.length + '|' + (s.crises?.active || []).length + '|' + (s.city.w) + 'x' + s.city.h
+      // ce qui change avec les ressources : flèches « améliorable » et bonus à récolter (le reste des signaux suit au plus
+      // toutes les 30 s)
+      + '|' + upgradeSummary(s).ready.map((u) => u.bid || u.name).join(',') + '|' + readyHarvests(s).length;
   },
   tick(app) { const st = document.querySelector('.city-stage'); if (st) { updateSceneFx(st, cityScene(app), 'city'); attachGround(app); } },
   after(app) {

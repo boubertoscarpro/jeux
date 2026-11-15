@@ -164,7 +164,7 @@ export function drawLayer(ctx, id, cam) {
     if (e && e.ck !== ck) e.stale = true;
     if (!e || e.stale) {
       // aucun repli possible et couche « synchrone » : on peint tout de suite (première ouverture du château)
-      if (L.sync && syncLeft > 0 && !gestureActive() && (e ? L.syncStale : !hasFallback(L, lv, tx, ty))) {
+      if (L.sync && syncLeft > 0 && !gestureActive() && (e ? (typeof L.syncStale === 'function' ? L.syncStale() : L.syncStale) : !hasFallback(L, lv, tx, ty))) {
         const t0 = performance.now();
         const ne = paintNow(L, lv, tx, ty, ck, 0);
         syncLeft -= performance.now() - t0;
