@@ -97,3 +97,20 @@
 | `npm run perf` | tous les seuils tenus |
 
 ## 6. Session de 30 minutes
+
+`node tools/memsession.cjs 30` : partie de fin, **242 boucles**. Chaque boucle : château et monde, zoom avant et arrière, glisser, puis 3 fenêtres ouvertes et fermées. La mémoire est relevée après ramasse-miettes.
+
+| Minute | Mémoire JS | Cache de tuiles | Dessins cuits | Nœuds DOM |
+|---|---|---|---|---|
+| 0,1 | 19,8 Mo | 77,6 Mo | 11,6 Mo | 1 699 |
+| 5,1 | 18,6 Mo | 95,4 Mo | 15,8 Mo | 1 699 |
+| 15,1 | 18,0 Mo | 95,4 Mo | 15,8 Mo | 1 699 |
+| 25,0 | 19,4 Mo | 95,4 Mo | 15,8 Mo | 1 704 |
+| 30,0 | 19,3 Mo | 95,4 Mo | 15,8 Mo | 1 704 |
+
+**Mémoire stable** :
+- la mémoire JS oscille entre 17,6 et 19,4 Mo, sans croissance continue ;
+- le cache de tuiles se remplit jusqu'à son budget (96 Mo) puis y reste, l'éviction fonctionne ;
+- les dessins restent à 16 Mo (budget 32 Mo) ;
+- 5 nœuds DOM de plus en 30 minutes (un élément d'interface apparu en cours de session, pas une fuite qui grandit) ;
+- aucune erreur.
