@@ -6,7 +6,12 @@ const BITS = 20, MAXC = 1 << BITS, BASE = 0x100;
 
 export const isCompressed = (s) => typeof s === 'string' && s.startsWith(PREFIX);
 
-export function compress(str) {
+// v27.1 : la compression est AUTONOME (aucun nom extérieur) pour être recopiée dans un worker : la sauvegarde
+// périodique est compressée hors du fil principal (≈ 40 ms en fin de partie)
+export function lzKit() {
+  const PREFIX = 'LZ1:';
+  const BITS = 20, MAXC = 1 << BITS, BASE = 0x100;
+  function compress(str) {
   const out = [];
   let acc = 0, nacc = 0;
   const emit = (code) => {
@@ -30,6 +35,11 @@ export function compress(str) {
   if (nacc > 0) out.push(String.fromCharCode(BASE + acc * 2 ** (15 - nacc)));
   return PREFIX + str.length.toString(36) + ':' + out.join('');
 }
+  return { compress };
+}
+const KIT = lzKit();
+export const compress = (str) => KIT.compress(str);
+export const lzWorkerSource = () => `const K=(${lzKit.toString()})();onmessage=(e)=>{postMessage({id:e.data.id,out:K.compress(e.data.str)});};`;
 
 export function decompress(data) {
   if (!isCompressed(data)) return data;

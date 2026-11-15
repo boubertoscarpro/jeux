@@ -11,7 +11,9 @@
     "smoke": "node tools/smoke.cjs",
     "simulate": "node tools/profileSim.js 7 2 && node tools/economySim.js 90 40",
     "layout": "node tools/layout.cjs",
-    "overlaps": "node tools/v17measure.cjs --strict"
+    "overlaps": "node tools/v17measure.cjs --strict",
+    "perf": "node tools/perfgate.cjs",
+    "sharpness": "node tools/sharpness.cjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"

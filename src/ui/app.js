@@ -41,7 +41,10 @@ import { ensureIconDefs, navIcon, gameIcon } from './icons.js';
 const SUBTAB_ICONS = { army: 's_atk', campaigns: 't_command', heroes: 'h_general', craft: 'b_craft', research: 't_lore', talents: 'b_magic' };
 import { ensureArtDefs } from './art.js';
 import { advance } from '../core/engine.js';
-import { saveGame, serialize } from '../core/save.js';
+import { saveGame, saveGameAsync, serialize } from '../core/save.js';
+import { section } from './sections.js';
+import { startPerf, togglePerfHud, measureMachine } from './perf.js';
+import { wake as wakeFrames } from './frame.js';
 import { fmtTime } from '../core/util.js';
 import { sideActions, adviceBox } from './hud.js';
 import { esc, resChips } from './components.js';
@@ -191,7 +194,7 @@ export class App {
     this.applyPrefs();
     this.bindEvents();
     watchSigils(document.body); // v22 : aucun emoji affiché, chaque symbole devient un sceau dessiné
-    bus.on('changed', () => { this.dirty = true; });
+    bus.on('changed', () => { this.dirty = true; this._changedSinceSave = true; });
     bus.on('toast', ({ text, type }) => this.toast(text, type));
     bindAnnouncer(this, bus); // v17 : raids, crises, chantiers terminés annoncés aux lecteurs d'écran
     bus.on('feat', (f) => this.feat(f));
@@ -219,9 +222,11 @@ export class App {
       this.save();
     }
     this.timer = setInterval(() => this.tick(), 1000);
-    this.saveTimer = setInterval(() => this.save(), 15000);
-    document.addEventListener('visibilitychange', () => { document.documentElement.classList.toggle('paused-anim', document.hidden); if (document.hidden) this.save(); else this.tick(); });
-    window.addEventListener('beforeunload', () => this.save());
+    startPerf(this);
+    this.autoQuality();
+    this.saveTimer = setInterval(() => this.autoSave(), 15000);
+    document.addEventListener('visibilitychange', () => { document.documentElement.classList.toggle('paused-anim', document.hidden); if (document.hidden) this.saveNow(); else this.tick(); });
+    window.addEventListener('beforeunload', () => this.saveNow());
   }
 
   absenceReport(away, before, logBefore) {
@@ -250,9 +255,54 @@ export class App {
       <button class="btn primary" data-action="close-modal">Au travail !</button>`, {}, 'wide');
   }
 
+  // v27.1 : sauvegarde automatique pendant un temps mort, compressée dans un worker, seulement si l'état a changé
+  // (sinon au plus toutes les 60 s) ; la sauvegarde manuelle, à la fermeture et à la mise en arrière-plan reste immédiate
+  autoSave() {
+    if (!this.state || this._saving) return;
+    const now = Date.now();
+    if (!this._changedSinceSave && now - (this._lastAutoSave || 0) < 60000) return;
+    this._saving = true;
+    const go = () => {
+      this._changedSinceSave = false; this._lastAutoSave = Date.now();
+      const t0 = performance.now();
+      section('sauvegarde', () => saveGameAsync(this.state)).then((r) => { this._saving = false; this.afterSave(r, false); if (this.perf) this.perf.saveMs = Math.round(performance.now() - t0); });
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 3000 }); else setTimeout(go, 0);
+  }
+  // save() après une action : asynchrone dans les 2 s ; save(true) (bouton « Sauvegarder ») et saveNow() (démarrage,
+  // fermeture, onglet caché) : immédiate
   save(manual = false) {
     if (!this.state) return false;
-    const r = saveGame(this.state);
+    if (!manual) { this._changedSinceSave = true; clearTimeout(this._saveSoon); this._saveSoon = setTimeout(() => this.autoSave(), 2000); return true; }
+    return this.saveNow(true);
+  }
+  saveNow(manual = false) {
+    if (!this.state) return false;
+    this._changedSinceSave = false; this._lastAutoSave = Date.now();
+    return this.afterSave(section('sauvegarde', () => saveGame(this.state)), manual);
+  }
+  // v27.1 : qualité graphique choisie d'après la machine au premier lancement (et sur demande dans les réglages) ;
+  // jamais si le joueur a déjà choisi lui-même
+  autoQuality(force = false) {
+    const m = this.state?.meta;
+    if (!m || (!force && (m.gfxAuto || m.gfxChosen || m.gfx))) return Promise.resolve(null); // une qualité déjà réglée est un choix
+    return new Promise((res) => setTimeout(() => measureMachine().then((r) => {
+      m.gfxAuto = { at: Date.now(), ...r };
+      const prev = m.gfx || 'high';
+      if (force || !m.gfxChosen) m.gfx = r.quality;
+      if (m.gfx !== prev) { this.applyPrefs(); this.mapDirty = true; this.render(); }
+      if (force) this.toast(`⚙️ Machine mesurée : qualité « ${({ high: 'élevée', medium: 'moyenne', low: 'basse' })[r.quality]} » (${r.fps} images/s, tuile de terrain en ${r.cpuMs} ms)`, 'good');
+      this.save();
+      res(r);
+    }), force ? 0 : 4000));
+  }
+  proposeLowerQuality(fps) {
+    if (document.getElementById('modal-root')?.classList.contains('open')) return;
+    const m = this.state.meta, next = (m.gfx || 'high') === 'high' ? 'medium' : 'low';
+    this.modal(`<h2>⚙️ Le jeu semble ralentir</h2><p>Environ ${fps} images par seconde depuis 20 secondes. Baisser la qualité graphique (« ${next === 'medium' ? 'moyenne' : 'basse'} ») le rendrait plus fluide. Vous pourrez la remonter dans les réglages.</p>
+      <div class="row gap end"><button class="btn ghost" data-action="perf-keep">Garder la qualité</button><button class="btn primary" data-action="perf-lower" data-k="${next}">Baisser la qualité</button></div>`);
+  }
+  afterSave(r, manual) {
     // Records des scénarios : copiés hors de la sauvegarde pour survivre à une nouvelle partie
     try {
       const rec = this.state.meta.scenarioRecords;
@@ -293,11 +343,12 @@ export class App {
     for (const n of list) n.read = true;
   }
 
-  tick() {
+  tick() { section('tick', () => this.tick_()); }
+  tick_() {
     if (!this.state) return;
     const now = Date.now();
     if (!document.hidden) this.state.meta.playTime = (this.state.meta.playTime || 0) + 1000;
-    advance(this.state, now);
+    section('simulation', () => advance(this.state, now));
     this.state.meta.bootOk = true;
     // Parcours guidé : détection automatique des missions (toutes les 3 s)
     if (!(this.cpTick > now - 3000)) {
@@ -309,6 +360,13 @@ export class App {
     }
     this.showEventReport();
     showTip(this);
+    // v27.1 : un changement venu du moteur (ressource, file, quête) ne reconstruit plus toute la carte à chaque seconde.
+    // Si ce que la carte montre de structurel n'a pas changé (sig de la vue), seul l'affichage fixe et les compteurs sont
+    // rafraîchis ; la carte est quand même reconstruite au plus toutes les 5 s (flèches d'amélioration, bulles).
+    const map = this.views[this.ui.map];
+    if (this.dirty && !this.ui.win && !this.mapDirty && map?.sig && now - (this._mapAt || 0) < 5000 && map.sig(this) === this._mapSig) this.dirty = false;
+    // une fenêtre ouverte n'est reconstruite par le moteur qu'au plus toutes les 3 s (ses compteurs bougent chaque seconde)
+    if (this.dirty && this.ui.win && !this.mapDirty && now - (this._winAt || 0) < 3000) this.dirty = false;
     if (this.dirty) this.render();
     else {
       this.renderHud();
@@ -371,22 +429,41 @@ export class App {
     if (activeId) { const el = container.querySelector('#' + CSS.escape(activeId)); if (el) el.focus(); }
   }
 
-  renderHud() {
+  renderHud() { section('renderHud', () => this.renderHud_()); }
+  renderHud_() {
     const hud = this.$('#hud');
     if (!hud) return;
     // Un menu déroulant de l'affichage fixe en cours d'utilisation (choix du domaine) : on ne le remplace pas sous la
     // souris, sinon la liste ouverte se refermerait au rafraîchissement de chaque seconde
     if (document.activeElement?.tagName === 'SELECT' && hud.contains(document.activeElement)) return;
-    this.preserveInputs(hud, () => { hud.innerHTML = renderHud(this); });
+    // v27.1 : seules les parties de l'affichage fixe qui ont changé sont remplacées (plus de reconstruction complète
+    // chaque seconde) ; même HTML qu'avant → aucun travail
+    const html = renderHud(this);
+    if (html !== this._hudHtml) {
+      const tpl = document.createElement('template'); tpl.innerHTML = html;
+      const next = [...tpl.content.children], cur = [...hud.children];
+      const srcs = next.map((e) => e.outerHTML);
+      if (!this._hudHtml || cur.length !== next.length || cur.some((c) => c._src === undefined)) {
+        this.preserveInputs(hud, () => { hud.replaceChildren(...next); });
+        next.forEach((e, i) => { e._src = srcs[i]; });
+        iconize(hud);
+      } else {
+        const changed = next.map((e, i) => (cur[i]._src !== srcs[i] ? i : -1)).filter((i) => i >= 0);
+        if (changed.length) this.preserveInputs(hud, () => { for (const i of changed) { next[i]._src = srcs[i]; cur[i].replaceWith(next[i]); iconize(next[i]); } });
+      }
+      this._hudHtml = html;
+      this.perf && (this.perf.hudParts = (this.perf.hudParts || 0) + 1);
+    }
     hud.dataset.map = this.ui.map;
+    hud.querySelectorAll('.tut-hl').forEach((e) => e.classList.remove('tut-hl'));
     if (this.ui.hudHl) hud.querySelector(this.ui.hudHl === 'profile' ? '.hud-coat' : this.ui.hudHl === 'settings' ? '[data-view="settings"]' : `[data-action="${this.ui.hudHl}"]`)?.classList.add('tut-hl');
-    iconize(hud);
   }
 
   // Rendu : la carte (château, monde, avant-poste) derrière ; l'affichage fixe ; la fenêtre du lieu ouvert. Tant qu'une
   // fenêtre est ouverte, la carte n'est pas redessinée (elle est floutée derrière) : ouvrir un écran ne coûte que
   // l'écran lui-même.
-  render() {
+  render() { section('render', () => this.render_()); wakeFrames(); }
+  render_() {
     // Pendant l'animation de la Roue, seul l'affichage fixe est rafraîchi
     if (this.ui.freezeUntil > Date.now()) { this.renderHud(); this.dirty = true; return; }
     this.dirty = false;
@@ -405,12 +482,14 @@ export class App {
       map.after?.(this);
       iconize(main);
       this.mapDirty = false;
+      this._mapAt = Date.now(); this._mapSig = map.sig?.(this);
     }
     this.renderWin();
   }
 
   // Fenêtre du lieu : titre (lieu et niveau), onglets des écrans du lieu, Améliorer, Retour, Aide, fermeture
-  renderWin() {
+  renderWin() { this._winAt = Date.now(); section('renderWin', () => this.renderWin_()); }
+  renderWin_() {
     const root = this.$('#win-root');
     if (!root) return;
     const id = this.ui.win;
@@ -507,6 +586,7 @@ export class App {
       this.toast(r.reason || 'Action impossible : l’élément visé n’existe plus ou la situation a changé (actualisation de l’écran).', 'bad');
     } else if (okMsg) this.toast(typeof okMsg === 'function' ? okMsg(r) : okMsg, 'good');
     this.render();
+    // v27.1 : plus de sauvegarde synchrone (≈ 50 ms) après chaque action : une sauvegarde asynchrone suit dans les 2 s
     if (!r || r.ok !== false) this.save();
     else this.deny();
     return r;
@@ -568,6 +648,7 @@ export class App {
         }
         return;
       }
+      if (ev.key === 'F3') { ev.preventDefault(); togglePerfHud(this); this.save(); return; } // v27.1 : indicateur de performances
       if (ev.key === 'Escape') {
         if (open) { this.closeModal(); return; }
         if (this.ui.phoneDrawer) { this.ui.phoneDrawer = null; this.renderHud(); return; }
@@ -612,6 +693,10 @@ export class App {
     },
     nav: (app, el) => app.go(el.dataset.view),
     'close-modal': (app) => app.closeModal(),
+    'perf-keep': (app) => { app.state.meta.autoQualityOff = true; app.closeModal(); app.save(); },
+    'perf-lower': (app, el) => { app.state.meta.gfx = el.dataset.k; app.state.meta.gfxChosen = true; app.closeModal(); app.applyPrefs(); app.mapDirty = true; app.render(); app.save(); app.toast('Qualité graphique baissée', 'good'); },
+    'perf-hud': (app) => { togglePerfHud(app); app.save(); },
+    'perf-measure': (app) => { app.autoQuality(true); },
     advisor: (app) => openAdvisor(app),
     'up-list': (app) => openUpgradeList(app),
     help: (app) => openHelp(app, app.ui.win || app.ui.map, groupOf(app.ui.win || app.ui.map)),

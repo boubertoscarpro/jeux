@@ -30,11 +30,57 @@ function trim(cv) {
 // Dessin cuit d'une case : { art, ax, ay (position du sommet haut de la case dans l'image), shadow, sx, sy, fx (fumées) }
 // v27 : cache borné en mégaoctets (et non plus en nombre) ; au-dessus de la finesse 1, le dessin est cuit directement
 // dans son cadre utile (celui de la version 1, agrandi) : ni grand canvas vide ni lecture des pixels pour le rogner
-const SPRITE_BUDGET = { high: 48e6, medium: 32e6, low: 16e6 };
+const SPRITE_BUDGET = { high: 32e6, medium: 24e6, low: 12e6 }; // v27.1
 let spriteBudget = SPRITE_BUDGET.high, spriteBytes = 0;
 export function setSpriteBudget(q) { spriteBudget = SPRITE_BUDGET[q] || SPRITE_BUDGET.high; }
 export const spriteStats = () => ({ bytes: spriteBytes, count: cache.size, budget: spriteBudget });
 const bytesOf = (sp) => (sp.art ? sp.art.width * sp.art.height * 4 : 0) + (sp.shadow ? sp.shadow.width * sp.shadow.height * 4 : 0);
+// v27.1 : niveaux déjà cuits de chaque dessin (pour montrer la version la plus proche pendant qu'une autre cuit)
+const levelsOf = new Map();
+// Cuisson bornée : au plus ~8 ms de cuisson par image sur le fil principal ; au-delà, ou pendant un geste, on montre la
+// version déjà cuite la plus proche et la bonne finesse est cuite pendant un temps mort (puis onBaked redessine)
+let frameT = 0, frameBake = 0;
+const later = new Map();
+let laterOn = false;
+const onBaked = new Set();
+export function onSpriteBaked(fn) { onBaked.add(fn); }
+let gestureFn = () => false;
+export function setGestureProbe(fn) { gestureFn = fn; }
+function bakeLater() {
+  if (laterOn || !later.size) return;
+  laterOn = true;
+  const run = (dl) => {
+    laterOn = false;
+    if (gestureFn()) { setTimeout(bakeLater, 250); return; }
+    const t0 = performance.now();
+    for (const [k, [key, s, draw]] of later) {
+      later.delete(k);
+      if (!cache.has(k)) sprite(key, s, draw);
+      if (performance.now() - t0 > Math.max(6, dl?.timeRemaining?.() || 0)) break;
+    }
+    for (const fn of onBaked) fn();
+    if (later.size) bakeLater();
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 200 }); else setTimeout(run, 30);
+}
+export function spriteSoon(key, s, draw) {
+  const k = key + '@' + s;
+  const hit = cache.get(k);
+  if (hit) return sprite(key, s, draw);
+  const now = typeof performance !== 'undefined' ? performance.now() : 0;
+  if (now - frameT > 16) { frameT = now; frameBake = 0; }
+  const lv = levelsOf.get(key);
+  if (lv && lv.size && (frameBake > 8 || gestureFn())) {
+    let best = null;
+    for (const l of lv) if (best == null || Math.abs(Math.log(l / s)) < Math.abs(Math.log(best / s))) best = l;
+    later.set(k, [key, s, draw]); bakeLater();
+    return cache.get(key + '@' + best);
+  }
+  const t0 = now;
+  const sp = sprite(key, s, draw);
+  frameBake += (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
+  return sp;
+}
 export function sprite(key, s, draw) {
   const k = key + '@' + s;
   const hit = cache.get(k);
@@ -64,13 +110,14 @@ export function sprite(key, s, draw) {
     for (const q of [a, b]) if (q) { xs.push(q.x); ys.push(q.y); xe.push(q.x + q.cv.width); ye.push(q.y + q.cv.height); }
     sp.box = [Math.min(...xs) / s, Math.min(...ys) / s, Math.max(...xe) / s, Math.max(...ye) / s];
   }
-  sp.bytes = bytesOf(sp);
+  sp.bytes = bytesOf(sp); sp.s = s;
   cache.set(k, sp); spriteBytes += sp.bytes;
-  if (spriteBytes > spriteBudget) for (const [kk, v] of cache) { if (spriteBytes <= spriteBudget * 0.85 || kk === k) break; cache.delete(kk); spriteBytes -= v.bytes || 0; }
+  (levelsOf.get(key) || levelsOf.set(key, new Set()).get(key)).add(s);
+  if (spriteBytes > spriteBudget) for (const [kk, v] of cache) { if (spriteBytes <= spriteBudget * 0.85 || kk === k) break; cache.delete(kk); spriteBytes -= v.bytes || 0; const at = kk.lastIndexOf('@'); levelsOf.get(kk.slice(0, at))?.delete(+kk.slice(at + 1)); }
   paintStats.baked++; paintStats.bakeMs += (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
   return sp;
 }
-export const clearPaintCache = () => { cache.clear(); spriteBytes = 0; };
+export const clearPaintCache = () => { cache.clear(); spriteBytes = 0; levelsOf.clear(); };
 
 // Clés et peintres des dessins de la ville
 export const SEASONAL = new Set(['farm', 'orchard', 'hunter']);

@@ -649,6 +649,14 @@ function buildPanel(app, mods, ups) {
 
 const cityView = {
   id: 'city', title: 'Royaume', icon: '🏰',
+  // v27.1 : ce que la carte du château montre de structurel (bâtiments, chantiers, raids, décisions) ; s'il n'a pas changé,
+  // la seconde suivante ne reconstruit pas toute la scène (voir app.tick)
+  sig(app) {
+    const s = app.state;
+    return Object.values(s.city.buildings).map((b) => `${b.id}:${b.type}:${b.level}:${b.x},${b.y}:${b.damaged || ''}:${b.disabled ? 1 : ''}`).join(';')
+      + '|' + (s.queues?.build || []).map((q) => `${q.bid || q.kind}:${q.x ?? ''},${q.y ?? ''}`).join(';')
+      + '|' + (s.raids || []).length + '|' + s.pending.length + '|' + (s.crises?.active || []).length + '|' + (s.city.w) + 'x' + s.city.h;
+  },
   tick(app) { const st = document.querySelector('.city-stage'); if (st) { updateSceneFx(st, cityScene(app), 'city'); attachGround(app); } },
   after(app) {
     const vp = document.getElementById('city-vp');

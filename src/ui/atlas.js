@@ -8,7 +8,7 @@
 import { TERRAINS, CHAR_TO_TERRAIN } from '../data/world.js';
 import { wTerrain, isRevealed } from '../systems/world.js';
 import { makeTerrainKit, terrainWorkerSource } from './terrainKit.js';
-import { defineLayer, dropLayer, drawLayer, drawCached, prefetchLevel, resumeJob, setTileBudget, sharp, tileStats, TILE_PX } from './tiles.js';
+import { defineLayer, dropLayer, drawLayer, drawCached, prefetchLevel, resumeJob, setTileBudget, sharp, tileStats, gestureActive, TILE_PX } from './tiles.js';
 const KIT = makeTerrainKit();
 
 // ───────── Bruit ─────────
@@ -415,9 +415,9 @@ export function drawFog(ctx, w, view, revealedN, main = true) {
   ctx.clip('evenodd');
   ctx.globalAlpha = 0.93; ctx.fillStyle = inkPattern(ctx); ctx.fillRect(ox, oy, S * T, S * T);
   ctx.restore();
-  // bord adouci (des deux côtés du contour)
+  // bord adouci (des deux côtés du contour) ; v27.1 : un seul trait pendant un geste
   ctx.save(); ctx.lineJoin = 'round';
-  for (const [k, a] of [[0.95, 0.14], [0.55, 0.2], [0.22, 0.3]]) {
+  for (const [k, a] of gestureActive() ? [[0.4, 0.3]] : [[0.95, 0.14], [0.55, 0.2], [0.22, 0.3]]) {
     ctx.strokeStyle = `rgba(34,27,20,${a})`; ctx.lineWidth = Math.max(1.5, T * k);
     ctx.beginPath(); tracePath(ctx, loops, T, ox, oy, true); ctx.stroke();
   }

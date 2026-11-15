@@ -331,7 +331,7 @@ tr.locked td { opacity: 0.6; }
 /* ---------- Modale & toasts ---------- */
 #modal-root { display: none; }
 #modal-root.open { display: block; }
-.modal-backdrop { position: fixed; inset: 0; background: rgba(5, 6, 10, 0.72); z-index: 50; backdrop-filter: blur(2px); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(5, 6, 10, 0.78); z-index: 50; } /* v27.1 : plus de flou d'arrière-plan (58 → 20 images/s quand une fenêtre couvrait le château) */
 .modal { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 51; width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--panel); border: 1px solid var(--gold2); border-radius: 14px; padding: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
 .modal.wide { width: min(860px, calc(100vw - 24px)); }
 .modal-x { position: absolute; top: 10px; right: 12px; background: none; border: 0; color: var(--muted); font-size: 18px; cursor: pointer; }

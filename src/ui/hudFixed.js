@@ -146,12 +146,28 @@ function rightCol(app) {
 }
 
 // ───────── Bord gauche : quêtes, conseiller, alertes ─────────
+// v27.1 : les calculs lourds de l'affichage fixe (conseils du royaume, objectifs) sont gardés quelques secondes au lieu
+// d'être refaits à chaque seconde (40 à 60 ms en fin de partie)
+const memo = new Map();
+// Valeur périmée mais du même état : rendue telle quelle, et recalculée pendant un temps mort (jamais dans l'image)
+export function hudMemo(key, state, ttl, fn) {
+  const m = memo.get(key), now = Date.now();
+  if (m && m.st === state && now - m.at < ttl) return m.v;
+  if (m && m.st === state && typeof requestIdleCallback === 'function') {
+    if (!m.pending) { m.pending = true; requestIdleCallback(() => { try { memo.set(key, { st: state, at: Date.now(), v: fn() }); } catch { m.pending = false; } }, { timeout: 2000 }); }
+    return m.v;
+  }
+  const v = fn();
+  memo.set(key, { st: state, at: now, v });
+  return v;
+}
+export const clearHudMemo = () => memo.clear();
 function leftCol(app) {
   const s = app.state, now = Date.now();
-  let o = null; try { o = objectives(s, now); } catch { o = null; }
+  let o = null; try { o = hudMemo('obj', s, 2000, () => objectives(s, now)); } catch { o = null; }
   const tracked = o ? [...o.main, ...o.secondary].filter((m) => !m.claimed).slice(0, 3) : [];
   const qb = objectivesBadge(s);
-  let adv = 0, top = null; try { if ((s.meta.advice || 'full') !== 'off') { const l = adviceList(s, now); adv = l.filter((r) => r.sev === 'bad' || r.sev === 'warn').length; top = l.find((r) => r.sev === 'bad') || l.find((r) => r.sev === 'warn') || l[0] || null; } } catch { adv = 0; }
+  let adv = 0, top = null; try { if ((s.meta.advice || 'full') !== 'off') { const l = hudMemo('adv', s, 5000, () => adviceList(s, now)); adv = l.filter((r) => r.sev === 'bad' || r.sev === 'warn').length; top = l.find((r) => r.sev === 'bad') || l.find((r) => r.sev === 'warn') || l[0] || null; } } catch { adv = 0; }
   const alerts = [];
   for (const r of s.raids || []) alerts.push(`<button class="hud-alert bad" data-action="nav" data-view="defense"><b>🚨 Raid : ${esc(r.name)}</b><span>arrive dans ${countdown(r.arrive)}</span></button>`);
   for (const c of s.crises?.active || []) alerts.push(`<button class="hud-alert warn" data-action="nav" data-view="omens"><b>${CRISES[c.type]?.icon || '🔗'} Crise : ${esc(CRISES[c.type]?.name || '')}</b><span>étape suivante ${countdown(c.nextAt)}</span></button>`);

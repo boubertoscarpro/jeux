@@ -1,4 +1,4 @@
-import { compress, decompress } from './lz.js';
+import { compress, decompress, lzWorkerSource } from './lz.js';
 import { ensureRealm21 } from '../systems/realm21.js';
 import { ensureEventWorld } from '../systems/liveEvents.js';
 import { ensureSiege } from '../systems/siege.js';
@@ -242,28 +242,58 @@ export function deserialize(json) {
 export function saveGame(state, now = Date.now()) {
   const s = storage();
   if (!s) return { ok: false, error: 'Stockage du navigateur indisponible' };
-  const isQuota = (e) => /quota/i.test(`${e?.name} ${e?.message}`);
   try {
-    // La copie de secours est faite depuis l'état EN MÉMOIRE, seulement si la partie a tourné sans erreur
-    // (une sauvegarde importée ou réparée qui planterait ne remplace jamais la copie saine)
-    const rotate = state.meta.bootOk && now - (state.meta.lastBackup || 0) > BACKUP_EVERY;
-    state.meta.lastSave = now;
-    if (rotate) state.meta.lastBackup = now;
-    const json = compress(serialize(state)); // v26 : compressée dans le navigateur (≈ 5 fois plus petite)
-    try {
-      if (rotate) s.setItem(BACKUP_KEY, json);
-      s.setItem(SAVE_KEY, json);
-    } catch (e) {
-      if (!isQuota(e)) throw e;
-      // Stockage plein : on libère la copie de secours et la copie endommagée, puis on réessaie
-      s.removeItem(BACKUP_KEY); s.removeItem(CORRUPT_KEY);
-      s.setItem(SAVE_KEY, json);
-      return { ok: true, warning: 'Stockage presque plein : la copie de secours a été supprimée. Exportez votre sauvegarde.' };
-    }
-    return { ok: true };
+    const rotate = prepareSave(state, now);
+    return storeSave(s, compress(serialize(state)), rotate); // v26 : compressée dans le navigateur (≈ 5 fois plus petite)
+  } catch (e) { return saveError(e); }
+}
+const isQuota = (e) => /quota/i.test(`${e?.name} ${e?.message}`);
+const saveError = (e) => ({ ok: false, error: isQuota(e) ? 'Stockage plein : exportez votre sauvegarde (Saison & boutique → Télécharger)' : `Échec de la sauvegarde (${e?.message || e})` });
+// La copie de secours est faite depuis l'état EN MÉMOIRE, seulement si la partie a tourné sans erreur
+// (une sauvegarde importée ou réparée qui planterait ne remplace jamais la copie saine)
+function prepareSave(state, now) {
+  const rotate = state.meta.bootOk && now - (state.meta.lastBackup || 0) > BACKUP_EVERY;
+  state.meta.lastSave = now;
+  if (rotate) state.meta.lastBackup = now;
+  return rotate;
+}
+function storeSave(s, json, rotate) {
+  try {
+    if (rotate) s.setItem(BACKUP_KEY, json);
+    s.setItem(SAVE_KEY, json);
   } catch (e) {
-    return { ok: false, error: isQuota(e) ? 'Stockage plein : exportez votre sauvegarde (Saison & boutique → Télécharger)' : `Échec de la sauvegarde (${e?.message || e})` };
+    if (!isQuota(e)) throw e;
+    // Stockage plein : on libère la copie de secours et la copie endommagée, puis on réessaie
+    s.removeItem(BACKUP_KEY); s.removeItem(CORRUPT_KEY);
+    s.setItem(SAVE_KEY, json);
+    return { ok: true, warning: 'Stockage presque plein : la copie de secours a été supprimée. Exportez votre sauvegarde.' };
   }
+  return { ok: true };
+}
+// v27.1 : sauvegarde périodique asynchrone — l'état est figé (texte JSON) sur le fil principal, la compression se fait
+// dans un worker, puis l'écriture. Sans worker (navigateur ancien, tests), on retombe sur saveGame.
+let lzWorker = null, lzOk = typeof Worker !== 'undefined' && typeof Blob !== 'undefined', lzId = 0;
+const lzWait = new Map();
+export function saveGameAsync(state, now = Date.now()) {
+  const s = storage();
+  if (!s) return Promise.resolve({ ok: false, error: 'Stockage du navigateur indisponible' });
+  if (lzOk && !lzWorker) {
+    try {
+      lzWorker = new Worker(URL.createObjectURL(new Blob([lzWorkerSource()], { type: 'text/javascript' })));
+      lzWorker.onmessage = (e) => { const f = lzWait.get(e.data.id); lzWait.delete(e.data.id); f?.(e.data.out); };
+      lzWorker.onerror = () => { lzOk = false; lzWorker = null; for (const f of lzWait.values()) f(null); lzWait.clear(); };
+    } catch { lzOk = false; lzWorker = null; }
+  }
+  if (!lzWorker) return Promise.resolve(saveGame(state, now));
+  let rotate, text;
+  try { rotate = prepareSave(state, now); text = serialize(state); } catch (e) { return Promise.resolve(saveError(e)); }
+  const id = ++lzId;
+  return new Promise((resolve) => {
+    lzWait.set(id, (out) => {
+      try { resolve(out == null ? storeSave(s, compress(text), rotate) : storeSave(s, out, rotate)); } catch (e) { resolve(saveError(e)); }
+    });
+    lzWorker.postMessage({ id, str: text });
+  });
 }
 
 // Chargement : { state } si tout va bien, { error, raw, backup } si la sauvegarde est illisible, null s'il n'y en a pas

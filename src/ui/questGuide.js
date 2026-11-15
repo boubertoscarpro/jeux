@@ -4,6 +4,7 @@
 // jouant pour de vrai (le guide ne clique jamais à la place du joueur) ; s'il s'écarte, le guide reprend à la bonne
 // étape. Les étapes sont déduites de la quête (construire, améliorer, déblayer, explorer, récolter, combattre,
 // former, rechercher, ouvrir un écran). Rien en mouvement réduit : l'anneau ne pulse pas.
+import { addFrameJob } from './frame.js';
 import { HUBS, HUB_OF } from '../data/hubs.js';
 import { BUILDINGS } from '../data/buildings.js';
 import { SCREEN_PLACE, PLACES } from '../data/places.js';
@@ -221,10 +222,10 @@ export function startGuide(app, q) {
   if (app.ui.win) app.closeWin(false);
   if (!plan.steps.length) { bubble(`Pour « ${q.title} » : ${q.desc || ''}`, null, true); return; }
   tick();
-  G.timer = setInterval(tick, 160);
+  G.timer = 1; addFrameJob('guide', tick, { every: 160, active: () => !!G.plan }); // v27.1 : boucle centrale
 }
 export function stopGuide() {
-  clearInterval(G.timer); G.timer = 0; G.plan = null;
+  G.timer = 0; G.plan = null;
   if (G.el) { G.el.hidden = true; G.el.innerHTML = ''; }
 }
 function tick() {

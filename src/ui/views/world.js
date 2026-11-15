@@ -48,8 +48,10 @@ import { poiPainter, drawPoiPainted, outpostPainter, drawColumn, poiMag } from '
 import { terrainSprite, tileVariant, drawMedallion, drawBanner, drawToken, placeLabels, relationOf, RELATION_STYLE, stanceName } from '../worldArt.js';
 import { castleName, outpostLabel } from '../../systems/identity.js';
 import { drawWorldTerrain, drawFog, gfxOf, paintMini, miniFrame, drawRivers, regionLoops, chaikin, tracePath } from '../atlas.js';
-import { sharp, tileDebug } from '../tiles.js';
-import { spriteStats } from '../paint/scene.js';
+import { sharp, tileDebug, markGesture, gestureActive, onGestureEnd } from '../tiles.js';
+import { section } from '../sections.js';
+setGestureProbe(gestureActive);
+import { spriteStats, onSpriteBaked, setGestureProbe } from '../paint/scene.js';
 // v27 : contours lissés des territoires, mis en cache par propriétaire et par ensemble de cases
 const terrCache = new Map();
 function territoryLoops(S, id, keys) {
@@ -91,6 +93,7 @@ export function clampWorldCam(c, W, H, S) {
 }
 // Zoom centré sur un point de l'écran (px, py relatifs au canvas) : la case sous le curseur reste en place
 export function zoomWorldAt(c, factor, px, py, W, H, S) {
+  markGesture();
   const T1 = BASE_TILE * c.zoom;
   const wx = (px - W / 2) / T1 + c.x, wy = (py - H / 2) / T1 + c.y;
   c.zoom = Math.max(zMinFor(W, H, S), Math.min(Z_MAX, c.zoom * factor));
@@ -182,7 +185,8 @@ function metroPanel(app, poi, now) {
 const EVT_ICON = { camp: '⛺', port: '⚓', vault: '🚪', crypt: '⚰️', pack: '🐺', zone: '🚩', fortress: '🏯', boss: '👑', caravan: '🐫', ship: '⛵', treasure: '💰', village: '🏘️', hearth: '🔥', riddle: '❓', trace: '🐾', lair: '🐉', vein: '🪙', vent: '🌋', bastion: '🏰', horde: '💀', herald: '🎪' };
 function dangerStars(d) { return d > 0 ? '☠'.repeat(Math.min(6, d)) : '<span class="ok">Sûr</span>'; }
 
-export function drawMap(app) {
+export function drawMap(app) { return section('carte du monde', () => drawMap_(app)); }
+function drawMap_(app) {
   const PAL = setPalette(app.state);
   const canvas = document.getElementById('world-canvas');
   if (!canvas) return;
@@ -200,7 +204,7 @@ export function drawMap(app) {
   clampWorldCam(c, W, H, w.size);
   const T = BASE_TILE * c.zoom;
   const ox = W / 2 - c.x * T, oy = H / 2 - c.y * T;
-  drawWorldSea(ctx, ox, oy, T, w.size, W, H, Date.now(), document.documentElement.classList.contains('reduce-motion')); // v26 : la mer au-delà du monde
+  if (!app._skip?.has('mer')) drawWorldSea(ctx, ox, oy, T, w.size, W, H, Date.now(), document.documentElement.classList.contains('reduce-motion')); // v26 : la mer au-delà du monde
   const x0 = Math.max(0, Math.floor(-ox / T)), y0 = Math.max(0, Math.floor(-oy / T));
   const x1 = Math.min(w.size - 1, Math.ceil((W - ox) / T)), y1 = Math.min(w.size - 1, Math.ceil((H - oy) / T));
   const now = Date.now();
@@ -213,12 +217,13 @@ export function drawMap(app) {
   const quality = gfxOf(s);
   const season = calendar(s, now).season.key;
   const view = { T, ox, oy, x0, x1, y0, y1 };
-  const pending = drawWorldTerrain(ctx, w, view, season, quality, () => redraw(app));
-  drawRivers(ctx, w, T, ox, oy, season); // v27 : rivières vectorielles lissées (nettes à tous les zooms)
+  const skip = app._skip || new Set(); // mesures (tools) : couches désactivées
+  const pending = skip.has('terrain') ? 0 : section('terrain', () => drawWorldTerrain(ctx, w, view, season, quality, () => redraw(app)));
+  if (!skip.has('rivières')) section('rivières', () => drawRivers(ctx, w, T, ox, oy, season)); // v27 : rivières vectorielles lissées (nettes à tous les zooms)
   // Territoires : teinte et frontières selon la relation (ennemi, allié, neutre) ; les vôtres en couleur de bannière.
   // v27 : contours lissés (Chaikin) tracés en vectoriel, épaisseur constante à l'écran
   const groups = [['me', Object.keys(s.territories)], ...(s.factions || []).map((f) => [f, f.territory])];
-  for (const [o, keys] of groups) {
+  for (const [o, keys] of skip.has('territoires') ? [] : groups) {
     if (!keys.length) continue;
     const loops = territoryLoops(w.size, o === 'me' ? 'me' : 'f' + o.idx, keys);
     if (!loops.length) continue;
@@ -228,7 +233,7 @@ export function drawMap(app) {
     ctx.beginPath(); tracePath(ctx, loops, T, ox, oy, true);
     ctx.fillStyle = col + (o === 'me' ? '38' : '33'); ctx.fill('evenodd');
     // v15 : frontière en guerre : le tracé « vacille » (décalage du pointillé à chaque seconde), et hachures dans la région
-    if (o !== 'me' && o.stance === 'war' && T > 12) {
+    if (o !== 'me' && o.stance === 'war' && T > 12 && !gestureActive()) {
       ctx.save(); ctx.clip('evenodd');
       const bb = loopsBox(loops);
       ctx.strokeStyle = 'rgba(204,90,76,0.35)'; ctx.lineWidth = 1; ctx.beginPath();
@@ -244,7 +249,7 @@ export function drawMap(app) {
   }
   ctx.lineDashOffset = 0;
   // Brouillard à l'encre (opaque sur l'inconnu, bords irréguliers)
-  drawFog(ctx, w, view, revealedCount(w), quality);
+  if (!skip.has('brouillard')) section('brouillard', () => drawFog(ctx, w, view, revealedCount(w), quality));
   drawWorldCoast(ctx, ox, oy, T, w.size); // v26 : falaises et écume sur le pourtour du monde
   // Portée des territoires
   const mods = computeMods(s, now);
@@ -321,7 +326,7 @@ export function drawMap(app) {
   const blocked = [];
   const overlays = []; // v26 : écussons et comptes à rebours des cibles d'événement (évités par les étiquettes)
   const lsize = Math.round(Math.max(10, Math.min(16, T * 0.34)));
-  for (const p of Object.values(w.pois)) {
+  for (const p of skip.has('lieux') ? [] : Object.values(w.pois)) {
     if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
     if (!isRevealed(w, p.x, p.y)) continue;
     const def = POI_TYPES[p.type];
@@ -445,7 +450,7 @@ export function drawMap(app) {
     const r = el.getBoundingClientRect();
     if (r.width) blocked.push({ x: r.left - cr.left - 4, y: r.top - cr.top - 4, w: r.width + 8, h: r.height + 8 });
   }
-  const placedLabels = placeLabels(ctx, labels, W, H, [...blocked, ...overlays]);
+  const placedLabels = section('étiquettes', () => placeLabels(ctx, labels, W, H, [...blocked, ...overlays]));
   // v26 : mesure de lisibilité (npm run overlaps) : chevauchements étiquette/étiquette et étiquette/écusson,
   // étiquettes importantes (capitale, chef d'événement, menace) qui n'ont pas trouvé de place
   const hitR = (a, b) => a.x < b.x + b.w - 2 && a.x + a.w > b.x + 2 && a.y < b.y + b.h - 2 && a.y + a.h > b.y + 2;
@@ -635,7 +640,7 @@ function bindCanvas(app) {
     const T = BASE_TILE * c.zoom;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
-    if (drag.moved) { c.x -= dx / T; c.y -= dy / T; clampWorldCam(c, W, H, S); drag.x = e.clientX; drag.y = e.clientY; redraw(app); }
+    if (drag.moved) { markGesture(); c.x -= dx / T; c.y -= dy / T; clampWorldCam(c, W, H, S); drag.x = e.clientX; drag.y = e.clientY; redraw(app); }
   });
   const end = (e) => {
     pts.delete(e.pointerId);
@@ -1167,7 +1172,10 @@ const worldView = {
       </div>
     </div>`;
   },
-  after(app) { fitStage(); bindCanvas(app); requestAnimationFrame(() => drawMap(app)); },
+  // v27.1 : la carte du monde est un canvas redessiné par tick ; le cadre HTML autour n'a besoin d'être reconstruit que
+  // si ses listes changent (marches, lieux, raids, sélection)
+  sig(app) { const s = app.state; return `${s.marches.length}|${Object.keys(s.world.pois).length}|${(s.raids || []).length}|${s.pending.length}|${(s.caravans || []).length}|${Object.keys(s.territories).length}`; },
+  after(app) { fitStage(); bindCanvas(app); if (!app._bakedHook) { app._bakedHook = true; const again = () => { if (app.ui.map === 'world' && !app.ui.win) redraw(app); }; onSpriteBaked(again); onGestureEnd(again); } requestAnimationFrame(() => drawMap(app)); },
   tick(app) {
     // Mode économie : sans mouvement sur la carte (marches, raids, caravanes, expéditions), un redessin toutes les 10 s
     const s = app.state, moving = s.marches.length || s.raids.length || s.caravans.length || (s.expeditions || []).some((e) => e.status !== 'idle');

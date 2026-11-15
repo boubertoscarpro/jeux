@@ -123,10 +123,17 @@ function tileList(M, R, tx, ty) {
   return l;
 }
 const itemKey = (p) => p.key0 + (p.it.prog ? '~' + Math.floor(p.it.prog() * 12) : '');
-function paintSceneTile(cv, R, tx, ty) {
+function paintSceneTile(cv, R, tx, ty, job) {
   const t0 = performance.now();
   const M = keep.model, g = cv.getContext('2d');
   if (!g || !M) return true;
+  // v27.1 : en arrière-plan, les dessins sont d'abord cuits un par un (~8 ms par tranche), la tuile est peinte ensuite :
+  // plus de tâche de 100 à 400 ms quand un quartier est vu de près pour la première fois
+  if (!job?.sync) {
+    const list = tileList(M, R, tx, ty);
+    job.warm = job.warm || 0;
+    while (job.warm < list.length) { list[job.warm++].it.sp(R); if (performance.now() - t0 > 8 && job.warm < list.length) return false; }
+  }
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height);
   g.translate(-tx * TILE_PX, -ty * TILE_PX);
   const list = tileList(M, R, tx, ty);
@@ -168,7 +175,7 @@ function defineCityLayers() {
   const bounds = () => [0, 0, keep.f.width, keep.f.height];
   const onReady = () => redrawCity();
   defineLayer({ id: 'cg', levels, bounds, key: (R) => keep.gkey + '|' + R, paint: (cv, R, tx, ty) => paintGroundTile(cv, R, tx, ty), onReady, sync: true, syncBudget: 350, syncStale: true, fade: true });
-  defineLayer({ id: 'cs', levels, bounds, key: (R, tx, ty) => { const M = keep.model; return M ? tileList(M, R, tx, ty).map(itemKey).join(';') : ''; }, paint: (cv, R, tx, ty) => paintSceneTile(cv, R, tx, ty), onReady, sync: true, syncBudget: 350, syncStale: true, fade: true });
+  defineLayer({ id: 'cs', levels, bounds, key: (R, tx, ty) => { const M = keep.model; return M ? tileList(M, R, tx, ty).map(itemKey).join(';') : ''; }, paint: (cv, R, tx, ty, job) => paintSceneTile(cv, R, tx, ty, job), onReady, sync: true, syncBudget: 350, syncStale: true, fade: true });
 }
 let redrawRaf = 0;
 function redrawCity() { if (redrawRaf) return; redrawRaf = requestAnimationFrame(() => { redrawRaf = 0; if (keep.getCam) drawCity(keep.getCam()); }); }

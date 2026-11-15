@@ -15,7 +15,8 @@ const DIST = path.resolve(args.find((a) => a.endsWith('.html')) || path.resolve(
 const JSON_OUT = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
 const ONLY = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
 const FIX = (n) => zlib.gunzipSync(fs.readFileSync(path.resolve(__dirname, `../tests/fixtures/save-${n}.json.gz`))).toString();
-const GAMES = ['debut', 'milieu', 'fin'];
+const GAMES = args.includes('--games') ? args[args.indexOf('--games') + 1].split(',') : ['debut', 'milieu', 'fin'];
+const SHORT = args.includes('--short'); // repos de 5 s au lieu de 10 (garde-fou rapide)
 const LONG = 50;
 
 // Fonctions du jeu reconnues comme « origine » (de la plus extérieure à la plus intérieure)
@@ -62,8 +63,8 @@ function analyse(profile, wallMs) {
 }
 
 const SCENARIOS = {
-  'château-repos': { view: 'city', ms: 10000, run: async (p) => { await p.waitForTimeout(10000); } },
-  'monde-repos': { view: 'world', ms: 10000, run: async (p) => { await p.waitForTimeout(10000); } },
+  'château-repos': { view: 'city', run: async (p) => { await p.waitForTimeout(SHORT ? 5000 : 10000); } },
+  'monde-repos': { view: 'world', run: async (p) => { await p.waitForTimeout(SHORT ? 5000 : 10000); } },
   'château-geste': { view: 'city', run: gesture },
   'monde-geste': { view: 'world', run: gesture },
   'fenêtres': { view: 'city', run: async (p) => { for (const v of ['army', 'economy', 'questbook', 'research', 'world']) { await p.evaluate((v) => { const a = window.cendrelande; if (a.views[v]) a.go(v); }, v); await p.waitForTimeout(700); await p.evaluate(() => { const a = window.cendrelande; a.closeWin?.(); if (a.ui.map !== 'city') { a.ui.map = 'city'; a.go('city'); } }); await p.waitForTimeout(500); } } },
@@ -83,14 +84,14 @@ async function gesture(p) {
   const out = {};
   for (const game of GAMES) {
     for (const [name, sc] of Object.entries(SCENARIOS)) {
-      if (ONLY && !name.startsWith(ONLY)) continue;
+      if (ONLY && !ONLY.split(',').some((o) => name.startsWith(o))) continue;
       const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } });
       if (game !== 'debut') await ctx.addInitScript((s) => { try { if (!sessionStorage.getItem('pr')) { localStorage.setItem('cendrelande_save', s); sessionStorage.setItem('pr', '1'); } } catch {} }, FIX(game));
       const p = await ctx.newPage();
       const errs = []; p.on('pageerror', (e) => errs.push(e.message));
       await p.goto('file://' + DIST); await p.waitForTimeout(1200);
       if (game === 'debut') { await p.click('[data-kt="merchants"]'); await p.click('#intro-review'); await p.click('#intro-start'); await p.waitForTimeout(500); }
-      await p.evaluate((v) => { const a = window.cendrelande; a.state.meta.tipsOff = true; if (a.state.live) a.state.live.unseenReport = null; a.closeModal(); a.ui.map = v; a.go(v); a.closeModal(); }, sc.view);
+      await p.evaluate((v) => { const a = window.cendrelande; a.state.meta.tipsOff = true; a.state.meta.gfx = a.state.meta.gfx || 'high'; a.state.meta.gfxChosen = true; if (a.state.live) a.state.live.unseenReport = null; a.closeModal(); a.ui.map = v; a.go(v); a.closeModal(); }, sc.view);
       await p.waitForTimeout(2500); // peinture initiale terminée
       // les fenêtres d'accueil (rapport d'absence, bilan) s'ouvrent avec un délai : on les ferme jusqu'à ce qu'il n'y en ait plus
       for (let i = 0; i < 6; i++) { const open = await p.evaluate(() => { const a = window.cendrelande; const o = document.getElementById('modal-root')?.classList.contains('open'); a.closeModal(); return o; }); if (!open && i > 1) break; await p.waitForTimeout(400); }
@@ -111,4 +112,5 @@ async function gesture(p) {
   }
   await b.close();
   if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify(out, null, 1));
-})();
+  return out;
+})().then((out) => { module.exports.last = out; });
