@@ -90,8 +90,9 @@ export function evict(force = 0) {
   const now = typeof performance !== 'undefined' ? performance.now() : 0;
   const scored = [];
   for (const [k, e] of cache) {
-    if (e.used === frame || e.pin) continue;
     const L = layers.get(e.id);
+    // jamais les tuiles dessinées à la dernière image de LEUR couche (le sol et la scène se dessinent l'un après l'autre)
+    if (e.used === frame || e.pin || (L && e.used >= L.drawFrame)) continue;
     let s = 0;
     if (!L || now - L.lastDraw > 2000) s += 1e9 + (now - (L?.lastDraw || 0));
     else {
@@ -140,6 +141,7 @@ export function drawLayer(ctx, id, cam) {
   const L = layers.get(id);
   if (!L) return 0;
   frame++;
+  L.drawFrame = frame;
   const now = typeof performance !== 'undefined' ? performance.now() : 0;
   L.lastDraw = now;
   const need = cam.k;
@@ -273,9 +275,11 @@ export function pump() {
   pumping = 1;
   idle((dl) => {
     pumping = 0;
-    if (gestureActive()) return; // reprise à la fin du geste (markGesture)
+    tileStats.pumps = (tileStats.pumps || 0) + 1;
+    if (gestureActive()) { tileStats.pumpGesture = (tileStats.pumpGesture || 0) + 1; return; } // reprise à la fin du geste (markGesture)
     const t0 = performance.now();
-    const budgetMs = Math.max(8, Math.min(14, dl.timeRemaining ? dl.timeRemaining() : 8));
+    // v27.1 : tranches de 12 à 24 ms hors geste (sous le seuil des tâches longues de 50 ms), pour que la peinture avance
+    const budgetMs = Math.max(12, Math.min(24, dl.timeRemaining && !dl.didTimeout ? dl.timeRemaining() : 24));
     const touched = new Set();
     while (queue.length && performance.now() - t0 < budgetMs) {
       // travaux trop vieux (la vue est partie ailleurs) : abandonnés
