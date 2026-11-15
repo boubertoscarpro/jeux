@@ -92,6 +92,8 @@ async function gesture(p) {
       if (game === 'debut') { await p.click('[data-kt="merchants"]'); await p.click('#intro-review'); await p.click('#intro-start'); await p.waitForTimeout(500); }
       await p.evaluate((v) => { const a = window.cendrelande; a.state.meta.tipsOff = true; if (a.state.live) a.state.live.unseenReport = null; a.closeModal(); a.ui.map = v; a.go(v); a.closeModal(); }, sc.view);
       await p.waitForTimeout(2500); // peinture initiale terminée
+      // les fenêtres d'accueil (rapport d'absence, bilan) s'ouvrent avec un délai : on les ferme jusqu'à ce qu'il n'y en ait plus
+      for (let i = 0; i < 6; i++) { const open = await p.evaluate(() => { const a = window.cendrelande; const o = document.getElementById('modal-root')?.classList.contains('open'); a.closeModal(); return o; }); if (!open && i > 1) break; await p.waitForTimeout(400); }
       const cdp = await ctx.newCDPSession(p);
       await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 });
       await p.evaluate(() => { window.__f = []; let l = performance.now(); const t = (n) => { window.__f.push(n - l); l = n; requestAnimationFrame(t); }; requestAnimationFrame(t); window.__heap0 = performance.memory.usedJSHeapSize; });
