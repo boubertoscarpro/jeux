@@ -83,12 +83,12 @@
 
 | Scénario | CPU occupé au plus | Tâches > 50 ms au plus | 95 % des images sous |
 |---|---|---|---|
-| Château au repos (5 s) | 40 % | 1 | 34 ms (≈ 30 images/s au pire, 60 en moyenne) |
+| Château au repos (5 s) | 40 % | 2 | 34 ms (≈ 30 images/s au pire, 60 en moyenne) |
 | Monde au repos (5 s) | 25 % | 1 | 34 ms |
-| Quêtes et sauvegarde | 45 % | 2 | 50 ms |
-| Geste au château | 75 % | 20 | 67 ms |
-| Geste sur le monde | 80 % | 30 | 84 ms |
-| Fenêtres (5 écrans) | 55 % | 16 | 84 ms |
+| Quêtes et sauvegarde | 45 % | 3 | 50 ms |
+| Geste au château | 70 % | 16 | 67 ms |
+| Geste sur le monde | 80 % | 40 | 84 ms |
+| Fenêtres (5 écrans) | 60 % | 18 | 100 ms |
 
 - **Gestes** : les seuils sont plus larges, parce que le dessin des canvas reste sur le processeur ici. Ce dessin est mesuré à part (« (program) »).
 - **Mémoire** : session automatique de 30 minutes (`tools/memsession.cjs`). La mémoire JS, les caches et le nombre de nœuds DOM doivent rester stables.

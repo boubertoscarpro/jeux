@@ -85,11 +85,12 @@ export function measureMachine() {
     const ters = ['plain', 'forest', 'hills', 'river', 'mountain'];
     const pal = Object.fromEntries(ters.map((t, i) => [t, [90 + i * 30, 120, 70]]));
     const get = (x, y) => ters[((x * 7 + y * 3) >>> 0) % 5];
-    const d = new Uint8ClampedArray(512 * 512 * 4);
+    // quart de tuile (256 × 256, ~12 ms) puis extrapolé à une tuile entière : pas de tâche longue au démarrage
+    const d = new Uint8ClampedArray(256 * 256 * 4);
     const t0 = now();
-    const P = K.prepare(0, 0, 8, 8, 64, get, pal, { seed: 7, jitter: 0.42 });
-    K.rows(P, d, 0, 512);
-    const cpuMs = now() - t0;
+    const P = K.prepare(0, 0, 4, 4, 64, get, pal, { seed: 7, jitter: 0.42 });
+    K.rows(P, d, 0, 256);
+    const cpuMs = (now() - t0) * 4;
     const frames = []; let last = now();
     const step = (t) => { frames.push(t - last); last = t; if (frames.length < 90) requestAnimationFrame(step); else done(); };
     requestAnimationFrame(step);
